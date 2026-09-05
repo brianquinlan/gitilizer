@@ -1,4 +1,4 @@
-# Marathon2 - GitHub Priority Task Tracker
+# Gitilizer Backend - GitHub Priority Task Tracker
 
 A serverless GitHub issue prioritization and task tracking system built with **Firebase Cloud Functions (Python v2)**, **Cloud Firestore**, and **Pydantic AI**.
 

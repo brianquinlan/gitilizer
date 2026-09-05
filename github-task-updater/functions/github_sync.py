@@ -38,7 +38,7 @@ def get_github_client(access_token: str, per_page: int = 100) -> Github:
     Creates an authenticated PyGithub client instance configured with default per_page.
     """
     auth = Auth.Token(access_token)
-    return Github(auth=auth, per_page=per_page, timeout=20, user_agent="Firebase-GitHub-Sync-App")
+    return Github(auth=auth, per_page=per_page, timeout=20, user_agent="Gitilizer-GitHub-Sync-App")
 
 
 # ============================================================================

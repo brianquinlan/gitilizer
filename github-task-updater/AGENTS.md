@@ -1,6 +1,6 @@
-# AGENTS.md - GitVassal Architecture & Development Insights
+# AGENTS.md - Gitilizer Architecture & Development Insights
 
-Essential context, architectural rules, and operational workflows for AI agents and developers working on GitVassal.
+Essential context, architectural rules, and operational workflows for AI agents and developers working on Gitilizer.
 
 ---
 

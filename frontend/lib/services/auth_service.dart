@@ -47,7 +47,7 @@ class AuthService {
   /// Quick sign-in helper for local Firebase emulator development.
   /// Automatically creates or signs into a demo account on the Auth emulator.
   Future<UserCredential> signInWithEmulatorDemo({
-    String email = 'developer@gitvassal.local',
+    String email = 'developer@gitilizer.local',
     String password = 'Password123!',
   }) async {
     try {

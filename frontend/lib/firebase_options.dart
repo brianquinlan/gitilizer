@@ -1,10 +1,10 @@
-// File generated for project gitvassal.
+// File generated for project gitilizer.
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
-/// Configured for GCP project: gitvassal
+/// Configured for GCP project: gitilizer
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -29,55 +29,55 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDemoKeyForGitVassalWeb00000000000',
+    apiKey: 'AIzaSyDemoKeyForGitilizerWeb00000000000',
     appId: '1:100000000000:web:abcdef1234567890abcdef',
     messagingSenderId: '100000000000',
-    projectId: 'gitvassal',
-    authDomain: 'gitvassal.firebaseapp.com',
-    storageBucket: 'gitvassal.appspot.com',
+    projectId: 'gitilizer',
+    authDomain: 'gitilizer.firebaseapp.com',
+    storageBucket: 'gitilizer.appspot.com',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDemoKeyForGitVassalAndroid00000000',
+    apiKey: 'AIzaSyDemoKeyForGitilizerAndroid00000000',
     appId: '1:100000000000:android:abcdef1234567890abcdef',
     messagingSenderId: '100000000000',
-    projectId: 'gitvassal',
-    storageBucket: 'gitvassal.appspot.com',
+    projectId: 'gitilizer',
+    storageBucket: 'gitilizer.appspot.com',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDemoKeyForGitVassalIos00000000000',
+    apiKey: 'AIzaSyDemoKeyForGitilizerIos00000000000',
     appId: '1:100000000000:ios:abcdef1234567890abcdef',
     messagingSenderId: '100000000000',
-    projectId: 'gitvassal',
-    storageBucket: 'gitvassal.appspot.com',
-    iosBundleId: 'com.gitvassal.taskVassal',
+    projectId: 'gitilizer',
+    storageBucket: 'gitilizer.appspot.com',
+    iosBundleId: 'com.gitilizer.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDemoKeyForGitVassalIos00000000000',
+    apiKey: 'AIzaSyDemoKeyForGitilizerIos00000000000',
     appId: '1:100000000000:ios:abcdef1234567890abcdef',
     messagingSenderId: '100000000000',
-    projectId: 'gitvassal',
-    storageBucket: 'gitvassal.appspot.com',
-    iosBundleId: 'com.gitvassal.taskVassal',
+    projectId: 'gitilizer',
+    storageBucket: 'gitilizer.appspot.com',
+    iosBundleId: 'com.gitilizer.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDemoKeyForGitVassalWeb00000000000',
+    apiKey: 'AIzaSyDemoKeyForGitilizerWeb00000000000',
     appId: '1:100000000000:web:abcdef1234567890abcdef',
     messagingSenderId: '100000000000',
-    projectId: 'gitvassal',
-    authDomain: 'gitvassal.firebaseapp.com',
-    storageBucket: 'gitvassal.appspot.com',
+    projectId: 'gitilizer',
+    authDomain: 'gitilizer.firebaseapp.com',
+    storageBucket: 'gitilizer.appspot.com',
   );
 
   static const FirebaseOptions linux = FirebaseOptions(
-    apiKey: 'AIzaSyDemoKeyForGitVassalWeb00000000000',
+    apiKey: 'AIzaSyDemoKeyForGitilizerWeb00000000000',
     appId: '1:100000000000:web:abcdef1234567890abcdef',
     messagingSenderId: '100000000000',
-    projectId: 'gitvassal',
-    authDomain: 'gitvassal.firebaseapp.com',
-    storageBucket: 'gitvassal.appspot.com',
+    projectId: 'gitilizer',
+    authDomain: 'gitilizer.firebaseapp.com',
+    storageBucket: 'gitilizer.appspot.com',
   );
 }

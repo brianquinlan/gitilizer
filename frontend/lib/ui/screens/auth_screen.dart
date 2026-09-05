@@ -115,7 +115,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
                 // Title & Subtitle
                 const Text(
-                  'TaskVassal',
+                  'Gitilizer',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 24,

@@ -42,7 +42,7 @@ class AppHeader extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                'TaskVassal',
+                'Gitilizer',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: AppTheme.textPrimary,

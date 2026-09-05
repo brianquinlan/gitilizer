@@ -1,4 +1,4 @@
-package com.gitvassal.task_vassal
+package com.gitilizer.app
 
 import io.flutter.embedding.android.FlutterActivity
 

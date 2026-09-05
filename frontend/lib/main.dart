@@ -15,7 +15,7 @@ import 'ui/theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase with gitvassal options
+  // Initialize Firebase with gitilizer options
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -32,11 +32,11 @@ void main() async {
     }
   }
 
-  runApp(const TaskVassalApp());
+  runApp(const GitilizerApp());
 }
 
-class TaskVassalApp extends StatelessWidget {
-  const TaskVassalApp({super.key});
+class GitilizerApp extends StatelessWidget {
+  const GitilizerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +46,7 @@ class TaskVassalApp extends StatelessWidget {
         Provider<FirestoreService>(create: (_) => FirestoreService()),
       ],
       child: MaterialApp(
-        title: 'TaskVassal',
+        title: 'Gitilizer',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         home: const AuthGate(),

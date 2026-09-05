@@ -72,7 +72,7 @@ A PR is actionable if:
 
 An issue is actionable if:
 - I am mentioned in a way that requires a response. Not all mentions require responses. For
-  example, mentions attached to works like "CC" or "FYI" indicate that the mention is 
+  example, mentions attached to works like "CC" or "FYI" indicate that the mention is
   informational only
 
 An issue is not actionable if:

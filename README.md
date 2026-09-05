@@ -1,6 +1,6 @@
-# GitVassal - TaskVassal
+# Gitilizer
 
-GitVassal is a serverless GitHub issue prioritization and developer task tracking platform combining **Firebase Cloud Functions (Python v2)**, **Cloud Firestore**, **Pydantic AI**, and a cross-platform **Flutter Web/Desktop/Mobile Client (TaskVassal)**.
+Gitilizer is a serverless GitHub issue prioritization and developer task tracking platform combining **Firebase Cloud Functions (Python v2)**, **Cloud Firestore**, **Pydantic AI**, and a cross-platform **Flutter Web/Desktop/Mobile Client**.
 
 ---
 
@@ -31,27 +31,24 @@ The Flutter app automatically connects to local Firebase Emulators (`127.0.0.1:9
 
 ## 🧪 Verification & Testing
 
-### Backend Checks (Python)
+Run all backend and frontend checks with a single command from the project root:
+
 ```bash
-cd github-task-updater
-.\functions\venv\Scripts\ruff.exe check .
-.\functions\venv\Scripts\pyright.exe
-.\functions\venv\Scripts\python.exe -m unittest discover -s . -p "test_*.py"
+python check.py
 ```
 
-### Frontend Checks (Flutter)
-```bash
-cd frontend
-flutter analyze
-flutter test
-flutter build web --release
-```
+This verifies:
+1. **Python Linting**: `ruff check .`
+2. **Python Type Checking**: `pyright`
+3. **Backend Unit Tests**: 79 tests covering auth, task ranking, and GitHub sync
+4. **Flutter Static Analysis**: `flutter analyze`
+5. **Flutter Unit & Widget Tests**: widget and state tests
 
 ---
 
 ## 🚢 Deployment
 
-Deploy to GCP project `gitvassal`:
+Deploy to GCP project `gitilizer`:
 
 1. Build the Flutter Web client:
    ```bash

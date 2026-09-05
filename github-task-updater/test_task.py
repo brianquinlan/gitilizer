@@ -799,6 +799,7 @@ class TestUtcStandardization(unittest.TestCase):
         naive_dt = datetime(2026, 9, 5, 12, 0, 0)
         utc_dt = to_utc_datetime(naive_dt)
         self.assertIsNotNone(utc_dt)
+        assert utc_dt is not None
         self.assertEqual(utc_dt.tzinfo, timezone.utc)
         self.assertEqual(utc_dt, datetime(2026, 9, 5, 12, 0, 0, tzinfo=timezone.utc))
 
@@ -807,6 +808,7 @@ class TestUtcStandardization(unittest.TestCase):
         offset_dt = datetime(2026, 9, 5, 12, 0, 0, tzinfo=tz_offset)
         converted = to_utc_datetime(offset_dt)
         self.assertIsNotNone(converted)
+        assert converted is not None
         self.assertEqual(converted.tzinfo, timezone.utc)
         self.assertEqual(converted, datetime(2026, 9, 5, 17, 0, 0, tzinfo=timezone.utc))
 
@@ -843,9 +845,11 @@ class TestUtcStandardization(unittest.TestCase):
         for field_name in ("created_at", "updated_at", "thumbs_down_at", "github_updated_at"):
             val = getattr(task, field_name)
             self.assertIsNotNone(val)
+            assert val is not None
             self.assertEqual(val.tzinfo, timezone.utc)
 
         # Direct comparison must succeed without TypeError: can't compare offset-naive and offset-aware
+        assert task.github_updated_at is not None and task.thumbs_down_at is not None
         self.assertGreater(task.github_updated_at, task.thumbs_down_at)
 
     def test_user_model_normalizes_timestamps_to_utc(self):
@@ -862,10 +866,15 @@ class TestUtcStandardization(unittest.TestCase):
             monitored_repos={"brian/repo": naive_sync},
         )
 
+        assert user.last_assigned_sync is not None
         self.assertEqual(user.last_assigned_sync.tzinfo, timezone.utc)
+        assert user.last_mentioned_sync is not None
         self.assertEqual(user.last_mentioned_sync.tzinfo, timezone.utc)
+        assert user.last_created_sync is not None
         self.assertEqual(user.last_created_sync.tzinfo, timezone.utc)
-        self.assertEqual(user.monitored_repos["brian/repo"].tzinfo, timezone.utc)
+        repo_sync = user.monitored_repos["brian/repo"]
+        assert repo_sync is not None
+        self.assertEqual(repo_sync.tzinfo, timezone.utc)
 
     def test_issue_payload_normalizes_thumbs_down_at_to_utc(self):
         from datetime import datetime, timezone
@@ -876,6 +885,7 @@ class TestUtcStandardization(unittest.TestCase):
             comments=[],
             thumbs_down_at=naive_down,
         )
+        assert payload.thumbs_down_at is not None
         self.assertEqual(payload.thumbs_down_at.tzinfo, timezone.utc)
         self.assertEqual(payload.thumbs_down_at, datetime(2026, 9, 5, 14, 0, 0, tzinfo=timezone.utc))
 

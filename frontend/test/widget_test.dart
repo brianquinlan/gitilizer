@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:task_vassal/models/task_model.dart';
-import 'package:task_vassal/models/user_settings_model.dart';
+import 'package:gitilizer/models/task_model.dart';
+import 'package:gitilizer/models/user_settings_model.dart';
 
 void main() {
   group('TaskModel Tests', () {
