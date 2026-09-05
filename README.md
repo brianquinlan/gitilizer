@@ -48,7 +48,23 @@ This verifies:
 
 ## 🚢 Deployment
 
-Deploy to GCP project `gitilizer`:
+### 1. Automated CI/CD via Google Cloud Build
+
+Deployments to GCP project `gitilizer` are automated via Google Cloud Build using `cloudbuild.yaml`.
+
+- **Trigger**: Every push to the `main` branch automatically triggers the `deploy-from-github` Cloud Build trigger.
+- **Pipeline stages**:
+  1. **Build Flutter Web**: Uses `ghcr.io/cirruslabs/flutter:stable` to compile the web bundle into `frontend/build/web`.
+  2. **Deploy via Firebase CLI**: Uses `node:20-bookworm` (with Python 3.11 for function discovery) to deploy Hosting, Firestore Rules/Indexes, and 2nd Gen Cloud Functions via Application Default Credentials (ADC).
+
+To trigger a manual build directly from your local terminal without pushing to GitHub:
+```bash
+gcloud builds submit --config=cloudbuild.yaml . --project=gitilizer
+```
+
+### 2. Manual / Local Deployment
+
+To deploy directly from your local machine:
 
 1. Build the Flutter Web client:
    ```bash
@@ -59,9 +75,19 @@ Deploy to GCP project `gitilizer`:
 
 2. Deploy all Firebase components:
    ```bash
-   firebase deploy
+   firebase deploy --project=gitilizer
    ```
-   Or deploy specific targets:
-   ```bash
-   firebase deploy --only functions,firestore,hosting
-   ```
+
+---
+
+## ⚙️ First-Time User Setup (Post-Deployment)
+
+1. Open the deployed application at `https://gitilizer.web.app`.
+2. Sign in using your Google or GitHub account.
+3. Click the **Settings Gear Icon** (⚙️) in the top-right header.
+4. Enter:
+   - **GitHub Access Token**: Personal access token with `repo` and `read:user` permissions.
+   - **Gemini API Key**: API key from Google AI Studio.
+   - **Monitored Repositories**: Comma-separated list of repos (e.g. `owner/repo`).
+5. Click **Save Settings**. This initiates the background issue sync and AI task prioritization.
+

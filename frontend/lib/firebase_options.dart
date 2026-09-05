@@ -29,12 +29,12 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDemoKeyForGitilizerWeb00000000000',
-    appId: '1:100000000000:web:abcdef1234567890abcdef',
-    messagingSenderId: '100000000000',
+    apiKey: 'AIzaSyDD0W-GLH2PXRaxOro3rt6-YKbF4oZqA3A',
+    appId: '1:414241858841:web:54768fe6b70dd827459188',
+    messagingSenderId: '414241858841',
     projectId: 'gitilizer',
     authDomain: 'gitilizer.firebaseapp.com',
-    storageBucket: 'gitilizer.appspot.com',
+    storageBucket: 'gitilizer.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -64,20 +64,20 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDemoKeyForGitilizerWeb00000000000',
-    appId: '1:100000000000:web:abcdef1234567890abcdef',
-    messagingSenderId: '100000000000',
+    apiKey: 'AIzaSyDD0W-GLH2PXRaxOro3rt6-YKbF4oZqA3A',
+    appId: '1:414241858841:web:54768fe6b70dd827459188',
+    messagingSenderId: '414241858841',
     projectId: 'gitilizer',
     authDomain: 'gitilizer.firebaseapp.com',
-    storageBucket: 'gitilizer.appspot.com',
+    storageBucket: 'gitilizer.firebasestorage.app',
   );
 
   static const FirebaseOptions linux = FirebaseOptions(
-    apiKey: 'AIzaSyDemoKeyForGitilizerWeb00000000000',
-    appId: '1:100000000000:web:abcdef1234567890abcdef',
-    messagingSenderId: '100000000000',
+    apiKey: 'AIzaSyDD0W-GLH2PXRaxOro3rt6-YKbF4oZqA3A',
+    appId: '1:414241858841:web:54768fe6b70dd827459188',
+    messagingSenderId: '414241858841',
     projectId: 'gitilizer',
     authDomain: 'gitilizer.firebaseapp.com',
-    storageBucket: 'gitilizer.appspot.com',
+    storageBucket: 'gitilizer.firebasestorage.app',
   );
 }
