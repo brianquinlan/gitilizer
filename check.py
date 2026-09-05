@@ -118,7 +118,7 @@ def run_step(name: str, cmd: list[str], cwd: Path, verbose: bool = False) -> boo
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run all verification, lint, type check, and test suites for GitVassal."
+        description="Run all verification, lint, type check, and test suites for Gitilizer."
     )
     parser.add_argument("--backend", "-b", action="store_true", help="Run backend checks only")
     parser.add_argument("--frontend", "-f", action="store_true", help="Run frontend checks only")

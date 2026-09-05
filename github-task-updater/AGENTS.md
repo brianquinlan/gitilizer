@@ -35,7 +35,7 @@ github-task-updater/
 
 ### 1. PyGithub Module Disambiguation
 - **PyPI `PyGithub`** installs the top-level Python module `github` (`import github`).
-- The internal service file is named [`functions/github_sync.py`](file:///c:/Users/brian/gitvassal/github-task-updater/functions/github_sync.py) (NOT `github.py`) to prevent Python `sys.path` collisions where the local file shadows the library.
+- The internal service file is named [`functions/github_sync.py`](functions/github_sync.py) (NOT `github.py`) to prevent Python `sys.path` collisions where the local file shadows the library.
 
 ### 2. Task & Issue Lifecycle
 - **Step 1**: `start_user_github_sync` schedules initial Task Queue jobs (`sync_github_issues_page`) for assigned, mentioned, created, and monitored repo issues.
