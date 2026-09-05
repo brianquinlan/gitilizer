@@ -35,6 +35,11 @@ if not firebase_admin._apps:
 
 db: firestore.Client = firestore.Client()
 
+# Default 256 MiB is insufficient for Pydantic AI, PyGithub, and modern Python dependencies.
+options.set_global_options(
+    memory=options.MemoryOption.MB_512,
+)
+
 __all__ = [
     "render_main_page",
     "render_settings_page",
@@ -127,6 +132,7 @@ def syncGithubIssuesPage(req: tasks_fn.CallableRequest) -> None:
 @tasks_fn.on_task_dispatched(
     retry_config=options.RetryConfig(max_attempts=3, min_backoff_seconds=10, max_backoff_seconds=300, max_doublings=3),
     rate_limits=options.RateLimits(max_concurrent_dispatches=5, max_dispatches_per_second=10),
+    memory=options.MemoryOption.GB_1,
 )
 def rankUserTasks(req: tasks_fn.CallableRequest) -> None:
     data: dict[str, object] = req.data if isinstance(req.data, dict) else {}
