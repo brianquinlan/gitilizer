@@ -38,9 +38,9 @@ github-task-updater/
 - The internal service file is named [`functions/github_sync.py`](functions/github_sync.py) (NOT `github.py`) to prevent Python `sys.path` collisions where the local file shadows the library.
 
 ### 2. Task & Issue Lifecycle
-- **Step 1**: `start_user_github_sync` schedules initial Task Queue jobs (`sync_github_issues_page`) for assigned, mentioned, created, and monitored repo issues.
+- **Step 1**: `start_user_github_sync` schedules initial Task Queue jobs (`syncGithubIssuesPage`) for assigned, mentioned, created, and monitored repo issues.
 - **Step 2**: Issue pages directly create or update Tasks (`users/{uid}/tasks/task_{doc_id}`) in Firestore. Intermediate issue and comment documents are **NOT** stored in Firestore.
-- **Step 3**: Firestore trigger `on_task_written` detects `priority_needs_updated == True` and enqueues ranking via `rank_user_tasks`.
+- **Step 3**: Firestore trigger `on_task_written` detects `priority_needs_updated == True` and enqueues ranking via `rankUserTasks`.
 - **Step 4**: `update_task_priority` fetches real-time issue details and comments into memory on-demand via PyGithub (`fetch_issue_in_memory`) and runs the Pydantic AI ranker (`run_ranker`).
 - **Step 5**: The ranked priority is written back to the Task document in Firestore.
 

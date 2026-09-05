@@ -324,7 +324,7 @@ class TestPeriodicUserSync(unittest.TestCase):
         mock_db = MagicMock()
         enqueue_user_periodic_sync(uid="user_enq_1", db=mock_db)
         mock_dispatch.assert_called_once()
-        self.assertEqual(mock_dispatch.call_args[1]["queue_name"], "sync_user_periodic_task")
+        self.assertEqual(mock_dispatch.call_args[1]["queue_name"], "syncUserPeriodicTask")
         self.assertEqual(mock_dispatch.call_args[1]["task_data"], {"uid": "user_enq_1"})
 
 
@@ -343,7 +343,7 @@ class TestEnqueueIssuePageSync(unittest.TestCase):
             filter_name="assigned",
             page=0,
         )
-        mock_task_queue.assert_called_once_with("sync_github_issues_page")
+        mock_task_queue.assert_called_once_with("syncGithubIssuesPage")
         mock_queue.enqueue.assert_called_once()
 
     @patch("queue_utils.is_emulator", return_value=True)

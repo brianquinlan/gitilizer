@@ -399,8 +399,8 @@ class TestTaskFirestoreOperations(unittest.TestCase):
         mock_task_queue.return_value = mock_queue
 
         mock_db = MagicMock()
-        enqueue_task_ranking(uid="user_task_queue_1", task_id="task_abc_1", db=mock_db, function_name="rank_user_tasks")
-        mock_task_queue.assert_called_once_with("rank_user_tasks")
+        enqueue_task_ranking(uid="user_task_queue_1", task_id="task_abc_1", db=mock_db, function_name="rankUserTasks")
+        mock_task_queue.assert_called_once_with("rankUserTasks")
         mock_queue.enqueue.assert_called_once()
         args, _kwargs = mock_queue.enqueue.call_args
         self.assertEqual(args[0], {"uid": "user_task_queue_1", "task_id": "task_abc_1"})
@@ -443,7 +443,7 @@ class TestTaskQueueFunction(unittest.TestCase):
     @patch("main.update_task_priority")
     @patch("main.db")
     def test_rank_user_tasks_task_queue_handler(self, mock_db, mock_update_fn):
-        handler = get_callable_handler(main.rank_user_tasks)
+        handler = get_callable_handler(main.rankUserTasks)
 
         mock_req = MagicMock(spec=tasks_fn.CallableRequest)
         mock_req.data = {"uid": "user_queue_001", "task_id": "task_queue_001"}
@@ -453,7 +453,7 @@ class TestTaskQueueFunction(unittest.TestCase):
         mock_update_fn.assert_called_once_with(uid="user_queue_001", task_id="task_queue_001", db=mock_db)
 
     def test_rank_user_tasks_missing_uid_raises_error(self):
-        handler = get_callable_handler(main.rank_user_tasks)
+        handler = get_callable_handler(main.rankUserTasks)
         mock_req = MagicMock(spec=tasks_fn.CallableRequest)
         mock_req.data = {"task_id": "task_1"}
 
@@ -462,7 +462,7 @@ class TestTaskQueueFunction(unittest.TestCase):
         self.assertEqual(ctx.exception.code, tasks_fn.FunctionsErrorCode.INVALID_ARGUMENT)
 
     def test_rank_user_tasks_missing_task_id_raises_error(self):
-        handler = get_callable_handler(main.rank_user_tasks)
+        handler = get_callable_handler(main.rankUserTasks)
         mock_req = MagicMock(spec=tasks_fn.CallableRequest)
         mock_req.data = {"uid": "user_1"}
 

@@ -83,7 +83,7 @@ def get_user_task_list(req: https_fn.CallableRequest) -> dict[str, object]:
     retry_config=options.RetryConfig(max_attempts=3, min_backoff_seconds=10, max_backoff_seconds=300, max_doublings=3),
     rate_limits=options.RateLimits(max_concurrent_dispatches=10, max_dispatches_per_second=10),
 )
-def sync_github_issues_page(req: tasks_fn.CallableRequest) -> None:
+def syncGithubIssuesPage(req: tasks_fn.CallableRequest) -> None:
     data: dict[str, object] = req.data if isinstance(req.data, dict) else {}
     raw_uid = data.get("uid")
     uid = str(raw_uid) if raw_uid is not None else None
@@ -128,7 +128,7 @@ def sync_github_issues_page(req: tasks_fn.CallableRequest) -> None:
     retry_config=options.RetryConfig(max_attempts=3, min_backoff_seconds=10, max_backoff_seconds=300, max_doublings=3),
     rate_limits=options.RateLimits(max_concurrent_dispatches=5, max_dispatches_per_second=10),
 )
-def rank_user_tasks(req: tasks_fn.CallableRequest) -> None:
+def rankUserTasks(req: tasks_fn.CallableRequest) -> None:
     data: dict[str, object] = req.data if isinstance(req.data, dict) else {}
     raw_uid = data.get("uid")
     uid = str(raw_uid) if raw_uid is not None else None
@@ -143,7 +143,7 @@ def rank_user_tasks(req: tasks_fn.CallableRequest) -> None:
 
 
 @tasks_fn.on_task_dispatched()
-def sync_user_periodic_task(req: tasks_fn.CallableRequest) -> None:
+def syncUserPeriodicTask(req: tasks_fn.CallableRequest) -> None:
     payload = req.data if isinstance(req.data, dict) else {}
     uid = payload.get("uid")
     if not uid:
@@ -266,4 +266,4 @@ def on_task_written(event: firestore_fn.Event[firestore_fn.Change[firestore_fn.D
         return
 
     if uid and task_id:
-        enqueue_task_ranking(uid=str(uid), task_id=str(task_id), function_name="rank_user_tasks", db=db)
+        enqueue_task_ranking(uid=str(uid), task_id=str(task_id), function_name="rankUserTasks", db=db)

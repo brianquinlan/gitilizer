@@ -120,7 +120,7 @@ class TestTaskQueueSyncHandlers(unittest.TestCase):
     @patch("github_sync.fetch_single_issue_page")
     @patch("main.db")
     def test_sync_github_issues_page_handler(self, mock_db, mock_fetch_page, mock_save_page, mock_enqueue_issue):
-        handler = get_callable_handler(main.sync_github_issues_page)
+        handler = get_callable_handler(main.syncGithubIssuesPage)
 
         mock_doc_ref = MagicMock()
         mock_doc_snap = MagicMock()
@@ -588,7 +588,7 @@ class TestFirestoreTaskTrigger(unittest.TestCase):
 
         handler(mock_event)
         mock_enqueue_ranking.assert_called_once_with(
-            uid="user_task_trig_1", task_id="task_issue_1", function_name="rank_user_tasks", db=mock_db
+            uid="user_task_trig_1", task_id="task_issue_1", function_name="rankUserTasks", db=mock_db
         )
 
     @patch("main.enqueue_task_ranking")
@@ -618,7 +618,7 @@ class TestFirestoreTaskTrigger(unittest.TestCase):
 
         handler(mock_event)
         mock_enqueue_ranking.assert_called_once_with(
-            uid="user_task_trig_2", task_id="task_issue_2", function_name="rank_user_tasks", db=mock_db
+            uid="user_task_trig_2", task_id="task_issue_2", function_name="rankUserTasks", db=mock_db
         )
 
     @patch("main.enqueue_task_ranking")
@@ -669,7 +669,7 @@ class TestPeriodicGithubSyncSchedulerAndWorker(unittest.TestCase):
     @patch("main.sync_user_periodic")
     @patch("main.db")
     def test_sync_user_periodic_task_worker(self, mock_db, mock_sync_fn):
-        handler = get_callable_handler(main.sync_user_periodic_task)
+        handler = get_callable_handler(main.syncUserPeriodicTask)
 
         mock_req = MagicMock(spec=tasks_fn.CallableRequest)
         mock_req.data = {"uid": "user_periodic_worker_1"}
@@ -679,7 +679,7 @@ class TestPeriodicGithubSyncSchedulerAndWorker(unittest.TestCase):
         mock_sync_fn.assert_called_once_with(uid="user_periodic_worker_1", db=mock_db)
 
     def test_sync_user_periodic_task_worker_missing_uid_raises_error(self):
-        handler = get_callable_handler(main.sync_user_periodic_task)
+        handler = get_callable_handler(main.syncUserPeriodicTask)
 
         mock_req = MagicMock(spec=tasks_fn.CallableRequest)
         mock_req.data = {}

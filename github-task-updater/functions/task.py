@@ -80,7 +80,7 @@ def enqueue_task_ranking(
     uid: str,
     task_id: str,
     db: firestore.Client,
-    function_name: str = "rank_user_tasks",
+    function_name: str = "rankUserTasks",
     opts: admin_functions.TaskOptions | None = None,
 ) -> None:
     """

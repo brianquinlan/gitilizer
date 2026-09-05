@@ -267,7 +267,7 @@ def enqueue_issue_page_sync(
         "repo_fallback": repo_fallback,
     }
     dispatch_task(
-        queue_name="sync_github_issues_page",
+        queue_name="syncGithubIssuesPage",
         task_data=task_data,
         worker_fn=lambda: execute_issue_page_sync(
             uid=uid,
@@ -439,7 +439,7 @@ def enqueue_user_periodic_sync(uid: str, db: firestore.Client) -> None:
     Enqueues a task to run the periodic sync for a single user using the task queue abstraction.
     """
     dispatch_task(
-        queue_name="sync_user_periodic_task",
+        queue_name="syncUserPeriodicTask",
         task_data={"uid": uid},
         worker_fn=lambda: sync_user_periodic(uid=uid, db=db),
     )
