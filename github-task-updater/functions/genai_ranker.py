@@ -68,7 +68,7 @@ that
 maximize my development and review efficiency. The following is guidance but
 you must use your judgement to weight the different factors appropriately. It
 is important that you generate a wide range of different priorities so that
-many issues don't end up with the same priority.  
+many issues don't end up with the same priority.
 
 The most important thing to consider when deciding an issue's priority is how
 actionable it is. If an issue is not actionable, there is no point in
@@ -138,16 +138,6 @@ def create_pydantic_ai_agent(
         system_prompt=prompt_str,
         capabilities=[WebSearch()],
     )
-
-
-def get_pydantic_ai_agent(
-    api_key: str | None = None,
-    system_prompt: str | None = None,
-) -> Agent[None, TaskPriorityOutput]:
-    """
-    Backwards-compatible alias for creating an ephemeral Pydantic AI Agent.
-    """
-    return create_pydantic_ai_agent(api_key=api_key, system_prompt=system_prompt)
 
 
 def run_ranker(

@@ -235,15 +235,15 @@ class TestRankerEngine(unittest.TestCase):
     @patch("genai_ranker.GoogleProvider")
     @patch("genai_ranker.GoogleModel")
     @patch("genai_ranker.Agent")
-    def test_get_pydantic_ai_agent_uses_gemini_api_key(
+    def test_create_pydantic_ai_agent_uses_gemini_api_key(
         self, mock_agent_cls, mock_model_cls, mock_provider_cls, mock_client_cls
     ):
-        from genai_ranker import get_pydantic_ai_agent
+        from genai_ranker import create_pydantic_ai_agent
 
         mock_agent_instance = MagicMock()
         mock_agent_cls.return_value = mock_agent_instance
 
-        agent = get_pydantic_ai_agent(api_key="custom_key_12345")
+        agent = create_pydantic_ai_agent(api_key="custom_key_12345")
         mock_client_cls.assert_called_once()
         self.assertEqual(mock_client_cls.call_args[1].get("api_key"), "custom_key_12345")
         self.assertEqual(agent, mock_agent_instance)
