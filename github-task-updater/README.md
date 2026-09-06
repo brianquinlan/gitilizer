@@ -71,7 +71,6 @@ firebase emulators:start
 ```
 ├── functions/
 │   ├── main.py              # Cloud Functions (Callable, HTTP, Task Queue, Firestore Triggers)
-│   ├── dev.py               # Jinja2 server-rendered dev debug and settings UI
 │   ├── github_sync.py       # PyGithub issue/comment synchronization & pagination
 │   ├── genai_ranker.py      # Pydantic AI task priority ranker
 │   ├── task.py              # Task Firestore operations and data model

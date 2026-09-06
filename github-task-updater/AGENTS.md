@@ -17,7 +17,6 @@ Essential context, architectural rules, and operational workflows for AI agents 
 github-task-updater/
 ├── functions/
 │   ├── main.py              # Cloud Functions (Callable, HTTP, Task Queue, Firestore Triggers)
-│   ├── dev.py               # Jinja2 server-rendered dev debug and settings UI
 │   ├── github_sync.py       # PyGithub client, in-memory issue fetcher, pagination sync
 │   ├── genai_ranker.py      # Pydantic AI task priority ranker (synchronous run_sync)
 │   ├── task.py              # Task Pydantic model & Firestore task operations
