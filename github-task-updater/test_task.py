@@ -7,6 +7,7 @@ ranker execution, asynchronous Firebase task_queue enqueuing, and decoupled forc
 import os
 import sys
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import ANY, MagicMock, patch
 
 # Add functions to path
@@ -298,13 +299,18 @@ class TestTaskFirestoreOperations(unittest.TestCase):
             "repo": "repo",
             "issue_number": 1,
             "github_issue_title": "Old title",
+            "github_updated_at": datetime(2026, 9, 1, 10, 0, 0, tzinfo=timezone.utc),
         }
         mock_task_ref.set.reset_mock()
 
         ensure_task_for_issue(
             uid="user_100",
             issue_id="org_repo_1",
-            issue_data={"title": "Updated issue title", "url": "https://github.com/org/repo/issues/1"},
+            issue_data={
+                "title": "Updated issue title",
+                "url": "https://github.com/org/repo/issues/1",
+                "github_updated_at": datetime(2026, 9, 2, 10, 0, 0, tzinfo=timezone.utc),
+            },
             db=mock_db,
         )
         mock_task_ref.set.assert_called_once()
@@ -735,6 +741,44 @@ class TestTaskLifecycleAndSourceTracking(unittest.TestCase):
         # Should trigger rerank because gh_up_new > t_down
         self.assertTrue(args[0]["priority_needs_updated"])
 
+    def test_ensure_task_for_issue_skips_rerank_when_issue_unchanged(self):
+        from datetime import datetime, timezone
+
+        mock_db = MagicMock()
+        mock_task_ref = MagicMock()
+        mock_tasks_col = MagicMock()
+        mock_tasks_col.document.return_value = mock_task_ref
+        mock_db.collection.return_value.document.return_value.collection.return_value = mock_tasks_col
+
+        gh_updated = datetime(2026, 8, 24, 19, 22, 10, tzinfo=timezone.utc)
+
+        mock_task_snap = MagicMock()
+        mock_task_snap.exists = True
+        mock_task_snap.to_dict.return_value = {
+            "owner": "dart-lang",
+            "repo": "http",
+            "issue_number": 1958,
+            "priority": 0.9,
+            "priority_needs_updated": False,
+            "github_issue_title": "Existing Title",
+            "github_updated_at": gh_updated,
+        }
+        mock_task_ref.get.return_value = mock_task_snap
+
+        ensure_task_for_issue(
+            uid="user_100",
+            issue_id="dart-lang_http_1958",
+            issue_data={
+                "title": "Existing Title",
+                "github_updated_at": gh_updated,
+            },
+            db=mock_db,
+        )
+        mock_task_ref.set.assert_called_once()
+        args, _ = mock_task_ref.set.call_args
+        self.assertFalse(args[0]["priority_needs_updated"])
+        self.assertEqual(args[0]["priority"], 0.9)
+
     @patch("github_sync.fetch_issue_in_memory")
     @patch("task.run_ranker")
     def test_update_task_priority_propagates_thumbs_down_at_to_issue_payload(
@@ -951,6 +995,31 @@ class TestUpdateTaskPriority(unittest.TestCase):
             update_task_priority(uid="u1", task_id="task_owner1_repo1_42", db=mock_db)
 
         mock_task_doc.delete.assert_not_called()
+
+    @patch("github_sync.fetch_issue_in_memory")
+    def test_update_task_priority_skips_when_priority_needs_updated_is_false(self, mock_fetch):
+        mock_db = MagicMock()
+        mock_user_doc = MagicMock()
+        mock_task_doc = MagicMock()
+        mock_task_snap = MagicMock()
+        mock_task_snap.exists = True
+        mock_task_snap.to_dict.return_value = {
+            "owner": "owner1",
+            "repo": "repo1",
+            "issue_number": 42,
+            "priority": 0.85,
+            "priority_needs_updated": False,
+        }
+
+        mock_db.collection.return_value.document.return_value = mock_user_doc
+        mock_user_doc.collection.return_value.document.return_value = mock_task_doc
+        mock_task_doc.get.return_value = mock_task_snap
+
+        update_task_priority(uid="u1", task_id="task_owner1_repo1_42", db=mock_db)
+
+        # Should exit early without fetching from GitHub or writing to Firestore
+        mock_fetch.assert_not_called()
+        mock_task_doc.set.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -135,6 +135,9 @@ def ensure_task_for_issue(
         if not isinstance(raw_dict, dict):
             raw_dict = {}
         task = Task.model_validate(raw_dict)
+        old_github_updated_at = task.github_updated_at
+        old_needs_update = task.priority_needs_updated
+
         task.is_pr = is_pr or task.is_pr
         task.github_issue_title = issue_title or task.github_issue_title
         task.github_issue_url = issue_url or task.github_issue_url
@@ -154,7 +157,12 @@ def ensure_task_for_issue(
                 task.priority_needs_updated = False
                 task.priority = 0.0
         else:
-            task.priority_needs_updated = True
+            if old_needs_update:
+                task.priority_needs_updated = True
+            elif github_updated_at and (old_github_updated_at is None or github_updated_at > old_github_updated_at):
+                task.priority_needs_updated = True
+            else:
+                task.priority_needs_updated = False
     else:
         task = Task(
             priority=0.0,
@@ -288,6 +296,8 @@ def update_task_priority(uid: str, task_id: str, db: firestore.Client) -> None:
     if not isinstance(raw_task_data, dict):
         raw_task_data = {}
     task = Task.model_validate(raw_task_data)
+    if not task.priority_needs_updated:
+        return
 
     # Fetch user profile to get github_access_token, github_username and gemini_api_key
     user_ref = db.collection("users").document(uid)
