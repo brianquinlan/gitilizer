@@ -37,6 +37,7 @@ db: firestore.Client = firestore.Client()
 # Default 256 MiB is insufficient for Pydantic AI, PyGithub, and modern Python dependencies.
 options.set_global_options(
     memory=options.MemoryOption.MB_512,
+    timeout_sec=180,
 )
 
 
@@ -79,8 +80,8 @@ def get_user_task_list(req: https_fn.CallableRequest) -> dict[str, object]:
 
 
 @tasks_fn.on_task_dispatched(
-    retry_config=options.RetryConfig(max_attempts=3, min_backoff_seconds=10, max_backoff_seconds=300, max_doublings=3),
-    rate_limits=options.RateLimits(max_concurrent_dispatches=10, max_dispatches_per_second=10),
+    retry_config=options.RetryConfig(max_attempts=5, min_backoff_seconds=30, max_backoff_seconds=600, max_doublings=3),
+    rate_limits=options.RateLimits(max_concurrent_dispatches=3, max_dispatches_per_second=2),
 )
 def syncGithubIssuesPage(req: tasks_fn.CallableRequest) -> None:
     data: dict[str, object] = req.data if isinstance(req.data, dict) else {}
@@ -124,8 +125,8 @@ def syncGithubIssuesPage(req: tasks_fn.CallableRequest) -> None:
 
 
 @tasks_fn.on_task_dispatched(
-    retry_config=options.RetryConfig(max_attempts=3, min_backoff_seconds=10, max_backoff_seconds=300, max_doublings=3),
-    rate_limits=options.RateLimits(max_concurrent_dispatches=5, max_dispatches_per_second=10),
+    retry_config=options.RetryConfig(max_attempts=5, min_backoff_seconds=30, max_backoff_seconds=600, max_doublings=3),
+    rate_limits=options.RateLimits(max_concurrent_dispatches=2, max_dispatches_per_second=2),
     memory=options.MemoryOption.GB_1,
 )
 def rankUserTasks(req: tasks_fn.CallableRequest) -> None:

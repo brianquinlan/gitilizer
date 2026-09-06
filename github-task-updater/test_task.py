@@ -13,6 +13,7 @@ from unittest.mock import ANY, MagicMock, patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "functions"))
 
 from firebase_functions import tasks_fn
+from github import GithubException, UnknownObjectException
 from queue_utils import _safe_run_worker, dispatch_task, is_emulator
 
 import main
@@ -888,6 +889,68 @@ class TestUtcStandardization(unittest.TestCase):
         assert payload.thumbs_down_at is not None
         self.assertEqual(payload.thumbs_down_at.tzinfo, timezone.utc)
         self.assertEqual(payload.thumbs_down_at, datetime(2026, 9, 5, 14, 0, 0, tzinfo=timezone.utc))
+
+
+class TestUpdateTaskPriority(unittest.TestCase):
+    @patch("github_sync.fetch_issue_in_memory")
+    def test_update_task_priority_deletes_task_on_404(self, mock_fetch):
+        mock_fetch.side_effect = UnknownObjectException(404, "Not Found", {})
+
+        mock_db = MagicMock()
+        mock_user_doc = MagicMock()
+        mock_task_doc = MagicMock()
+        mock_task_snap = MagicMock()
+        mock_task_snap.exists = True
+        mock_task_snap.to_dict.return_value = {
+            "owner": "owner1",
+            "repo": "repo1",
+            "issue_number": 42,
+            "priority": 0.0,
+            "priority_needs_updated": True,
+        }
+        mock_user_snap = MagicMock()
+        mock_user_snap.exists = True
+        mock_user_snap.to_dict.return_value = {"github_access_token": "ghp_tok"}
+
+        mock_db.collection.return_value.document.return_value = mock_user_doc
+        mock_user_doc.get.return_value = mock_user_snap
+        mock_user_doc.collection.return_value.document.return_value = mock_task_doc
+        mock_task_doc.get.return_value = mock_task_snap
+
+        update_task_priority(uid="u1", task_id="task_owner1_repo1_42", db=mock_db)
+
+        # Task document should be deleted on 404
+        mock_task_doc.delete.assert_called_once()
+
+    @patch("github_sync.fetch_issue_in_memory")
+    def test_update_task_priority_propagates_non_404_errors(self, mock_fetch):
+        mock_fetch.side_effect = GithubException(403, "Secondary rate limit exceeded", {})
+
+        mock_db = MagicMock()
+        mock_user_doc = MagicMock()
+        mock_task_doc = MagicMock()
+        mock_task_snap = MagicMock()
+        mock_task_snap.exists = True
+        mock_task_snap.to_dict.return_value = {
+            "owner": "owner1",
+            "repo": "repo1",
+            "issue_number": 42,
+            "priority": 0.0,
+            "priority_needs_updated": True,
+        }
+        mock_user_snap = MagicMock()
+        mock_user_snap.exists = True
+        mock_user_snap.to_dict.return_value = {"github_access_token": "ghp_tok"}
+
+        mock_db.collection.return_value.document.return_value = mock_user_doc
+        mock_user_doc.get.return_value = mock_user_snap
+        mock_user_doc.collection.return_value.document.return_value = mock_task_doc
+        mock_task_doc.get.return_value = mock_task_snap
+
+        with self.assertRaises(GithubException):
+            update_task_priority(uid="u1", task_id="task_owner1_repo1_42", db=mock_db)
+
+        mock_task_doc.delete.assert_not_called()
 
 
 if __name__ == "__main__":

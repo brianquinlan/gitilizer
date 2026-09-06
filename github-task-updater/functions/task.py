@@ -8,6 +8,7 @@ See: https://firebase.google.com/docs/functions/task-functions#python
 from datetime import datetime, timezone
 
 from firebase_admin import functions as admin_functions
+from github import GithubException
 from google.cloud import firestore
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from queue_utils import dispatch_task
@@ -330,8 +331,12 @@ def update_task_priority(uid: str, task_id: str, db: firestore.Client) -> None:
                 repo=repo,
                 issue_number=num,
             )
-        except Exception:
-            pass
+        except GithubException as e:
+            if e.status == 404:
+                # Issue or repository no longer exists on GitHub: delete task and exit
+                task_ref.delete()
+                return
+            raise
 
     # If in-memory fetch wasn't available, provide basic fallback IssuePayload from task cached fields
     if not issue_payload:
