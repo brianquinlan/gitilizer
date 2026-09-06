@@ -11,7 +11,6 @@ import firebase_admin
 from firebase_functions import firestore_fn, https_fn, options, scheduler_fn, tasks_fn
 from google.cloud import firestore
 
-from dev import render_main_page, render_settings_page
 from github_sync import (
     enqueue_issue_page_sync,
     enqueue_user_periodic_sync,
@@ -39,11 +38,6 @@ db: firestore.Client = firestore.Client()
 options.set_global_options(
     memory=options.MemoryOption.MB_512,
 )
-
-__all__ = [
-    "render_main_page",
-    "render_settings_page",
-]
 
 
 @https_fn.on_call(cors=options.CorsOptions(cors_origins="*", cors_methods=["get", "post", "options"]))
