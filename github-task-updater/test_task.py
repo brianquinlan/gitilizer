@@ -211,22 +211,28 @@ class TestRankerEngine(unittest.TestCase):
             priority_needs_updated=True,
             github_issue_title="Critical Blocker",
         )
-        issue_data = {
-            "title": "Critical Blocker",
-            "body": "System down due to null pointer.",
-            "user": "alice",
-            "upvotes": 18,
-            "comments": [
+        issue_payload = IssuePayload(
+            issue={
+                "title": "Critical Blocker",
+                "body": "System down due to null pointer.",
+                "user": "alice",
+                "upvotes": 18,
+            },
+            comments=[
                 {
                     "user_login": "charlie",
                     "body": "Hey @brian please check this ASAP",
                     "created_at": "2026-08-22T12:00:00Z",
                 }
             ],
-        }
+        )
 
         ranked = run_ranker(
-            task=task, issue=issue_data, github_username="brian", gemini_api_key="AIzaSyRankerKey", agent=mock_agent
+            task=task,
+            issue=issue_payload,
+            github_username="brian",
+            gemini_api_key="AIzaSyRankerKey",
+            agent=mock_agent,
         )
         self.assertEqual(ranked.priority, 0.92)
         self.assertFalse(ranked.priority_needs_updated)

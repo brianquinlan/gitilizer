@@ -5,7 +5,6 @@ Evaluates individual tasks with GitHub issue metadata, comments, and username me
 
 from __future__ import annotations
 
-import json
 import os
 from datetime import datetime, timezone
 from typing import Protocol, TypeVar
@@ -49,9 +48,6 @@ class IssuePayload(BaseModel):
 
 
 class TaskProtocol(Protocol):
-    @property
-    def doc_id(self) -> str: ...
-
     priority: float
     priority_needs_updated: bool
 
@@ -126,7 +122,7 @@ def create_pydantic_ai_agent(
     No client or agent state is cached across task invocations,
     preventing any cross-thread asyncio client or event loop contention.
     """
-    effective_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or "placeholder"
+    effective_key = api_key or os.environ.get("GEMINI_API_KEY") or "placeholder"
     prompt_str = system_prompt if system_prompt is not None else DEFAULT_SYSTEM_PROMPT
 
     client = genai.Client(api_key=effective_key)
@@ -142,7 +138,7 @@ def create_pydantic_ai_agent(
 
 def run_ranker(
     task: TTask,
-    issue: BaseModel | dict[str, object] | None = None,
+    issue: BaseModel | None = None,
     github_username: str | None = None,
     gemini_api_key: str | None = None,
     agent: Agent[None, TaskPriorityOutput] | None = None,
@@ -154,12 +150,7 @@ def run_ranker(
     and the user's Gemini API key.
     """
     # Serialize issue and comment data to JSON directly for the LLM
-    if isinstance(issue, BaseModel):
-        issue_json_str = issue.model_dump_json(indent=2)
-    elif isinstance(issue, dict):
-        issue_json_str = json.dumps(issue, indent=2, default=str)
-    else:
-        issue_json_str = "{}"
+    issue_json_str = issue.model_dump_json(indent=2) if isinstance(issue, BaseModel) else "{}"
 
     user_info_str = f"@{github_username}" if github_username else "Unknown (not specified)"
 
@@ -178,11 +169,8 @@ Please evaluate the priority for the user {user_info_str} based on your system i
 
     computed_priority = 0.5
     output_obj = result.output
-    if output_obj is not None:
-        if isinstance(output_obj, TaskPriorityOutput):
-            computed_priority = output_obj.priority
-        elif isinstance(output_obj, dict):
-            computed_priority = float(output_obj.get("priority", 0.5))
+    if isinstance(output_obj, TaskPriorityOutput):
+        computed_priority = output_obj.priority
 
     computed_priority = max(0.0, min(1.0, float(computed_priority)))
     task.priority = computed_priority

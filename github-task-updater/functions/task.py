@@ -117,14 +117,14 @@ def ensure_task_for_issue(
     task_ref = tasks_col.document(task_doc_id)
     doc_snap = task_ref.get()
 
-    raw_title = issue_data.get("title") or issue_data.get("github_issue_title")
+    raw_title = issue_data.get("title")
     issue_title = str(raw_title) if raw_title is not None else None
-    raw_url = issue_data.get("url") or issue_data.get("github_issue_url")
+    raw_url = issue_data.get("url")
     issue_url = str(raw_url) if raw_url is not None else None
 
     owner = str(issue_data.get("owner")) if issue_data.get("owner") is not None else None
     repo = str(issue_data.get("repo")) if issue_data.get("repo") is not None else None
-    raw_num = issue_data.get("issue_number") or issue_data.get("number")
+    raw_num = issue_data.get("issue_number")
     issue_number = int(raw_num) if isinstance(raw_num, (int, str)) and str(raw_num).isdigit() else None
     is_pr = bool(issue_data.get("is_pr", False))
 
@@ -326,16 +326,6 @@ def update_task_priority(uid: str, task_id: str, db: firestore.Client) -> None:
     owner = task.owner
     repo = task.repo
     num = task.issue_number
-
-    # Fallback parsing from task_id if not explicitly set on Task
-    if (not owner or not repo or not num) and task_id:
-        clean_id = task_id.removeprefix("task_")
-        parts = clean_id.rsplit("_", 1)
-        if len(parts) == 2 and parts[1].isdigit():
-            num = int(parts[1])
-            repo_parts = parts[0].split("_", 1)
-            if len(repo_parts) == 2:
-                owner, repo = repo_parts[0], repo_parts[1]
 
     if github_access_token and owner and repo and num:
         try:
