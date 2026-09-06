@@ -438,7 +438,7 @@ class TestTaskFirestoreOperations(unittest.TestCase):
         doc_high.id = "task_high"
         doc_high.to_dict.return_value = {"id": "task_high", "priority": 0.9, "priority_needs_updated": False}
 
-        mock_tasks_col.limit.return_value.stream.return_value = [doc_low, doc_high]
+        mock_tasks_col.order_by.return_value.limit.return_value.stream.return_value = [doc_low, doc_high]
 
         tasks = get_user_tasks("user_100", mock_db)
         self.assertEqual(len(tasks), 2)
@@ -740,6 +740,45 @@ class TestTaskLifecycleAndSourceTracking(unittest.TestCase):
         args, _ = mock_task_ref.set.call_args
         # Should trigger rerank because gh_up_new > t_down
         self.assertTrue(args[0]["priority_needs_updated"])
+
+    def test_ensure_task_for_issue_suppresses_rerank_on_subsequent_sync_after_thumbs_down_rerank(self):
+        mock_db = MagicMock()
+        mock_task_ref = MagicMock()
+        mock_tasks_col = MagicMock()
+        mock_tasks_col.document.return_value = mock_task_ref
+        mock_db.collection.return_value.document.return_value.collection.return_value = mock_tasks_col
+
+        t_down = datetime(2026, 9, 4, 15, 0, 0, tzinfo=timezone.utc)
+        gh_up = datetime(2026, 9, 4, 16, 0, 0, tzinfo=timezone.utc)
+
+        # Task was already re-evaluated and ranked (priority_needs_updated=False, github_updated_at=16:00)
+        mock_task_snap = MagicMock()
+        mock_task_snap.exists = True
+        mock_task_snap.to_dict.return_value = {
+            "owner": "org",
+            "repo": "repo",
+            "issue_number": 42,
+            "priority": 0.5,
+            "priority_needs_updated": False,
+            "thumbs_down_at": t_down,
+            "github_updated_at": gh_up,
+        }
+        mock_task_ref.get.return_value = mock_task_snap
+
+        ensure_task_for_issue(
+            uid="user_100",
+            issue_id="org_repo_42",
+            issue_data={
+                "title": "Updated Issue",
+                "github_updated_at": gh_up,
+            },
+            db=mock_db,
+        )
+        mock_task_ref.set.assert_called_once()
+        args, _ = mock_task_ref.set.call_args
+        # Should NOT trigger rerank again because github_updated_at hasn't changed since last evaluation
+        self.assertFalse(args[0]["priority_needs_updated"])
+        self.assertEqual(args[0]["priority"], 0.5)
 
     def test_ensure_task_for_issue_skips_rerank_when_issue_unchanged(self):
         from datetime import datetime, timezone

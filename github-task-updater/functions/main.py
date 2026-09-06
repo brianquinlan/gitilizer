@@ -266,5 +266,12 @@ def on_task_written(event: firestore_fn.Event[firestore_fn.Change[firestore_fn.D
     if not after_needs_update:
         return
 
+    # If document already existed and priority_needs_updated was already True, ranking was already dispatched
+    before_snap = event.data.before
+    if before_snap and before_snap.exists:
+        before_data = before_snap.to_dict() or {}
+        if before_data.get("priority_needs_updated", False):
+            return
+
     if uid and task_id:
         enqueue_task_ranking(uid=str(uid), task_id=str(task_id), function_name="rankUserTasks", db=db)

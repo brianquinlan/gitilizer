@@ -151,8 +151,12 @@ def ensure_task_for_issue(
 
         if task.thumbs_down_at is not None:
             # If the user pressed thumbs down, only re-evaluate if updated on GitHub strictly after thumbs_down_at
+            # AND actually updated since the last sync
             if task.github_updated_at and task.github_updated_at > task.thumbs_down_at:
-                task.priority_needs_updated = True
+                if old_needs_update or (old_github_updated_at is None or task.github_updated_at > old_github_updated_at):
+                    task.priority_needs_updated = True
+                else:
+                    task.priority_needs_updated = False
             else:
                 task.priority_needs_updated = False
                 task.priority = 0.0
@@ -391,7 +395,7 @@ def get_user_tasks(uid: str, db: firestore.Client, limit: int = 100) -> list[dic
     Retrieves tasks stored in Firestore for a given user UID, sorted by priority (descending).
     """
     tasks_col = db.collection("users").document(uid).collection("tasks")
-    docs = tasks_col.limit(limit).stream()
+    docs = tasks_col.order_by("priority", direction=firestore.Query.DESCENDING).limit(limit).stream()
 
     tasks: list[dict[str, object]] = []
     for doc_snap in docs:

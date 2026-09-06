@@ -201,6 +201,12 @@ def execute_issue_page_sync(
     if not user.github_access_token:
         return
 
+    if repo_full_name and "/" in repo_full_name and (not owner_fallback or not repo_fallback):
+        parts = repo_full_name.strip().strip("/").split("/", 1)
+        if len(parts) == 2:
+            owner_fallback = owner_fallback or parts[0]
+            repo_fallback = repo_fallback or parts[1]
+
     g = client or get_github_client(user.github_access_token)
     since_dt = since if isinstance(since, datetime) else _parse_github_datetime(since)
     items, has_next = fetch_single_issue_page(

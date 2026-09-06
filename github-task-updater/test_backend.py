@@ -427,6 +427,37 @@ class TestFirestoreTaskTrigger(unittest.TestCase):
 
     @patch("main.enqueue_task_ranking")
     @patch("main.db")
+    def test_task_trigger_skipped_when_already_needing_update(self, mock_db, mock_enqueue_ranking):
+        """Ensures duplicate tasks are not enqueued if priority_needs_updated was already True before the write."""
+        handler = get_callable_handler(main.on_task_written)
+
+        mock_event = MagicMock()
+        mock_event.params = {"uid": "user_task_trig_3b", "task_id": "task_issue_3b"}
+
+        mock_before = MagicMock()
+        mock_before.exists = True
+        mock_before.to_dict.return_value = {
+            "id": "task_issue_3b",
+            "priority": 0.0,
+            "priority_needs_updated": True,
+        }
+
+        mock_after = MagicMock()
+        mock_after.exists = True
+        mock_after.to_dict.return_value = {
+            "id": "task_issue_3b",
+            "priority": 0.0,
+            "priority_needs_updated": True,
+        }
+
+        mock_event.data.before = mock_before
+        mock_event.data.after = mock_after
+
+        handler(mock_event)
+        mock_enqueue_ranking.assert_not_called()
+
+    @patch("main.enqueue_task_ranking")
+    @patch("main.db")
     def test_task_trigger_skipped_when_task_deleted(self, mock_db, mock_enqueue_ranking):
         handler = get_callable_handler(main.on_task_written)
 
