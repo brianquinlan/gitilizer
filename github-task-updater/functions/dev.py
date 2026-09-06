@@ -32,7 +32,10 @@ if not firebase_admin._apps:
 db: firestore.Client = firestore.Client()
 
 
-@https_fn.on_request(cors=options.CorsOptions(cors_origins="*", cors_methods=["get", "post", "options"]))
+@https_fn.on_request(
+    cors=options.CorsOptions(cors_origins="*", cors_methods=["get", "post", "options"]),
+    memory=options.MemoryOption.MB_512,
+)
 def render_main_page(req: https_fn.Request) -> Response:
     """
     Renders the static ranked tasks list for developer debugging using Jinja2 templates.
@@ -105,7 +108,10 @@ def render_main_page(req: https_fn.Request) -> Response:
 # ============================================================================
 
 
-@https_fn.on_request(cors=options.CorsOptions(cors_origins="*", cors_methods=["get", "post", "options"]))
+@https_fn.on_request(
+    cors=options.CorsOptions(cors_origins="*", cors_methods=["get", "post", "options"]),
+    memory=options.MemoryOption.MB_512,
+)
 def render_settings_page(req: https_fn.Request) -> Response:
     """
     Simple server-side CRUD settings page for configuring GitHub access token and monitored repos.

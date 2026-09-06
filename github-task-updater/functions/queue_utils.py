@@ -52,7 +52,7 @@ def dispatch_task(
     try:
         queue = admin_functions.task_queue(queue_name)
         task_opts = opts or admin_functions.TaskOptions(dispatch_deadline_seconds=300)
-        queue.enqueue(task_data, opts=task_opts)
+        queue.enqueue({"data": task_data}, opts=task_opts)
     except Exception:
         t = threading.Thread(target=_safe_run_worker, args=(worker_fn,), daemon=True)
         t.start()

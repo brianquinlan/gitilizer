@@ -403,7 +403,7 @@ class TestTaskFirestoreOperations(unittest.TestCase):
         mock_task_queue.assert_called_once_with("rankUserTasks")
         mock_queue.enqueue.assert_called_once()
         args, _kwargs = mock_queue.enqueue.call_args
-        self.assertEqual(args[0], {"uid": "user_task_queue_1", "task_id": "task_abc_1"})
+        self.assertEqual(args[0], {"data": {"uid": "user_task_queue_1", "task_id": "task_abc_1"}})
 
     @patch("queue_utils.is_emulator", return_value=True)
     @patch("queue_utils.threading.Thread")
