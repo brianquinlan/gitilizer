@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../theme.dart';
+import 'git_spark_icon.dart';
 import 'settings_dialog.dart';
 
 /// Top application header bar containing the application title, settings icon, and user profile icon.
@@ -27,18 +28,9 @@ class AppHeader extends StatelessWidget {
           // Application Title
           Row(
             children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(
-                  Icons.task_alt,
-                  color: AppTheme.primaryBlue,
-                  size: 18,
-                ),
+              const GitSparkIcon(
+                size: 28,
+                borderRadius: 6,
               ),
               const SizedBox(width: 10),
               Text(

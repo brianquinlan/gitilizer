@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../theme.dart';
+import '../widgets/git_spark_icon.dart';
 
 /// Authentication Screen supporting Google, GitHub, and local emulator quick sign-in.
 class AuthScreen extends StatefulWidget {
@@ -96,19 +97,10 @@ class _AuthScreenState extends State<AuthScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // App Logo
-                Center(
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.task_alt,
-                      color: AppTheme.primaryBlue,
-                      size: 28,
-                    ),
+                const Center(
+                  child: GitSparkIcon(
+                    size: 48,
+                    borderRadius: 12,
                   ),
                 ),
                 const SizedBox(height: 16),
