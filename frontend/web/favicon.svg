@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#161B22"/>
+      <stop offset="100%" stop-color="#0D1117"/>
+    </linearGradient>
+
+    <!-- Branch gradient -->
+    <linearGradient id="branchGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="65%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#FBBF24"/>
+    </linearGradient>
+
+    <!-- Sparkle gradient -->
+    <radialGradient id="sparkGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="35%" stop-color="#FEF08A"/>
+      <stop offset="70%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Dark rounded squircle background -->
+  <rect x="2" y="2" width="508" height="508" rx="112" fill="url(#bgGrad)" stroke="#30363D" stroke-width="4"/>
+
+  <!-- Branch arc -->
+  <path d="M 179 297 C 179 225 266 205 348 164" fill="none" stroke="url(#branchGrad)" stroke-width="42" stroke-linecap="round"/>
+
+  <!-- Main vertical trunk -->
+  <line x1="179" y1="123" x2="179" y2="389" stroke="#38BDF8" stroke-width="42" stroke-linecap="round"/>
+
+  <!-- Bottom commit node -->
+  <circle cx="179" cy="389" r="46" fill="#38BDF8"/>
+  <circle cx="179" cy="389" r="22" fill="#E0F2FE"/>
+
+  <!-- Top commit node -->
+  <circle cx="179" cy="123" r="41" fill="#38BDF8"/>
+  <circle cx="179" cy="123" r="19" fill="#E0F2FE"/>
+
+  <!-- Gemini 4-point Sparkle Star -->
+  <path d="M 348 61 Q 348 164 451 164 Q 348 164 348 267 Q 348 164 245 164 Q 348 164 348 61 Z" fill="url(#sparkGrad)"/>
+  <circle cx="348" cy="164" r="12" fill="#FFFFFF"/>
+
+  <!-- Secondary accent sparkle -->
+  <path d="M 246 92 Q 246 125 279 125 Q 246 125 246 158 Q 246 125 213 125 Q 246 125 246 92 Z" fill="#F59E0B"/>
+  <circle cx="246" cy="125" r="4" fill="#FFFFFF"/>
+</svg>
