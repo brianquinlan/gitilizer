@@ -1,0 +1,58 @@
+# ISSUE dart-lang/sdk#59846: [io]: HTTP header parser accepts many invalid characters within header names
+url: https://github.com/dart-lang/sdk/issues/59846
+state: open
+author: kenballus (association with repo: NONE)
+created: 2025-01-06T19:02:48Z (22mo ago)
+last updated: 2025-01-08T22:03:32Z (22mo ago)
+labels: ['area-vm', 'library-io', 'type-bug', 'triaged']
+assignees: ['brianquinlan']
+repository: dart-lang/sdk — The Dart SDK, including the VM, JS and Wasm compilers, analysis, core libraries, and more. (stars: 11317, open issues: 8500, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['assignee']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: a-siva labeled 22mo ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: []
+- days_since_update: 654.9
+- days_since_created: 657.0
+
+## Related issues and PRs
+- issue dart-lang/sdk#1 'Process tests sometimes cause timeout on Linux': closed (completed), by sgjesse, updated 11.4y ago, assignees ['sgjesse']
+
+## Description
+In RFC 9110, the allowable characters within a header name are
+> tchar = "!" / "#" / "$" / "%" / "&" / "'" / "*" / "+" / "-" / "." /
+ "^" / "_" / "`" / "|" / "~" / DIGIT / ALPHA
+
+dart:io does not enforce this rule. The following characters are incorrectly accepted:
+```
+\x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x0b \x0c \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 \x1a \x1b \x1c \x1d \x1e \x1f \x22 \x28 \x29 \x2c \x2f \x3a \x3b \x3c \x3d \x3e \x3f \x40 \x5b \x5c \x5d \x7b \x7d \x7f \x80 \x81 \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd \xbe \xbf \xc0 \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc \xfd \xfe \xff
+```
+
+Of particular note is that NUL and some whitespace characters (`\x0b`) are in this list. This can cause issues with upstream proxies.
+
+```
+$ dart info
+...
+- Dart 3.6.0-edge.3cc6105316be32e2d48b1b9b253247ad4fc89698 (main) (Fri Aug 30 22:53:32 2024 +0000) on "linux_x64"
+- on linux / Linux 6.10.2-arch1-2 #1 SMP PREEMPT_DYNAMIC Sat, 03 Aug 2024 17:56:17 +0000
+- locale is en_US
+```
+
+## Activity (11 events, oldest first)
+[2025-01-06 19:02Z, 22mo ago] kenballus opened this issue
+[2025-01-06 19:05Z, 22mo ago] dart-github-bot commented:
+    **Summary:** Dart's `dart:io` HTTP header parser accepts invalid characters in header names, violating RFC 9110.  This may cause interoperability issues.
+[2025-01-06 19:05Z, 22mo ago] dart-github-bot labeled 'area-core-library'
+[2025-01-06 19:05Z, 22mo ago] dart-github-bot labeled 'triage-automation'
+[2025-01-06 19:05Z, 22mo ago] dart-github-bot labeled 'type-bug'
+[2025-01-07 23:11Z, 22mo ago] lrhn unlabeled 'area-core-library'
+[2025-01-07 23:11Z, 22mo ago] lrhn unlabeled 'triage-automation'
+[2025-01-07 23:11Z, 22mo ago] lrhn labeled 'area-vm'
+[2025-01-07 23:11Z, 22mo ago] lrhn labeled 'library-io'
+[2025-01-08 22:03Z, 22mo ago] a-siva assigned brianquinlan
+[2025-01-08 22:03Z, 22mo ago] a-siva labeled 'triaged'

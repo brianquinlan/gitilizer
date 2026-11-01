@@ -1,0 +1,93 @@
+# PULL REQUEST dart-lang/native#3763: [objective_c] support `scheduleInRunLoop:forMode:`
+url: https://github.com/dart-lang/native/pull/3763
+state: open
+author: brianquinlan (association with repo: MEMBER)
+created: 2026-10-23T13:29:58Z (2d ago)
+last updated: 2026-10-23T13:40:06Z (2d ago)
+labels: ['package:objective_c']
+assignees: []
+requested reviewers: ['liamappelbe']
+branch: brianquinlan:runloop -> main
+repository: dart-lang/native — Dart packages related to native interop and the foreign function interface. Contains code generators for generating bindings for other programming languages and packages related to the hooks system for bundling native code, (stars: 277, open issues: 559, archived: False)
+
+## Derived signals (computed from the data below)
+- type: pull_request
+- my_roles: ['author']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: brianquinlan review_requested 2d ago
+- last_human_actor_is_me: True
+- my_last_activity: review_requested 2d ago
+- mentions_of_me: []
+- days_since_update: 2.2
+- days_since_created: 2.2
+- other_reviews: {}
+- review_decision: REVIEW_REQUIRED
+- unresolved_review_threads: 0
+- draft: False
+- merged: False
+- mergeable_state: blocked
+- size: +569/-22 in 6 files
+- last_commit: 2d ago
+
+## Changed files (6)
+pkgs/objective_c/CHANGELOG.md (+14/-0), pkgs/objective_c/lib/src/objective_c_bindings_generated.dart (+5/-2), pkgs/objective_c/pubspec.yaml (+1/-1), pkgs/objective_c/src/input_stream_adapter.h (+5/-2), pkgs/objective_c/src/input_stream_adapter.m (+346/-17), pkgs/objective_c/test/ns_input_stream_test.dart (+198/-0)
+
+## Related issues and PRs
+- issue dart-lang/native#3750 [linked: closes/closed-by] '[objective_c] `NSInputStream` can deadlock': open, by brianquinlan, updated 6d ago, labels ['package:objective_c', 'needs-triage']
+- issue dart-lang/native#3752 [linked: closes/closed-by] "[objective_c] `NSInputStream` doesn't support run loop scheduling": open, by brianquinlan, updated 6d ago, assignees ['brianquinlan'], labels ['lang-objective_c', 'package:objective_c', 'needs-triage']
+
+## Description
+## Description
+
+The `NSInputStream` returned by `toNSInputStream` currently ignores [`scheduleInRunLoop:forMode:`](https://github.com/dart-lang/native/blob/3cbe319e3c1ec0f9253c126ba3e465e55229c3a4/pkgs/objective_c/src/input_stream_adapter.m#L66-L67).
+
+This causes `NSURLSession` to make [read:maxLength](https://github.com/dart-lang/native/blob/3cbe319e3c1ec0f9253c126ba3e465e55229c3a4/pkgs/objective_c/src/input_stream_adapter.m#L131) calls on its single, process-wide `com.apple.NSURLConnectionLoader thread`, which [waits](https://github.com/dart-lang/native/blob/3cbe319e3c1ec0f9253c126ba3e465e55229c3a4/pkgs/objective_c/src/input_stream_adapter.m#L163) until the Dart stream provides data. This really hurts `package:cupertino_http`'s performance when performing concurrent uploads.
+
+## Related Issues
+
+Fixes #3750
+Fixes #3752 
+
+## PR Checklist
+
+- [X] I’ve reviewed the [contributor guide](https://github.com/dart-lang/native/blob/main/CONTRIBUTING.md) and applied the relevant portions to this PR.
+- [X] I've run `dart tool/ci.dart --all` locally and resolved all issues identified. This ensures the PR is formatted, has no lint errors, and ran all code generators. This applies to the packages part of the toplevel `pubspec.yaml` workspace.
+- [X] All existing and new tests are passing. I added new tests to check the change I am making.
+- [X] The PR is actually solving the issue. PRs that don't solve the issue will be closed. Please be respectful of the maintainers' time. If it's not clear what the issue is, feel free to ask questions on the GitHub issue before submitting a PR.
+- [X] I have updated `CHANGELOG.md` for the relevant packages. (Not needed for small changes such as doc typos).
+- [X] I have [updated the pubspec package version](https://github.com/dart-lang/sdk/blob/main/docs/External-Package-Maintenance.md#making-a-change) if necessary.
+
+## Activity (16 events, oldest first)
+[2026-10-19 22:06Z, 6d ago] Brian Quinlan pushed commit cfae17e '[objective_c] Fix a `NSInputStream` hang'
+[2026-10-19 22:21Z, 6d ago] Brian Quinlan pushed commit e759dc4 'Update ns_input_stream_test.dart'
+[2026-10-20 17:52Z, 5d ago] Brian Quinlan pushed commit 4abcebd '[objective-c]: Support reading in a runloop'
+[2026-10-20 19:38Z, 5d ago] Brian Quinlan pushed commit 1dcdc38 'Fix'
+[2026-10-20 20:02Z, 5d ago] Brian Quinlan pushed commit 0a32e0b 'Update input_stream_adapter.m'
+[2026-10-20 20:07Z, 5d ago] Brian Quinlan pushed commit e6bfd45 'Update input_stream_adapter.m'
+[2026-10-20 20:26Z, 5d ago] Brian Quinlan pushed commit c71185a 'docs'
+[2026-10-20 20:28Z, 5d ago] Brian Quinlan pushed commit cc66b3f 'Update input_stream_adapter.m'
+[2026-10-20 20:35Z, 5d ago] Brian Quinlan pushed commit f8ff047 'Update input_stream_adapter.m'
+[2026-10-23 13:13Z, 2d ago] Brian Quinlan pushed commit 5a587a3 'remove comment'
+[2026-10-23 13:29Z, 2d ago] brianquinlan (ME) opened this PR
+[2026-10-23 13:30Z, 2d ago] github-actions[bot] labeled 'package:objective_c'
+[2026-10-23 13:30Z, 2d ago] brianquinlan (ME) renamed 'Runloop' -> '[objective_c] support `scheduleInRunLoop:forMode:`'
+[2026-10-23 13:31Z, 2d ago] Brian Quinlan pushed commit 8551b4e "Merge branch 'main' into runloop"
+[2026-10-23 13:35Z, 2d ago] codecov[bot] commented:
+    ## [Codecov](https://app.codecov.io/gh/dart-lang/native/pull/3763?dropdown=coverage&src=pr&el=h1&utm_medium=referral&utm_source=github&utm_content=comment&utm_campaign=pr+comments&utm_term=dart-lang) Report
+    :white_check_mark: All modified and coverable lines are covered by tests.
+    :white_check_mark: Project coverage is 87.94%. Comparing base ([`8b11b6e`](https://app.codecov.io/gh/dart-lang/native/commit/8b11b6e01e659ae65c5c26caa117af8a320e5f52?dropdown=coverage&el=desc&utm_medium=referral&utm_source=github&utm_content=comment&utm_campaign=pr+comments&utm_term=dart-lang)) to head ([`8551b4e`](https://app.codecov.io/gh/dart-lang/native/commit/8551b4e477d088579502be87f8eb3bdb20577626?dropdown=coverage&el=desc&utm_medium=referral&utm_source=github&utm_content=comment&utm_campaign=pr+comments&utm_term=dart-lang)).
+    
+    <details><summary>Additional details and impacted files</summary>
+    
+    
+    
+    [![Impacted file tree graph](https://app.codecov.io/gh/dart-lang/native/pull/3763/graphs/tree.svg?width=650&height=150&src=pr&token=6LCZCX0Q10&utm_medium=referral&utm_source=github&utm_content=comment&utm_campaign=pr+comments&utm_term=dart-lang)](https://app.codecov.io/gh/dart-lang/native/pull/3763?src=pr&el=tree&utm_medium=referral&utm_source=github&utm_content=comment&utm_campaign=pr+comments&utm_term=dart-lang)
+    
+    ```diff
+    @@           Coverage Diff           @@
+    ##             main    #3763   +/-   ##
+    =======================================
+      Coverage   87.94%   87.94%           
+    ======================= …[6343 more chars]
+[2026-10-23 13:38Z, 2d ago] brianquinlan (ME) review_requested liamappelbe

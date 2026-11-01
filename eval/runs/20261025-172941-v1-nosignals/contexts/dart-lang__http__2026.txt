@@ -1,0 +1,57 @@
+# PULL REQUEST dart-lang/http#2026: [http2] Keep remotely closed streams until their queues are done
+url: https://github.com/dart-lang/http/pull/2026
+state: open
+author: shoaib-akhtar (association with repo: FIRST_TIME_CONTRIBUTOR)
+created: 2026-10-14T10:38:52Z (11d ago)
+last updated: 2026-10-24T10:40:15Z (1d ago)
+labels: ['package:http2']
+assignees: []
+requested reviewers: []
+branch: shoaib-akhtar:http2-terminate-undrained-closed-stream -> master
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 380, archived: False)
+
+## Changed files (3)
+pkgs/http2/CHANGELOG.md (+4/-0), pkgs/http2/lib/src/streams/stream_handler.dart (+6/-7), pkgs/http2/test/transport_test.dart (+45/-0)
+
+## Related issues and PRs
+- issue dart-lang/http#2021 [linked: closes/closed-by] 'http2: Connection._terminate asserts _stream2messageQueue.isEmpty on a stream _handleEndOfStreamRemote orphaned': open, by hbarney, updated 16d ago
+- PR dart-lang/http#2013 'fix(http2): do not head-of-line block HEADERS, RST_STREAM and GOAWAY behind window-exhausted DATA': merged, by mosuem, updated 2d ago
+
+## Description
+Fixes #2021.
+
+`StreamHandler._handleEndOfStreamRemote` removed a stream from `_openStreams` as soon as the peer's END_STREAM moved it from `HalfClosedLocal` to `Closed`, even if the application had not read the stream's incoming messages yet. The stream's entry in the connection-level `ConnectionMessageQueueIn` was left behind, so a later `Connection._terminate` skipped the stream (`StreamHandler.onTerminated` only walks `_openStreams`) and then failed:
+
+```
+Failed assertion: '_stream2messageQueue.isEmpty': is not true.
+  ConnectionMessageQueueIn.onTerminated
+  Connection._terminate
+```
+
+When END_STREAMs arrive in the other order (ours after the peer's), `_endStream` moves the stream to `Closed` without removing it. It stays in `_openStreams` until both of its queues are done and `_cleanupClosedStream` runs, so termination closes it normally. This change makes the peer-END_STREAM path behave the same way, which is what the TODO at that line was asking for.
+
+### Tests
+
+`terminate-with-undrained-closed-stream--{server,client}-ends-first` in `transport_test.dart` runs the scenario from the issue over the in-memory transport, in both END_STREAM orders, with the server never reading the stream's messages:
+
+| Order | Before | After |
+|---|---|---|
+| server END_STREAM first | ❌ assertion above | ✅ |
+| client END_STREAM first | ✅ | ✅ |
+
+The first commit adds only the test, so it can be checked out to see the failure. `dart test` in `pkgs/http2` passes (256 tests), and `dart analyze --fatal-infos` reports no issues.
+
+## Activity (7 events, oldest first)
+[2026-10-14 10:38Z, 11d ago] Shoaib Akhtar pushed commit 8fa9159 '[http2] Add failing test for terminating with an undrained closed stream'
+[2026-10-14 10:38Z, 11d ago] Shoaib Akhtar pushed commit 4c04318 '[http2] Keep remotely closed streams until their queues are done'
+[2026-10-14 10:39Z, 11d ago] github-actions[bot] labeled 'package:http2'
+[2026-10-14 10:39Z, 11d ago] google-cla[bot] commented:
+    Thanks for your pull request! It looks like this may be your first contribution to a Google open source project. Before we can look at your pull request, you'll need to sign a Contributor License Agreement (CLA).
+    
+    View this [failed invocation](https://github.com/dart-lang/http/pull/2026/checks?check_run_id=115808763698) of the CLA check for more information.
+    
+    For the most up to date status, view the checks section at the bottom of the pull request.
+[2026-10-24 10:37Z, 1d ago] Shoaib Akhtar pushed commit e90bd89 'Re-run CLA check'
+[2026-10-24 10:39Z, 1d ago] Shoaib Akhtar pushed commit 60061aa "Merge remote-tracking branch 'origin/master' into http2-terminate-undrained-closed-stream"
+[2026-10-24 10:40Z, 1d ago] shoaib-akhtar commented:
+    Hey @mosuem, saw you've been doing a lot in stream_handler lately, so I merged master in. #2013 touched the same spot. Your version keeps the stream around while outgoing DATA is still waiting on window, and this one also keeps it until the incoming side has been read, so I kept the broader check and merged the two comments. All http2 tests pass on my end. CLA is signed now too. Would you mind taking a look when you have a moment?

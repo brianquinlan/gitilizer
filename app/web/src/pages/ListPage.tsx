@@ -1,0 +1,241 @@
+// Prioritized list and Icebox (PRD "Prioritized list", "Live updates", "Icebox").
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, reasonLabel, type Sort, type SortColumn,
+} from "@gitilizer/shared";
+import { api, ApiError } from "../api.ts";
+import { BoxIcon, ChevronLeft, ChevronRight, DownToLineIcon, IssueIcon, PrIcon, RefreshIcon, SortIcon } from "../icons.tsx";
+import { clampPage, PAGE_SIZE, pageCount, ranks, rowsFor, sortRows, type Row, type View } from "../live/engine.ts";
+import { useLive } from "../live/useLive.ts";
+import { Link, navigate, useRoute } from "../router.tsx";
+import { useStore } from "../store.tsx";
+import { relativeTime, useNow } from "../time.ts";
+
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+export function ListPage({ view }: { view: View }) {
+  const { me, sorts, setSort, sync } = useStore();
+  const { live, indicators, collapsing, announcement, step, tableProps, moveToIcebox, restore } = useLive(view);
+  const { query } = useRoute();
+  const sort = (view === "prioritized" ? sorts?.prioritized : sorts?.icebox) ?? (view === "prioritized" ? DEFAULT_SORT_PRIORITIZED : DEFAULT_SORT_ICEBOX);
+  useNow(60_000); // LIST-5: relative times update every minute
+
+  const rank = useMemo(() => (live ? ranks(live.shown) : {}), [live]);
+  const all = useMemo(() => (live ? sortRows(rowsFor(live.shown, view), sort) : []), [live, view, sort]);
+  const settled = all.filter((r) => !r.leaving).length;
+  const requested = Number(query.get("page") ?? "1") || 1;
+  const page = clampPage(requested, settled);
+
+  // LIVE-2: if the page no longer exists, go to the last page that does, without a notice.
+  useEffect(() => {
+    if (live && requested !== page) navigate(page === 1 ? location.pathname : `${location.pathname}?page=${page}`, true);
+  }, [live, requested, page]);
+
+  // Page boundaries count settled rows; a row showing its leave label stays where it was (LIVE-15).
+  const start = (page - 1) * PAGE_SIZE;
+  const visible: Row[] = [];
+  let i = 0;
+  for (const r of all) {
+    if (i >= start && i < start + PAGE_SIZE) visible.push(r);
+    if (!r.leaving) i++;
+  }
+
+  const chooseSort = (column: SortColumn) => {
+    const dir = sort.column === column ? (sort.dir === "asc" ? "desc" : "asc") : FIRST_DIRECTION[column];
+    setSort(view, { column, dir });
+    navigate(location.pathname); // Q-25 (assumed): sorting returns to page 1
+  };
+
+  const firstSyncRunning = view === "prioritized" && !me?.firstSyncDone;
+
+  return (
+    <>
+      <div className="controls">
+        <h1>All issues &amp; PRs</h1>
+        <span className="hint">{view === "prioritized" ? "One relative order. No priority buckets." : "Issues you placed in the Icebox."}</span>
+        <nav className="toggle" aria-label="View">
+          <Link to="/" aria-current={view === "prioritized" ? "page" : undefined}><DownToLineIcon /> Prioritized</Link>
+          <Link to="/icebox" aria-current={view === "icebox" ? "page" : undefined}><BoxIcon /> Icebox</Link>
+        </nav>
+        <span className="spacer" />
+        <SyncButton running={sync.running} />
+      </div>
+
+      <div className={`table ${view === "icebox" ? "icebox" : ""} ${reducedMotion() ? "reduced" : ""}`} role="table" aria-label={view === "prioritized" ? "Prioritized issues" : "Icebox"}>
+        <div className="tr thead" role="row">
+          {view === "prioritized" && <SortHeader label="Priority" column="priority" sort={sort} onSort={chooseSort} />}
+          <SortHeader label="Issue" column="type" sort={sort} onSort={chooseSort} />
+          <SortHeader label="Repository" column="repo" sort={sort} onSort={chooseSort} />
+          <SortHeader label="Modified" column="modified" sort={sort} onSort={chooseSort} />
+          <span role="columnheader" style={{ textAlign: "right", paddingRight: 46 }}>Actions</span>
+        </div>
+        <div {...tableProps} role="rowgroup">
+          {!live ? <Skeleton /> :
+            visible.length === 0 && firstSyncRunning ? <FirstSync /> :
+            visible.length === 0 ? <Empty view={view} /> :
+            <Rows rows={visible} rank={rank} view={view} indicators={indicators} collapsing={collapsing} step={step}
+                  onIcebox={moveToIcebox} onRestore={restore} />}
+        </div>
+        <Pager page={page} total={settled} />
+      </div>
+      <div className="sr-only" aria-live="polite">{announcement}</div>
+    </>
+  );
+}
+
+function SortHeader({ label, column, sort, onSort }: { label: string; column: SortColumn; sort: Sort; onSort: (c: SortColumn) => void }) {
+  const active = sort.column === column;
+  return (
+    <span role="columnheader">
+      <button className="th" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined} onClick={() => onSort(column)}>
+        {label} <SortIcon dir={active ? sort.dir : null} />
+      </button>
+    </span>
+  );
+}
+
+function Rows(props: {
+  rows: Row[]; rank: Record<string, number>; view: View; indicators: Record<string, string>; collapsing: Set<string>; step: number;
+  onIcebox: (r: Row) => void; onRestore: (r: Row) => void;
+}) {
+  const { rows, rank, view, indicators, collapsing, step } = props;
+  const els = useRef(new Map<string, HTMLDivElement>());
+  const tops = useRef(new Map<string, number>());
+  const lastStep = useRef(step);
+
+  // FLIP: rows that moved slide to their new place; rows that arrived expand (LIVE-11, LIVE-14, LIVE-16).
+  useLayoutEffect(() => {
+    const animate = step !== lastStep.current;
+    lastStep.current = step;
+    const reduced = reducedMotion();
+    for (const [key, el] of els.current) {
+      const top = el.offsetTop;
+      const prev = tops.current.get(key);
+      if (animate) {
+        if (reduced) el.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 150 }); // LIVE-22
+        else if (prev === undefined) el.animate([{ opacity: 0, transform: "scaleY(.6)" }, { opacity: 1, transform: "none" }], { duration: 400, easing: "ease-out" });
+        else if (prev !== top) el.animate([{ transform: `translateY(${prev - top}px)` }, { transform: "none" }], { duration: 400, easing: "ease-in-out" });
+      }
+    }
+    tops.current = new Map([...els.current].map(([k, el]) => [k, el.offsetTop]));
+  });
+
+  return (
+    <>
+      {rows.map((r) => {
+        const n = rank[r.key];
+        return (
+          <div key={r.key} role="row"
+               ref={(el) => { if (el) els.current.set(r.key, el); else els.current.delete(r.key); }}
+               className={`tr ${indicators[r.key] ? "highlight" : ""} ${r.leaving ? "leaving" : ""} ${collapsing.has(r.key) ? "collapse" : ""} ${n === 1 && view === "prioritized" ? "top" : ""}`}>
+            {view === "prioritized" && (
+              <span role="cell" className={`rank ${n === 1 ? "first" : ""}`}>
+                {r.leaving ? "" : r.rankFailed ? "–" : n !== undefined ? (n < 100 ? String(n).padStart(2, "0") : n) : ""}
+                {indicators[r.key] && <span className="indicator">{indicators[r.key]}</span>}
+              </span>
+            )}
+            <span role="cell" className="issue">
+              <span className={`kind ${r.kind}`} aria-label={r.kind === "pr" ? "Pull request" : "Issue"}>{r.kind === "pr" ? <PrIcon /> : <IssueIcon />}</span>
+              <span className="issue-text">
+                <a className="issue-title" href={r.htmlUrl} target="_blank" rel="noreferrer">{r.title}</a>
+                <span className="issue-meta">
+                  <span className="num">{r.kind === "pr" ? "PR" : "Issue"} #{r.number}</span>
+                  <span className="dot" />
+                  <span>{view === "icebox" ? `Moved to Icebox by you · ${relativeTime(r.iceboxedAt)}` : reasonLabel(r)}</span>
+                </span>
+              </span>
+            </span>
+            <span role="cell" className="mono">{r.repo}</span>
+            <span role="cell" className="mono">{relativeTime(r.updatedAt)}</span>
+            <span role="cell" className="td-actions">
+              {r.leaving ? <span className="chip">{r.leaving}</span> : view === "prioritized"
+                ? <button className="btn" onClick={() => props.onIcebox(r)}><BoxIcon /> Move to icebox</button>
+                : <button className="btn" onClick={() => props.onRestore(r)} style={{ minWidth: 144, justifyContent: "center" }}><DownToLineIcon /> Restore</button>}
+            </span>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function SyncButton({ running }: { running: boolean }) {
+  const [error, setError] = useState<string | null>(null);
+  const start = async () => {
+    setError(null);
+    try { await api.post("/api/sync"); } catch (e) { setError(e instanceof ApiError ? e.message : "Couldn't start a sync"); }
+  };
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+      {error && <span className="hint">{error}</span>}
+      <button className="btn" onClick={start} disabled={running} aria-busy={running}>
+        <RefreshIcon className={running ? "spin" : ""} /> {running ? "Syncing…" : "Sync now"}
+      </button>
+    </span>
+  );
+}
+
+/** Q-26 (assumed): first, last, current ±1, with "…" for gaps. */
+export function pageButtons(page: number, count: number): (number | "…")[] {
+  const keep = new Set([1, count, page - 1, page, page + 1].filter((p) => p >= 1 && p <= count));
+  const out: (number | "…")[] = [];
+  let prev = 0;
+  for (const p of [...keep].sort((a, b) => a - b)) {
+    if (p - prev > 1) out.push("…");
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}
+
+function Pager({ page, total }: { page: number; total: number }) {
+  const count = pageCount(total);
+  const go = (p: number) => navigate(p === 1 ? location.pathname : `${location.pathname}?page=${p}`);
+  return (
+    <div className="pager">
+      <span className="count">{total} {total === 1 ? "issue" : "issues"}</span>
+      <button onClick={() => go(page - 1)} disabled={page <= 1}><ChevronLeft /> Previous</button>
+      {pageButtons(page, count).map((p, i) => p === "…"
+        ? <span key={`gap${i}`} className="hint">…</span>
+        : <button key={p} className="page" aria-current={p === page ? "page" : undefined} onClick={() => go(p)}>{p}</button>)}
+      <button onClick={() => go(page + 1)} disabled={page >= count}>Next <ChevronRight /></button>
+    </div>
+  );
+}
+
+function Empty({ view }: { view: View }) {
+  return view === "prioritized" ? (
+    <div className="empty">
+      <strong>No issues to show 🎉</strong>
+      <p>You can choose more repositories to monitor<br />in the <Link to="/settings#repositories">settings</Link>.</p>
+    </div>
+  ) : (
+    <div className="empty"><strong>No issues in the Icebox</strong></div>
+  );
+}
+
+/** First-sync state (PRD Q-28, assumed: skeleton rows and a message). */
+function FirstSync() {
+  return (
+    <>
+      <div className="scanning"><RefreshIcon className="spin" /> Scanning your issues and PRs…</div>
+      <Skeleton />
+    </>
+  );
+}
+
+function Skeleton() {
+  return (
+    <>
+      {[0, 1, 2].map((i) => (
+        <div className="tr skeleton" key={i} aria-hidden="true">
+          <span className="bar" style={{ width: 24 }} />
+          <span className="bar" style={{ width: `${60 - i * 10}%` }} />
+          <span className="bar" style={{ width: 110 }} />
+          <span className="bar" style={{ width: 50 }} />
+          <span />
+        </div>
+      ))}
+    </>
+  );
+}

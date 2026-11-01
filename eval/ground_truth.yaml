@@ -1,0 +1,226 @@
+# Gitilizer eval ground truth: one ranked list, first item = rank 1.
+#
+# Ranked by Brian in the eval ranker on 2026-10-25 (ranking saved 22:42 UTC).
+# Snapshots: items marked `set: A` (the PRD's original list) were downloaded
+# 2026-10-25 ~17:52-17:59 UTC, `set: B` (added for broader coverage) at ~19:31 UTC.
+# `set` records provenance only: prompts v1-v3 were written before set B existed,
+# so set B doubles as a held-out check.
+#
+# Per-item fields:
+#   why             Brian's reason (from the ranker; falls back to the PRD's note)
+#   prd_why         the reason given in the PRD (set A)
+#   picked_for      why Claude picked the item for set B (not a ranking hint)
+#   as_of           evaluate the item as it was at this time (gitilizer/rewind.py)
+#   thumbs_down_at  pretend the user pressed thumbs-down at this time
+
+ranked: true
+
+user:
+  github_login: brianquinlan
+  interested_repos:
+  - repo: googleapis/google-cloud-dart
+  - repo: dart-lang/http
+    filter: not responsible for http2
+  collaborators:
+  - kevmoo
+  - mosuem
+  - sigurdm
+  review_teams:
+  - dart-lang/dart-ecosystem-team
+  - googleapis/cloud-sdk-dart-team
+
+items:
+  # 1
+  - url: https://github.com/dart-lang/sdk/issues/48056
+    set: A
+    why: 'Issue created by me, recent security concerns that have probably been addressed by
+      #64644 but need to verify that they have been addressed and possibly close the issue.'
+  # 2
+  - url: https://github.com/googleapis/librarian/pull/7808
+    set: A
+    why: Review feedback needs addressed.
+    prd_why: My PR, review feedback needs addressed.
+  # 3
+  - url: https://github.com/googleapis/google-cloud-dart/pull/376
+    set: A
+    why: The PR of a close collaborator in a repo that I am responsible for.
+  # 4
+  - url: https://github.com/googleapis/google-cloud-dart/pull/382
+    set: A
+    why: Recent PR from an unknown 3rd party in a repo that I am responsible for.
+  # 5
+  - url: https://github.com/googleapis/google-cloud-dart/issues/252
+    set: B
+    why: Conversation waiting for a reply to make progress.
+    picked_for: Your bug in your repo. An outside contributor proposed a design on Oct 21 and
+      is waiting on you.
+  # 6
+  - url: https://github.com/dart-lang/http/issues/2027
+    set: B
+    why: Recent bug filed by file in an area in which I work.
+    picked_for: Your own TODO issue from Oct 16, no comments.
+  # 7
+  - url: https://github.com/dart-lang/http/issues/1981
+    set: B
+    why: Not actionable but recent comment indicates that work is in progress.
+    picked_for: You assigned yourself today and commented "I've started working on this".
+  # 8
+  - url: https://github.com/googleapis/google-cloud-dart/issues/360
+    set: A
+    why: An issue in a repo that I'm responsible for. The filer is a collaborator. The filer
+      indicated the issue isn't urgent.
+  # 9
+  - url: https://github.com/dart-lang/sdk/issues/59846
+    set: B
+    why: Assigned to me my a collaborator but inactive. I should probably address this or unassign
+      it.
+    picked_for: dart:io HTTP header parser accepts invalid characters. Assigned to you, untouched
+      since Jan 2025.
+  # 10
+  - url: https://github.com/googleapis/google-cloud-dart/issues/361
+    set: A
+    why: Issue created by a close collaborator in a repo that I am responsible for. In the last
+      comment I asked a question that hasn't been answered yet.
+  # 11
+  - url: https://github.com/dart-lang/sdk/issues/31275
+    set: A
+    why: Seemingly important issue where I was explicitly CCed as the last comment. But the
+      last comment is very old and I am not assigned.
+  # 12
+  - url: https://github.com/dart-lang/native/issues/3752
+    set: B
+    why: ''
+    picked_for: Your needs-triage issue, assigned to you, covered by your open PR native#3763
+      (set A).
+  # 13
+  - url: https://github.com/googleapis/google-cloud-dart/issues/366
+    set: B
+    why: ''
+    picked_for: Collaborator (sigurdm) issue in your repo. You said you're deciding how to fix
+      it (Oct 8).
+  # 14
+  - url: https://github.com/dart-lang/tools/pull/2719
+    set: B
+    why: ''
+    picked_for: Bot PR updating BoringSSL today. Team review requested.
+  # 15
+  - url: https://github.com/googleapis/google-cloud-dart/issues/381
+    set: A
+    why: Issue associated with googleapis/google-cloud-dart#382 - PRs are more important than
+      issues and surfacing an issue associated with a PR is redundant.
+  # 16
+  - url: https://github.com/dart-lang/http/pull/2034
+    set: B
+    why: Wait for a review. Review request was recent so that reviewer does not need to be pinged.
+    picked_for: Your PR that fixes the cronet namespace duplication (#1932). Review requested
+      from goderbauer 2 days ago.
+  # 17
+  - url: https://github.com/googleapis/google-cloud-dart/issues/359
+    set: B
+    why: There is a PR open to address this issue so there is nothing else actionable to do.
+    picked_for: Collaborator (kevmoo) issue in your repo, assigned to you. You were the last
+      to comment (Oct 15).
+  # 18
+  - url: https://github.com/dart-lang/http/pull/2031
+    set: A
+    why: The PR of a close collaborator in a repo that I am responsible for. Not actionable
+      because it is part of a PR stack that has lower stacked items that have not been reviewed.
+  # 19
+  - url: https://github.com/googleapis/google-cloud-dart/pull/345
+    set: A
+    why: I created the PR but it is still a draft. At some point I should complete the work
+      or abandon it.
+  # 20
+  - url: https://github.com/dart-lang/core/pull/1007
+    set: B
+    why: Team review requested for a repository that I don't monitor
+    picked_for: First-time contributor PR (package:path). Team review requested 2 weeks ago,
+      no human review.
+  # 21
+  - url: https://github.com/dart-lang/tools/pull/2544
+    set: B
+    why: ''
+    picked_for: Security mitigation PR (UNC paths in package_config). lrhn is the engaged reviewer,
+      team requested.
+  # 22
+  - url: https://github.com/dart-lang/tools/pull/2710
+    set: B
+    why: ''
+    picked_for: Collaborator (mosuem) PR that is part of a stack. Team review requested.
+  # 23
+  - url: https://github.com/dart-lang/native/pull/3763
+    set: A
+    why: A PR that I created. Not actionable because it was recently assigned a reviewer who
+      hasn't reviewed it yet. If the reviewer hadn't responded for a week then maybe it would
+      be actionable in that I should ping the reviewer.
+  # 24
+  - url: https://github.com/googleapis/google-cloud-dart/pull/373
+    set: B
+    why: Recently pinged a collaborator to get a review. Should ping again after a week.
+    picked_for: Your PR, approved by sigurdm. On Oct 21 you asked him if it's good to merge.
+  # 25
+  - url: https://github.com/dart-lang/http/pull/579
+    set: B
+    why: Labelled "next-breaking-release" so can't be addressed at this time.
+    picked_for: Ancient PR (2021) where your review was requested in 2024.
+  # 26
+  - url: https://github.com/dart-lang/http/issues/1932
+    set: B
+    why: There is a PR open to address this issue so there is nothing else actionable to do.
+    picked_for: Serious build break in cronet_http (Flutter 3.44), assigned to you, "any updates?"
+      comments.
+  # 27
+  - url: https://github.com/flutter/devtools/issues/8223
+    set: B
+    why: ''
+    picked_for: You're mentioned in another team's repo (DevTools network inspector). Nothing
+      asked of you.
+  # 28
+  - url: https://github.com/dart-lang/http/issues/1837
+    set: A
+    why: Old low priority issue where I explicitly asked for 3rd party contributions.
+  # 29
+  - url: https://github.com/dart-lang/http/pull/2033
+    set: A
+    why: The PR of a close collaborator in a repo that I am responsible for. Not actionable
+      because I've already approved it.
+  # 30
+  - url: https://github.com/dart-lang/http/issues/1365
+    set: A
+    why: Issue in a repo that I'm interested in. The issue is stale. I indicated that I am not
+      responsible for package:http2.
+  # 31
+  - url: https://github.com/dart-lang/tools/pull/2715
+    set: B
+    why: ''
+    picked_for: Collaborator (kevmoo) PR in dart-lang/tools. Review requested from dart-ecosystem-team
+      + davidmorgan, 2 days.
+  # 32
+  - url: https://github.com/dart-lang/http/pull/2026
+    set: A
+    why: PR in a repo that I am interested in. Assigned to another collaborator. Indicated that
+      I am not responsible for package:http2.
+  # 33
+  - url: https://github.com/dart-lang/native/issues/3653
+    set: A
+    why: Issue that I created comments in. Assigned to someone else and not actionable by me.
+  # 34
+  - url: https://github.com/dart-lang/http/issues/1972
+    set: B
+    as_of: 2026-08-30 00:00:00+00:00
+    why: ''
+    picked_for: needs-info. You asked the reporter a question on Aug 22 and added needs-info,
+      no reply yet (rewound).
+  # 35
+  - url: https://github.com/dart-lang/http/issues/1841
+    set: B
+    thumbs_down_at: 2026-10-05 00:00:00+00:00
+    why: ''
+    picked_for: Thumbs-down with NO activity since (last comment Sep 30, outside contributor).
+  # 36
+  - url: https://github.com/dart-lang/sdk/issues/38148
+    set: B
+    thumbs_down_at: 2026-08-01 00:00:00+00:00
+    why: Thumbs down with no reply afterwards.
+    picked_for: Thumbs-down WITH new activity after it (new report from filiph on Oct 1). Assigned
+      to you, P2.

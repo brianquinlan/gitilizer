@@ -1,0 +1,65 @@
+# PULL REQUEST googleapis/google-cloud-dart#382: fix(google_cloud_rpc): use the google.rpc.Code of JSON errors in Status.code
+url: https://github.com/googleapis/google-cloud-dart/pull/382
+state: open
+author: quaaantumdev (association with repo: FIRST_TIME_CONTRIBUTOR)
+created: 2026-10-22T14:38:13Z (3d ago)
+last updated: 2026-10-22T14:49:54Z (3d ago)
+labels: []
+assignees: []
+requested reviewers: []
+branch: quaaantumdev:rpc-json-error-code -> main
+reactions: {'eyes': 1}
+repository: googleapis/google-cloud-dart — [Experimental] Google Cloud Dart Client Libraries (stars: 23, open issues: 58, archived: False)
+
+## Derived signals (computed from the data below)
+- type: pull_request
+- my_roles: ['watches_repo']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: quaaantumdev opened this PR 3d ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: []
+- days_since_update: 3.2
+- days_since_created: 3.2
+- other_reviews: {'gemini-code-assist[bot]': 'COMMENTED 3d ago'}
+- review_decision: REVIEW_REQUIRED
+- unresolved_review_threads: 0
+- draft: False
+- merged: False
+- mergeable_state: behind
+- size: +99/-2 in 2 files
+- last_commit: 3d ago
+
+## Changed files (2)
+generated/google_cloud_rpc/lib/src/exceptions.dart (+44/-1), generated/google_cloud_rpc/test/exceptions_test.dart (+55/-1)
+
+## Related issues and PRs
+- issue googleapis/google-cloud-dart#381 [linked: closes/closed-by] '[google_cloud_rpc] fromHttpResponse puts the HTTP status into Status.code and drops the google.rpc.Code, so ABORTED is never retried over REST': open, by quaaantumdev, updated 3d ago
+
+## Description
+Fixes #381.
+
+For an error received as JSON, `ServiceException.fromHttpResponse` put the HTTP status code into `status.code` and dropped the `google.rpc.Code` that the error names in `status`. gRPC errors carry the `google.rpc.Code` there (see `_mapGrpcError` in `google_cloud_pubsub`), and `ExponentialRetry.isRetryable` relies on it. Over REST, an `ABORTED` error (409) was therefore never retried, and callers couldn't tell `ABORTED` from `ALREADY_EXISTS`, or `FAILED_PRECONDITION` from `INVALID_ARGUMENT`.
+
+## Changes
+
+- `fromHttpResponse` reads the error's `status` into `Status.code`, for example `"ABORTED"` becomes 10. When `status` is missing or isn't a `google.rpc.Code`, the HTTP status code stays, as before. `ServiceException.statusCode` still has the HTTP status code.
+- The doc comment of `ServiceException.status` says what `code` holds.
+
+This changes `status.code` for JSON errors that name their code (400 becomes 3, and so on). The only other place in this repository that reads `status.code` for a REST error is `google_cloud_storage`'s `create_bucket_test.dart`. Cloud Storage's JSON API errors don't carry a `status`, so that test still gets 409.
+
+## Tests
+
+- The existing `valid error 400`, `409` and `other` tests now expect the `google.rpc.Code` (3, 6 and 13).
+- New tests: `ABORTED` gives 10 and is retryable, and `ALREADY_EXISTS` is not. An error without a `status`, or with an unknown one, keeps the HTTP status code.
+- Without the fix, the four tests that expect a `google.rpc.Code` fail.
+- `dart test` in `generated/google_cloud_rpc`: 86 passed. `dart analyze --fatal-infos` and `dart format` are clean.
+
+## Activity (3 events, oldest first)
+[2026-10-22 14:37Z, 3d ago] Kjartan Ferstl pushed commit dc2f85b 'fix(google_cloud_rpc): use the google.rpc.Code of JSON errors in Status.code'
+[2026-10-22 14:38Z, 3d ago] quaaantumdev opened this PR
+[2026-10-22 14:49Z, 3d ago] gemini-code-assist[bot] reviewed [COMMENTED]:
+    ## Code Review
+    
+    This pull request updates the test suite for service exceptions by refining status code assertions to match specific Google Cloud RPC error codes and adding new test cases to verify retryable behavior for specific error scenarios. I have no further feedback to provide as there were no review comments submitted.

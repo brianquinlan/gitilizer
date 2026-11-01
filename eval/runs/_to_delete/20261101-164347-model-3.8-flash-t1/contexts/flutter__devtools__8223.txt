@@ -1,0 +1,58 @@
+# ISSUE flutter/devtools#8223: Feature request: Please add webSocket support in network inspector
+url: https://github.com/flutter/devtools/issues/8223
+state: open
+author: KeterVM (association with repo: NONE)
+created: 2024-08-21T17:14:03Z (2.2y ago)
+last updated: 2026-10-21T17:09:08Z (4d ago)
+labels: ['devtools-network-screen', 'type-enhancement', 'P2']
+assignees: []
+reactions: {'+1': 4}
+repository: flutter/devtools — Developer tools for Flutter & Dart (stars: 1735, open issues: 672, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['mentioned']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: srawlins unlabeled 4d ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: [{'by': 'bkonyi', 'informational_cc': True, 'line': "This would be quite a bit of work as we'd have to add network profiling support in `dart:io` at the very least. If we wanted to add generic support we'd have to update our HTTP profiling solution to a"}]
+- days_since_update: 4.1
+- days_since_created: 795.1
+
+## Description
+Hi Flutter DevTools team,
+
+While using DevTools to debug my Flutter applications, I've found that it currently lacks the ability to inspect WebSocket connections. This has made it difficult for me to debug Flutter apps that rely on WebSocket.
+
+Would you consider adding this feature in a future release? With a WebSocket connection inspection feature, we would be able to better understand the status of WebSocket connections in our apps and the data being transmitted, which would be very helpful for debugging these types of Flutter applications.
+
+I hope you can implement this feature soon, thank you!
+
+## Activity (11 events, oldest first)
+[2024-08-21 17:14Z, 2.2y ago] KeterVM opened this issue
+[2024-08-21 20:33Z, 2.2y ago] kenzieschmoll labeled 'screen: network'
+[2024-08-21 20:38Z, 2.2y ago] kenzieschmoll commented:
+    @bkonyi could you comment on what it would take to access data from web socket network traffic?
+[2024-08-21 20:38Z, 2.2y ago] kenzieschmoll labeled 'P2'
+[2024-08-21 21:08Z, 2.2y ago] bkonyi commented:
+    > @bkonyi could you comment on what it would take to access data from web socket network traffic?
+    
+    This would be quite a bit of work as we'd have to add network profiling support in `dart:io` at the very least. If we wanted to add generic support we'd have to update our HTTP profiling solution to also handle websocket traffic. cc @brianquinlan @derekxu16
+[2025-03-21 00:10Z, 19mo ago] srawlins labeled 'cost: high'
+[2025-07-07 18:46Z, 16mo ago] kenzieschmoll labeled 'new feature'
+[2025-11-05 23:47Z, 12mo ago] srawlins parent issue added
+[2026-01-23 22:54Z, 9mo ago] github-project-automation[bot] added to project v2
+[2026-02-26 10:15Z, 8mo ago] Victowolf commented:
+    Hi @bkonyi,
+    
+    My name is [**Yash (VictoWolf)**](https://github.com/Victowolf) ,
+    I am currently exploring this project  under GSOC 2026.
+    
+    Right now, HTTP profiling is request-based, whereas WebSocket is connection-based and long-lived.
+    
+    If we move toward a generic profiling model that supports both request-based (HTTP) and connection-based (WebSocket) protocols, what safe design measures should I keep in mind to avoid breaking the current system?
+    
+    Thanks
+[2026-10-21 17:08Z, 4d ago] srawlins unlabeled 'cost: high'

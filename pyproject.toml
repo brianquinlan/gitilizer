@@ -1,0 +1,20 @@
+[project]
+name = "gitilizer"
+version = "0.1.0"
+description = "AI-prioritized GitHub issue list for a developer"
+requires-python = ">=3.11"
+dependencies = [
+    "google-genai>=2.0",
+    "pydantic>=2",
+    "pyyaml>=6",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["gitilizer*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

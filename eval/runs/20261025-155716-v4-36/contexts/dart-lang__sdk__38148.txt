@@ -1,0 +1,88 @@
+# ISSUE dart-lang/sdk#38148: Directory.deleteSync(recursive: true) failing if directory is not empty
+url: https://github.com/dart-lang/sdk/issues/38148
+state: open
+author: tvolkert (association with repo: CONTRIBUTOR)
+created: 2019-08-30T20:19:00Z (7.2y ago)
+last updated: 2026-10-01T14:23:38Z (24d ago)
+labels: ['area-vm', 'library-io', 'P2', 'triaged']
+assignees: ['brianquinlan']
+reactions: {'+1': 6}
+repository: dart-lang/sdk — The Dart SDK, including the VM, JS and Wasm compilers, analysis, core libraries, and more. (stars: 11317, open issues: 8500, archived: False)
+thumbs_down_at: 2026-08-01T00:00:00Z
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['assignee']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: filiph commented 24d ago
+- last_human_actor_is_me: False
+- my_last_activity: labeled 3.8y ago
+- mentions_of_me: []
+- days_since_update: 24.2
+- days_since_created: 2613.0
+
+## Related issues and PRs
+- issue dart-lang/sdk#16264 'Directory.deleteSync(recursive: true) throwing exception in Windows because directory is not empty.': closed (completed), by DartBot, updated 10.7y ago, labels ['closed-as-intended', 'library-io']
+- issue dart-lang/sdk#1757 'Directory.delete[Sync]() fails if the directory is non-empty': closed (completed), by munificent, updated 11.4y ago, assignees ['madsager'], labels ['area-core-library', 'library-io']
+- issue flutter/flutter#64410 '[tool_crash] FileSystemException: Deletion failed, OS Error: Directory not empty, errno = 66': closed (not_planned), by wjcwukong, updated 15mo ago, labels ['c: crash', 'tool', 'P2', 'team-tool', 'triaged-tool']
+
+## Description
+Observed on the following Dart version:
+
+```sh
+$ dart --version
+Dart VM version: 2.5.0-dev.3.0.flutter-35382f9b14 (Wed Aug 28 18:50:51 2019 +0000) on "macos_x64"
+```
+
+```
+  FileSystemException: Deletion failed, path = '/private/var/folders/dy/cv4xnlnn7sb_4bz47wvmdwjw003g3j/T/file_test_JGEQQ7' (OS Error: Directory not empty, errno = 66)
+  dart:io                      FileSystemEntity.deleteSync
+  test/chroot_test.dart 45:13  main.<fn>.<fn>.<fn>
+```
+
+The test in question has the following `setUp()` and `tearDown()` methods - the exception was thrown in `tearDown()`;
+
+```dart
+io.Directory tmp;
+
+setUp(() {
+  tmp = io.Directory.systemTemp.createTempSync('file_test_');
+  tmp = io.Directory(tmp.resolveSymbolicLinksSync());
+});
+
+tearDown(() {
+  tmp.deleteSync(recursive: true);
+});
+```
+
+This failure is intermittent - not 100% reproducible.
+
+## Activity (13 events, oldest first)
+[2019-08-30 20:19Z, 7.2y ago] tvolkert opened this issue
+[2019-08-30 20:21Z, 7.2y ago] tvolkert labeled 'area-library'
+[2019-08-30 20:21Z, 7.2y ago] tvolkert labeled 'library-io'
+[2019-08-30 20:22Z, 7.2y ago] tvolkert commented:
+    Prior art:
+    * https://github.com/dart-lang/sdk/issues/16264
+    * https://github.com/dart-lang/sdk/issues/1757
+    
+    Except both those are closed, and I just saw this happen today against BE Dart.
+[2022-07-13 10:26Z, 4.3y ago] alexmercerind commented:
+    I can confirm. And I'm surprised how noone came across this yet.
+    
+    I think this affects this aswell: https://github.com/flutter/flutter/issues/64410
+    
+    Thankyou!
+[2022-08-02 21:27Z, 4.2y ago] brianquinlan (ME) assigned brianquinlan
+[2022-12-28 00:03Z, 3.8y ago] brianquinlan (ME) labeled 'triaged'
+[2022-12-28 00:03Z, 3.8y ago] brianquinlan (ME) labeled 'P2'
+[2023-01-13 14:11Z, 3.8y ago] TMcClain5 commented:
+    This is an issue I am seeing as well, it is intermittent.
+[2025-02-13 13:59Z, 20mo ago] lrhn labeled 'area-vm'
+[2025-02-13 14:17Z, 20mo ago] lrhn unlabeled 'area-core-library'
+[2026-10-01 14:23Z, 24d ago] filiph commented:
+    I'm seeing this with `Dart SDK version: 3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on "macos_arm64"` and I can reproduce locally (I can create the directory that cannot be deleted with `recursive: true` because it "is not empty").
+    
+    Is there a way I can help with hunting down the bug?
+[2026-10-21 12:12Z, 4d ago] copybara-service[bot] referenced this in commit 2752d56

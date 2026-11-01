@@ -1,0 +1,42 @@
+# ISSUE googleapis/google-cloud-dart#366: Require the `google_cloud_rpc` release that adds `retry.dart` in `google_cloud_storage` and `google_cloud_pubsub`
+url: https://github.com/googleapis/google-cloud-dart/issues/366
+state: open
+author: sigurdm (association with repo: MEMBER)
+created: 2026-09-28T08:57:21Z (27d ago)
+last updated: 2026-10-08T21:31:47Z (17d ago)
+labels: []
+assignees: []
+repository: googleapis/google-cloud-dart — [Experimental] Google Cloud Dart Client Libraries (stars: 23, open issues: 58, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['commenter', 'watches_repo']
+- repo_interest_filter: None
+- author_is_collaborator: True
+- last_human_activity: brianquinlan commented 17d ago
+- last_human_actor_is_me: True
+- my_last_activity: commented 17d ago
+- mentions_of_me: []
+- days_since_update: 16.9
+- days_since_created: 27.4
+
+## Related issues and PRs
+- PR googleapis/google-cloud-dart#352 'feat(google_cloud_rpc): extract shared RetryRunner and ExponentialRetry': merged, by sigurdm, updated 27d ago
+- PR googleapis/google-cloud-dart#333 'fix(rpc): update version to 0.6.0': merged, by brianquinlan, updated 58d ago, assignees ['natebosch']
+- PR googleapis/google-cloud-dart#353 'feat(google_cloud_pubsub): add Pub/Sub retry configuration and gRPC error mapping': merged, by sigurdm, updated 17d ago
+
+## Description
+#352 moves `RetryRunner`, `ExponentialRetry`, and `ChecksumValidationException` into `package:google_cloud_rpc`, but the latest published `google_cloud_rpc` (0.6.0) doesn't include them. The workspace resolves the local copy, so CI won't catch that `google_cloud_storage` still allows `google_cloud_rpc: ^0.6.0`.
+
+Once the generated `google_cloud_rpc` version has been bumped:
+
+- [ ] Require the new version in `pkgs/google_cloud_storage/pubspec.yaml` (as #333 did for 0.6.0) and mention it in the CHANGELOG, before releasing `google_cloud_storage` 0.6.5.
+- [ ] Do the same in `pkgs/google_cloud_pubsub/pubspec.yaml` before publishing `google_cloud_pubsub`, since it imports `package:google_cloud_rpc/retry.dart` from #353 on.
+
+## Activity (5 events, oldest first)
+[2026-09-28 08:57Z, 27d ago] sigurdm opened this issue
+[2026-09-28 08:57Z, 27d ago] github-project-automation[bot] added to project v2
+[2026-09-28 08:57Z, 27d ago] github-project-automation[bot] project v2 item status changed
+[2026-09-28 10:11Z, 27d ago] sigurdm referenced this in commit b3069e7
+[2026-10-08 21:31Z, 17d ago] brianquinlan (ME) commented:
+    I'm trying to decide whether how we should fix this in general, e.g., through librarian automation.

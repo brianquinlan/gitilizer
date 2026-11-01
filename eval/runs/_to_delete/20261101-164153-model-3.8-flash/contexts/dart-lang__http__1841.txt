@@ -1,0 +1,54 @@
+# ISSUE dart-lang/http#1841: Respect Retry-After header on 503 responses for RetryClient
+url: https://github.com/dart-lang/http/issues/1841
+state: open
+author: RobertBrunhage (association with repo: NONE)
+created: 2025-10-30T14:43:13Z (12mo ago)
+last updated: 2026-09-30T17:51:28Z (25d ago)
+labels: ['type-enhancement', 'next-breaking-release', 'package:http']
+assignees: []
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 380, archived: False)
+thumbs_down_at: 2026-10-05T00:00:00Z
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['commenter', 'mentioned', 'watches_repo']
+- repo_interest_filter: not responsible for http2
+- author_is_collaborator: False
+- last_human_activity: agam1092005 referenced this in commit 23d ago
+- last_human_actor_is_me: False
+- my_last_activity: labeled 11mo ago
+- mentions_of_me: [{'by': 'agam1092005', 'informational_cc': False, 'line': '@brianquinlan @RobertBrunhage'}]
+- days_since_update: 25.1
+- days_since_created: 360.2
+
+## Related issues and PRs
+- PR dart-lang/http#2002 [linked: closes/closed-by] 'Add retryDelay callback to RetryClient to support Retry-After header': open, by agam1092005, updated 12d ago, labels ['package:http']
+
+## Description
+it is generally recommended that on 503, if the server responds with the `Retry-After` header we should respect that and if it's not present we should default back exponential backoff.
+
+Is this something that coud be considered to be added directly into the `RetryClient`, so we have that as default behaviour?
+
+I am asking this because we already retrying [503 by default](https://github.com/dart-lang/http/blob/2cb6c12966e18abc11a0217a8b613742849a29ea/pkgs/http/lib/retry.dart#L182C1-L182C4).
+
+## Activity (8 events, oldest first)
+[2025-10-30 14:43Z, 12mo ago] RobertBrunhage opened this issue
+[2025-10-30 14:43Z, 12mo ago] RobertBrunhage labeled 'type-enhancement'
+[2025-10-30 14:43Z, 12mo ago] RobertBrunhage labeled 'package:http'
+[2025-12-02 01:06Z, 11mo ago] brianquinlan (ME) commented:
+    The most obvious way of doing this is to make `BaseResponse` available in the `delay` function. But that would be a breaking change.
+    
+    Can you think of another way of doing this?
+[2025-12-02 01:06Z, 11mo ago] brianquinlan (ME) labeled 'next-breaking-release'
+[2026-09-30 17:51Z, 25d ago] agam1092005 commented:
+    Another way to do this without breaking the existing API is to keep delay(int retryCount) as the default backoff policy and add a separate opt-in callback for response-aware delays. For example:
+    
+    `Duration? Function(BaseResponse response, int retryCount)? retryDelay`
+    
+    The default implementation would continue using the current exponential backoff, while callers that need server-controlled retry timing can provide a function that reads Retry-After and returns the appropriate delay. This preserves compatibility for existing users while allowing Retry-After support without changing the meaning of delay.
+    That keeps the change focused and avoids forcing all retry users to depend on BaseResponse in the existing callback.
+    
+    @brianquinlan @RobertBrunhage 
+     I’d like to work on this issue.
+[2026-10-02 18:36Z, 23d ago] agam1092005 referenced this in commit 4d1b31e
+[2026-10-02 18:41Z, 23d ago] agam1092005 referenced this in commit d69fb8d

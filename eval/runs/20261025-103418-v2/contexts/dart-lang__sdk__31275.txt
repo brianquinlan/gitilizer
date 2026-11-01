@@ -1,0 +1,196 @@
+# ISSUE dart-lang/sdk#31275: dart:io HttpClient.post throws uncatch-able exception
+url: https://github.com/dart-lang/sdk/issues/31275
+state: open
+author: Pacane (association with repo: NONE)
+created: 2017-11-03T17:18:14Z (9.0y ago)
+last updated: 2025-02-13T14:17:45Z (20mo ago)
+labels: ['area-vm', 'library-io', 'P2', 'type-bug']
+assignees: []
+reactions: {'+1': 1}
+repository: dart-lang/sdk — The Dart SDK, including the VM, JS and Wasm compilers, analysis, core libraries, and more. (stars: 11317, open issues: 8498, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['mentioned']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: lrhn labeled 20mo ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: [{'by': 'parlough', 'informational_cc': True, 'line': '\\cc @brianquinlan Who is the new owner of this library.'}, {'by': 'kevmoo', 'informational_cc': True, 'line': "I would LOVE this to be taken up. I'm hitting this myself! CC @brianquinlan"}]
+- days_since_update: 619.1
+- days_since_created: 3278.0
+
+## Description
+I have this issue where I use `dart:io`'s `HttpClient` to post data `client.post` and that the post throws the following exception:
+
+```dart
+      if (_nextResponseCompleter == null) {
+        throw new HttpException(
+            "Unexpected response (unsolicited response without request).",
+            uri: _currentUri);
+      }
+```
+(from http_impl.dart)
+
+when I try to put the `client.post` in a try-catch block, the exception doesn't bubble up in my catch. Instead, it goes up until it's uncaught and make my program crash.
+
+with the help of @floitschG I could successfully catch the error by issuing my `client.post` in a `runZoned`, but this shouldn't be necessary.
+
+This bug affected our system in production and made our server crash.
+
+## Activity (22 events, oldest first)
+[2017-11-03 17:18Z, 9.0y ago] Pacane opened this issue
+[2017-11-03 17:18Z, 9.0y ago] floitschG labeled 'area-library'
+[2017-11-03 17:18Z, 9.0y ago] floitschG labeled 'library-io'
+[2017-11-03 17:39Z, 9.0y ago] floitschG commented:
+    @zanderso : I looked a little bit into this.
+    The problem is that this exception is thrown from within the `listen` to a `_httpParser`. This means that the user can't ever catch this error:
+    
+    ``` dart
+        _subscription = _httpParser.listen((incoming) {
+          // Only handle one incoming response at the time. Keep the
+          // stream paused until the response have been processed.
+          _subscription.pause();
+          // We assume the response is not here, until we have send the request.
+          if (_nextResponseCompleter == null) {
+            throw new HttpException(
+                "Unexpected response (unsolicited response without request).",
+                uri: _currentUri);
+          }
+    ```
+    
+    The big question is: how should this error be reported?. Just throwing isn't good enough, since it would never reach the user. The surrounding code doesn't give me enough information.
+    
+    When can `_nextResponseCompleter == null` be true?
+    If it is `null` did we already report an error (or success), and should we then just ignore the error? (still better than crashing the VM).
+    
+    @Pacane could you provide some feedback on how this was happening?
+    What client/server interaction seems to trigger this?
+[2017-11-03 18:19Z, 9.0y ago] Pacane commented:
+    So this happens when I do a post request to a remote server, and the server gives a 408 response (Request Timeout).
+    
+    When the server returns the 408, `_nextResponseCompleter == null` is true, and the exception is thrown.
+    
+    The production had this pattern
+    
+    ```dart
+    connect() async {
+         var client = getSomeClient();
+         try {
+              HttpClientRequest request = await client.postUrl(connUri);
+              // more code
+         catch(e) {
+              retryConnectWithSomeDelay();
+         }
+    }
+    ```
+    
+    For some reason, when I do this
+    
+    ```dart
+    connect() async {
+         var client = getSomeClient();
+         try {
+              HttpClientRequest request = await client.postUrl(connUri);
+              // more code
+         catch(e) {
+              retryConnectWithSomeDelay();
+         }
+    }
+    ```
+    the error happens. But if I close the client before retrying:
+    
+    ```dart
+    connect() async {
+         var client = getSomeClient();
+         try {
+              HttpClientRequest request = await client.postUrl(connUri);
+              // more code
+         catch(e) {
+              __client.close();__
+              retryConnectWithSomeDelay();
+         }
+    }
+    ```
+    
+    I have no error.
+    
+    Note that I can freely remove the `retryConnectWithSomeDelay()` and get essentially the same behaviour. In other words, the minimal code needed to reproduce this (omitting some details like certificates and [I think] other irrelevant stuff) is:
+    
+    ```dart
+    connect() async {
+         var client = getSomeClient();
+         HttpClientRequest request = await clie …[424 more chars]
+[2020-04-19 09:31Z, 6.5y ago] Schwusch commented:
+    I get this when using the [Dart AWS Lambda Runtime](https://github.com/awslabs/aws-lambda-dart-runtime) in the [lambci/lambda:provided](https://github.com/lambci/docker-lambda) Docker image in the [AWS SAM CLI tool](https://github.com/awslabs/aws-sam-cli):
+    ```
+    Unhandled exception:
+    HttpException: Unexpected response (unsolicited response without request).
+    ```
+    The server interacting with the Dart HTTP client is a [Go server](https://github.com/lambci/docker-lambda/blob/master/provided/run/init.go). 
+    Specifically the [postInvocationError](https://github.com/awslabs/aws-lambda-dart-runtime/blob/master/lib/client/client.dart#L149..L158) request that is handled by the [handleErrorRequest](https://github.com/lambci/docker-lambda/blob/20bcae1af655c22796ccf7dd11772a4b5defff66/provided/run/init.go#L538) function gives the "Unexpected response" exception.
+[2020-04-20 16:20Z, 6.5y ago] zanderso commented:
+    @ZichangG @sortie
+[2020-04-21 00:53Z, 6.5y ago] zichangg commented:
+    ```dart
+          if (incoming.statusCode == 100) {
+            // some codes
+          } else {
+            _nextResponseCompleter.complete(incoming);
+            _nextResponseCompleter = null;
+          }
+    ```
+    
+    ```dart
+              if (!closing &&
+                  !_dispose &&
+                  incoming.headers.persistentConnection &&
+                  request.persistentConnection) {
+                // Return connection, now we are done.
+                _httpClient._returnConnection(this);
+                _subscription.resume();
+              } else {
+                destroy();
+              }
+    ```
+    
+    I'm not confident whether this is a bug. In our implementation, if `statusCode != 100`, we complete with `incoming` and set `_nextResponseCompleter` to `null`. Because of persistent connection, it resumes the subscription so the next `incoming` arrived and `_nextResponseCompleter` is `null`. 
+    Is this behavior correct?
+[2020-04-21 18:15Z, 6.5y ago] Schwusch commented:
+    I'm wondering whether it's a bug in the failing request or the request that came before.
+    Is there a possibility that the previous request is causing the unexpected response?
+    How is this handled in other languages?
+[2020-04-21 22:25Z, 6.5y ago] zichangg commented:
+    According to [RFC](https://tools.ietf.org/html/rfc7231#section-6.5.7),
+    
+    >  A server SHOULD send the "close" connection option
+       (Section 6.1 of [RFC7230]) in the response, since 408 implies that
+       the server has decided to close the connection rather than continue
+       waiting.
+    
+    This looks like the case where server didn't explicitly close.
+    
+    @Schwusch or @Pacane Could you please try my patch(https://dart-review.googlesource.com/c/sdk/+/144346) to see whether it worked?
+[2020-04-22 07:11Z, 6.5y ago] Schwusch commented:
+    @zichangg I'll make an attempt to download the patchset and build the SDK today, or is there a build artifact or alike from the CI/CD?
+[2020-04-22 10:01Z, 6.5y ago] Schwusch commented:
+    @zichangg It worked when I tested it! You're awesome :1st_place_medal:
+[2020-04-23 21:44Z, 6.5y ago] zichangg commented:
+    @Schwusch Thanks! I'll try to get it landed asap.
+[2020-04-23 21:44Z, 6.5y ago] zichangg assigned zichangg
+[2020-05-05 13:34Z, 6.5y ago] sortie labeled 'P2'
+[2020-05-05 13:34Z, 6.5y ago] sortie labeled 'type-bug'
+[2020-10-30 23:15Z, 6.0y ago] rmacnak-google unassigned zichangg
+[2024-01-09 17:11Z, 2.8y ago] gencto commented:
+    @zichangg Hi, will this fix be implemented into the current SDK?
+[2024-01-09 17:23Z, 2.8y ago] parlough commented:
+    zichangg is no longer on the Dart team.
+    
+    Someone else could take over their original (now abandoned) CL, or use it as inspiration: https://dart-review.googlesource.com/c/sdk/+/144346
+    
+    \cc @brianquinlan Who is the new owner of this library.
+[2024-04-11 00:01Z, 2.5y ago] kevmoo commented:
+    I would LOVE this to be taken up. I'm hitting this myself! CC @brianquinlan
+[2025-02-13 14:17Z, 20mo ago] lrhn unlabeled 'area-core-library'
+[2025-02-13 14:17Z, 20mo ago] lrhn labeled 'area-vm'

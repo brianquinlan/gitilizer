@@ -1,0 +1,506 @@
+{
+ "config": {
+  "label": "v1-listwise",
+  "strategy": "listwise",
+  "model": "gemini-3.8-flash",
+  "thinking": null,
+  "prompt": "/home/claude/gitilizer2/prompts/v1.md",
+  "signals": true,
+  "trials": 3,
+  "now": null,
+  "started_at": "20261025-103418",
+  "snapshots_fetched_at": [
+   "2026-10-25T17:25:37Z",
+   "2026-10-25T17:25:41Z",
+   "2026-10-25T17:25:46Z",
+   "2026-10-25T17:25:51Z",
+   "2026-10-25T17:25:56Z",
+   "2026-10-25T17:25:58Z",
+   "2026-10-25T17:26:00Z",
+   "2026-10-25T17:26:02Z",
+   "2026-10-25T17:26:03Z",
+   "2026-10-25T17:26:10Z",
+   "2026-10-25T17:26:12Z",
+   "2026-10-25T17:26:17Z",
+   "2026-10-25T17:26:19Z"
+  ],
+  "elapsed_s": 127.8,
+  "usage": {
+   "prompt_tokens": 86913,
+   "output_tokens": 4388,
+   "thinking_tokens": 11504
+  }
+ },
+ "truth": [
+  "dart-lang/sdk#48056",
+  "googleapis/librarian#7808",
+  "googleapis/google-cloud-dart#376",
+  "googleapis/google-cloud-dart#382",
+  "googleapis/google-cloud-dart#361",
+  "dart-lang/sdk#31275",
+  "googleapis/google-cloud-dart#381",
+  "dart-lang/http#1837",
+  "dart-lang/http#2031",
+  "dart-lang/http#1365",
+  "dart-lang/http#2026",
+  "dart-lang/native#3653",
+  "dart-lang/http#2033"
+ ],
+ "why": {
+  "dart-lang/sdk#48056": "Issue created by me, recent security concerns that have probably been addressed by #64644 but need to verify that they have been addressed and possibly close the issue.",
+  "googleapis/librarian#7808": "My PR, review feedback needs addressed.",
+  "googleapis/google-cloud-dart#376": "The PR of a close collaborator in a repo that I am responsible for.",
+  "googleapis/google-cloud-dart#382": "Recent PR from an unknown 3rd party in a repo that I am responsible for.",
+  "googleapis/google-cloud-dart#361": "Issue created by a close collaborator in a repo that I am responsible for. In the last comment I asked a question that hasn't been answered yet.",
+  "dart-lang/sdk#31275": "Seemingly important issue where I was explicitly CCed as the last comment. But the last comment is very old and I am not assigned.",
+  "googleapis/google-cloud-dart#381": "Issue associated with googleapis/google-cloud-dart#382 - PRs are more important than issues and surfacing an issue associated with a PR is redundant.",
+  "dart-lang/http#1837": "Old low priority issue where I explicitly asked for 3rd party contributions.",
+  "dart-lang/http#2031": "The PR of a close collaborator in a repo that I am responsible for. Not actionable because it is part of a PR stack that has lower stacked items that have not been reviewed.",
+  "dart-lang/http#1365": "Issue in a repo that I'm interested in. The issue is stale. Indicated that I am not responsible for package:http2.",
+  "dart-lang/http#2026": "PR in a repo that I am interested in. Assigned to another collaborator. Indicated that I am not responsible for package:http2.",
+  "dart-lang/native#3653": "Issue that I created comments in. Assigned to someone else and not actionable by me.",
+  "dart-lang/http#2033": "The PR of a close collaborator in a repo that I am responsible for. Not actionable because I've already approved it."
+ },
+ "trials": [
+  [
+   {
+    "id": "googleapis/librarian#7808",
+    "priority": 0.92,
+    "actionable": true,
+    "next_action": "Reply to kevmoo's review comment regarding CHANGELOG.md preservation and push updates.",
+    "reasoning": "This is your open pull request resolving an onboarding bug in librarian for Dart packages. Kevmoo left inline review feedback 19 hours ago that requires your decision and follow-up. Since PR progress is blocked on your response, this is your top priority.",
+    "last_activity": "2026-10-24T22:50:47Z",
+    "usage": {
+     "prompt_tokens": 28971,
+     "output_tokens": 1571,
+     "thinking_tokens": 5528
+    },
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#376",
+    "priority": 0.84,
+    "actionable": true,
+    "next_action": "Review Sigurd's PR adding client attribution headers and release polish for Pub/Sub.",
+    "reasoning": "This PR touches googleapis/google-cloud-dart, a repository you maintain, and is authored by your frequent collaborator Sigurd. It prepares package:google_cloud_pubsub for release and needs a review. PR reviews take priority over general issues.",
+    "last_activity": "2026-10-20T09:39:22Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#382",
+    "priority": 0.76,
+    "actionable": true,
+    "next_action": "Review quaaantumdev's pull request fixing error code handling for JSON RPC responses.",
+    "reasoning": "This PR is submitted against your repository googleapis/google-cloud-dart and resolves an active bug where ABORTED errors fail to retry over REST. It comes with clean tests and analysis and is ready for maintainer review. Reviewing it keeps community contributions moving forward.",
+    "last_activity": "2026-10-22T14:49:54Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/sdk#48056",
+    "priority": 0.68,
+    "actionable": true,
+    "next_action": "Assess the reported eMudhra CA compromise impact on Android certificate handling and reply.",
+    "reasoning": "You are the assignee on this Dart SDK networking issue regarding Android root certificate handling. Three days ago, a commenter highlighted security concerns regarding recent intermediate CA compromises and Android revocation mechanisms. Because this concerns security in core networking code assigned to you, it requires your attention.",
+    "last_activity": "2026-10-22T08:18:34Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#2031",
+    "priority": 0.5,
+    "actionable": true,
+    "next_action": "Review the release PR or decline the review request noting that you do not maintain http2.",
+    "reasoning": "You are explicitly listed as a requested reviewer on this PR preparing the http2 3.2.0 release. However, your profile explicitly notes you are not responsible for http2. You should quickly review it if appropriate or remove yourself as a reviewer so mosuem knows where it stands.",
+    "last_activity": "2026-10-23T05:35:25Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#361",
+    "priority": 0.35,
+    "actionable": false,
+    "next_action": "Wait for kevmoo to respond regarding discovery vs service operation extensions.",
+    "reasoning": "This issue is in your repository googleapis/google-cloud-dart regarding Compute Engine discovery models. You were the last person to comment 16 days ago asking whether switching formats or adding convenience extensions is preferred. You are waiting on kevmoo for the next step.",
+    "last_activity": "2026-10-09T17:56:34Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#2033",
+    "priority": 0.25,
+    "actionable": false,
+    "next_action": "Wait for mosuem to merge the approved pull request.",
+    "reasoning": "You already reviewed and approved this PR 2 days ago to run Firefox headless in CI. No new commits have been pushed since your approval. There is nothing further for you to do here.",
+    "last_activity": "2026-10-23T15:55:16Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#381",
+    "priority": 0.2,
+    "actionable": false,
+    "next_action": "Track resolution via PR #382.",
+    "reasoning": "This issue describes the RPC error status mapping bug in google_cloud_rpc. Because PR #382 has already been opened by the author with a full fix and tests, all action should take place on the PR rather than this issue.",
+    "last_activity": "2026-10-22T14:38:23Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/native#3653",
+    "priority": 0.12,
+    "actionable": false,
+    "next_action": "Wait for liamappelbe to decide on next steps for ffigen autorelease pools.",
+    "reasoning": "This issue is in dart-lang/native and assigned to liamappelbe. You previously provided helpful insights, but liamappelbe concluded 34 days ago that the approach may not be worth the effort. No action is required from you.",
+    "last_activity": "2026-09-22T01:51:10Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#2026",
+    "priority": 0.08,
+    "actionable": false,
+    "next_action": "Wait for mosuem to review this http2 pull request.",
+    "reasoning": "This PR addresses an issue in package:http2, for which you are not responsible. The author specifically addressed the PR to mosuem, who is active on the stream handler logic.",
+    "last_activity": "2026-10-24T10:40:15Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/sdk#31275",
+    "priority": 0.05,
+    "actionable": false,
+    "next_action": "None; awaiting Dart VM/IO team triaging and ownership.",
+    "reasoning": "This is a 9-year-old issue in dart:io that has been dormant for 20 months. Although you were CC'd over two years ago as the library owner, you are not assigned and no recent activity has taken place.",
+    "last_activity": "2025-02-13T14:17:45Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1837",
+    "priority": 0.03,
+    "actionable": false,
+    "next_action": "None; waiting for external community contributions.",
+    "reasoning": "You commented a year ago clarifying that the Dart team is unlikely to build a WinHTTP client and labeled it for community contributions. There has been no subsequent activity.",
+    "last_activity": "2025-10-28T00:05:56Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1365",
+    "priority": 0.01,
+    "actionable": false,
+    "next_action": "None; waiting for http2 maintainers to triage or close as obsolete.",
+    "reasoning": "This is an old discussion on http2 performance with no activity for 8 months. You are not responsible for http2, and the issue appears to stem from client-side implementation details rather than package bugs.",
+    "last_activity": "2026-02-10T08:15:39Z",
+    "usage": {},
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "googleapis/librarian#7808",
+    "priority": 0.92,
+    "actionable": true,
+    "next_action": "Reply to kevmoo's review comment on CHANGELOG preservation and update the PR implementation.",
+    "reasoning": "This is a PR authored by me that fixes a release blocker for google-cloud-dart packages. Collaborator kevmoo left an inline question 19 hours ago regarding how CHANGELOG.md should be handled during generation and bumping.",
+    "last_activity": "2026-10-24T22:50:47Z",
+    "usage": {
+     "prompt_tokens": 28971,
+     "output_tokens": 1412,
+     "thinking_tokens": 2696
+    },
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#376",
+    "priority": 0.85,
+    "actionable": true,
+    "next_action": "Review the PR changes for Pub/Sub client attribution headers and pre-release configuration.",
+    "reasoning": "This PR touches google_cloud_pubsub in a repository I maintain and was submitted by my collaborator sigurdm. It is ready for review and polishing before release.",
+    "last_activity": "2026-10-20T09:39:22Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#382",
+    "priority": 0.8,
+    "actionable": true,
+    "next_action": "Review and test the community contribution fixing JSON RPC error code mapping.",
+    "reasoning": "This is a bug fix PR in google-cloud-dart submitted by a contributor with thorough explanation and test coverage. It resolves issue #381 to ensure retryable status codes like ABORTED work properly over REST.",
+    "last_activity": "2026-10-22T14:49:54Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/sdk#48056",
+    "priority": 0.72,
+    "actionable": true,
+    "next_action": "Assess the security concern raised regarding the eMudhra intermediate CA compromise and respond.",
+    "reasoning": "I am assigned to this issue regarding Android CA certificate handling in the Dart SDK. A user recently flagged potential security implications following a major intermediate CA compromise, requiring clarification on whether Dart's HttpClient on Android honors blocklists.",
+    "last_activity": "2026-10-22T08:18:34Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#2031",
+    "priority": 0.6,
+    "actionable": true,
+    "next_action": "Review the release PR or delegate/unassign since I am not responsible for http2.",
+    "reasoning": "I was explicitly requested for review by mosuem on this release preparation PR in dart-lang/http. Although my profile notes I am not responsible for http2, an explicit review request on a release deserves a quick review or redirection.",
+    "last_activity": "2026-10-23T05:35:25Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#2033",
+    "priority": 0.45,
+    "actionable": false,
+    "next_action": "Wait for mosuem to merge the approved PR.",
+    "reasoning": "This PR in dart-lang/http addresses headless Firefox test runs. I reviewed and approved it two days ago, and there are no further actions required on my end.",
+    "last_activity": "2026-10-23T15:55:16Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#381",
+    "priority": 0.35,
+    "actionable": false,
+    "next_action": "Track resolution via PR #382.",
+    "reasoning": "This issue reports the REST error code mapping bug in google_cloud_rpc. Action is already being actively addressed on the corresponding pull request #382.",
+    "last_activity": "2026-10-22T14:38:23Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#361",
+    "priority": 0.3,
+    "actionable": false,
+    "next_action": "Wait for kevmoo to respond to my question about discovery API surface size vs proto convenience.",
+    "reasoning": "This issue discusses whether to switch Compute Engine generation to discovery. I was the last commenter 16 days ago asking kevmoo for his input on trade-offs, so ball is in his court.",
+    "last_activity": "2026-10-09T17:56:34Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#2026",
+    "priority": 0.2,
+    "actionable": false,
+    "next_action": "Wait for mosuem to review the contributor's PR.",
+    "reasoning": "This PR is for package:http2, which I am not responsible for. The author specifically addressed mosuem for review.",
+    "last_activity": "2026-10-24T10:40:15Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/native#3653",
+    "priority": 0.15,
+    "actionable": false,
+    "next_action": "None; wait on assignee liamappelbe if work resumes.",
+    "reasoning": "This issue in dart-lang/native is assigned to liamappelbe, who decided wrapping in autorelease pools is preferable to low-level assembly surgery. No action needed from me.",
+    "last_activity": "2026-09-22T01:51:10Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1837",
+    "priority": 0.1,
+    "actionable": false,
+    "next_action": "None; awaiting community contribution if anyone picks it up.",
+    "reasoning": "I replied a year ago clarifying that the Dart team is unlikely to build a WinHTTP client and labeled it contributions-welcome. Nothing is pending for me.",
+    "last_activity": "2025-10-28T00:05:56Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/sdk#31275",
+    "priority": 0.08,
+    "actionable": false,
+    "next_action": "None; issue is dormant and not assigned to me.",
+    "reasoning": "A long-standing bug in dart:io HttpClient that has seen no activity for 20 months. I was only CC'd years ago and am not assigned.",
+    "last_activity": "2025-02-13T14:17:45Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1365",
+    "priority": 0.04,
+    "actionable": false,
+    "next_action": "None; issue belongs to package:http2.",
+    "reasoning": "This is an old issue concerning http2 performance that has been dormant for 8 months. I am explicitly not responsible for http2.",
+    "last_activity": "2026-02-10T08:15:39Z",
+    "usage": {},
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "googleapis/librarian#7808",
+    "priority": 0.9,
+    "actionable": true,
+    "next_action": "Respond to kevmoo's review comment and update the PR logic for CHANGELOG handling.",
+    "reasoning": "This is my PR in librarian which fixes an important blocker for tagging releases in google-cloud-dart. Collaborator kevmoo left a review comment 19 hours ago with a specific question on how to handle CHANGELOG.md during bump/clean.",
+    "last_activity": "2026-10-24T22:50:47Z",
+    "usage": {
+     "prompt_tokens": 28971,
+     "output_tokens": 1405,
+     "thinking_tokens": 3280
+    },
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#376",
+    "priority": 0.85,
+    "actionable": true,
+    "next_action": "Review and approve sigurdm's PR.",
+    "reasoning": "This is an open PR in google-cloud-dart by frequent collaborator sigurdm adding client attribution and pre-release polish to the pubsub package. It is awaiting human review before pubsub can be published.",
+    "last_activity": "2026-10-20T09:39:22Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#382",
+    "priority": 0.78,
+    "actionable": true,
+    "next_action": "Review the PR and verify error mapping behavior against REST and gRPC specs.",
+    "reasoning": "This is an incoming PR in google-cloud-dart fixing a significant bug where JSON error codes are mapped to HTTP status codes instead of google.rpc.Code, breaking retry logic. It requires review to unblock the contributor.",
+    "last_activity": "2026-10-22T14:49:54Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#2031",
+    "priority": 0.7,
+    "actionable": true,
+    "next_action": "Review the release PR or confirm with mosuem.",
+    "reasoning": "I am explicitly requested for review by mosuem on this PR preparing the release of package:http2 3.2.0. Even though I am generally not responsible for http2, I reviewed the preceding PRs in the stack and a review request on a release PR is actionable.",
+    "last_activity": "2026-10-23T05:35:25Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/sdk#48056",
+    "priority": 0.62,
+    "actionable": true,
+    "next_action": "Investigate and answer the security-related inquiry regarding certificate revocation and blocklists on Android.",
+    "reasoning": "I am the author and assignee of this issue concerning Android CA certificates in the Dart SDK. A user recently posted asking about the security impact and handling of compromised intermediate CAs on Android, which merits clarification and triage.",
+    "last_activity": "2026-10-22T08:18:34Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#2033",
+    "priority": 0.35,
+    "actionable": false,
+    "next_action": "Wait for mosuem to merge the approved PR.",
+    "reasoning": "I reviewed and approved this PR 2 days ago. The ball is in the author's court to merge it when ready.",
+    "last_activity": "2026-10-23T15:55:16Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#381",
+    "priority": 0.3,
+    "actionable": false,
+    "next_action": "Review and merge PR #382 to close this issue.",
+    "reasoning": "This issue in google-cloud-dart details a bug in google_cloud_rpc error code mapping. Action is already being taken on PR #382, which fixes this issue.",
+    "last_activity": "2026-10-22T14:38:23Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#361",
+    "priority": 0.25,
+    "actionable": false,
+    "next_action": "Wait for kevmoo to respond regarding API surface tradeoffs.",
+    "reasoning": "I was the last actor on this issue, responding to kevmoo's proposal with concerns about the enlarged API surface of discovery-based compute. Waiting for collaborator input.",
+    "last_activity": "2026-10-09T17:56:34Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#2026",
+    "priority": 0.2,
+    "actionable": false,
+    "next_action": "Wait for mosuem to review this http2 PR.",
+    "reasoning": "This PR touches package:http2, which I am not responsible for, and the contributor specifically requested review from mosuem.",
+    "last_activity": "2026-10-24T10:40:15Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/native#3653",
+    "priority": 0.15,
+    "actionable": false,
+    "next_action": "None; wait for liamappelbe to decide whether to pursue changes in the Dart VM.",
+    "reasoning": "This issue in dart-lang/native is assigned to liamappelbe. Discussion between liamappelbe and mraleph concluded that the optimization is likely not worth the complex low-level FFI work required.",
+    "last_activity": "2026-09-22T01:51:10Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/sdk#31275",
+    "priority": 0.08,
+    "actionable": false,
+    "next_action": "None; backlog bug awaiting VM team investigation.",
+    "reasoning": "This is a long-standing bug in dart:io with no recent activity in over 20 months. Mentions of me from years ago were informational CCs.",
+    "last_activity": "2025-02-13T14:17:45Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1837",
+    "priority": 0.04,
+    "actionable": false,
+    "next_action": "None; awaiting external community contributions.",
+    "reasoning": "I was the last respondent on this issue a year ago, stating the Dart team will not implement this feature and labeling it for community contributions.",
+    "last_activity": "2025-10-28T00:05:56Z",
+    "usage": {},
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1365",
+    "priority": 0.01,
+    "actionable": false,
+    "next_action": "None.",
+    "reasoning": "This is a dormant issue from 2020 on package:http2, an area I am not responsible for.",
+    "last_activity": "2026-02-10T08:15:39Z",
+    "usage": {},
+    "error": null
+   }
+  ]
+ ],
+ "metrics": [
+  {
+   "kendall_tau": 0.4615,
+   "spearman": 0.6538,
+   "pairwise_acc": 0.7308,
+   "ndcg": 0.9637,
+   "ndcg@5": 0.9295,
+   "top3_overlap": 0.6667,
+   "top5_overlap": 0.8,
+   "mean_abs_displacement": 2.615
+  },
+  {
+   "kendall_tau": 0.4103,
+   "spearman": 0.5934,
+   "pairwise_acc": 0.7051,
+   "ndcg": 0.9587,
+   "ndcg@5": 0.9295,
+   "top3_overlap": 0.6667,
+   "top5_overlap": 0.8,
+   "mean_abs_displacement": 2.769
+  },
+  {
+   "kendall_tau": 0.4103,
+   "spearman": 0.5604,
+   "pairwise_acc": 0.7051,
+   "ndcg": 0.9514,
+   "ndcg@5": 0.9192,
+   "top3_overlap": 0.6667,
+   "top5_overlap": 0.8,
+   "mean_abs_displacement": 2.923
+  }
+ ]
+}

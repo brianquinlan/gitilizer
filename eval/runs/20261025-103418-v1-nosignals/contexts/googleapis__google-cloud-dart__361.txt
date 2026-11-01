@@ -1,0 +1,77 @@
+# ISSUE googleapis/google-cloud-dart#361: [google_cloud_compute_v1] Switch to specification_format: discovery and wire CommonDiscovery LRO pollers
+url: https://github.com/googleapis/google-cloud-dart/issues/361
+state: open
+author: kevmoo (association with repo: MEMBER)
+created: 2026-09-19T05:57:19Z (36d ago)
+last updated: 2026-10-09T17:56:34Z (16d ago)
+labels: []
+assignees: []
+repository: googleapis/google-cloud-dart — [Experimental] Google Cloud Dart Client Libraries (stars: 23, open issues: 58, archived: False)
+
+## Related issues and PRs
+- PR googleapis/google-cloud-dart#323 'feat(google_cloud_compute_v1): initial commit': merged, by brianquinlan, updated 2mo ago, assignees ['natebosch']
+- PR googleapis/google-cloud-dart#345 'feat(dns): initial support': open, by brianquinlan, updated 45d ago
+- issue googleapis/google-cloud-dart#28 'provide facilities to make it easier for users to poll for the results of LROs': open, by devoncarew, updated 37d ago
+
+## Description
+### Context & Problem
+
+`google_cloud_compute_v1` (landed in #323) is currently configured in `librarian.yaml` (lines 281–293) without `specification_format: discovery`. As a result, `librarian` derives `google/cloud/compute/v1` and generates `google_cloud_compute_v1` from `google/cloud/compute/v1/compute.proto` (`SpecificationFormat: protobuf`).
+
+However, Compute Engine does not use `google.longrunning.Operations`. In `compute.proto`, long-running operations return `google.cloud.compute.v1.Operation` and are annotated with `google.cloud.operation_service` extensions (`ZoneOperations`, `RegionOperations`, `GlobalOperations`, `GlobalOrganizationOperations`), which `internal/sidekick/parser/protobuf.go` does not parse into `api.Method.OperationInfo` or `DiscoveryLro`.
+
+By contrast, in `googleapis/librarian`:
+- `internal/serviceconfig/sdk.yaml:436-438` maps `google/cloud/compute/v1` to `discovery: discoveries/compute.v1.json`.
+- `internal/sidekick/parser/discovery/lro.go` (`lroAnnotations`) populates `api.Method.DiscoveryLro` (`PollingPathParameters`) and injects service-scoped `getOperation` poller methods (`IsLroPoller: true`) when `modelConfig.Discovery` (`*api.Discovery`) is configured via `CommonDiscovery` (`internal/config/discovery.go`, as used by `internal/librarian/rust/codec.go:96-108` and `internal/librarian/swift/generate.go:149-161`).
+- PR #345 (`google_cloud_dns_v1`) already introduces `sources.discovery` and `specification_format: discovery` in `librarian.yaml` for Dart.
+
+### Proposed Solution
+
+1. **Support `SpecDiscovery` and `CommonDiscovery` in `googleapis/librarian` (`internal/librarian/dart/codec.go` & `internal/config/`)**:
+   - Update `toModelConfig` in `internal/librarian/dart/codec.go` (lines 31–66) to accept `config.SpecDiscovery` and resolve `SpecificationSource = svcConfig.Discovery` (`"discoveries/compute.v1.json"`, matching `internal/librarian/rust/codec.go:46-53`).
+   - Add `Discovery *CommonDiscovery` (`yaml:"discovery,omitempty"`) to `config.DartPackage` and map `library.Dart.Discovery` (`OperationID` and `Pollers`) to `modelConfig.Discovery` in `internal/librarian/dart/codec.go` (matching `internal/librarian/rust/codec.go:96-108`).
+2. **Update `google_cloud_compute_v1` in `librarian.yaml`**:
+   - Switch `google_cloud_compute_v1` to `specification_format: discovery` with `roots: [discovery, googleapis]` and configure `dart.discovery` poller mappings:
+     ```yaml
+     dart:
+       discovery:
+         operation_id: .google.cloud.compute.v1.Operation
+         pollers:
+           - prefix: compute/v1/projects/{project}/zones/{zone}
+             method_id: .google.cloud.compute.v1.zoneOperations.get
+           - prefix: compute/v1/projects/{project}/regions/{region}
+             method_id: .google.cloud.compute.v1.regionOperations.get
+           - prefix: compute/v1/projects/{project}/global
+             method_id: .google.cloud.compute.v1.globalOperations.get
+           - prefix: compute/v1/locations/global
+             method_id: .google.cloud.compute.v1.globalOrganizationOperations.get
+     ```
+3. **Wire `DiscoveryLro` Poller Generation in `sidekick/dart` (for #28)**:
+   - Use the injected `IsLroPoller` (`getOperation`) mixin and `api.Method.DiscoveryLro.PollingPathParameters` (`project`, `zone`, `region`, `operation`) in `internal/sidekick/dart/annotate.go` so Compute Engine mutations (`Instances.insert`, `Disks.insert`, etc.) expose typed LRO polling helpers alongside standard `google.longrunning.Operation` methods (#28).
+
+### Acceptance Criteria
+
+- [ ] `internal/librarian/dart/codec.go` in `googleapis/librarian` supports `specification_format: discovery` (`SpecificationSource = svcConfig.Discovery`) and `dart.discovery` (`CommonDiscovery` pollers).
+- [ ] `google_cloud_compute_v1` in `librarian.yaml` uses `specification_format: discovery` (`discoveries/compute.v1.json`) with `zoneOperations`, `regionOperations`, `globalOperations`, and `globalOrganizationOperations` pollers configured.
+- [ ] Comput …[67 more chars]
+
+## Activity (6 events, oldest first)
+[2026-09-19 05:57Z, 36d ago] kevmoo opened this issue
+[2026-09-19 05:57Z, 36d ago] github-project-automation[bot] added to project v2
+[2026-09-19 05:57Z, 36d ago] github-project-automation[bot] project v2 item status changed
+[2026-10-08 21:34Z, 17d ago] brianquinlan (ME) commented:
+    Is the problem that the generated `Operation` classes aren't idiomatic?
+    
+    Because they are useable, e.g., https://github.com/googleapis/google-cloud-dart/blob/11a532d4a10a20bf23b5961a6a8558dacbe5edff/generated/google_cloud_compute_v1/test/address_test.dart#L63
+[2026-10-08 21:59Z, 17d ago] kevmoo commented:
+    @brianquinlan Yes, exactly! Manual polling via `operationsService.get` works and is perfectly usable, but it isn't idiomatic compared to the `op.wait()` polling helpers generated for services returning standard `google.longrunning.Operation`.
+    
+    Because `internal/sidekick/parser/protobuf.go` doesn't currently parse the `google.cloud.operation_service` annotations (`ZoneOperations`, `RegionOperations`, etc.) used in `compute.proto`, `sidekick` treats Compute operations as standard RPC responses. This forces clients to write manual `while(true)` polling loops with explicit `Future.delayed` and `status == Operation_Status.done` checks, as seen in `address_test.dart`.
+    
+    If we switch Compute Engine to `specification_format: discovery` in `librarian.yaml` and configure the `CommonDiscovery` LRO pollers, `internal/sidekick/parser/discovery/lro.go` will correctly map these to `api.Method.DiscoveryLro`. This gives us the necessary AST data to wire up idiomatic polling helpers for Compute Engine in `sidekick/dart` (resolving #28), bringing it to parity with how Rust and Swift handle Compute LROs.
+[2026-10-09 17:56Z, 16d ago] brianquinlan (ME) commented:
+    I remember generating the discovery version of `compute_v1` and it had a **much** bigger API surface than the proto version because of the synthetic classes. I wish that I had kept the numbers but I remember it being something like 60% larger and, IMO, harder to navigate.
+    
+    Do you think that we'd be better switching to discovery or adding some convenience extensions to the service operations? 
+    
+    In my mind, the most compelling reason to go with the discovery version of compute is that other generated code is using that version. But the actual API is less pleasant.

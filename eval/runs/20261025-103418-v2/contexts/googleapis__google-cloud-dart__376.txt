@@ -1,0 +1,138 @@
+# PULL REQUEST googleapis/google-cloud-dart#376: feat(pubsub): add client attribution header and pre-release polish
+url: https://github.com/googleapis/google-cloud-dart/pull/376
+state: open
+author: sigurdm (association with repo: MEMBER)
+created: 2026-10-20T09:36:20Z (5d ago)
+last updated: 2026-10-20T09:39:22Z (5d ago)
+labels: []
+assignees: []
+requested reviewers: []
+branch: googleapis:pubsub-release-polish -> main
+reactions: {'eyes': 1}
+repository: googleapis/google-cloud-dart — [Experimental] Google Cloud Dart Client Libraries (stars: 23, open issues: 58, archived: False)
+
+## Derived signals (computed from the data below)
+- type: pull_request
+- my_roles: ['watches_repo']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: sigurdm opened this PR 5d ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: []
+- days_since_update: 5.3
+- days_since_created: 5.3
+- other_reviews: {'gemini-code-assist[bot]': 'COMMENTED 5d ago'}
+- review_decision: REVIEW_REQUIRED
+- unresolved_review_threads: 0
+- draft: False
+- merged: False
+- mergeable_state: behind
+- size: +190/-30 in 8 files
+- last_commit: 5d ago
+
+## Changed files (8)
+pkgs/google_cloud_pubsub/.pubignore (+19/-0), pkgs/google_cloud_pubsub/CHANGELOG.md (+12/-27), pkgs/google_cloud_pubsub/lib/src/client.dart (+9/-2), pkgs/google_cloud_pubsub/lib/src/pubsub_emulator_host_vm.dart (+7/-0), pkgs/google_cloud_pubsub/lib/src/version.dart (+2/-0), pkgs/google_cloud_pubsub/pubspec.yaml (+17/-0), pkgs/google_cloud_pubsub/test/test_utils.dart (+11/-1), pkgs/google_cloud_pubsub/test/version_test.dart (+113/-0)
+
+## Description
+- Send `gl-dart/<dartVersion> gccl/<packageVersion>` in the `x-goog-api-client` gRPC metadata header on all `PubSub` requests and verify `packageVersion` matches `pubspec.yaml`.
+- Condense `CHANGELOG.md` into a summary of the initial `0.1.0` feature set.
+- Add the license header and `issue_tracker` URL to `pubspec.yaml`.
+- Add `.pubignore` to exclude `protos/` and `tool/` from the published package archive.
+
+## Activity (119 events, oldest first)
+[2026-09-10 10:40Z, 45d ago] Sigurd Meldgaard pushed commit 3545789 'feat(pubsub): add message and acknowledgment batching with retry infrastructure'
+[2026-09-10 10:46Z, 45d ago] Sigurd Meldgaard pushed commit 85b53a0 'feat(pubsub): add resilient parallel streaming pull'
+[2026-09-10 11:00Z, 45d ago] Sigurd Meldgaard pushed commit 1dc63d5 'refactor(pubsub): add streams to activeStreams only on listen and evict closed streams'
+[2026-09-10 11:04Z, 45d ago] Sigurd Meldgaard pushed commit 32963ae 'style(pubsub): keep subscription name validation error message on single line'
+… 90 older events condensed …
+[2026-10-01 13:28Z, 24d ago] Sigurd Meldgaard pushed commit 32be8f7 'fix(google_cloud_pubsub): address pre-review feedback for ack batching'
+[2026-10-01 13:33Z, 24d ago] Sigurd Meldgaard pushed commit f4c1747 "Merge branch 'pubsub-retry-batching' into pubsub-streaming-pull"
+[2026-10-01 13:51Z, 24d ago] Sigurd Meldgaard pushed commit e5ee52a 'docs(google_cloud_pubsub): polish AckSettings and Message documentation'
+[2026-10-01 13:54Z, 24d ago] Sigurd Meldgaard pushed commit 3ba09e0 "Merge branch 'pubsub-retry-batching' into pubsub-streaming-pull"
+[2026-10-01 14:25Z, 24d ago] Sigurd Meldgaard pushed commit 4ca3d15 'fix(pubsub): address pre-review findings on streaming pull'
+[2026-10-02 07:27Z, 23d ago] Sigurd Meldgaard pushed commit cd34f86 'fix(pubsub): tighten streamingPull cancellation ordering and retry initialization'
+[2026-10-02 08:52Z, 23d ago] Sigurd Meldgaard pushed commit 5e1c729 'refactor(pubsub): simplify streamingPullWithStream with async* and yield*'
+[2026-10-02 09:02Z, 23d ago] Sigurd Meldgaard pushed commit 49fc361 'fix(pubsub): use Stream.multi and addStream in streamingPullWithStream'
+[2026-10-05 12:55Z, 20d ago] Sigurd Meldgaard pushed commit 22d673c 'refactor(google_cloud_pubsub): use single-subscription StreamController in streamingPullWithStream'
+[2026-10-08 12:07Z, 17d ago] Sigurd Meldgaard pushed commit 3e96d8b "Merge branch 'main' into pubsub-retry-batching"
+[2026-10-08 12:07Z, 17d ago] Sigurd Meldgaard pushed commit ab362c4 "Merge branch 'pubsub-retry-batching' into pubsub-streaming-pull"
+[2026-10-09 13:10Z, 16d ago] Sigurd Meldgaard pushed commit 60a45ad 'refactor(google_cloud_pubsub): remove DisposableStreamController and clarify hasListener check'
+[2026-10-09 14:19Z, 16d ago] Sigurd Meldgaard pushed commit 7d55bcb 'chore(google_cloud_pubsub): polish wire_size constants, docs, and tests'
+[2026-10-09 14:19Z, 16d ago] Sigurd Meldgaard pushed commit 40293b4 "Merge branch 'main' into pubsub-retry-batching"
+[2026-10-09 14:19Z, 16d ago] Sigurd Meldgaard pushed commit c37bf2c "Merge branch 'pubsub-retry-batching' into pubsub-streaming-pull"
+[2026-10-20 08:31Z, 5d ago] Sigurd Meldgaard pushed commit 987efa7 'Address review feedback on #292'
+[2026-10-20 08:34Z, 5d ago] Sigurd Meldgaard pushed commit 6eead48 "Merge branch 'pubsub-retry-batching' into pubsub-streaming-pull"
+[2026-10-20 09:08Z, 5d ago] Sigurd Meldgaard pushed commit d2de3f5 "Merge branch 'main' into pubsub-retry-batching"
+[2026-10-20 09:21Z, 5d ago] Sigurd Meldgaard pushed commit 31cc0c4 "Merge branch 'pubsub-retry-batching' into pubsub-streaming-pull"
+[2026-10-20 09:21Z, 5d ago] Sigurd Meldgaard pushed commit c3f46f1 "Merge branch 'main' into pubsub-streaming-pull"
+[2026-10-20 09:29Z, 5d ago] Sigurd Meldgaard pushed commit 1350b58 'feat(pubsub): add client attribution header and pre-release polish'
+[2026-10-20 09:36Z, 5d ago] sigurdm opened this PR
+[2026-10-20 09:36Z, 5d ago] Sigurd Meldgaard pushed commit d23e3a8 "Merge remote-tracking branch 'origin/main' into pubsub-release-polish"
+[2026-10-20 09:38Z, 5d ago] github-actions[bot] commented:
+    ## PR Health
+    
+    
+    <details>
+    <summary>
+    <strong>Coverage</strong> :warning:
+    </summary>
+    
+    | File | Coverage |
+    | :--- | :--- |
+    |pkgs/google_cloud_pubsub/lib/src/client.dart| :green_heart: 85 % :arrow_up: 1 % |
+    |pkgs/google_cloud_pubsub/lib/src/pubsub_emulator_host_vm.dart| :green_heart: 11 % :arrow_up: Infinity % |
+    |pkgs/google_cloud_pubsub/lib/src/version.dart| :broken_heart: Not covered |
+    
+    This check for [test coverage](https://github.com/dart-lang/ecosystem/wiki/Test-Coverage) is informational (issues shown here will not fail the PR).
+    
+    
+    This check can be disabled by tagging the PR with `skip-coverage-check`.
+    </details>
+    
+    <details>
+    <summary>
+    <strong>License Headers</strong> :warning:
+    </summary>
+    
+    ```
+    // Copyright (c) 2026, the Dart project authors. Please see the AUTHORS file
+    // for details. All rights reserved. Use of this source code is governed by a
+    // BSD-style license that can be found in the LICENSE file.
+    ```
+    
+    | Files |
+    | :--- |
+    |pkgs/google_cloud_pubsub/lib/src/client.dart|
+    |pkgs/google_cloud_pubsub/lib/src/pubsub_emulator_host_vm.dart|
+    |pkgs/google_cloud_pubsub/test/test_utils.dart|
+    |pkgs/google_cloud_pubsub/test/version_test.dart|
+    
+    All source files should start with a [license header](https://github.com/dart-lang/ecosystem/wiki/License-Header).
+    
+    <details>
+    <summary>
+    Unrelated files missing license headers
+    </summary>
+    
+    | Files |
+    | :--- |
+    |generated/google_cloud_ai_generativelanguage_v1beta/example/application_default_credentials.dart|
+    |generated/google_cloud_ai_generativelangua …[72846 more chars]
+[2026-10-20 09:39Z, 5d ago] gemini-code-assist[bot] reviewed [COMMENTED]:
+    ## Code Review
+    
+    This pull request enhances the `google_cloud_pubsub` package by implementing resilient bidirectional streaming pull capabilities, including support for parallel streams, automatic reconnection with exponential backoff, and background batching/routing of acknowledgments and deadline modifications. Feedback on these changes highlights critical issues where asynchronous stream cancellations could throw unhandled `StateError`s during ACK or deadline modification writes, potentially causing callers to hang indefinitely. Additionally, a potential duplicate error emission issue was identified in the stream controller's error-handling logic.
+    
+    <details>
+    <summary>I am having trouble creating individual review comments. Click here to see my feedback.</summary>
+    
+    ### pkgs/google_cloud_pubsub/lib/src/subscription.dart (192-197)
+    
+    ![high](https://www.gstatic.com/codereviewagent/high-priority.svg)
+    
+    Calling `activeStream.add(...)` can throw a `StateError` if the stream has been cancelled asynchronously (e.g., due to a network drop). Since there is no `try-catch` block around this call, the exception will propagate and prevent `resolveBatch()` from being called. This will cause any completers associated with the batch to never complete, leading to callers awaiting `acknowledge()` hanging indefinitely. Wrapping the call in a `try-catch` block allows it to safely fall back to the unary RPC path.
+    
+    ```dart
+        final activeStream = _getActiveStream();
+        if (activeStream != null) { …[2566 more chars]

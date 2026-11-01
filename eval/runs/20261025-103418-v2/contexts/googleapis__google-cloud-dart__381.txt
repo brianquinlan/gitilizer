@@ -1,0 +1,76 @@
+# ISSUE googleapis/google-cloud-dart#381: [google_cloud_rpc] fromHttpResponse puts the HTTP status into Status.code and drops the google.rpc.Code, so ABORTED is never retried over REST
+url: https://github.com/googleapis/google-cloud-dart/issues/381
+state: open
+author: quaaantumdev (association with repo: NONE)
+created: 2026-10-22T14:37:15Z (3d ago)
+last updated: 2026-10-22T14:38:23Z (3d ago)
+labels: []
+assignees: []
+repository: googleapis/google-cloud-dart — [Experimental] Google Cloud Dart Client Libraries (stars: 23, open issues: 58, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['watches_repo']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: quaaantumdev opened this issue 3d ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: []
+- days_since_update: 3.1
+- days_since_created: 3.1
+
+## Related issues and PRs
+- PR googleapis/google-cloud-dart#382 [linked: closes/closed-by] 'fix(google_cloud_rpc): use the google.rpc.Code of JSON errors in Status.code': open, by quaaantumdev, updated 3d ago
+
+## Description
+## Summary
+
+For an error received as JSON, `ServiceException.fromHttpResponse` puts the HTTP status code into `ServiceException.status.code`. The `google.rpc.Code` the service reported, which the JSON error carries by name in `status`, is dropped.
+
+`Status.code` is documented as "an enum value of `google.rpc.Code`", and the rest of the package already treats it that way:
+
+- The gRPC error mapping in `google_cloud_pubsub` (`_mapGrpcError`) puts the gRPC code there. Its comment says this matches how `fromHttpResponse` fills it for REST errors, but it doesn't.
+- `ExponentialRetry.isRetryable` reads `status.code`, for example `ConflictException(:final status) => status?.code == 10`. Over REST that value is 409, so an `ABORTED` error is never retried.
+
+## Why it matters
+
+Several `google.rpc.Code`s share an HTTP status, and only the name tells them apart:
+
+| HTTP | `status` | for example (Firestore `commit`) |
+|---|---|---|
+| 400 | `FAILED_PRECONDITION` | "the stored version (…) does not match the required base version (…)" |
+| 400 | `INVALID_ARGUMENT` | "Invalid transaction." |
+| 409 | `ABORTED` | "Aborted due to cross-transaction contention. …" |
+| 409 | `ALREADY_EXISTS` | "Document already exists: …" |
+
+These are real responses from `google_cloud_firestore_v1` 0.5.5 `commit` calls. As things stand, a client can't tell a transaction it should retry (`ABORTED`) from a write that can never succeed (`ALREADY_EXISTS`), or a stale precondition from a malformed request, except by parsing the message.
+
+## Reproduction
+
+```dart
+import 'package:google_cloud_rpc/exceptions.dart';
+import 'package:google_cloud_rpc/retry.dart';
+import 'package:http/http.dart' as http;
+
+void main() {
+  const body = '{"error": {"code": 409, "message": "Aborted due to cross-transaction contention.", "status": "ABORTED"}}';
+  final e = ServiceException.fromHttpResponse(http.Response(body, 409), body);
+  print(e.status!.code); // 409, expected 10
+  print(const ExponentialRetry().isRetryable(e)); // false, expected true
+}
+```
+
+## Proposed fix
+
+In `fromHttpResponse`, set `Status.code` to the `google.rpc.Code` named by the error's `status`, and keep the HTTP status code when `status` is missing or unknown. `ServiceException.statusCode` still has the HTTP status code.
+
+This changes `status.code` for JSON errors that name their code (400 becomes 3, and so on), so code that compared it with an HTTP status would need `statusCode` instead. Errors without a `status`, such as Cloud Storage's JSON API errors, are unaffected. PR: #382.
+
+Versions: google_cloud_rpc 0.6.0 (`main` has the same code), google_cloud_firestore_v1 0.5.5.
+
+## Activity (4 events, oldest first)
+[2026-10-22 14:37Z, 3d ago] quaaantumdev opened this issue
+[2026-10-22 14:37Z, 3d ago] github-project-automation[bot] added to project v2
+[2026-10-22 14:37Z, 3d ago] github-project-automation[bot] project v2 item status changed
+[2026-10-22 14:39Z, 3d ago] github-project-automation[bot] project v2 item status changed

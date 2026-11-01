@@ -1,0 +1,92 @@
+# ISSUE dart-lang/native#3653: [ffigen] Use `objc_retainAutoreleasedReturnValue`
+url: https://github.com/dart-lang/native/issues/3653
+state: open
+author: liamappelbe (association with repo: MEMBER)
+created: 2026-09-16T22:21:40Z (39d ago)
+last updated: 2026-09-22T01:51:10Z (34d ago)
+labels: ['package:ffigen']
+assignees: ['liamappelbe']
+repository: dart-lang/native — Dart packages related to native interop and the foreign function interface. Contains code generators for generating bindings for other programming languages and packages related to the hooks system for bundling native code, (stars: 277, open issues: 559, archived: False)
+
+## Related issues and PRs
+- issue dart-lang/sdk#61129 '[vm] Use autorelease pools in message loop on iOS/macOS': closed, by liamappelbe, updated 34d ago, assignees ['liamappelbe']
+- issue dart-lang/native#3652 'Objective-C autorelease pools are never drained': closed, by brianquinlan, updated 27d ago, assignees ['liamappelbe']
+- PR dart-lang/native#3664 [linked: closes/closed-by] '[objective_c] Use `objc_retainAutoreleasedReturnValue`': merged, by liamappelbe, updated 35d ago
+
+## Description
+From the [documentation](https://clang.llvm.org/docs/AutomaticReferenceCounting.html#arc-runtime-objc-retainautoreleasedreturnvalue), I *think* we can just replace all our calls to `objc_retain` with this function. If the reference was not recently autoreleased, this is the same as an `objc_retain` call. But if it was autoreleased, then this essentially promotes the autoreleased reference to a strong reference.
+
+This would reduce the number of autoreleased references we hold, helping to mitigate https://github.com/dart-lang/sdk/issues/61129 / https://github.com/dart-lang/native/issues/3652 (though it's still not a complete solution, because the ObjC APIs the user is calling could autorelease their own internal references).
+
+Thanks for the tip @brianquinlan
+
+## Activity (10 events, oldest first)
+[2026-09-16 22:21Z, 39d ago] liamappelbe assigned liamappelbe
+[2026-09-16 22:21Z, 39d ago] liamappelbe labeled 'package:ffigen'
+[2026-09-16 22:56Z, 39d ago] brianquinlan (ME) commented:
+    I actually did an experiment with this and I don't think that it always works (https://github.com/dart-lang/native/issues/3652).
+    
+    The problem is that some APIs calls (e.g. `NSURLSession.dataTaskWithRequest`) seem to add things to the autorelease pool other than their return values. After you call `NSURLSession.dataTaskWithRequest`, you'll see that the 7 objects in the autorelease pool (instead of the expected one). Those objects include `__NSCFLocalDataTask` and `__CFN_TaskMetrics` (whatever those are).
+[2026-09-16 23:01Z, 39d ago] liamappelbe commented:
+    Right, we'd still need the VM message loop autorelease pool for references the APIs creates internally. But I think this still worth doing, as long as `objc_retainAutoreleasedReturnValue` is actually a drop-in replacement for `objc_retain`.
+[2026-09-18 08:26Z, 37d ago] mkustermann commented:
+    > From the [documentation](https://clang.llvm.org/docs/AutomaticReferenceCounting.html#arc-runtime-objc-retainautoreleasedreturnvalue), I think we can just replace all our calls to objc_retain with this function.
+    > ...
+    > But I think this still worth doing, as long as objc_retainAutoreleasedReturnValue is actually a drop-in replacement for objc_retain.
+    
+    It's not so simple as just calling `objc_retainAutoreleasedReturnValue`: There is a special protocol between caller and callee.
+    
+    The called ObjC function that returns the object will get the return address from the stack and look at the following machine instructions to see if it fits a certain pattern (see [here](https://github.com/opensource-apple/objc4/blob/cd5e62a5597ea7a31dccef089317abb3a661c154/runtime/objc-object.h#L1060)). This is also described e.g. [here](https://theapplewiki.com/wiki/Automatic_Reference_Counting#arm64)
+    
+    So we cannot just use a FFI calls to `objc_msgSend` and then another FFI call to `objc_retainAutoreleasedReturnValue` with the returned value -- it will not take it out of autorelease pool.
+[2026-09-18 16:38Z, 37d ago] brianquinlan (ME) commented:
+    > The called ObjC function that returns the object will get the return address from the stack and look at the following machine instructions to see if it fits a certain pattern (see [here](https://github.com/opensource-apple/objc4/blob/cd5e62a5597ea7a31dccef089317abb3a661c154/runtime/objc-object.h#L1060)). This is also described e.g. [here](https://theapplewiki.com/wiki/Automatic_Reference_Counting#arm64)
+    
+    FWIW, when I was experimenting with this, I created one Objective-C trampoline per bound method so clang would be responsible for generating the correct code. But I thought that this wasn't worth it because:
+    1. it's a lot of extra native code generation
+    2. it doesn't actually fix the problem (because some methods add to the autorelease pool as an implementation detail)
+    
+    The trampoline looks like:
+    
+    ```objc
+    __attribute__((ns_returns_retained))
+    NSURLSessionDataTask* URLSession_dataTaskWithRequest(NSURLSession* session,
+                                                        NSURLRequest* request) {
+      return [session dataTaskWithRequest:request];
+    }
+    ```
+    
+    The generated code ends with:
+    
+    ```
+    blr  x8                    ; calls objc_msgSend
+    mov  x29, x29              ; <-- the magic marker instruction for arm64
+    bl   0x78                  ; calls objc_retainAutoreleasedReturnValue
+    ```
+    
+    You can then change the generated binding like:
+    
+    ```diff
+          final $ret = <call trampoline>
+    -    return NSURLSessionDataTask.fromPointer($ret, retain: true, release: true);
+    +    // Don't retain because th …[143 more chars]
+[2026-09-21 00:27Z, 35d ago] liamappelbe closed
+[2026-09-21 08:11Z, 34d ago] mraleph reopened
+[2026-09-21 08:23Z, 34d ago] mraleph commented:
+    The landed PR does not actually do anything because there is a protocol between `objc_autoreleaseReturnValue` and `objc_retainAutoreleasedReturnValue` which you need to follow for hand-off to succeed. 
+    
+    See [the code](https://github.com/apple-oss-distributions/objc4/blob/fb265098298302243cd7eeaa1f63f0ba7786dd9a/runtime/NSObject.mm#L2335-L2342), more specifically [`prepareOptimizedReturn`](https://github.com/apple-oss-distributions/objc4/blob/fb265098298302243cd7eeaa1f63f0ba7786dd9a/runtime/objc-object.h#L1612-L1673) and [`acceptOptimizedReturn`](https://github.com/apple-oss-distributions/objc4/blob/fb265098298302243cd7eeaa1f63f0ba7786dd9a/runtime/objc-object.h#L1676-L1724).
+    
+    TLDR is that on ARM64  `objc_autoreleaseReturnValue` will put a tuple of `(obj, return-address)` into the TLS and `objc_retainAutoreleasedReturnValue` will check whether `return-address` corresponds to its call-site. There are also some corner-cases (e.g. classes which intercept `retain` / `release` messages are handled specially) where these methods will look at instructions at the call-site to detect a special marking instructions (e.g. `mov fp, fp` on ARM64). 
+    
+    I don't think we can fully satisfy the protocol without some low-level surgery in the FFI implementation in the VM.  
+    
+    PS. Additional data point. If you take the PR and revert all the changes except changes in the tests - those tests will still pass. Which seems to indicate that the PR does not do anything.
+[2026-09-22 01:51Z, 34d ago] liamappelbe commented:
+    Ok, that's a much bigger change then. We'd need to add a new flag similar to `isLeaf` to `@Native` etc, and then change the trampoline based on that flag. We would only really need to enable that flag for `objc_msgSend` and co (and only if they return an object pointer with a +0 reference).
+    
+    As for *how* we change the trampoline:
+    - The straightforward option would be to call `objc_retainAutoreleasedReturnValue` inside the trampoline, which is fine as long as the caller knows that this means the reference is now +1 instead of +0, and must be caught in a Dart wrapper object. As long as we're careful about version skew between VM/FFIgen/package:objective_c, this should be ok. A bit risky tho.
+    - A fancier approach would be to try to make the `objc_retainAutoreleasedReturnValue` work by making the trampoline transparent, so that from Dart code it looks like we are directly calling `objc_msgSend`. This seems like it would be extremely difficult.
+    
+    Overall I'm not sure it's worth it. Better to just wrap every `objc_msgSend` call in an autorelease pool. Seems like a lot of effort to go to to save a few ns.

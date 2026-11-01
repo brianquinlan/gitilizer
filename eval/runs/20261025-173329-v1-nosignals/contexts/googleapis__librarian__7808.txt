@@ -1,0 +1,60 @@
+# PULL REQUEST googleapis/librarian#7808: fix(internal/librarian/dart): set initial `librarian.yaml` version on `bump`
+url: https://github.com/googleapis/librarian/pull/7808
+state: open
+author: brianquinlan (association with repo: MEMBER)
+created: 2026-10-22T23:38:46Z (3d ago)
+last updated: 2026-10-24T22:50:47Z (19h ago)
+labels: []
+assignees: []
+requested reviewers: []
+branch: brianquinlan:bump_vew -> main
+reactions: {'eyes': 1}
+repository: googleapis/librarian — CLI for managing SDK client library configuration, generation and releases (stars: 45, open issues: 203, archived: False)
+
+## Changed files (14)
+internal/librarian/dart/bump.go (+29/-4), internal/librarian/dart/bump_test.go (+117/-0), internal/librarian/dart/codec.go (+5/-3), internal/librarian/dart/codec_test.go (+24/-10), internal/librarian/dart/pubspec.go (+8/-9), internal/librarian/dart/pubspec_test.go (+10/-0), internal/librarian/dart/testdata/bump/unpublished_c/golden_output/generated/c/CHANGELOG.md (+1/-1), internal/librarian/dart/testdata/bump/unpublished_c/golden_output/generated/c/lib/src/version.dart (+18/-0), internal/librarian/dart/testdata/bump/unpublished_c/golden_output/generated/c/pubspec.yaml (+1/-1), internal/librarian/dart/testdata/bump/unpublished_c/golden_output/librarian.yaml (+1/-1), internal/librarian/dart/testdata/bump/unpublished_default_version/golden_output/generated/c/CHANGELOG.md (+5/-0), internal/librarian/dart/testdata/bump/unpublished_default_version/golden_output/generated/c/lib/src/version.dart (+18/-0), internal/librarian/dart/testdata/bump/unpublished_default_version/golden_output/generated/c/pubspec.yaml (+18/-0), internal/librarian/dart/testdata/bump/unpublished_default_version/golden_output/librarian.yaml (+28/-0)
+
+## Related issues and PRs
+- issue googleapis/google-cloud-dart#358 [linked: closes/closed-by] 'Publishing leaves new packages untagged': open, by brianquinlan, updated 4d ago
+
+## Description
+Change the way that `librarian bump` works for dart:
+1. expect that unpublished packages do *not* have a version in `librarian.yaml` (`librarian generate` will set the `pubspec.yaml` version to `default.dart.version`  or `0.1.0)
+2. if `librarian bump` is run on an unpublished package then the `librarian.yaml` and `pubspec.yaml` versions are set to to `default.dart.version`  or `0.1.0
+
+This is necessary because `librarian tag` finds the packages released by a commit by comparing the versions in `librarian.yaml` before and after `librarian bump`. New Dart packages were onboarded with a version already in librarian.yaml, so bump never changed it and `librarian tag` skipped their first release.
+
+Fixes https://github.com/googleapis/google-cloud-dart/issues/358
+
+## Activity (8 events, oldest first)
+[2026-10-22 23:00Z, 3d ago] Brian Quinlan pushed commit ac88b5b 'fix'
+[2026-10-22 23:18Z, 3d ago] Brian Quinlan pushed commit 27728dd 'Update bump_test.go'
+[2026-10-22 23:38Z, 3d ago] brianquinlan (ME) review_requested cloud-sdk-librarian-team
+[2026-10-22 23:40Z, 3d ago] gemini-code-assist[bot] reviewed [COMMENTED]:
+    ## Code Review
+    
+    This pull request updates the Dart package bumping logic to handle unpublished packages, ensuring they do not have a version in `librarian.yaml` and are instead released using a default version (either from `default.dart.version` or defaulting to `0.1.0`). It also refactors `updatePubspecVersion` to use `slices.IndexFunc`. The review feedback suggests optimizing `updatePubspecVersion` by using the `bytes` package directly on the byte slice to avoid unnecessary memory allocations from string conversions.
+[2026-10-22 23:40Z, 3d ago] gemini-code-assist[bot] left inline review comment on internal/librarian/dart/pubspec.go:
+    ![medium](https://www.gstatic.com/codereviewagent/medium-priority.svg)
+    
+    According to the repository's general rules, when working with file contents in Go, we should avoid converting `[]byte` to `string` for search and replace operations to prevent unnecessary memory allocations. We can use the `bytes` package directly on the byte slice instead.
+    
+    ```suggestion
+    lines := bytes.Split(content, []byte("\n"))
+    i := slices.IndexFunc(lines, func(line []byte) bool { return bytes.HasPrefix(line, []byte("version:")) })
+    if i < 0 {
+    	return fmt.Errorf("no version found in %s", path)
+    }
+    lines[i] = []byte("version: " + newVersion)
+    return os.WriteFile(path, bytes.Join(lines, []byte("\n")), 0644)
+    ```
+    
+    <details>
+    <summary>References</summary>
+    
+    1. When working with file contents in Go, avoid converting []byte to string for search and replace operations to prevent unnecessary memory allocations. Use the bytes package (e.g., bytes.Contains, bytes.ReplaceAll) to perform operations directly on the byte slice.
+    </details>
+[2026-10-23 00:04Z, 3d ago] Brian Quinlan pushed commit 0534d29 'Update pubspec.go'
+[2026-10-24 22:50Z, 19h ago] kevmoo reviewed [COMMENTED]
+[2026-10-24 22:50Z, 19h ago] kevmoo left inline review comment on internal/librarian/dart/bump.go:
+    The next `librarian generate` deletes this newly created `CHANGELOG.md` via [`checkAndClean`](https://github.com/googleapis/librarian/blob/00ae0ab2bf5e506433ccfcbb7030b1748e87abc8/internal/librarian/generate.go#L154-L155) because newly onboarded libraries cannot list `"CHANGELOG.md"` in [`keep` before `bump` creates the file](https://github.com/googleapis/librarian/blob/00ae0ab2bf5e506433ccfcbb7030b1748e87abc8/internal/librarian/clean.go#L65-L67). Should `Bump` append `"CHANGELOG.md"` to `lib.Keep` here, or should `LanguageDart` clean auto-preserve an existing `CHANGELOG.md`?

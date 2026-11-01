@@ -1,0 +1,17 @@
+{
+  "name": "gitilizer",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "app/shared",
+    "app/server",
+    "app/web"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev -w app/server",
+    "dev:fixtures": "npm run fixtures -w app/server",
+    "dev:web": "npm run dev -w app/web",
+    "test": "npm test -w app/server && npm test -w app/web",
+    "typecheck": "npm run typecheck -w app/server && npm run typecheck -w app/web"
+  }
+}

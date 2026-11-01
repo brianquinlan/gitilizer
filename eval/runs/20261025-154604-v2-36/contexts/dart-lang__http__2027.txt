@@ -1,0 +1,63 @@
+# ISSUE dart-lang/http#2027: Tighten `Client.close` semantics
+url: https://github.com/dart-lang/http/issues/2027
+state: open
+author: brianquinlan (association with repo: MEMBER)
+created: 2026-10-16T15:49:45Z (9d ago)
+last updated: 2026-10-16T15:49:45Z (9d ago)
+labels: []
+assignees: []
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 380, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['author', 'watches_repo']
+- repo_interest_filter: not responsible for http2
+- author_is_collaborator: False
+- last_human_activity: brianquinlan opened this issue 9d ago
+- last_human_actor_is_me: True
+- my_last_activity: opened this issue 9d ago
+- mentions_of_me: []
+- days_since_update: 9.2
+- days_since_created: 9.2
+
+## Description
+The current documentation for `Client.close` says:
+
+```dart
+/// Closes the client and cleans up any resources associated with it.
+///
+/// Once [close] is called, no other [Client] methods should be called. If
+/// [close] is called while there are active requests, the behavior is
+/// undefined.
+///
+/// > [!WARNING]
+/// > The behavior is undefined if [close] is not called before the isolate
+/// > that created this [Client], including the main isolate, exits.
+void close();
+```
+
+The problem with the undefined behavior when `close` is called with active requests is that it makes this pattern impossible:
+
+```dart
+try:
+  client.get(...).timeout(const Duration(seconds: 0));
+finally:
+  client.close();  // orphaned request may still be running
+```
+
+1. The reason that I made the `close` behavior undefined when there are active requests is because some libraries (e.g. `cronet`) do not support closing when there are active requests. I think that I can fix that by tracking the outstanding requests and only closing the client when they have all finished.
+
+which brings up...
+
+2. The reason that I made calling `close` before isolate exit a requirement is because `ffigen`ed Objective-C asynchronous callbacks would cause the VM to exit if they were called on an isolate that had already exited. 
+ 
+So the fix was to:
+  - Make `close` synchronous (which means that you there can't be active requests for some clients because you can't wait for them to complete)
+  - Make calling `close` before isolate exit a requirement
+
+But I think that the issue with callbacks on exited isolates causing a VM exit has been fixed in the latest `ffigen`/`jnigen` versions (though I think that memory might leak because native references aren't cleaned up).
+
+Uh, maybe we should just bite the bullet and make `close` return a `Future` that must be `await`ed. That would be a breaking change but there are a lot of pending breaking changes for `package:http` so maybe it is time for a 2.0 release. Making `close` async would make it possible for `Client` implementations to wait until requests are actual killed/finished before returning.
+
+## Activity (1 events, oldest first)
+[2026-10-16 15:49Z, 9d ago] brianquinlan (ME) opened this issue

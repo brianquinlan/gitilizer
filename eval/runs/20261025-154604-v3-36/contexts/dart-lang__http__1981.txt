@@ -1,0 +1,49 @@
+# ISSUE dart-lang/http#1981: Feature request: expose a server trust evaluation hook in CupertinoClient for certificate pinning
+url: https://github.com/dart-lang/http/issues/1981
+state: open
+author: umair9430 (association with repo: NONE)
+created: 2026-09-01T13:31:59Z (54d ago)
+last updated: 2026-10-25T14:39:04Z (5h ago)
+labels: []
+assignees: ['brianquinlan']
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 380, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['assignee', 'commenter', 'watches_repo']
+- repo_interest_filter: not responsible for http2
+- author_is_collaborator: False
+- last_human_activity: brianquinlan commented 5h ago
+- last_human_actor_is_me: True
+- my_last_activity: commented 5h ago
+- mentions_of_me: []
+- days_since_update: 0.2
+- days_since_created: 54.3
+
+## Description
+`cupertino_http`'s `CupertinoClient` doesn't currently expose any way to customize TLS server trust evaluation — there's no hook equivalent to `URLSessionDelegate`'s `urlSession(_:didReceive:completionHandler:)` for the `NSURLAuthenticationMethodServerTrust` case.
+
+**Use case**: Certificate pinning against a CA higher up the chain than the leaf. For example, AWS explicitly recommends pinning to an Amazon Trust Services *root* CA (not the leaf, and not even the intermediate CA) for ACM-issued certificates, since Amazon now issues from multiple "dynamic" intermediate CAs that can rotate unpredictably — see AWS's own guidance: https://aws.amazon.com/blogs/security/amazon-introduces-dynamic-intermediate-certificate-authorities/. Implementing this requires walking the full certificate chain during the TLS handshake to find the pinned CA, which `dart:io`'s `HttpClient.badCertificateCallback` cannot do — it only exposes the leaf certificate via `X509Certificate`, never the intermediates or root.
+
+`cupertino_http` is otherwise a great fit for this — it already streams request/response bodies properly via `URLSession`'s native APIs, unlike `dart:io`'s `HttpClient`. The only missing piece is a way to intercept the trust decision.
+
+**Proposed API** (minimal surface, doesn't require exposing the full delegate):
+
+```dart
+CupertinoClient.fromSessionConfiguration(
+  config,
+  serverTrustEvaluator: (SecTrust trust, String host) => bool,
+);
+```
+
+`cupertino_http` would still own the actual `URLSessionDelegate` internally (preserving its existing streaming/redirect handling); it would just call this closure during its own `didReceive challenge` implementation and act on the returned decision.
+
+Happy to contribute a PR if the maintainers are open to this direction.
+
+## Activity (4 events, oldest first)
+[2026-09-01 13:31Z, 54d ago] umair9430 opened this issue
+[2026-09-28 17:01Z, 27d ago] brianquinlan (ME) commented:
+    I'm not sure how this would fit together so I can't promise to accept a PR but I'd be interested in seeing what this would look like. Would you mind writing a skeleton PR for discussion? I doesn't need to include tests, comments, etc. for now.
+[2026-10-25 14:38Z, 5h ago] brianquinlan (ME) assigned brianquinlan
+[2026-10-25 14:39Z, 5h ago] brianquinlan (ME) commented:
+    I've started working on this.

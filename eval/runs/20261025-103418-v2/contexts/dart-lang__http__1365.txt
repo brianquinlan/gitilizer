@@ -1,0 +1,75 @@
+# ISSUE dart-lang/http#1365: http2 seems to be slow
+url: https://github.com/dart-lang/http/issues/1365
+state: open
+author: KMantas (association with repo: NONE)
+created: 2020-07-28T17:06:21Z (6.2y ago)
+last updated: 2026-02-10T08:15:39Z (8mo ago)
+labels: ['type-enhancement', 'package:http2']
+assignees: []
+reactions: {'+1': 9}
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 380, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['watches_repo']
+- repo_interest_filter: not responsible for http2
+- author_is_collaborator: False
+- last_human_activity: lubritto commented 8mo ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: []
+- days_since_update: 257.4
+- days_since_created: 2280.0
+
+## Related issues and PRs
+- issue dart-lang/sdk#48210 'improve socket read throughput': open, by mraleph, updated 13mo ago
+
+## Description
+Hi
+
+I have tested speed of http2 library and it is much slower comparing to http. I tested with client and server being on my local. Server is written in Go and client in Dart. To downloaded 100mb  file with HttpClient it takes 4s and  http2 takes 15s. 
+I faced this issue with GRPC. We are downloading files with GRPC streams and speed depending on how far the server is, can be 8 times slower comparing to http download. I was trying to isolate the issue and it seems http2 package seems to be the main problem. 
+I have Dart VM version: 2.8.4
+and tested with
+http2: ^1.0.0
+http: ^0.12.2
+
+I used the code from "minimal example" to download file with http2. Is there a way to improve speed?
+
+## Activity (7 events, oldest first)
+[2020-07-28 17:06Z, 6.2y ago] KMantas opened this issue
+[2020-11-10 11:57Z, 6.0y ago] FrantisekGazo commented:
+    Any update on this?
+[2022-04-05 13:48Z, 4.6y ago] thamarakshan-pilla commented:
+    Any update on this yet??
+[2022-08-04 09:43Z, 4.2y ago] Neronse commented:
+    Seems like problem is not in http2 package. 
+    I noticed that sending photo is slow too.
+    Sending bytes to outgoing stream is fast enough, but when we start listen incoming stream, first header frame received only after 10s+. Looks like problem may be in raw socket.
+    I have found this issue for dart socket https://github.com/dart-lang/sdk/issues/48210, may be where the same problem.
+    
+    I also want to note that the problem is serious for http 2 in dart. All native solutions are faster.
+    
+    UPD:
+    My problem wasnt in http2 package, or socket. 
+    I am using Dio and write http2 adapter. And all open source adapters implemented like this https://github.com/flutterchina/dio/blob/master/plugins/http2_adapter/lib/src/http2_adapter.dart#L75
+    They are sending data messages with 1 byte inside.
+    When i refactored this code, speed of sending becomes `normal.
+    
+    
+    ```
+     final bytes = BytesBuilder(copy: false);
+          final completer = Completer<Uint8List>.sync();
+          requestStream.listen(
+            bytes.add,
+            onError: completer.completeError,
+            onDone: () => completer.complete(bytes.takeBytes()),
+            cancelOnError: true,
+          );
+          final collectedBytes = await completer.future;
+          stream.sendData(collectedBytes);
+    ```
+[2024-06-12 14:47Z, 2.4y ago] mosuem labeled 'type-enhancement'
+[2024-10-18 09:08Z, 2.0y ago] mosuem labeled 'package:http2'
+[2026-02-10 08:15Z, 8mo ago] lubritto commented:
+    Hey, is it confirmed that the root cause is not in the http2 library? if so, should this issue be closed?

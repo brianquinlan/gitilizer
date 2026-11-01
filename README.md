@@ -1,93 +1,154 @@
-# Gitilizer
+# Gitilizer — prioritization agent + eval
 
-Gitilizer is a serverless GitHub issue prioritization and developer task tracking platform combining **Firebase Cloud Functions (Python v2)**, **Cloud Firestore**, **Pydantic AI**, and a cross-platform **Flutter Web/Desktop/Mobile Client**.
+Requirements are in [docs/PRD.md](docs/PRD.md) and the design in [docs/design.md](docs/design.md).
 
----
+## Running the app prototype
 
-## 🚀 Local Development
+The web app and API are TypeScript (`app/`); the ranking worker is Python (`gitilizer/worker.py`).
+Fixture mode needs no GitHub token or Gemini key: `eval/fixtures/` stands in for GitHub
+(as @brianquinlan) and the worker uses a fake model. Needs Node 22+.
 
-### 1. Start Firebase Emulators
-Start the local Firebase Emulator Suite (Auth, Firestore, Functions, Hosting):
-
-```bash
-firebase emulators:start
+```powershell
+npm install                              # once
+npm run dev:fixtures                     # terminal 1: API (:8787) and worker API (:8788)
+python -m gitilizer.worker --fake-llm    # terminal 2: ranking worker
+npm run dev:web                          # terminal 3: open http://localhost:5173
 ```
 
-- **Auth Emulator**: `http://127.0.0.1:9099`
-- **Firestore Emulator**: `http://127.0.0.1:8080`
-- **Functions Emulator**: `http://127.0.0.1:5001`
-- **Emulator UI Suite**: `http://127.0.0.1:4000`
+Sign in with the development form, then enter any values for the two credentials in Settings
+(a Gemini key containing "bad" is rejected). To use real GitHub and Gemini, run `npm run dev:server`
+and `python -m gitilizer.worker` instead, and set `CREDENTIAL_KEY` (32 random bytes, base64).
+Tests: `npm test` and `python -m pytest`.
 
-### 2. Run the Flutter Client Locally
+## Prioritization agent and eval
 
-```bash
-cd frontend
-flutter run -d chrome
+The rest of this file covers step one of Gitilizer (see the PRD): an agent that ranks a developer's GitHub
+issues and PRs with Gemini, and a harness that scores its ranking against the
+hand-ranked list in the PRD.
+
+## Setup (Windows PowerShell)
+
+```powershell
+cd C:\Users\brian\gitilizer2
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-The Flutter app automatically connects to local Firebase Emulators (`127.0.0.1:9099` and `127.0.0.1:8080`) during debug mode.
+`.env` (gitignored) needs two values:
 
----
-
-## 🧪 Verification & Testing
-
-Run all backend and frontend checks with a single command from the project root:
-
-```bash
-python check.py
+```
+GEMINI_API_KEY=...
+GITHUB_TOKEN=...      # a classic PAT with no scopes is enough for public repos
+# GITILIZER_MODEL=gemini-3.8-flash   (optional override)
 ```
 
-This verifies:
-1. **Python Linting**: `ruff check .`
-2. **Python Type Checking**: `pyright`
-3. **Backend Unit Tests**: 79 tests covering auth, task ranking, and GitHub sync
-4. **Flutter Static Analysis**: `flutter analyze`
-5. **Flutter Unit & Widget Tests**: widget and state tests
+Check that both work and the model ID exists:
 
----
-
-## 🚢 Deployment
-
-### 1. Automated CI/CD via Google Cloud Build
-
-Deployments to GCP project `gitilizer` are automated via Google Cloud Build using `cloudbuild.yaml`.
-
-- **Trigger**: Every push to the `main` branch automatically triggers the `deploy-from-github` Cloud Build trigger.
-- **Pipeline stages**:
-  1. **Build Flutter Web**: Uses `ghcr.io/cirruslabs/flutter:stable` to compile the web bundle into `frontend/build/web`.
-  2. **Deploy via Firebase CLI**: Uses `node:20-bookworm` (with Python 3.11 for function discovery) to deploy Hosting, Firestore Rules/Indexes, and 2nd Gen Cloud Functions via Application Default Credentials (ADC).
-
-To trigger a manual build directly from your local terminal without pushing to GitHub:
-```bash
-gcloud builds submit --config=cloudbuild.yaml . --project=gitilizer
+```powershell
+python -m gitilizer.check
 ```
 
-### 2. Manual / Local Deployment
+## 1. Freeze the eval issues
 
-To deploy directly from your local machine:
+```powershell
+python -m gitilizer.snapshot eval/ground_truth.yaml
+```
 
-1. Build the Flutter Web client:
-   ```bash
-   cd frontend
-   flutter build web --release
-   cd ..
-   ```
+This writes one JSON file per item to `eval/fixtures/`. Each file stores the
+GitHub responses verbatim, with nothing trimmed. That covers the repository,
+the issue, all comments and the full timeline, plus for PRs the pull object,
+reviews, inline review comments, commits and changed files. It also has GraphQL
+review threads and closing references, the full pull objects (and reviews) of
+the PRs below and above it in a stack, and the full issue object (plus pull
+object for PRs) of every issue/PR it references or is referenced from. Bodies
+come back as `body`, `body_text` and `body_html` (`full+json` media type).
+`requests` lists every API call made. Evals read only these files, so
+every run sees the same state. Use `--force` to refresh, and pass issue URLs
+instead of the YAML to snapshot extra items.
 
-2. Deploy all Firebase components:
-   ```bash
-   firebase deploy --project=gitilizer
-   ```
+## 2. Run the eval
 
----
+```powershell
+python -m gitilizer.evaluate --strategy recency     # no-LLM floor, instant
+python -m gitilizer.evaluate                        # Gemini, pointwise, default prompt (v4), 3 trials
+python -m gitilizer.evaluate --strategy listwise    # one call ranks all items
+python -m gitilizer.evaluate --thinking high --trials 5
+python -m gitilizer.evaluate --prompt prompts/v1.md --label v1   # your original prompt
+python -m gitilizer.evaluate --no-signals           # ablation: raw context only
+```
 
-## ⚙️ First-Time User Setup (Post-Deployment)
+Each run writes `eval/runs/<timestamp>-<label>/`:
 
-1. Open the deployed application at `https://gitilizer.web.app`.
-2. Sign in using your Google or GitHub account.
-3. Click the **Settings Gear Icon** (⚙️) in the top-right header.
-4. Enter:
-   - **GitHub Access Token**: Personal access token with `repo` and `read:user` permissions.
-   - **Gemini API Key**: API key from Google AI Studio.
-   - **Monitored Repositories**: Comma-separated list of repos (e.g. `owner/repo`).
-5. Click **Save Settings**. This initiates the background issue sync and AI task prioritization.
+- `report.md` has the metrics (mean ± sd over trials), a per-item table (truth
+  rank vs. predicted rank and range, priority, actionable votes, next action),
+  the largest inversions, and the model's reasoning next to your "why" for
+  every item.
+- `results.json` has everything in machine-readable form.
+- `contexts/` holds the exact text the model saw, including the system prompt.
 
+`eval/runs/index.tsv` gets one line per run, so prompt and model variants can be
+compared side by side.
+
+### The eval set
+
+`eval/ground_truth.yaml` is one ranked list of 36 issues and PRs (first = rank 1).
+Brian ranked it with the eval ranker (`eval/ranker.html`). Each item has a `set`:
+`A` for the PRD's original 16, `B` for the 20 added later to cover more cases
+(review requests direct and via a team, security PRs, a build break and its fix,
+needs-info, thumbs-downs, commitments, mentions in other repos). The report
+scores the whole list and also each set on its own. Prompts v1–v3 were written
+before set B existed, so its numbers are a held-out check.
+
+To add items: append them to `ground_truth.yaml`, run
+`python -m gitilizer.snapshot eval/ground_truth.yaml`, then
+`python -m gitilizer.ranking_sheet eval/ground_truth.yaml --out eval/ranking.json`
+and rebuild the ranker page from `eval/ranker_template.html`.
+
+Ground-truth entries can carry two extra fields:
+
+- `thumbs_down_at`: the user pressed thumbs-down at that time.
+- `as_of`: evaluate the item as it was at that time. The snapshot stays
+  complete, and `gitilizer/rewind.py` replays its history up to `as_of` (state,
+  labels, assignees, requested reviewers, comments, reviews, commits, related
+  items). That item's "current time" is then `as_of`. Use it for states that no
+  longer exist, e.g. an issue that had `needs-info` and has since been closed.
+
+### Metrics
+
+| metric | meaning |
+|---|---|
+| kendall_tau | pairwise agreement, −1…+1. With 36 items one adjacent swap costs 0.003 |
+| pairwise_acc | (tau+1)/2: share of pairs ordered correctly |
+| spearman | rank correlation |
+| ndcg, ndcg@5 | top-weighted. Mistakes near the top cost more |
+| top3/5/10_overlap | share of the true top-k that the model put in its top-k |
+| mean_abs_displacement | average number of places each item is off |
+
+## How the agent works
+
+`gitilizer/context.py` turns a snapshot into text. First come the header facts.
+Then **derived signals**: my roles (author, assignee, requested reviewer,
+mentioned, watches repo), who acted last, my latest review and whether commits
+landed after it, unresolved review threads, PR-stack status, and @-mentions of
+me with CC/FYI detection. Then related issues/PRs, the description, and a
+chronological activity log with "(ME)" markers. Long threads are trimmed in the
+middle. "Now" is the snapshot time, so "3 days ago" is the same on every run.
+
+`gitilizer/prioritizer.py` builds the system instruction from a guidance
+prompt (`prompts/v1.md` is your previous Gitilizer prompt, verbatim. v2 adds
+ownership, duplicate and stacking rules plus a calibrated scale. v3 puts
+security first. v4, the default, adds rules for review requests (team vs.
+personal, my repos vs. others), PRs waiting on a reviewer I just asked,
+needs-info, and my own recently filed issues), an
+"About me" block (login, interested repos with their natural-language
+filters, collaborators), and a fixed output contract. Gemini returns structured
+JSON: `actionable`, `next_action`, `priority` (0–1) and `reasoning`.
+Pointwise mode scores each item independently and sorts, with ties broken by
+recency. That's what the app needs for incremental re-prioritization.
+
+## Tests
+
+```powershell
+python -m pytest
+```
