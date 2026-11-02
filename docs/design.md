@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype predates the 2026-11-01 PRD revision; [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) lists what it must change. |
 | **Author** | brian@sweetapp.com (drafted with Claude) |
-| **Last updated** | 2026-11-01 (second round of PRD answers) |
+| **Last updated** | 2026-11-01 (third round of PRD answers) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Source** | [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer) |
 | **Requirements** | [PRD](PRD.md) |
@@ -65,7 +65,7 @@ Open PRD questions this design depends on, and the answer it assumes. All are th
 | [Q-39](PRD.md#q-39), [Q-74](PRD.md#q-74) Model | **Decided:** Gitilizer chooses the model (`GITILIZER_MODEL`, default `gemini-3.8-flash`), with its default thinking level ("default linking limit" read as thinking level, to be confirmed); Settings doesn't show it. |
 | [Q-40](PRD.md#q-40) Token kinds | **Decided:** fine-grained and classic tokens, one per developer; no organization permissions needed. |
 | [Q-44](PRD.md#q-44) Default prompt | **Decided:** `prompts/v4.md`, at most 20,000 characters, new defaults followed automatically. |
-| [Q-45](PRD.md#q-45), [Q-64](PRD.md#q-64), [Q-71](PRD.md#q-71) Saving | **Decided:** "Save changes", "Save and re-rank" and "Cancel"; both saves cover credentials; a successful save returns to the list; leaving with unsaved changes asks first. Assumed: Cancel also returns to the list. |
+| [Q-45](PRD.md#q-45), [Q-64](PRD.md#q-64), [Q-71](PRD.md#q-71) Saving | **Decided:** "Save changes", "Save and re-rank" and "Cancel"; both saves cover credentials; a successful save returns to the list; leaving with unsaved changes asks first. Cancel also returns to the list, or Warm Welcome before setup is complete (`NAV-9`). |
 | [Q-46](PRD.md#q-46) Deletion | **Decided:** immediate, after a simple confirmation. Assumed: backups keep data at most 7 days. |
 | [Q-47](PRD.md#q-47) Background scans | **Decided:** every 2 hours for developers seen in the last 7 days; otherwise only on the next visit. |
 | [Q-48](PRD.md#q-48), [Q-49](PRD.md#q-49) Re-ranking | **Decided:** every item re-ranked at least every 24 hours; a change also re-ranks the items it links to. |
@@ -73,7 +73,7 @@ Open PRD questions this design depends on, and the answer it assumes. All are th
 | [Q-57](PRD.md#q-57) Additional repositories | "Keep an eye on", not "responsible for"; the agent's wording changes to match. |
 | [Q-58](PRD.md#q-58), [Q-37](PRD.md#q-37) Validate | **Decided:** checks the typed value; disabled when the field is empty, including for a saved credential. |
 | [Q-63](PRD.md#q-63) Free tier | **Decided:** must work on the free tier. Not yet decided how; the design ranks the most important work first and keeps a multi-item ranking mode ready ([Ranking worker](#ranking-worker)). Assumed: items waiting for quota are shown at the end with "–". |
-| [Q-70](PRD.md#q-70) Alerts | Email alerts to the owner from Cloud Monitoring. |
+| [Q-70](PRD.md#q-70) Alerts | **Decided:** email alerts to the owner from Cloud Monitoring (`METRIC-4`). |
 | [Q-73](PRD.md#q-73) Settings errors | Red border and a message under the field; saving disabled while errors show. |
 
 ---
@@ -156,7 +156,7 @@ New Python code is `gitilizer/worker.py` and the Icebox check (`gitilizer/icebox
 | Secrets | Secret Manager for `WORKER_TOKEN` and the OAuth client secrets; Cloud KMS for the credential key | |
 | Metrics (`METRIC-1`, `METRIC-2`) | Looker Studio dashboard on Cloud SQL, plus Cloud Monitoring for operations | User counts come from `users` and the `user_activity` table (one row per developer per day with a visit), so daily, weekly and monthly actives are available for past days. The internal `GET /internal/metrics` endpoint returns the same numbers. |
 
-**Monitoring (`METRIC-3`, `NFR-6`).** Cloud Run already records request latency and response codes for every request, so API latency by endpoint and status codes for page loads and API calls come from Cloud Monitoring without extra code. Browser-side load time can't be seen from the server: the web app measures the time from navigation to a usable list (and the standard web vitals) and sends it to `POST /api/telemetry`, which writes it as a structured log line that a log-based metric turns into a distribution. Scan and ranking durations, and error and notification counts, are custom metrics from the scanner and worker. One Cloud Monitoring dashboard shows them all. If [Q-70](PRD.md#q-70) is confirmed, alerting policies email the owner when an uptime check on `https://gitilizer.com` fails, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for 30 minutes.
+**Monitoring (`METRIC-3`, `NFR-6`).** Cloud Run already records request latency and response codes for every request, so API latency by endpoint and status codes for page loads and API calls come from Cloud Monitoring without extra code. Browser-side load time can't be seen from the server: the web app measures the time from navigation to a usable list (and the standard web vitals) and sends it to `POST /api/telemetry`, which writes it as a structured log line that a log-based metric turns into a distribution. Scan and ranking durations, and error and notification counts, are custom metrics from the scanner and worker. One Cloud Monitoring dashboard shows them all. Alerting policies email the owner (`METRIC-4`) when an uptime check on `https://gitilizer.com` fails, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for 30 minutes.
 
 **Region.** One region in the eastern United States (for example `us-east4`) is the best single choice for North America and Western Europe together (`PLAT-3`). A second region in Europe would double the fixed cost.
 
@@ -179,7 +179,13 @@ New Python code is `gitilizer/worker.py` and the Icebox check (`gitilizer/icebox
 - **Provider tokens.** The callback reads the profile (name, email, avatar) and then discards the provider's tokens. Gitilizer keeps no Google or GitHub sign-in token, which is why revoking access at the provider doesn't sign the developer out ([Q-11](PRD.md#q-11)).
 - **Sessions (`AUTH-8`).** A random 32-byte session ID in a `__Host-gitilizer_session` cookie (`HttpOnly`, `Secure`, `SameSite=Lax`, no `Domain`). `sessions.expires_at` is 30 days after the last use; to avoid a write on every request, it is pushed forward only when less than 29 days remain, so at most once a day.
 - **Sign out (`ACCT-3`, `AUTH-9`).** Deletes the current session row only. Deleting the account deletes every session.
-- **Failed sign-in.** The callback redirects to `/sign-in?error={cancelled|provider_error}`; what the page shows waits on [Q-10](PRD.md#q-10).
+- **Failed sign-in (`AUTH-10` to `AUTH-14`).** The callback sorts every failure into one of four categories and redirects to `/sign-in?error={cancelled|provider_unavailable|expired|gitilizer_error}`:
+  - `cancelled`: the provider returned `error=access_denied`;
+  - `provider_unavailable`: the provider returned `server_error` or `temporarily_unavailable`, or the code exchange or profile request timed out or returned 5xx;
+  - `expired`: the `state` value is missing, unknown or older than 10 minutes, or the PKCE verifier cookie is missing (often blocked cookies);
+  - `gitilizer_error`: anything else, including other provider error codes and Gitilizer's own failures.
+
+  The provider's `error`, `error_description` and `error_uri`, and any exception, are logged with the category; none of them reach the page. The sign-in page reads `error`, shows the matching message in the notice above the buttons (grey for `cancelled`, red for the others, `AUTH-15`), and removes the parameter with `history.replaceState`, so a reload shows the plain page (`AUTH-13`). An unknown value is treated as `gitilizer_error`.
 
 ---
 
@@ -297,7 +303,7 @@ Details that need more than markup:
 - **Settings links** (`NOTIF-9`, `LIST-14`). Every control that can fix a problem has a stable `id` (`github-pat`, `gemini-key`, `add-repository`, `repo-{owner}-{name}`, `ranking-prompt`, and so on). Each notification carries its target `id`, its Settings link goes to `/settings#{id}`, and Settings scrolls to that element and focuses it. The section fragments (`#connections` and the rest) work the same way.
 - **Bell.** Swings while any shown error has no `seen_at`; opening the popover calls `POST /api/notifications/seen` (`NOTIF-17`). Amber and still when there are only warnings (`NOTIF-5`).
 - **Sync now** is never disabled, and spins whenever the `sync` event says `running` (`LIST-17`, `LIST-28`).
-- **Saving Settings.** A successful save navigates to `/` (`NAV-8`); per-field errors keep the page open and are shown under their fields, and the save buttons are disabled while any error shows ([Q-73](PRD.md#q-73), assumed). "Cancel" discards changes and, as assumed for [Q-71](PRD.md#q-71), also navigates to `/`. Leaving with unsaved changes asks first, through the router and `beforeunload` (`SET-26`).
+- **Saving Settings.** A successful save navigates to `/` (`NAV-8`); per-field errors keep the page open and are shown under their fields, and the save buttons are disabled while any error shows ([Q-73](PRD.md#q-73), assumed). "Cancel" discards changes and also navigates to `/` (`NAV-9`). Leaving with unsaved changes asks first, through the router and `beforeunload` (`SET-26`).
 - **Credentials.** Saved credentials are shown as dots; "Validate" is disabled until something is typed, and the eye icon shows only typed text (`SET-21`).
 - **Account menu.** Closes on a click outside, on Esc and when an item is chosen (`ACCT-4`). The action is "Sign out" everywhere (`ACCT-5`).
 - **Delete account.** A simple confirmation dialog, then `DELETE /api/account` and a redirect to `/sign-in` (`SET-17`).
@@ -490,8 +496,8 @@ What the prototype must change to match the third PRD revision. None of these ha
 | First sync | Pulsing skeleton rows; items hidden until ranked. | `LIST-15`, `LIST-30` |
 | Ranking | Linked-item re-ranks; queue order when quota is short; the per-developer limit of 4 (previously "not done"). | `RANK-10` to `RANK-13` |
 | Scheduler | Background scans only for developers seen in the last 7 days (the prototype uses 14). | `SCAN-5` |
-| Monitoring | Telemetry endpoint, dashboard and, if confirmed, alerts. | `METRIC-3`, [Q-70](PRD.md#q-70) |
-| Sign-in | Real Google and GitHub OAuth; sliding 30-day sessions. | `AUTH-7`, `AUTH-8` |
+| Monitoring | Telemetry endpoint, dashboard and email alerts. | `METRIC-3`, `METRIC-4` |
+| Sign-in | Real Google and GitHub OAuth; sliding 30-day sessions; the four failed-sign-in messages. | `AUTH-7` to `AUTH-14` |
 | Footer | Real "Documentation" and "GitHub" URLs; write the user documentation. | `FOOT-2`, `FOOT-3` |
 | Prompt | "Keep an eye on" wording for additional repositories; lower scores for drafts; measure both. | [Q-57](PRD.md#q-57), `RANK-8` |
 | Hosting | The `gitilizer.com` domain and the OAuth redirect URLs. | `PLAT-5` |

@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-01, second round (product owner's answers to 24 more questions and parts of 2 more; new questions Q-70 to Q-74) |
+| **Last updated** | 2026-11-01, third round (failed sign-in from the new Figma frame; answers to Q-70 and Q-71) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Replaces** | [Gitilizer PRD (Google Doc)](https://docs.google.com/document/d/1iN4HGqn5_Nz4g8oweqg0PK-iLlKQ8dza7ruqxADpu6U/edit) |
@@ -87,8 +87,7 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
   - the number of active users per day, per week and per month, including for past days.
 - **METRIC-2** Metrics should use what Google Cloud already provides (for example Cloud Monitoring dashboards) rather than a custom admin screen.
 - **METRIC-3** The owner must also be able to see the health of the system, without writing queries and including for past days: the latency of API calls (by endpoint, median and 95th percentile), how long the app takes to load and show a usable list in developers' browsers, the HTTP status codes returned for page loads and API calls, and the error rates in `NFR-6`.
-
-> **TODO(double check) · [Q-70](#q-70):** Should the owner also be alerted, for example by email, when something is wrong, rather than having to look? Suggestion: yes, through Cloud Monitoring alerts to the owner's email when gitilizer.com stops responding, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for any developer in 30 minutes.
+- **METRIC-4** The owner must be alerted by email, without having to look at the dashboard, when gitilizer.com stops responding, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for any developer in 30 minutes. Alerts should use Cloud Monitoring.
 
 ---
 
@@ -126,6 +125,7 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Screen or element | Figma | Section |
 |---|---|---|
 | Sign-in page | [Sign in](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2978) | [Sign-in](#sign-in) |
+| Sign-in page after a failed sign-in | [Sign in · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=304-1734), [Sign in · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=306-1355) | [Failed sign-in](#failed-sign-in) |
 | Footer | [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-346) | [Footer](#footer) |
 | App bar | [Shared / App bar](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-323) | [App bar](#app-bar) |
 | Account menu | [Account menu · Open](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=286-1722) | [Account menu](#account-menu) |
@@ -194,8 +194,7 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 - **NAV-6** The developer switches between the Prioritized list and the Icebox with the "Prioritized" / "Icebox" toggle above the table.
 - **NAV-7** The Gitilizer symbol and wordmark in the app bar must link to the Prioritized list.
 - **NAV-8** After a successful "Save changes" or "Save and re-rank", the developer must be taken to the Prioritized list. If something can't be saved (for example a repository name in the wrong format) or a credential fails validation, they stay on Settings with the problems shown next to the fields ([Q-73](#q-73)). The save that completes setup also goes to the list, which then shows the [first-sync state](#empty-loading-and-first-sync-states).
-
-> **TODO(double check) · [Q-71](#q-71):** You added "Cancel" back, described in Figma as "Discard unsaved changes and return to the previous settings". Does it also take the developer back to the Prioritized list, like the save buttons, or keep them on Settings with the fields reset? Suggestion: back to the list, so all three buttons end a visit to Settings the same way.
+- **NAV-9** "Cancel" in Settings must discard unsaved changes and take the developer back to the Prioritized list. Under the rules in [Which screen is shown](#which-screen-is-shown), a developer who hasn't yet entered both credentials sees Warm Welcome instead, and the same applies after saving (`NAV-8`).
 
 ---
 
@@ -215,7 +214,26 @@ Figma: [Sign in](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?n
 
 Google and GitHub don't limit the session. They only confirm who the developer is at sign-in, and Gitilizer doesn't keep their tokens, so removing Gitilizer's access in Google or GitHub doesn't sign the developer out of Gitilizer.
 
-> **TODO · [Q-10](#q-10):** No design for failed sign-in (the developer cancels, the provider returns an error, the browser blocks the pop-up).
+### Failed sign-in
+
+Figma: [Sign in · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=304-1734), [Sign in · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=306-1355)
+
+Signing in uses full-page redirects, not a pop-up. "Continue with Google" or "Continue with GitHub" takes the browser to the provider's own pages, and the provider sends it back to Gitilizer with either a one-time code or an error. Gitilizer's server then finishes the sign-in. A failure is therefore found either by the provider, which sends back an error code (for example `access_denied` when the developer cancels), or by Gitilizer's server while it finishes the sign-in.
+
+- **AUTH-10** When a sign-in fails, Gitilizer must return the developer to the sign-in page with a message in a notice above the sign-in buttons, as in Figma. The message depends on what went wrong:
+
+  | Category | When | Message |
+  |---|---|---|
+  | Cancelled | The developer cancelled or denied access on the provider's page (`access_denied`) | "Sign-in was cancelled. Choose an option below to try again." |
+  | Provider unavailable | The provider reported a problem (`server_error`, `temporarily_unavailable`), or didn't respond when Gitilizer finished the sign-in | "Google isn't responding right now. Try again in a few minutes." ("GitHub" for GitHub) |
+  | Expired | Gitilizer's security check failed: the sign-in took too long, was finished in another tab, or the browser blocked cookies | "Sign-in didn't finish. Try again, and make sure your browser allows cookies for gitilizer.com." |
+  | Gitilizer error | Anything else, including problems on Gitilizer's side and unexpected provider errors | "Something went wrong on our side. Try again. If it keeps happening, report it using the GitHub link below." |
+
+- **AUTH-15** The "Cancelled" notice must be neutral (grey), because cancelling isn't an error. The other three categories must use the same notice in red: the error color (#B74439) for the border and the text, on a light red background, as in [Sign in · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=306-1355).
+- **AUTH-11** The message must not include the provider's own error description, which is written for programmers and often missing. The server must log the provider's error code and description, and any error of its own, for the owner (`NFR-6`).
+- **AUTH-12** The messages must not suggest signing in with the other provider, because that creates a separate, empty account (`AUTH-7`).
+- **AUTH-13** The notice must disappear when the developer reloads the page or starts another sign-in.
+- **AUTH-14** Some failures never come back to Gitilizer: the developer closes the tab or goes back, or the provider shows its own error page (for example, when Gitilizer's provider settings are wrong). Gitilizer shows nothing in these cases.
 
 ---
 
@@ -570,7 +588,7 @@ Both credentials are required.
 
 ### Saving
 
-- **SET-14** Changes must take effect only when the developer chooses "Save changes" or "Save and re-rank". Both save everything on the page, credentials included. "Cancel" discards unsaved changes ([Q-71](#q-71)).
+- **SET-14** Changes must take effect only when the developer chooses "Save changes" or "Save and re-rank". Both save everything on the page, credentials included. "Cancel" discards unsaved changes (`NAV-9`).
 - **SET-15** "Save changes" must save without re-ranking: items already ranked keep their scores until they change on GitHub. New items, such as those from a newly added repository, are ranked as usual. "Save and re-rank" must save and then re-rank every item (a full re-rank, shown as in `LIVE-24`). Each button has the explanatory note shown in Figma next to it, without an estimate of how many items will be re-ranked.
 - **SET-26** Leaving Settings with unsaved changes (through a link, the browser's Back button or closing the tab) must ask the developer to confirm.
 
@@ -716,7 +734,6 @@ Each row matches a TODO in the document. Q-58 to Q-63 were found by building the
 | ID | Area | Question | Suggested answer | Needed by |
 |---|---|---|---|---|
 | <a id="q-2"></a>Q-2 | Platform | What does "10,000 developers using the application at once" mean, and what are the sizing assumptions? | 10,000 with the app visible, up to 100,000 accounts, up to 1,000 items each. | Design doc |
-| <a id="q-10"></a>Q-10 | Sign-in | What does failed sign-in look like? | An inline message above the buttons. | Figma |
 | <a id="q-38"></a>Q-38 | Settings | What do validation in progress, validation failures and the status chips look like, and does Save validate? | Design each state; Save validates and shows an inline error. | Figma |
 | <a id="q-41"></a>Q-41 | Settings | How is a saved repository's prioritization prompt edited, what are the other access states, how is input validated, and what are the limits? | Edit in place; design the states; accept URLs; 25 repositories, 500 characters. | Figma |
 | <a id="q-46"></a>Q-46 | Settings | Deletion is immediate. How long may copies stay in database backups? | At most 7 days. | Design doc |
@@ -729,8 +746,6 @@ Each row matches a TODO in the document. Q-58 to Q-63 were found by building the
 | <a id="q-57"></a>Q-57 | Settings | Do additional repositories mean "keep an eye on" or "I'm responsible for"? The default prompt says the latter. | "Keep an eye on"; change the agent's wording and measure it. | Design doc |
 | <a id="q-63"></a>Q-63 | Ranking | What does "works on the free tier" mean, given free-tier limits that may be as low as 20 requests a day? Are items waiting for quota hidden? | Set a target first, then measure several items per call; show waiting items at the end with "–". | Design doc |
 | <a id="q-68"></a>Q-68 | Privacy | Was the Settings privacy note removed on purpose? | Bring back one note under the Gemini key that also covers free-tier data use. | Figma |
-| <a id="q-70"></a>Q-70 | Metrics | Should the owner be alerted when something is wrong? | Yes, by email, through Cloud Monitoring. | Design doc |
-| <a id="q-71"></a>Q-71 | Settings | Does "Cancel" also return to the Prioritized list? | Yes. | Implementation |
 | <a id="q-72"></a>Q-72 | Icebox | Can the developer see or change the Icebox check's prompt? | No. | Implementation |
 | <a id="q-73"></a>Q-73 | Settings | How are errors in Settings shown (prompt too long, duplicate repository or collaborator, bad format, failed validation)? | Red border and a message under the field; saving disabled while errors show. | Figma |
 | <a id="q-74"></a>Q-74 | Ranking | Does "default linking limit" mean the model's default thinking level? | Yes. | Implementation |
@@ -747,6 +762,7 @@ Each row matches a TODO in the document. Q-58 to Q-63 were found by building the
 | <a id="q-7"></a>Q-7 | Getting back to the list | The Gitilizer logo links to the Prioritized list. (Whether saving Settings also goes back is [Q-64](#q-64).) | `NAV-7` |
 | <a id="q-8"></a>Q-8 | When Warm Welcome is shown | Until the developer has entered both credentials. After that, problems appear as error notifications on the Prioritized list. | `NAV-2` |
 | <a id="q-9"></a>Q-9 | Google and GitHub sign-in for one person | Two separate accounts. | `AUTH-7` |
+| <a id="q-10"></a>Q-10 | Failed sign-in | A notice above the buttons with four messages; "Cancelled" is grey, the errors are red. | `AUTH-10` to `AUTH-15` |
 | <a id="q-11"></a>Q-11 | Sessions | 30 days, extended while used. Signing out ends only the current browser's session. | `AUTH-8`, `AUTH-9` |
 | <a id="q-12"></a>Q-12 | Account menu | Drawn in Figma ("Account menu · Open"). "Sign out" everywhere, without the arrow. Closes like the notification popover. | `ACCT-2` to `ACCT-5` |
 | <a id="q-13"></a>Q-13 | Hidden app bar layers | Leftovers. Deleted from Figma. | `BAR-2` |
@@ -794,6 +810,8 @@ Each row matches a TODO in the document. Q-58 to Q-63 were found by building the
 | <a id="q-66"></a>Q-66 | The 1,000-item limit | Prioritized list only; no notice; a dropped item slides off the bottom like an item moving to a later page. | `LIST-19`, `LIVE-26` |
 | <a id="q-67"></a>Q-67 | "Assigned to you" | Second, after "Review requested". Repeating the repository name is intended. | `LIST-21` |
 | <a id="q-69"></a>Q-69 | Settings copy and icons | All fixed in Figma. | [Settings](#settings) |
+| <a id="q-70"></a>Q-70 | Alerts for the owner | Yes, by email, through Cloud Monitoring. | `METRIC-4` |
+| <a id="q-71"></a>Q-71 | What "Cancel" does | Discards changes and returns to the Prioritized list (or Warm Welcome before setup is complete). | `NAV-9` |
 
 ---
 
@@ -833,3 +851,9 @@ Each row matches a TODO in the document. Q-58 to Q-63 were found by building the
 - The action is "Sign out" everywhere. An Icebox check prompt decides whether a change brings an item back. The daily-quota notification is now a warning, and Gitilizer must work on the free tier.
 - Added Q-70 to Q-74. Q-63 now asks what "works on the free tier" means, because one call per item may not fit.
 - Changed Figma: "Sign out" and the new menu icons in the app bar's account menu, and no arrow on "Sign out" in Settings; the six Settings fixes from Q-69 and the new Ranking prompt description; a "samkim" collaborator showing the generic avatar; both Validate buttons shown disabled; a pulsing [Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433) component on the Animations page, used in Issue inbox · Loading.
+
+### Fifth revision (2026-11-01, third round)
+
+- Added [Failed sign-in](#failed-sign-in) (`AUTH-10` to `AUTH-14`) from the new [Sign in · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=304-1734) frame and the suggested message categories. Errors are red and "Cancelled" is grey (`AUTH-15`), shown in the new [Sign in · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=306-1355) frame; Q-10 is answered.
+- Folded in the answers to Q-70 (`METRIC-4`) and Q-71 (`NAV-9`).
+- Changed Figma: removed zero-padding from the ranks, and replaced "Interested repository" with repository names, in the list previews on both sign-in frames.
