@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-01, fourth round (answers to 12 more questions and parts of 2 more; Settings error states drawn in Figma) |
+| **Last updated** | 2026-11-01, ninth round (answer to Q-52; no open questions) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Replaces** | [Gitilizer PRD (Google Doc)](https://docs.google.com/document/d/1iN4HGqn5_Nz4g8oweqg0PK-iLlKQ8dza7ruqxADpu6U/edit) |
@@ -15,7 +15,7 @@
 - Each requirement has an ID, such as `LIST-4`, so the design doc, code reviews and tests can refer to it.
 - **Must** means required for launch. **Should** means expected unless the design doc gives a reason not to. **May** means optional.
 - Figma links open the exact frame or component. Where this document and Figma disagree, this document wins, and the disagreement is listed in [Open questions](#open-questions).
-- **TODO** marks missing information. **TODO(double check)** marks a suggested answer that the product owner must confirm before the design doc relies on it. Every TODO links to a row in [Open questions](#open-questions).
+- **OPENQUESTION:** marks missing information. **CONFIRM:** marks a suggested answer that the product owner must confirm before the design doc relies on it. Each one links to a row in [Open questions](#open-questions).
 - "Item" means a GitHub issue or a pull request (PR). "Developer" means the person using Gitilizer.
 
 ## Contents
@@ -249,6 +249,11 @@ Figma: [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Git
   - "Documentation": the user documentation, hosted in the GitHub repository (for example `https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md`; the exact path is set when the documentation is written);
   - "GitHub": the project's GitHub page, [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer), which is also the project's landing page.
 - **FOOT-3** The user documentation must exist at launch. At least, it must explain the two kinds of GitHub token and how to create one with the right permissions (the page that "Learn more" in Settings opens, `SET-20`), how to create a Gemini API key, and what each [notification](#catalogue) means.
+- **FOOT-4** The user documentation must have a privacy section that explains, in plain language:
+  - what Gitilizer stores about a developer ([Data and privacy](#data-and-privacy)), and that credentials are encrypted and never shown again (`PRIV-1`);
+  - when it is deleted: an item's data 30 days after no developer has it (`PRIV-5`), everything about a developer immediately when they delete their account (`SET-17`), and copies in backups within 6 months (`PRIV-4`);
+  - what Gitilizer sends to Gemini, with the developer's own key: the content of the developer's own issues and PRs, including comments and reviews, and the developer's settings, never their credentials (`PRIV-1`, `PRIV-2`);
+  - that Google's terms let it use content sent with a free-tier Gemini key to improve its products, and that this content can come from private repositories, with a link to Google's terms.
 
 ---
 
@@ -340,7 +345,8 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 | Error | Gemini connection | Your Gemini API key can't use the Gemini API | New and changed issues aren't being ranked. The key may be restricted to other Google APIs, or its project may not allow the Gemini API. Create a new key in Google AI Studio and add it in Settings. | Any other 403 `PERMISSION_DENIED`. | A new key is saved, or a Gemini request succeeds. |
 | Error | Gemini connection | Your Gemini credits have run out | New and changed issues aren't being ranked. Add credits or turn on auto-reload in Google AI Studio. | 402. | A Gemini request succeeds, or a new key is saved. |
 | Error | Gemini connection | Your Gemini project needs billing | New and changed issues aren't being ranked. The key's Google Cloud project needs a working billing account, or has a past-due balance. Fix billing in the Google Cloud console. | 400 `FAILED_PRECONDITION` about billing, or 403 for an unpaid balance. | A Gemini request succeeds, or a new key is saved. |
-| Warning | Gemini connection | Your Gemini daily quota is used up | New and changed issues won't be ranked until your quota resets at {time}, in about {duration}. Ranking then resumes automatically. To rank more each day, turn on billing in Google AI Studio. | 429 for a per-day quota. Google resets daily quotas at midnight Pacific time. If the reset time isn't known, the body leaves out "at {time}, in about {duration}". | A Gemini request succeeds. |
+| Warning | Gemini connection | Gitilizer is using a backup Gemini model | Your daily quota for {primary model} is used up, so new and changed issues are being ranked with {backup model} until it resets at {time}, in about {duration}. Rankings may be less accurate until then. To avoid this, turn on billing in Google AI Studio. | 429 for a per-day quota on any model except the last one in `RANK-13`. Only one is active at a time; it names the model now in use. | The primary model's quota resets. |
+| Error | Gemini connection | Your Gemini daily quota is used up | Your daily quota is used up for every Gemini model Gitilizer can use, so new and changed issues aren't being ranked. Ranking resumes automatically when the quota resets at {time}, in about {duration}. To avoid this, use an API key with billing turned on. | 429 for a per-day quota on every model in `RANK-13`. Google resets daily quotas at midnight Pacific time. | A Gemini request succeeds. |
 | Warning (short-lived) | Gemini connection | Gemini is limiting requests from your key | Ranking is slower than usual and catches up automatically. Other apps that use this key count toward the same limit. | 429 for a per-minute limit, for more than 15 minutes (`NOTIF-21`). | Gemini requests succeed without 429s for 15 minutes. |
 | Warning (short-lived) | Gemini connection | Gemini isn't responding | New and changed issues aren't being ranked. Gitilizer keeps retrying automatically. If this continues, check the [Google AI Studio status page](https://aistudio.google.com/status). | 500, 503 or 504 that continue after retries for more than 15 minutes (`NOTIF-21`). | A Gemini request succeeds. |
 | Error | Gemini connection | The Gemini model Gitilizer uses isn't available | New and changed issues aren't being ranked. This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page. | 404 `model_not_found`. | A Gemini request succeeds. |
@@ -430,7 +436,7 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 
 - **LIST-14** If the developer has no items and at least one sync has finished, the table body must be replaced by "No issues to show 🎉" and "You can choose more repositories in the settings.", where "settings" opens Settings at Additional repositories, with focus on the "Add repository" field.
 - **LIST-15** While the first sync is running and nothing has been ranked yet, the table must show the column headings, three skeleton rows and "Scanning your issues and PRs…", as in [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689). The skeleton placeholders pulse, fading to about a third of their strength and back, 0.8 s each way ([Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433)); with reduced motion they don't pulse. As soon as the first item has been ranked, the list replaces the skeleton rows, and further items appear as they are ranked.
-- **LIST-30** An item must not be shown in the Prioritized list until it has been ranked. An item whose ranking failed (`RANK-6`) is shown after all ranked items, newest first, with "–" in the Priority column, and the "Gitilizer couldn't rank {n} issues" warning is shown (see the [catalogue](#catalogue)).
+- **LIST-30** An item must not be shown in the Prioritized list until it has been ranked. Two kinds of unranked item are shown after all ranked items, newest first, with "–" in the Priority column: an item waiting because the daily quota is used up for every model (`RANK-15`), and an item whose ranking failed. For a failed item (`RANK-6`), the "Gitilizer couldn't rank {n} issues" warning is shown (see the [catalogue](#catalogue)).
 
 ### Sync now
 
@@ -582,11 +588,17 @@ Both credentials are required.
 ### Additional repositories
 
 - **SET-7** The developer must be able to add a repository by typing `owner/name`, or pasting its GitHub URL (`https://github.com/owner/name`, with anything after the name ignored), and choosing "Add repository", and remove one with "Remove". Any other format, or a repository already in the list, is an error (`SET-27`). There can be at most 25 repositories.
-- **SET-8** Each repository must show whether the PAT can access it ("Access confirmed").
+- **SET-8** Each repository must show one of four access states: "Checking…" in grey while Gitilizer checks it; "Access confirmed", as in Figma; "Archived" in grey, where hovering shows "{repo} is archived, so its issues and PRs aren't shown." (`LIST-1` excludes archived repositories); or "Can't access" with a red ✗. Hovering over "Can't access" must say why, as precisely as GitHub's answer allows:
+
+  | What GitHub answered | Hover text |
+  |---|---|
+  | Not found. The repository doesn't exist, its name is misspelled, or it is private and the token can't read it. GitHub gives the same answer in all three cases, so as not to reveal that a private repository exists. | "GitHub says {repo} doesn't exist, or your token can't read it. Check the name, and that your token includes this repository." |
+  | The organization uses single sign-on and the token isn't authorized for it | "{org} uses single sign-on. Authorize your token for {org} in your GitHub token settings." |
+  | The organization blocks this kind of token | "{org} doesn't allow {classic / fine-grained} tokens. Create the other kind of token, or ask an owner of {org} to allow this one." |
+
+  If GitHub can't be reached, the repository keeps its last known state. A renamed repository keeps working: GitHub forwards the old name, and Gitilizer shows the new one.
 - **SET-9** Each repository may have a prioritization prompt: free text that tells the ranking agent what the developer cares about in it, for example "Security issues only". It is entered in the "Prioritization prompt" field when adding the repository, and shown under the repository's name. The agent receives it as a note on that repository. It can be at most 500 characters. It can't be edited after the repository is added: to change it, the developer removes the repository and adds it again.
 - **SET-31** Additional repositories are repositories the developer follows, not ones they're responsible for. The agent's "About me" text and the default prompt must describe them that way, measured as in `RANK-7`. A developer who is responsible for a repository can say so in its prioritization prompt.
-
-> **TODO(double check) · [Q-41](#q-41):** Still undefined: the access states other than "Access confirmed". GitHub answers "not found" both when a repository doesn't exist and when the token can't read it, so Gitilizer can't tell those apart. Suggestion: three states. "Checking…" in grey while Gitilizer checks; "Access confirmed", as drawn; and "Can't access" with a red ✗, where hovering shows "GitHub says this repository doesn't exist, or your token can't read it."
 
 ### Ranking prompt
 
@@ -654,23 +666,13 @@ Both credentials are required.
 - **RANK-9** Every item must be ranked again at least once every 24 hours, so scores that depend on age stay current. This is a bulk re-rank (`LIVE-24`).
 - **RANK-10** When a scan sees a change to an item, Gitilizer must also rank again the items in the developer's list that it links to. For example, an issue drops when a PR that fixes it is opened, although the issue itself hasn't changed.
 - **RANK-11** At most 4 Gemini requests may run at once for one developer. Ranking uses `gemini-3.8-flash` with thinking turned down as far as the model allows, to keep cost down. (The [model comparison](../eval/model-comparison-2026-11-01.md) measured this, "low" thinking, at Kendall tau 0.69, against 0.77 at the default level. The decision can be revisited.)
-- **RANK-12** Gitilizer must work with a Gemini API key on Google's free tier ([Q-63](#q-63) asks what that means in practice).
-- **RANK-13** When the developer's daily quota is used up, ranking must pause until the quota resets, and the developer sees the "Your Gemini daily quota is used up" warning, which says when ranking will resume if that's known.
-
-> **TODO · [Q-63](#q-63):** "Gitilizer must work on the free tier" (`RANK-12`) needs a definition, because one Gemini call per item may not fit in it. Google shows free-tier limits only in [AI Studio](https://aistudio.google.com/rate-limit). A third-party summary updated on 2026-10-19 ([scriptbyai.com](https://www.scriptbyai.com/gemini-api-free-tier-limits/)) lists `gemini-3.8-flash`, the model Gitilizer uses, at **5 requests a minute and 20 a day**, and `gemini-3.5-flash-lite` at 10 a minute and 500 a day. Please check the real numbers for your key in AI Studio. If they're right, a free-tier developer with 100 items waits 5 days for the first sync, and the daily re-rank (`RANK-9`) alone needs 100 requests a day.
->
-> Options, which can be combined:
->
-> 1. **Score several items per call.** The agent already has a listwise strategy. At about 4,900 input tokens per item, 20 items make a call of about 100,000 tokens. Ranking quality has to be measured with the evaluation harness (`RANK-7`).
-> 2. **Use a cheaper model when the key is on the free tier.** More requests a day, but in the model comparison `gemini-3.5-flash-lite` ranks much worse (Kendall tau 0.58, against 0.69 for `gemini-3.8-flash` with low thinking, `RANK-11`).
-> 3. **Spend free-tier requests where they matter most.** Rank the most recently updated items first, rank changed items before the daily re-rank, and thin out or skip the daily re-rank (for example, only the top 100 items) when quota is short.
-> 4. **Set a target for the free tier**, for example "with up to 100 items, every item is ranked on the first day, and changes are ranked within the hour".
->
-> Suggestion: set the target (option 4) first, then measure option 1 against it, with option 3 as the fallback. Also undecided: while the quota is used up, are new items hidden, as `LIST-30` says for items not yet ranked, or shown at the end with "–", so that an urgent new item isn't invisible until midnight Pacific time? Suggestion: shown at the end with "–".
->
-> You asked whether Gitilizer can tell a free-tier key from a paid one, so it could use a weaker model for free-tier keys (option 2). **Not in advance**: as far as I can find, the Gemini API has no request that reports a key's tier. **It can after the fact**: when Google refuses a request for quota, its error names the quota, and free-tier quotas end in `-FreeTier` (for example `GenerateRequestsPerDayPerProjectPerModel-FreeTier`; see [this example](https://github.com/google-gemini/gemini-cli/issues/8437)). A paid key never gets those. So Gitilizer could start every key on the stronger model, mark it as free tier the first time it sees a `-FreeTier` quota error, and switch it to the weaker model. Billing is per Google Cloud project and can be turned on at any time, so a key marked as free tier should try the stronger model again once a day. (Asking the developer in Settings would also work, but they may not know, and the answer goes stale.)
->
-> Still to decide: the free-tier target (option 4); which weaker model (in the model comparison, `gemini-3.5-flash-lite` is the better of the two Flash-Lite models, at Kendall tau 0.58); and whether to also score several items per call.
+- **RANK-12** Gitilizer must work with a Gemini API key on Google's free tier.
+- **RANK-13** Gitilizer must rank with `gemini-3.8-flash` (the primary model). When Google reports that the developer's daily quota for the model in use is used up, Gitilizer must switch to the next model in this order: `gemini-3.8-flash`, then `gemini-3.5-flash-lite`, then `gemini-3.1-flash-lite`. It returns to the primary model when that model's quota resets, at midnight Pacific time. For as long as a backup model is in use, the developer sees the "Gitilizer is using a backup Gemini model" warning, even if that is most of every day on the free tier. This works because Google sets quotas separately for each model: running out on one doesn't block the others.
+- **RANK-14** Per-minute limits must not cause a switch: Gitilizer waits and retries, as for "Gemini is limiting requests from your key".
+- **RANK-15** When the daily quota is used up for all three models, ranking must pause until the quotas reset, and the developer sees the "Your Gemini daily quota is used up" error.
+- **RANK-16** Each item's score must record which model produced it.
+- **RANK-17** Scores from different models share one list. The primary model's quota goes to new and changed items first, because they are most likely to be near the top; the daily re-rank (`RANK-9`) uses whichever model is available, so over time items are scored again by the primary model as its quota allows.
+- **RANK-18** Each Gemini call scores exactly one item.
 
 ---
 
@@ -691,11 +693,8 @@ Gitilizer keeps:
 - **PRIV-1** Credentials must be encrypted at rest, must never be sent back to the browser after they are saved, must never be written to logs and must never be included in a ranking prompt.
 - **PRIV-2** Only the context of the developer's own items may be sent to Gemini, using the developer's own key.
 - **PRIV-3** Deleting an account (`SET-17`) must delete all of the data above for that developer. Cached item data shared with other developers may be kept only while another developer still needs it.
+- **PRIV-5** An item's GitHub data, and each developer's record of it (its score and the agent's output), must be deleted 30 days after no developer has the item in their Prioritized list or Icebox any more, whatever the reason: closed or merged, no longer matching `LIST-1`, past the 1,000-item limit, or every developer who had it deleted their account.
 - **PRIV-4** Database backups must be kept for 6 months, so a deleted account's data stays in backups for up to 6 months; credentials stay encrypted there (`PRIV-1`). If a backup is ever restored, every account deleted after that backup was taken must be deleted again.
-
-> **TODO(double check) · [Q-68](#q-68):** The new Settings design no longer has the privacy note ("Only relevant issue context is sent to your chosen model for ranking.") that this section used to quote. Was that on purpose? [Q-52](#q-52) also suggests telling developers about Google's free-tier data use. Suggestion: one short note under the Gemini API key covering both: "Gitilizer sends Gemini only the issues and PRs it ranks for you. On Gemini's free tier, Google may use what it receives to improve its products (link to Google's terms)."
-
-> **TODO · [Q-52](#q-52):** How long is item data kept after an item leaves a developer's list? Suggestion: 30 days. Also, Google's terms allow it to use content sent through free-tier Gemini keys to improve its products. Developers with private repositories may need to be told. Suggestion: a sentence in the Connections section with a link to Google's terms (see [Q-68](#q-68)).
 
 ---
 
@@ -746,14 +745,9 @@ Gitilizer keeps:
 
 ## Open questions
 
-Each row matches a TODO in the document. Q-58 to Q-63 were found by building the prototype described in the [design doc](design.md); Q-64 to Q-74 came from the product owner's 2026-11-01 answers and the new Settings design. **Needed by** says which step can't finish until it's answered: **Figma** (a design is missing), **Design doc** (the architecture depends on it) or **Implementation** (it can be decided while building).
+Q-58 to Q-63 were found by building the prototype described in the [design doc](design.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers and the new Figma designs.
 
-| ID | Area | Question | Suggested answer | Needed by |
-|---|---|---|---|---|
-| <a id="q-41"></a>Q-41 | Settings | What access states does an additional repository have? | "Checking…", "Access confirmed" and "Can't access". | Implementation |
-| <a id="q-52"></a>Q-52 | Privacy | How long is item data kept, and should developers be told about Gemini free-tier data use? | 30 days; yes, in Connections. | Design doc |
-| <a id="q-63"></a>Q-63 | Ranking | What does "works on the free tier" mean, which weaker model do free-tier keys use, and are items waiting for quota hidden? | Detect free-tier keys from quota errors; set a target; `gemini-3.5-flash-lite`; show waiting items with "–". | Design doc |
-| <a id="q-68"></a>Q-68 | Privacy | Was the Settings privacy note removed on purpose? | Bring back one note under the Gemini key that also covers free-tier data use. | Figma |
+There are no open questions: every OPENQUESTION and CONFIRM has been resolved, and the decisions are in the table below.
 
 ### Answered questions
 
@@ -799,6 +793,7 @@ Each row matches a TODO in the document. Q-58 to Q-63 were found by building the
 | <a id="q-38"></a>Q-38 | Validate states | Red ✗ and red text for a failure; messages as proposed; saving doesn't validate. | `SET-28` to `SET-30` |
 | <a id="q-39"></a>Q-39 | Model | Gitilizer chooses; Settings doesn't show it. | `SET-22` |
 | <a id="q-40"></a>Q-40 | Token kinds | Accept both, recommend fine-grained, explain in the documentation behind "Learn more". One token per developer. | `SET-20`, [Non-goals](#non-goals) |
+| <a id="q-41"></a>Q-41 | Additional repositories | `owner/name` or a URL; duplicates and bad formats are errors; at most 25; prompts up to 500 characters and not editable; states "Checking…", "Access confirmed" and "Can't access", with the reason on hover. | `SET-7` to `SET-9` |
 | <a id="q-42"></a>Q-42 | Collaborators | As suggested: tooltip on the error icon, "@" removed, duplicates rejected, at most 50. Generic avatar drawn in Figma. | `SET-19`, `SET-25` |
 | <a id="q-43"></a>Q-43 | Review teams | Out of scope for now; listed in non-goals to revisit. | [Non-goals](#non-goals) |
 | <a id="q-44"></a>Q-44 | Ranking prompt | New section description (in Figma); default `prompts/v4.md`; 20,000 characters; defaults update automatically. | `SET-23`, `SET-24` |
@@ -809,6 +804,7 @@ Each row matches a TODO in the document. Q-58 to Q-63 were found by building the
 | <a id="q-49"></a>Q-49 | Related items | A change re-ranks the items it links to. | `RANK-10` |
 | <a id="q-50"></a>Q-50 | Ties | The agent tries to avoid ties; they're broken by recent activity, then repository and number. | `RANK-4` |
 | <a id="q-51"></a>Q-51 | Concurrency and thinking | 4 requests at once; the model's default thinking level (see [Q-74](#q-74)). | `RANK-11` |
+| <a id="q-52"></a>Q-52 | Keeping item data; telling developers about Gemini | Item data deleted 30 days after no developer has it. The documentation has a privacy section covering what is stored, when it is deleted and what is sent to Gemini, including Google's free-tier terms. | `PRIV-5`, `FOOT-4` |
 | <a id="q-53"></a>Q-53 | Performance | As suggested. | `NFR-7` to `NFR-9` |
 | <a id="q-54"></a>Q-54 | Browsers and screens | Latest two versions of Chrome, Edge, Firefox and Safari; 1024 px and wider; no phones or touch. | `PLAT-6`, `LIVE-5` |
 | <a id="q-55"></a>Q-55 | Accessibility | WCAG 2.2 AA. | `NFR-10` |
@@ -819,16 +815,20 @@ Each row matches a TODO in the document. Q-58 to Q-63 were found by building the
 | <a id="q-60"></a>Q-60 | Bulk re-ranks | Applied once when finished, without row indicators. | `LIVE-24` |
 | <a id="q-61"></a>Q-61 | A bell that swings for days | Stops once the popover has been opened; a new error starts it again. | `NOTIF-17` |
 | <a id="q-62"></a>Q-62 | "N issues" includes PRs | "{N} issues and PRs". Figma updated. | `LIST-27` |
+| <a id="q-63"></a>Q-63 | The free tier | Gitilizer must work on it. It falls back from `gemini-3.8-flash` to `gemini-3.5-flash-lite` to `gemini-3.1-flash-lite` as each daily quota runs out, with a warning, and an error when all are used up. Items waiting for quota are shown at the end with "–". One item per call. | `RANK-12` to `RANK-18`, `LIST-30` |
 | <a id="q-64"></a>Q-64 | After saving | Back to the Prioritized list when the save succeeds. | `NAV-8` |
 | <a id="q-65"></a>Q-65 | Team mentions | Left out. | `LIST-1`, [Non-goals](#non-goals) |
 | <a id="q-66"></a>Q-66 | The 1,000-item limit | Prioritized list only; no notice; a dropped item slides off the bottom like an item moving to a later page. | `LIST-19`, `LIVE-26` |
 | <a id="q-67"></a>Q-67 | "Assigned to you" | Second, after "Review requested". Repeating the repository name is intended. | `LIST-21` |
+| <a id="q-68"></a>Q-68 | The Settings privacy note | Removed on purpose. | `PRIV-2` |
 | <a id="q-69"></a>Q-69 | Settings copy and icons | All fixed in Figma. | [Settings](#settings) |
 | <a id="q-70"></a>Q-70 | Alerts for the owner | Yes, by email, through Cloud Monitoring. | `METRIC-4` |
 | <a id="q-71"></a>Q-71 | What "Cancel" does | Discards changes and returns to the Prioritized list (or Warm Welcome before setup is complete). | `NAV-9` |
 | <a id="q-72"></a>Q-72 | Icebox check prompt | Owned by Gitilizer; not shown in Settings. | `ICE-14` |
 | <a id="q-73"></a>Q-73 | Errors in Settings | As suggested, drawn in Figma ("Settings · Errors"). | `SET-27` |
 | <a id="q-74"></a>Q-74 | Thinking level | `gemini-3.8-flash` with thinking turned down as far as it goes, for cost; may be revisited. | `RANK-11` |
+| <a id="q-75"></a>Q-75 | Scores from different models; how often the backup-model warning shows | Accept the mix; it resolves as items are re-ranked with the primary model. The warning shows for as long as a backup model is in use. | `RANK-13`, `RANK-17` |
+| <a id="q-76"></a>Q-76 | Archived additional repositories | Their own "Archived" state, in grey. | `SET-8` |
 
 ---
 
@@ -880,3 +880,25 @@ Each row matches a TODO in the document. Q-58 to Q-63 were found by building the
 - Folded in the product owner's answers to Q-2, Q-38, Q-46, Q-50, Q-53 to Q-57 and Q-72 to Q-74, and parts of Q-41 and Q-63. New requirements: `ICE-14`, `SET-27` to `SET-31`, `PRIV-4`, `NFR-7` to `NFR-10`, `PLAT-6` and `PLAT-7`. `LIVE-5` no longer mentions touch.
 - Q-63 now explains how Gitilizer can tell a free-tier key from a paid one. Q-41 is down to the repository access states.
 - Changed Figma: added [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237). Nothing in Figma suggested touch support, so nothing was removed.
+
+### Seventh revision (2026-11-01, fifth round)
+
+- Folded in the product owner's model fallback for running out of Gemini quota: `gemini-3.8-flash`, then `gemini-3.5-flash-lite`, then `gemini-3.1-flash-lite` (`RANK-13` to `RANK-16`), with a warning while a backup model is in use and an error when all three are used up. This replaces detecting a key's tier.
+- Q-63 is down to two smaller points. Added Q-75 about mixing scores from different models.
+
+### Eighth revision (2026-11-01, sixth round)
+
+- Folded in the answers to Q-63 and Q-75: items waiting for quota are shown at the end with "–" (`LIST-30`), scores from different models share the list (`RANK-17`), each call scores one item (`RANK-18`), and the backup-model warning shows for as long as a backup model is in use.
+
+### Ninth revision (2026-11-01, seventh round)
+
+- Folded in the answers to Q-41 (`SET-8`, with the reasons a repository can't be accessed) and Q-68 (the privacy note was removed on purpose).
+- Explained Q-52 in more detail, and added the documentation question that Q-68 leaves. Added Q-76 about archived repositories.
+
+### Tenth revision (2026-11-01, eighth round)
+
+- Folded in the answers to Q-76 (an "Archived" state, `SET-8`) and the retention part of Q-52 (30 days, `PRIV-5`). Q-52 is down to whether the documentation mentions Gemini's free-tier data use.
+
+### Eleventh revision (2026-11-01, ninth round)
+
+- Folded in the rest of Q-52: the user documentation gets a privacy section (`FOOT-4`). No questions are open.
