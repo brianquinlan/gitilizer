@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-01 (product owner's answers to 25 questions and parts of 10 more; the new Settings design; new questions Q-64 to Q-69) |
+| **Last updated** | 2026-11-01, second round (product owner's answers to 24 more questions and parts of 2 more; new questions Q-70 to Q-74) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Replaces** | [Gitilizer PRD (Google Doc)](https://docs.google.com/document/d/1iN4HGqn5_Nz4g8oweqg0PK-iLlKQ8dza7ruqxADpu6U/edit) |
@@ -74,6 +74,8 @@ These are out of scope for the first release.
 - Ranking with models other than Gemini. The design should still allow other model providers to be added later.
 - Review requests made to a GitHub team the developer belongs to, and the ranking agent's "review teams" setting. Only review requests made to the developer personally count. **Revisit after the first release** (see [Q-43](#q-43)).
 - Showing the agent's next action or reasoning for an item ([Q-31](#q-31)).
+- Mentions of a GitHub team the developer belongs to (`@org/team`). Only mentions of the developer by name count ([Q-65](#q-65)).
+- More than one GitHub token per developer, for example one per organization ([Q-40](#q-40)). Revisit if developers ask for it.
 
 ### Metrics
 
@@ -84,8 +86,10 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
   - the number of users who have completed setup (entered both credentials, see [Which screen is shown](#which-screen-is-shown));
   - the number of active users per day, per week and per month, including for past days.
 - **METRIC-2** Metrics should use what Google Cloud already provides (for example Cloud Monitoring dashboards) rather than a custom admin screen.
+- **METRIC-3** The owner must also be able to see the health of the system, without writing queries and including for past days: the latency of API calls (by endpoint, median and 95th percentile), how long the app takes to load and show a usable list in developers' browsers, the HTTP status codes returned for page loads and API calls, and the error rates in `NFR-6`.
 
-NEW: There should also be monitoring for system health reasons. For example, latency for API calls, latency for time to load. HTTP status codes returned for page load, etc.
+> **TODO(double check) · [Q-70](#q-70):** Should the owner also be alerted, for example by email, when something is wrong, rather than having to look? Suggestion: yes, through Cloud Monitoring alerts to the owner's email when gitilizer.com stops responding, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for any developer in 30 minutes.
+
 ---
 
 ## Glossary
@@ -106,7 +110,8 @@ NEW: There should also be monitoring for system health reasons. For example, lat
 | Scan | A backend job that reads the developer's items from GitHub and finds new, changed and removed items. |
 | Ranking | A backend job that asks the ranking agent to score items. |
 | Sync | A scan, followed by ranking of any new and changed items. "Sync now" starts one. |
-| Full re-rank | Ranking every item again, started by "Save and re-rank" in Settings. |
+| Full re-rank | Ranking every item again, started by "Save and re-rank" in Settings, and once a day (`RANK-9`). |
+| Icebox check | A short question to the agent, with its own prompt, asking whether a change to an item in the Icebox should bring it back (`ICE-6`). |
 | Notification | An error or warning shown in the bell's popover. |
 | PAT | A GitHub personal access token. |
 
@@ -116,14 +121,14 @@ NEW: There should also be monitoring for system health reasons. For example, lat
 
 ### Figma frames
 
-All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1). The "Application UX" page holds the screens. The "Live reorder prototype" page holds the animated flows for [Live updates](#live-updates).
+All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1). The "Application UX" page holds the screens. The "Animations" page holds the animated flows for [Live updates](#live-updates) and the animated components (Sync now and the skeleton rows).
 
 | Screen or element | Figma | Section |
 |---|---|---|
 | Sign-in page | [Sign in](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2978) | [Sign-in](#sign-in) |
 | Footer | [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-346) | [Footer](#footer) |
 | App bar | [Shared / App bar](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-323) | [App bar](#app-bar) |
-| Account menu | [Profile dropdown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-327) (a layer inside the app bar) | [Account menu](#account-menu) |
+| Account menu | [Account menu · Open](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=286-1722) | [Account menu](#account-menu) |
 | Notification bell | [Shared / Notification bell](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=215-1375) (Idle, Error, Warning and the swing steps) | [Bell](#bell) |
 | Bell with an active error | [Notifications · Active error condition](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=200-2604) | [Bell](#bell) |
 | Popover with one error | [Notifications · Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=200-2665) | [Popover](#popover) |
@@ -133,16 +138,17 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Warm Welcome | [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=70-475) | [Warm Welcome](#warm-welcome) |
 | Prioritized list | [Issue inbox - Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2562) | [Prioritized list](#prioritized-list) |
 | Prioritized list, empty | [Issue inbox · No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-897) | [Empty, loading and first-sync states](#empty-loading-and-first-sync-states) |
+| Prioritized list, first sync | [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689), using [Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433) on the Animations page (present it to see the pulse) | [Empty, loading and first-sync states](#empty-loading-and-first-sync-states) |
 | List layout component | [Shared / Inbox layout](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-1000) | [Prioritized list](#prioritized-list) |
-| Sync now button | [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369) (Idle and Syncing; present it to see the icon turn) | [Sync now](#sync-now) |
+| Sync now button | [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369) on the Animations page (Idle and Syncing; present it to see the icon turn) | [Sync now](#sync-now) |
 | Icebox | [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947) | [Icebox](#icebox) |
 | Icebox, empty | [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593) | [Icebox](#icebox) |
 | Icebox row | [Icebox / Issue row · Restore](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=180-1403) | [Icebox](#icebox) |
-| Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802) and its content component [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509), including Additional repositories, Collaborators, Delete account and the two save buttons | [Settings](#settings) |
+| Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), including Additional repositories, Collaborators, Delete account, and the save and cancel buttons | [Settings](#settings) |
 
 ### Live reorder prototype
 
-The [Live reorder prototype](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=139-491) page shows how the Prioritized list changes when ranks change. Open it in Present mode and pick a flow; each flow plays on its own and loops. Flow 7 waits for you to move the pointer onto the table and off it again. The frames show 10 rows per page to keep them small; the behavior is the same at 25. The [How to play these flows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=151-8151) note on that page has the details.
+The [Animations](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=139-491) page shows how the Prioritized list changes when ranks change. Open it in Present mode and pick a flow; each flow plays on its own and loops. Flow 7 waits for you to move the pointer onto the table and off it again. The frames show 10 rows per page to keep them small; the behavior is the same at 25. The [How to play these flows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=151-8151) note on that page has the details.
 
 | Flow | Starts at | Requirement |
 |---|---|---|
@@ -187,10 +193,9 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 - **NAV-5** The developer reaches Settings from the [account menu](#account-menu), from links in notifications, from the "Go to Settings" button on Warm Welcome and from the "settings" link in the empty Prioritized list.
 - **NAV-6** The developer switches between the Prioritized list and the Icebox with the "Prioritized" / "Icebox" toggle above the table.
 - **NAV-7** The Gitilizer symbol and wordmark in the app bar must link to the Prioritized list.
+- **NAV-8** After a successful "Save changes" or "Save and re-rank", the developer must be taken to the Prioritized list. If something can't be saved (for example a repository name in the wrong format) or a credential fails validation, they stay on Settings with the problems shown next to the fields ([Q-73](#q-73)). The save that completes setup also goes to the list, which then shows the [first-sync state](#empty-loading-and-first-sync-states).
 
-> **TODO(double check) · [Q-64](#q-64):** You asked whether "Save changes" and "Save and re-rank" should also take the developer back to the Prioritized list. Suggestion: yes, when the save succeeds, because the developer usually wants to see the effect. Stay on Settings, with the problems shown inline, when something can't be saved (for example a repository name in the wrong format) or a credential fails validation. The save that completes setup also goes to the list, which then shows the [first-sync state](#empty-loading-and-first-sync-states).
-
-NEW: approved
+> **TODO(double check) · [Q-71](#q-71):** You added "Cancel" back, described in Figma as "Discard unsaved changes and return to the previous settings". Does it also take the developer back to the Prioritized list, like the save buttons, or keep them on Settings with the fields reset? Suggestion: back to the list, so all three buttons end a visit to Settings the same way.
 
 ---
 
@@ -206,12 +211,9 @@ Figma: [Sign in](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?n
 - **AUTH-6** The account's display name, email and avatar must come from the sign-in provider.
 - **AUTH-7** Each sign-in provider account is a separate Gitilizer account. A person who signs in with Google one day and GitHub the next has two accounts, each with its own credentials, settings and list, even if both providers report the same email address.
 - **AUTH-8** A session must last 30 days and be extended each time it is used, so a developer who visits at least once every 30 days stays signed in.
+- **AUTH-9** Signing out must end only the current browser's session. Other browsers and devices where the developer is signed in stay signed in. Deleting the account (`SET-17`) ends every session.
 
-> **TODO(double check) · [Q-11](#q-11):** Session length is decided (`AUTH-8`). To your question: Google and GitHub don't limit it. They only confirm who the developer is at sign-in; after that, Gitilizer's own session cookie decides how long the developer stays signed in, and Gitilizer doesn't keep the provider's tokens. (So removing Gitilizer's access in Google or GitHub doesn't sign the developer out of Gitilizer.)
->
-> Still open is what "Log out" ends. A developer may be signed in on several browsers or devices at once, for example a work laptop and a home desktop. "Log out ends only the current browser's session" means logging out on the laptop leaves the desktop signed in. The alternative is that "Log out" signs the developer out everywhere. Suggestion: the current browser only, which is what most sites do; deleting the account (`SET-17`) still ends every session.
-
-NEW: yes, should only log out of the current browser session.
+Google and GitHub don't limit the session. They only confirm who the developer is at sign-in, and Gitilizer doesn't keep their tokens, so removing Gitilizer's access in Google or GitHub doesn't sign the developer out of Gitilizer.
 
 > **TODO · [Q-10](#q-10):** No design for failed sign-in (the developer cancels, the provider returns an error, the browser blocks the pop-up).
 
@@ -225,7 +227,7 @@ Figma: [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Git
 - **FOOT-2** The footer must show the tagline "Less triage. More shipping." and two links, both opening in a new tab:
   - "Documentation": the user documentation, hosted in the GitHub repository (for example `https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md`; the exact path is set when the documentation is written);
   - "GitHub": the project's GitHub page, [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer), which is also the project's landing page.
-- **FOOT-3** The user documentation must exist at launch. At least, it must explain how to create a PAT with the right permissions ([Q-40](#q-40)) and a Gemini API key, and what each [notification](#catalogue) means.
+- **FOOT-3** The user documentation must exist at launch. At least, it must explain the two kinds of GitHub token and how to create one with the right permissions (the page that "Learn more" in Settings opens, `SET-20`), how to create a Gemini API key, and what each [notification](#catalogue) means.
 
 ---
 
@@ -240,16 +242,13 @@ Figma: [Shared / App bar](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gi
 
 ## Account menu
 
-Figma: [Profile dropdown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-327), a layer inside [Shared / App bar](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-323)
+Figma: [Account menu · Open](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=286-1722). The menu is also the "Profile dropdown" layer inside [Shared / App bar](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-323), which matches it.
 
 - **ACCT-1** The avatar must be the image from the sign-in provider. If the provider has no image, show the developer's initials on a colored circle, as in Figma ("MC").
-- **ACCT-2** Clicking the avatar must open a menu showing the developer's full name and email, a "Settings" item and a "Log out" item.
-- **ACCT-3** "Settings" must open the [Settings](#settings) page. "Log out" must end the session and show the sign-in page.
-
-> **TODO · [Q-12](#q-12):** The menu exists in Figma only as a layer that the app bar clips, so its open state is not visible in any frame. It also needs closing behavior (click outside, Esc). Settings also has a "Sign out ↗" link with an external-link arrow; the menu says "Log out". Suggestion: use "Log out" everywhere, without the arrow.
-
-NEW: I added "Account menu open" in Figma with the correct naming and icons for the menu labels. Use "Sign out" everywhere. Change figma if needed.
-
+- **ACCT-2** Clicking the avatar must open a menu showing the developer's full name and email, a "Settings" item and a "Sign out" item, each with its icon as in Figma. "Sign out" is shown in red.
+- **ACCT-3** "Settings" must open the [Settings](#settings) page. "Sign out" must end the session (`AUTH-9`) and show the sign-in page.
+- **ACCT-4** The menu must close on a click outside it, on Esc and when an item is chosen, like the notification popover (`NOTIF-20`).
+- **ACCT-5** The action is called "Sign out" everywhere, in this menu and in Settings (`SET-16`), with no external-link arrow.
 
 ---
 
@@ -320,13 +319,13 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 | Error | Gemini connection | Your Gemini API key can't use the Gemini API | New and changed issues aren't being ranked. The key may be restricted to other Google APIs, or its project may not allow the Gemini API. Create a new key in Google AI Studio and add it in Settings. | Any other 403 `PERMISSION_DENIED`. | A new key is saved, or a Gemini request succeeds. |
 | Error | Gemini connection | Your Gemini credits have run out | New and changed issues aren't being ranked. Add credits or turn on auto-reload in Google AI Studio. | 402. | A Gemini request succeeds, or a new key is saved. |
 | Error | Gemini connection | Your Gemini project needs billing | New and changed issues aren't being ranked. The key's Google Cloud project needs a working billing account, or has a past-due balance. Fix billing in the Google Cloud console. | 400 `FAILED_PRECONDITION` about billing, or 403 for an unpaid balance. | A Gemini request succeeds, or a new key is saved. |
-| Error | Gemini connection | Your Gemini daily quota is used up | New and changed issues won't be ranked until the quota resets at {time}, and then ranking resumes automatically. To avoid this, turn on billing or ask Google for a higher quota. | 429 for a per-day quota. | A Gemini request succeeds. |
+| Warning | Gemini connection | Your Gemini daily quota is used up | New and changed issues won't be ranked until your quota resets at {time}, in about {duration}. Ranking then resumes automatically. To rank more each day, turn on billing in Google AI Studio. | 429 for a per-day quota. Google resets daily quotas at midnight Pacific time. If the reset time isn't known, the body leaves out "at {time}, in about {duration}". | A Gemini request succeeds. |
 | Warning (short-lived) | Gemini connection | Gemini is limiting requests from your key | Ranking is slower than usual and catches up automatically. Other apps that use this key count toward the same limit. | 429 for a per-minute limit, for more than 15 minutes (`NOTIF-21`). | Gemini requests succeed without 429s for 15 minutes. |
 | Warning (short-lived) | Gemini connection | Gemini isn't responding | New and changed issues aren't being ranked. Gitilizer keeps retrying automatically. If this continues, check the [Google AI Studio status page](https://aistudio.google.com/status). | 500, 503 or 504 that continue after retries for more than 15 minutes (`NOTIF-21`). | A Gemini request succeeds. |
 | Error | Gemini connection | The Gemini model Gitilizer uses isn't available | New and changed issues aren't being ranked. This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page. | 404 `model_not_found`. | A Gemini request succeeds. |
 | Error | Gemini connection | Gemini sent an unexpected response | New and changed issues may not be ranked. Gitilizer keeps retrying automatically. If this continues, report it using the GitHub link at the bottom of the page. | Any other Gemini error, after retries. | A Gemini request succeeds. |
 | Error | Issue ranking | Your ranking prompt isn't working | Most new and changed issues couldn't be ranked with your custom prompt. Edit the prompt, or restore the default prompt in Settings. | A custom prompt is set and more than half of the items in a ranking run fail to produce valid output. | The prompt is changed, or a ranking run succeeds. |
-| Warning | Issue ranking | Gitilizer couldn't rank {n} issues | These issues are shown without a rank. Gitilizer tries again when they change. | Individual items fail after retries (blocked response, output cut off, invalid output). See [Q-28](#q-28). | Every one of them is ranked or leaves the list. |
+| Warning | Issue ranking | Gitilizer couldn't rank {n} issues | These issues are shown without a rank. Gitilizer tries again when they change. | Individual items fail after retries (blocked response, output cut off, invalid output). See `LIST-30`. | Every one of them is ranked or leaves the list. |
 | Error | Gitilizer | Can't connect to Gitilizer | Your list won't update until the connection comes back. Check your internet connection. | The web app's requests to the Gitilizer API fail. Detected in the browser. | A request succeeds. |
 | Error | Gitilizer | Gitilizer couldn't finish scanning | Your list may be missing recent changes. Gitilizer tries again at the next scan. If this continues, report it using the GitHub link at the bottom of the page. | The backend's own scan job fails for a reason other than GitHub. | A scan succeeds. |
 | Error | Gitilizer | Your issues haven't updated since {time} | No scan has finished in 3 hours, so your list may be missing recent changes. Try Sync now. If this continues, report it using the GitHub link at the bottom of the page. | No scan has succeeded for 3 hours. This catches failures the other rows miss. | A scan succeeds. |
@@ -336,10 +335,7 @@ Not in the catalogue, by decision:
 
 - "Some of your issues couldn't be loaded" (a search with more than 1,000 results). The list keeps only the 1,000 most recently updated items (`LIST-19`), so no search ever needs more than its first 1,000 results (`SCAN-1`).
 - "There's no GitHub user named @{name}". Settings shows this next to the collaborator instead (`SET-19`).
-
-> **TODO(double check) · [Q-19](#q-19):** You asked why "Your GitHub token belongs to @{login}" matters. It applies only to developers who sign in with GitHub. Gitilizer builds the list for the account that owns the PAT: "Assigned to you", "Created by you" and @-mentions all mean that account. If a developer signs in as @maya but pastes a token made by another account (a work account such as @maya-corp, or a bot), their list shows the other account's items, which looks like a bug. But it may also be exactly what they want. Suggestion: don't make it a notification. Instead, show the token's account in the Validate result, for example "Validated 2m ago · Reading GitHub as @maya-corp", so a mistake is visible where the token is entered.
-
-NEW: Yes, do it that way.
+- "Your GitHub token belongs to @{login}". The Validate result names the token's account instead (`SET-2`).
 
 ---
 
@@ -365,25 +361,14 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 - **LIST-1** An item must appear in the list if it is open, is not in an archived repository, and at least one of these is true:
   - the developer's review is requested on it personally (a request to a team the developer belongs to doesn't count; see [Non-goals](#non-goals));
   - the developer is assigned to it;
-  - the developer is @-mentioned in its description or in a comment;
+  - the developer is @-mentioned by name in its description or in a comment (a mention of a team doesn't count; see [Non-goals](#non-goals));
   - the developer created it;
   - the developer commented on it;
   - the item is in one of the developer's [additional repositories](#additional-repositories).
 - **LIST-2** An item must not appear if the developer has moved it to the [Icebox](#icebox).
-- **LIST-19** The list must hold at most 1,000 items: the 1,000 matching items that were most recently updated on GitHub. When an item outside the 1,000 is updated, it joins the list and the least recently updated item leaves it.
+- **LIST-19** The Prioritized list must hold at most 1,000 items: the 1,000 matching items that were most recently updated on GitHub. When an item outside the 1,000 is updated, it joins the list and the least recently updated item leaves it (`LIVE-26`). The limit doesn't apply to the Icebox, and Icebox items don't count toward it. The developer isn't told when matching items are left out.
 - **LIST-20** Draft PRs must be included. (The ranking agent should score them lower, `RANK-8`.)
-
-> **TODO(double check) · [Q-65](#q-65):** You chose to include mentions of a team the developer belongs to (`@org/team`). Finding them needs the list of the developer's teams, and reading that list needs an extra token permission (organization "Members: read" for a fine-grained token, `read:org` for a classic one). That is the same cost that made team review requests worth leaving out. Suggestion: leave team mentions out too, with team reviews, so the token needs only read access to issues, pull requests and metadata. Mentions of the developer by name still count.
-
-NEW: Yes, remove team mentions.
-
-> **TODO(double check) · [Q-21](#q-21):** Not yet decided: items opened by bots (Dependabot, Renovate and the like). They can appear only through the rules above, mostly through additional repositories, where there can be many. Suggestion: include them, and let the ranking prompt, or a repository's prioritization prompt, score them down.
-
-NEW: Yes.
-
-> **TODO(double check) · [Q-66](#q-66):** The 1,000-item limit (`LIST-19`) raises three smaller questions. Do Icebox items count toward the 1,000 (suggestion: no; the limit applies to the Prioritized list)? Is the developer told when matching items are left out (suggestion: no notification; the count reads "1000 issues and PRs")? What does a row show when it leaves because of the limit (see [Q-30](#q-30); suggestion: no label, since the least recently updated item is almost never on the page being viewed)?
-
-NEW: the limit only applies to the Prioritized list. No notification. I would suggest that the issue falls off the bottom of the page just like if it were moving to the next page.
+- **LIST-29** Items opened by bots (Dependabot, Renovate and the like) must be included like any other item. The ranking prompt, or a repository's prioritization prompt, can score them down.
 
 ### Columns
 
@@ -396,16 +381,12 @@ NEW: the limit only applies to the Prioritized list. No notification. I would su
 | Actions | A "Move to icebox" button. |
 
 - **LIST-3** The inclusion reason must be one of "Review requested", "Assigned to you", "@{handle}" for a mention (for example "@maya"; "@-mentioned" when the handle can't be determined), "Created by you", "Commented on by you", or, for an item in an additional repository, the repository's name (for example "northstar/web"). "CCed", "@mention" and "Interested repository" are not used.
-- **LIST-21** An item can match several reasons; only one is shown. The order of precedence is: Review requested, @{handle}, Created by you, Commented on by you, repository name. "Assigned to you" is placed by [Q-67](#q-67).
+- **LIST-21** An item can match several reasons; only one is shown. The order of precedence is: Review requested, Assigned to you, @{handle}, Created by you, Commented on by you, repository name. (The repository name repeats the Repository column on the same row, which is intended.)
 - **LIST-4** The title link must open the item on GitHub, in a new tab, so the list keeps its place.
 - **LIST-5** Relative times must update while the page is open, at least once a minute.
 - **LIST-22** Relative times must follow these thresholds: under 1 minute "just now"; then minutes ("12m ago"), hours ("3h ago") and days ("2d ago"); after 30 days, the date ("Mar 4"). Hovering over a time must show the full date and time.
 - **LIST-23** Titles and repository names must stay on one line. A title that doesn't fit is cut off at the end with "…". A repository name that doesn't fit is cut off at the **start** ("…le-cloud-dart"), because the owner, at the start, is usually the least useful part. Hovering must show the full text.
 - **LIST-24** The agent's next action and reasoning (`RANK-2`) must not be shown.
-
-> **TODO(double check) · [Q-67](#q-67):** Your order of precedence for inclusion reasons leaves out "Assigned to you", which `LIST-1` still includes and which Figma shows on many rows. Where does it go? Suggestion: second, after "Review requested". Also note that the repository-name label repeats the Repository column on the same row ("Issue #962 · northstar/web" next to "northstar/web"); Figma now shows this. Confirm that's intended.
-
-NEW: Yes, make "Assigned to you" second. This is intended.
 
 ### Sorting the list
 
@@ -427,11 +408,8 @@ NEW: Yes, make "Assigned to you" second. This is intended.
 ### Empty, loading and first-sync states
 
 - **LIST-14** If the developer has no items and at least one sync has finished, the table body must be replaced by "No issues to show 🎉" and "You can choose more repositories in the settings.", where "settings" opens Settings at Additional repositories, with focus on the "Add repository" field.
-- **LIST-15** While the first sync is running, the table must be shown so that items can appear in it as they are ranked.
-
-> **TODO · [Q-28](#q-28):** The first-sync state has no design, and an empty table with no message looks broken. Suggestion: show the column headings with three skeleton rows and the text "Scanning your issues and PRs…". Also undefined: where an item appears after it has been found but before it has been ranked (suggestion: it is not shown until ranked), and where an item that couldn't be ranked appears (suggestion: after all ranked items, newest first, with "–" in the Priority column).
-
-NEW: "Issue index - Loading" in Figma has some UX. Can you animate the blur (either on that UX or on the "Animations" page). Items are not shown in the priority list until ranked. Fine to put items at the end if they can't be ranked for some reason (ranking failed). In that case there should be a warning in the notification area though, right?
+- **LIST-15** While the first sync is running and nothing has been ranked yet, the table must show the column headings, three skeleton rows and "Scanning your issues and PRs…", as in [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689). The skeleton placeholders pulse, fading to about a third of their strength and back, 0.8 s each way ([Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433)); with reduced motion they don't pulse. As soon as the first item has been ranked, the list replaces the skeleton rows, and further items appear as they are ranked.
+- **LIST-30** An item must not be shown in the Prioritized list until it has been ranked. An item whose ranking failed (`RANK-6`) is shown after all ranked items, newest first, with "–" in the Priority column, and the "Gitilizer couldn't rank {n} issues" warning is shown (see the [catalogue](#catalogue)).
 
 ### Sync now
 
@@ -440,28 +418,13 @@ Figma: [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 - **LIST-16** A "Sync now" button must start a sync: a scan for new, changed and removed items, followed by ranking of only the new and changed items.
 - **LIST-17** While any sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), the button must show the **Syncing** state: its icon, in the accent color, turns clockwise once per second. With reduced motion, the icon is still and in the accent color.
 - **LIST-28** The button must never be disabled. Choosing it while a sync is running joins that sync (`SCAN-4`). There is no minimum interval between manual syncs.
-
-> **TODO(double check) · [Q-29](#q-29):** When does a sync count as finished, so the icon stops? Suggestion: when the scan has finished and every new and changed item has been ranked or has failed.
-
-NEW: yes, go with the suggestion
+- **LIST-32** A sync counts as finished, and the icon stops turning, when the scan has finished and every new and changed item has been ranked or has failed.
 
 ### Moving an item to the Icebox
 
 - **LIST-18** "Move to icebox" must move the item to the [Icebox](#icebox) immediately. The row leaves the list as described in `LIVE-15`, and the next item moves up so the page still has 25 rows.
 
-> **TODO(double check) · [Q-30](#q-30):** You asked for more detail. When an item leaves the Prioritized list while the developer is looking at it, `LIVE-15` says its row first shows a short label for about a second and then collapses, so the developer sees *why* it went instead of a row silently vanishing. Figma's flow 5 shows this with the label "Closed". But items leave for several reasons, and the document only gives the label for one of them. The question is which words to show for each reason:
->
-> | Why the item left | Suggested label |
-> |---|---|
-> | The issue was closed on GitHub | Closed |
-> | The PR was merged | Merged |
-> | The PR was closed without merging | Closed |
-> | The developer chose "Move to icebox" | Moved to Icebox |
-> | It no longer matches `LIST-1`: the developer was unassigned, a review request was withdrawn, its repository was archived or removed from additional repositories | No longer yours |
->
-> The second question is about undo. Clicking "Move to icebox" by mistake takes the item away at once. Some apps show "Moved to Icebox · Undo" for a few seconds afterwards. Suggestion: no undo, because "Restore" in the Icebox does the same job.
-
-NEW: yes, no restore. The suggested labels are fine.
+- **LIST-31** There is no undo for "Move to icebox". "Restore" in the Icebox does the same job.
 
 ---
 
@@ -471,7 +434,7 @@ Items change on GitHub all the time, so ranks change while the developer is look
 
 - **LIVE-1** When ranks change, the Prioritized list must update without a page reload. No notice, banner or status message is shown; the only feedback is the animations and the indicators in the affected rows.
 - **LIVE-23** A ranked change must reach the screen within 5 seconds of ranking finishing, unless the rules in [When updates wait](#when-updates-wait) hold it.
-- **LIVE-24** Bulk re-ranks, which change the rank of nearly every item at once, must not play as per-item animations. These are the first sync, a full re-rank after "Save and re-rank" (`SET-15`) and any scheduled re-rank of every item ([Q-48](#q-48)). The new order must be applied once, when the whole re-rank has finished, without row indicators. Changes caused by activity on GitHub keep the per-item animations below.
+- **LIVE-24** Bulk re-ranks, which change the rank of nearly every item at once, must not play as per-item animations. These are the first sync, a full re-rank after "Save and re-rank" (`SET-15`) and the daily re-rank (`RANK-9`). The new order must be applied once, when the whole re-rank has finished, without row indicators. Changes caused by activity on GitHub keep the per-item animations below.
 
 ### Pages during updates
 
@@ -499,9 +462,20 @@ Each animation takes about 0.4 seconds.
 - **LIVE-12** A visible item that moves to an earlier page must fade out as it moves quickly toward the top of the table.
 - **LIVE-13** A visible item that moves to a later page must fade out as it moves quickly toward the bottom of the table.
 - **LIVE-14** An item that becomes visible because of the change must expand into its new position.
-- **LIVE-15** An item that leaves the list (closed, no longer relevant or moved to the Icebox) must briefly show a label such as "Closed" in its row, then collapse, and the rows below must slide up. See [Q-30](#q-30) for the labels.
+- **LIVE-15** An item that leaves the list (closed, no longer relevant or moved to the Icebox) must briefly show a label such as "Closed" in its row, then collapse, and the rows below must slide up. The labels are in `LIVE-25`.
 - **LIVE-16** A new item must expand into its position.
 - **LIVE-17** The rank numbers of all visible items must update to their new values.
+- **LIVE-25** The label a leaving row shows depends on why it left:
+
+  | Why the item left | Label |
+  |---|---|
+  | The issue was closed | Closed |
+  | The PR was merged | Merged |
+  | The PR was closed without merging | Closed |
+  | The developer chose "Move to icebox" | Moved to Icebox |
+  | It no longer matches `LIST-1` (the developer was unassigned, a review request was withdrawn, its repository was archived or removed from additional repositories) | No longer yours |
+
+- **LIVE-26** An item that leaves because of the 1,000-item limit (`LIST-19`) shows no label. It moves off the bottom of the page as an item moving to a later page does (`LIVE-13`).
 
 ### Row indicators
 
@@ -530,22 +504,16 @@ The Icebox holds items the developer has decided to set aside. It works like the
 - **ICE-3** The line under each title must show the type and number, then "Moved to Icebox by you · {relative time}".
 - **ICE-4** The default sort must be Issue ascending: PRs first, then issues, each by number ascending.
 - **ICE-5** The Actions column must have a "Restore" button that returns the item to the Prioritized list.
-- **ICE-6** When an item in the Icebox changes on GitHub, it must be ranked again and returned to the Prioritized list automatically. [Q-35](#q-35) asks which changes count.
+- **ICE-6** When an item in the Icebox changes on GitHub, Gitilizer must run the **Icebox check**: a short question to the agent, with its own prompt, about whether the change should bring the item back. If the answer is yes, the item returns to the Prioritized list automatically and is ranked again.
 - **ICE-7** If the Icebox is empty, the table body must be replaced by "No issues in the Icebox".
 - **ICE-8** Pages, sorting, the item count and "Sync now" must work as in the Prioritized list.
 - **ICE-9** While the Icebox is shown, an item that leaves it (it returns to the list under `ICE-6`, or leaves under `ICE-11`) must use the leave animation in `LIVE-15`, without the holding rules in [When updates wait](#when-updates-wait).
 - **ICE-10** A restored item must keep its last score. (An item that changed while in the Icebox will usually have returned to the list already, under `ICE-6`, and been ranked again.)
 - **ICE-11** An item that would no longer be eligible for the Prioritized list must leave the Icebox automatically. That includes items that are closed or merged, items that no longer match `LIST-1`, items in a repository that has been archived, and items that were there only because of an additional repository the developer has removed.
+- **ICE-12** The Icebox check's prompt must lean toward bringing items back. It keeps an item in the Icebox only when the change is clearly unimportant, such as a bot's comment, a label or milestone edit, or a CI result. Changes made by the developer count like anyone else's: for example, the developer commenting "This is a critical security issue, I'll work on it right away" brings the item back. If the check can't be made (for example, Gemini still fails after retries), the item comes back.
+- **ICE-13** Changes to the Icebox check's prompt should be measured against labelled examples before they ship, as `RANK-7` requires for the ranking prompt.
 
-> **TODO(double check) · [Q-35](#q-35):** You'd like to default to returning items from the Icebox, without letting bot comments bring them back. Your question was whether the agent should decide which changes matter, perhaps with a separate prompt. The options:
->
-> 1. **A fixed rule, no agent.** Any change returns the item, except changes made only by the developer themselves or by bots (accounts of type `Bot`, or logins ending in `[bot]`). Cheap and predictable, with no Gemini call. A human's trivial change, such as a label edit, still brings the item back.
-> 2. **The ranking agent decides, through its score.** This was the earlier suggestion. The agent already understands "I marked this not important at that time" (`thumbs_down_at`) and scores such an item 0 unless something important happened since. The item returns only if its new score is above a threshold, such as 0.1. No new prompt, but the decision is hidden inside a score, and it defaults to keeping items out rather than bringing them back.
-> 3. **A separate significance prompt.** A short Gemini call asks only "is this change important enough to bring the item back?". The rule is clear, but it's a second prompt to write, evaluate and keep up to date, with its own set of labelled examples, and it adds a Gemini call per change.
->
-> Suggestion: option 1, because it matches "default to moving things out" and costs nothing. Option 3 can be added later if trivial human changes turn out to bring too many items back.
-
-NEW: Option 1 isn't great because it means that a developer comment like "This is a critical security issue, I'll work on it right away" doesn't move the item out of the icebox. I want to go with option 3. The prompt should default to moving the item out of the icebox.
+> **TODO(double check) · [Q-72](#q-72):** Can the developer see or change the Icebox check's prompt in Settings, as they can the ranking prompt? Suggestion: no. Gitilizer owns it, so it can be measured (`ICE-13`) and improved for everyone, and Settings stays simpler.
 
 ---
 
@@ -553,87 +521,33 @@ NEW: Option 1 isn't great because it means that a developer comment like "This i
 
 Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
 
-Settings is one page. The left column has links to its sections (Connections, Additional repositories, Ranking prompt, Collaborators), the developer's account details ("Signed in with GitHub", "Sign out") and a Delete account panel. The main column has the numbered sections (01 Connections, 02 Additional repositories, 03 Ranking prompt, 04 Collaborators) and, at the bottom, two buttons: "Save changes" and "Save and re-rank".
-
-> **TODO(double check) · [Q-69](#q-69):** Small differences in the new Settings design that need a decision or a Figma fix:
->
-> - The note under "Save and re-rank" says "Agent quota". Everywhere else the developer's quota is called "Gemini quota". Suggestion: "Gemini quota".
-
-NEW: fix it in Figma
-
-> - The "Collaborators" heading has an empty grey badge where the other sections say "Required" or "Optional". Suggestion: "Optional".
-
-NEW: fix it in Figma
-
-> - The Collaborators link in the left column uses the same icon as Ranking prompt. Suggestion: a people icon.
-
-NEW: fix it in Figma
-
-> - The Delete account panel uses the "eye off" icon. Suggestion: a trash or warning icon.
-
-NEW: fix it in Figma
-
-> - The repository rows label the prioritization prompt "PRIORITIZE", and the field to add one is labeled "Prioritization Prompt". Suggestion: "Prioritization prompt" in both places, in sentence case like the other labels.
-
-NEW: fix it in Figma
-
-> - The second credential is titled "Model API key" and says "Gemini compares relevant issue context to determine the order of your full inbox", which describes ranking the whole list at once (see [Q-44](#q-44)). Suggestion: "Gemini API key", and "Gemini scores each issue and PR to decide its rank."
-
-NEW: yes, fix it in Figma
-
->
-> Already fixed in Figma: the left column's "Interested repositories" link (now "Additional repositories") and the typo "its complex" in the Delete account panel.
+Settings is one page. The left column has links to its sections (Connections, Additional repositories, Ranking prompt, Collaborators), the developer's account details ("Signed in with GitHub", "Sign out") and a Delete account panel. The main column has the numbered sections (01 Connections, 02 Additional repositories, 03 Ranking prompt, 04 Collaborators) and, at the bottom, three buttons: "Save changes", "Save and re-rank" and "Cancel".
 
 ### Connections
 
 Both credentials are required.
 
 - **SET-1** The developer must be able to enter a Gemini API key and a GitHub personal access token. Each field is masked.
-- **SET-2** Each credential must have a "Validate" button that checks it immediately. On success it shows when it was validated and a detail, for example "Validated 2m ago · Repository access confirmed".
+- **SET-2** Each credential must have a "Validate" button that checks the value typed in the field, without saving it. On success it shows when it was validated and a detail, for example "Validated 2m ago · Repository access confirmed". For a GitHub token, the detail also names the account that owns the token, for example "Reading GitHub as @maya-corp", so a token made by the wrong account is easy to spot. Gitilizer doesn't otherwise check that the token belongs to the account the developer signed in with.
+- **SET-21** "Validate" must be disabled while its field is empty. That includes when the field shows a saved credential: a saved credential appears as dots, can't be shown or edited, and can't be validated again until it is replaced. The eye icon shows only a value typed during this visit. (Figma shows both Validate buttons disabled, because both credentials are saved.)
 - **SET-3** Each credential card must show a status: "Connected" when the saved credential works.
 - **SET-4** "Get an API key (it's free!) ↗" must open Google AI Studio's API key page, and "Create a token (it's free!) ↗" must open GitHub's new-token page, both in a new tab.
 - **SET-5** Saving a credential must clear the related notifications (`NOTIF-13`) and start a sync.
 - **SET-6** For a PAT, the backend must record the expiry date from GitHub's `GitHub-Authentication-Token-Expiration` header, if it sends one, for the expiry warning.
+- **SET-20** "Learn more ↗" in the GitHub token card must open, in a new tab, the documentation page about GitHub tokens (`FOOT-3`). That page explains:
+  - that Gitilizer accepts both kinds of personal access token and recommends a fine-grained one;
+  - that a **fine-grained token** can be read-only (Issues, Pull requests and Metadata: read) but reads the private repositories of only one owner, the developer or one organization, and that an organization may have to approve it;
+  - that a **classic token** with the `repo` scope reads every repository the developer can access, in every organization, but also allows writing, so it is needed only when the developer's private repositories belong to more than one owner; and that Gitilizer only ever reads;
+  - that Gitilizer takes one token per developer ([Non-goals](#non-goals)).
+- **SET-22** Settings must not show which Gemini model is used. Gitilizer chooses it.
 
 > **TODO · [Q-38](#q-38):** Only the success state of Validate is designed. Missing: validating in progress, each failure (invalid, expired, missing permission, network error), the status chip for each state, and whether Save also validates (suggestion: yes; a credential that fails validation can still be saved, with an inline error).
-
-> **TODO(double check) · [Q-58](#q-58):** `SET-2` doesn't say whether Validate checks the value just typed or the saved one. In Figma the button sits next to the field, which suggests checking a value before saving it. Suggestion: Validate checks the typed value without saving it, and re-checks the saved value when the field is empty. (Found while building the prototype.)
-
-NEW: It should check the current value. The "Validate" button should be be disabled (for both Gemini and GitHub) when the field is empty.
-
-> **TODO(double check) · [Q-37](#q-37):** Figma has an eye icon to show the masked value, but `PRIV-1` says saved credentials are never sent back to the browser. Suggestion: the eye shows only a value typed in this visit. A saved credential appears as dots and must be replaced, not edited.
-
-NEW: Agreed. You also can't validate a saved credential (the button should be disabled) until it is replaced.
-
-> **TODO · [Q-39](#q-39):** Which Gemini model is used, and can the developer choose it? Figma no longer names a model (it used to say "Gemini 2.5 Flash available"); the code uses `gemini-3.8-flash`. Suggestion: Gitilizer chooses the model, and Settings doesn't show it.
-
-NEW: Yes, the UI should not show the model.
-
-> **TODO · [Q-40](#q-40):** Which kinds of PAT are accepted, and with which permissions? You asked for the options. GitHub has two kinds of personal access token ([GitHub's comparison](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)):
->
-> - **Fine-grained token.** Can be read-only: Gitilizer needs "Issues: read", "Pull requests: read" and "Metadata: read" (the last is always included). It always includes read access to every public repository. Its big limit is that each token belongs to **one** owner, either the developer's own account or one organization, so it reads private repositories of that owner only. A developer who works in private repositories of two organizations can't cover both with one token. Organizations can also require an owner to approve the token; until then it reads public repositories only. GitHub recommends this kind.
-> - **Classic token.** With the `repo` scope it reads every repository the developer can access, in every organization, with one token. But `repo` also allows **writing** to all of them, and there is no read-only scope for private repositories. Organizations that use single sign-on require the token to be authorized for them. With no scopes, it reads public repositories only.
->
-> Either kind can be blocked by an organization (the "{org} doesn't allow this type of token" error). Since team reviews and team mentions are out of scope ([Q-43](#q-43), [Q-65](#q-65)), neither kind needs organization permissions.
->
-> Options:
->
-> 1. **Accept both; recommend fine-grained.** The documentation explains when a classic `repo` token is needed (private repositories in more than one owner) and that Gitilizer only ever reads. Simple for developers in one organization; possible for everyone else.
-> 2. **Fine-grained only.** Gitilizer never holds a token that can write. Developers who span several organizations see only one organization's private items.
-> 3. **Several tokens per developer**, for example one fine-grained token per organization. Covers everyone read-only, but Settings, validation and notifications all have to handle a list of tokens.
-
-
-I added a "Learn more" link to that section in Figma. It can be a link to documentation explaning what you just explained. Capture that idea in this PRD.
-
-> Suggestion: option 1 for the first release, with option 3 as a later improvement if developers ask for it. Figma's guidance, "Grant read access to Issues, Pull requests and Metadata", describes only a fine-grained token, so it should also link to the documentation (`FOOT-3`).
-
-NEW: yes, let's say that multiple tokens are out-of-scope initially. 
 
 ### Additional repositories
 
 - **SET-7** The developer must be able to add a repository by typing `owner/name` and choosing "Add repository", and remove one with "Remove".
 - **SET-8** Each repository must show whether the PAT can access it ("Access confirmed").
-- **SET-9** Each repository may have a prioritization prompt: free text that tells the ranking agent what the developer cares about in it, for example "Security issues only". It is entered in the "Prioritization Prompt" field when adding the repository, and shown under the repository's name. The agent receives it as a note on that repository.
+- **SET-9** Each repository may have a prioritization prompt: free text that tells the ranking agent what the developer cares about in it, for example "Security issues only". It is entered in the "Prioritization prompt" field when adding the repository, and shown under the repository's name. The agent receives it as a note on that repository.
 
 > **TODO · [Q-41](#q-41):** Figma now shows the prioritization prompt. Still undefined: how a saved repository's prioritization prompt is edited or added later (there is no control for it; suggestion: click the text, or "Add a prioritization prompt" on a row without one, to edit it in place); the other access states ("Checking…", "Not found", "No access"); input validation (format, duplicates); whether pasting a GitHub URL works (suggestion: yes); the maximum number of repositories (suggestion: 25) and the maximum length of a prioritization prompt (suggestion: 500 characters).
 
@@ -644,38 +558,35 @@ NEW: yes, let's say that multiple tokens are out-of-scope initially.
 - **SET-11** The page must show the current ranking prompt in an editor. With no custom prompt, it shows the default prompt.
 - **SET-12** The developer can edit the prompt. When the prompt differs from the default, a "Restore default" control must be shown; it replaces the text with the default.
 - **SET-13** The custom prompt replaces only the instructions part of what the agent receives. Gitilizer always adds the "About me" block (login, additional repositories with their prioritization prompts, and collaborators) and the output format, as in `system_instruction()` in `gitilizer/prioritizer.py`. These additions are not shown in or editable from Settings.
-
-> **TODO(double check) · [Q-44](#q-44):** The prompt text in Figma is now a placeholder ("The highest priority issues are related to cat memes."). Still undefined: the section description still says "The agent compares titles, descriptions, labels, comments and reviews across the full list—not isolated scores", but the agent scores each item on its own. Suggestion: "The agent reads each issue's title, description, labels, comments and reviews and gives it a score." Also undefined: whether the default prompt is `prompts/v4.md` (suggestion: yes), the maximum prompt length (suggestion: 20,000 characters), and whether a developer who never edited the prompt gets new defaults automatically (suggestion: yes).
-
-NEW: Update figma to your proposed text. Yes on v4.md for now. Yes on the max length and automatically getting new prompts. Do we need some UX for showing errors (e.g. for >20K chars). Also errors for duplicate repo names in the "Additional repositories" UX.
+- **SET-23** The section description must read "The agent reads each issue's title, description, labels, comments and reviews and gives it a score."
+- **SET-24** The default prompt is `prompts/v4.md`. A developer who has never changed the prompt always gets the current default, so they pick up improvements automatically. A custom prompt can be at most 20,000 characters (see [Q-73](#q-73) for the error).
 
 ### Collaborators
 
 - **SET-10** The developer must be able to keep a list of GitHub usernames whose items and comments should get a higher score. The agent receives them as "my usual collaborators".
 - **SET-18** The developer adds a collaborator by typing a username in "Add collaborator" and choosing "Add collaborator", and removes one with "Remove". Adding doesn't check that the user exists.
-- **SET-19** Each collaborator must show their GitHub avatar and username. If GitHub says the user doesn't exist, an error icon is shown in place of the avatar (as for "priyapatel" in Figma). If GitHub can't be reached, a generic avatar is shown, without an error.
-
-> **TODO · [Q-42](#q-42):** Still undefined: the generic avatar for a temporary GitHub failure isn't drawn; how the developer learns what the error icon means (suggestion: hovering shows "There's no GitHub user named priyapatel"); input validation (an "@" is removed, duplicates are rejected); and the maximum number of collaborators (suggestion: 50).
-
-NEW: yes to all.
+- **SET-19** Each collaborator must show their GitHub avatar and username. If GitHub says the user doesn't exist, an error icon is shown in place of the avatar (as for "priyapatel" in Figma), and hovering over it shows "There's no GitHub user named priyapatel". If GitHub can't be reached, a generic avatar is shown, without an error (as for "samkim").
+- **SET-25** A leading "@" typed with a username must be removed. A username already in the list must be rejected with an error ([Q-73](#q-73)). There can be at most 50 collaborators.
 
 ### Saving
 
-- **SET-14** Changes must take effect only when the developer chooses "Save changes" or "Save and re-rank". There is no "Cancel".
-- **SET-15** "Save changes" must save without re-ranking: items already ranked keep their scores until they change on GitHub. New items, such as those from a newly added repository, are ranked as usual. "Save and re-rank" must save and then re-rank every item (a full re-rank, shown as in `LIVE-24`). Each button has the explanatory note shown in Figma next to it.
+- **SET-14** Changes must take effect only when the developer chooses "Save changes" or "Save and re-rank". Both save everything on the page, credentials included. "Cancel" discards unsaved changes ([Q-71](#q-71)).
+- **SET-15** "Save changes" must save without re-ranking: items already ranked keep their scores until they change on GitHub. New items, such as those from a newly added repository, are ranked as usual. "Save and re-rank" must save and then re-rank every item (a full re-rank, shown as in `LIVE-24`). Each button has the explanatory note shown in Figma next to it, without an estimate of how many items will be re-ranked.
+- **SET-26** Leaving Settings with unsaved changes (through a link, the browser's Back button or closing the tab) must ask the developer to confirm.
 
-> **TODO · [Q-45](#q-45):** The two save buttons replace "Cancel" and the item-count estimate. Still undefined: whether the buttons also save credentials typed in Connections (suggestion: yes); what happens when the developer leaves the page with unsaved changes, now that there is no Cancel (suggestion: ask whether to leave); and whether to show how much a full re-rank costs (suggestion: add the count to the note, for example "Re-ranks 340 issues"). Note also that after "Save changes" with a new ranking prompt, items scored under the old and new prompts sit side by side in one list until they change. That is the trade-off the developer chose; a daily re-rank ([Q-48](#q-48)) would remove it within a day, at a cost in quota.
-
-NEW: I added the cancel button back. The save buttons save everything in the settings page. Yes for the prompt when navigating away with unsaved changes. Don't add the issue count for re-rank.
+> **TODO(double check) · [Q-73](#q-73):** You asked whether Settings needs a way to show errors, such as a prompt over 20,000 characters or a repository that's already in the list. Yes. Suggestion, which needs drawing in Figma:
+>
+> - A field with a problem gets a red border and, under it, a one-line message in the error color, for example "northstar/web is already in your list", "Enter a repository as owner/name", "jordanlee is already a collaborator" or "A prompt can be at most 20,000 characters. This one has 21,345."
+> - Repository and collaborator errors appear when the developer chooses "Add repository" or "Add collaborator", and nothing is added. The prompt's error appears as soon as it goes over the limit; a character count appears under the editor once the prompt passes 18,000 characters.
+> - While any error is showing, "Save changes" and "Save and re-rank" are disabled.
+> - A problem found when saving (for example a credential that fails validation, `NAV-8`) appears the same way next to its field, and the page scrolls to the first one.
 
 ### Account
 
-- **SET-16** The account panel must show the developer's name, email, sign-in provider and a "Sign out" link (see [Q-12](#q-12) for naming).
-- **SET-17** The developer must be able to delete their Gitilizer account from the Delete account panel in the left column, which explains that deleting is permanent. Choosing "Delete account" must open a confirmation dialog in which the developer types "delete" before anything is deleted. Deleting the account must delete all data about the developer (see [Data and privacy](#data-and-privacy)), end all their sessions and show the sign-in page.
+- **SET-16** The account panel must show the developer's name, email, sign-in provider and a "Sign out" link (`ACCT-5`).
+- **SET-17** The developer must be able to delete their Gitilizer account from the Delete account panel in the left column, which explains that deleting is permanent. Choosing "Delete account" must ask for confirmation with a simple dialog: "Delete your Gitilizer account? This can't be undone.", with "Cancel" and "Delete account". Deletion is immediate: it deletes all data about the developer (see [Data and privacy](#data-and-privacy)), ends all their sessions and shows the sign-in page.
 
-> **TODO · [Q-46](#q-46):** The confirmation dialog is approved but not drawn in Figma. Also undefined: whether deletion is immediate, and how long backups keep the data (suggestion: immediate, and removed from backups within 30 days).
-
-NEW: Deletion is immediate. Instead of the dialog that forces the user to enter "DELETE", a simple alert should be enough (since accounts have very little state).
+> **TODO(double check) · [Q-46](#q-46):** Deletion is immediate, but copies of the data stay in database backups until those backups expire. How long is acceptable? Suggestion: at most 7 days, which is how long Cloud SQL keeps its automatic daily backups by default.
 
 ---
 
@@ -695,12 +606,8 @@ NEW: Deletion is immediate. Instead of the dialog that forces the user to enter 
   - when the web app asks for it (Sync now, and when settings are saved);
   - every 5 minutes while the app is visible in at least one of the developer's browser tabs;
   - every 30 minutes while the app is open in at least one tab but hidden in all of them;
-  - every 2 hours otherwise.
+  - every 2 hours otherwise, for developers who have opened Gitilizer in the last 7 days. Developers who haven't aren't scanned in the background; their items are scanned when they next open Gitilizer (`SCAN-6`).
 - **SCAN-6** When the app becomes visible and the last scan finished more than 5 minutes ago, a scan must start immediately.
-
-> **TODO(double check) · [Q-47](#q-47):** "Every 2 hours otherwise" applies to every account forever, which at scale means scanning for developers who stopped using Gitilizer long ago. Suggestion: stop background scans after 14 days without a visit, and scan on the next visit.
-
-NEW How about every 2 hours for accounts accessed in the last week, otherwise scan on next visit.
 
 ### Ranking
 
@@ -709,26 +616,27 @@ NEW How about every 2 hours for accounts accessed in the last week, otherwise sc
 - **RANK-3** Ranks must come from sorting items by score, highest first. Two items must never share a rank.
 - **RANK-4** The agent should give items distinct scores. Ties must be broken by most recent activity, then by repository and number, so the order is always the same for the same data.
 - **RANK-5** An item must be ranked again when it is new or has changed on GitHub (its `updated_at` is later than when it was last ranked), and all items must be ranked again when the developer chooses "Save and re-rank" (`SET-15`).
-- **RANK-6** Short-lived Gemini failures must be retried automatically. An item that still can't be ranked is handled as in [Q-28](#q-28).
+- **RANK-6** Short-lived Gemini failures must be retried automatically. An item that still can't be ranked is shown as in `LIST-30`.
 - **RANK-7** Changes to the default prompt or model should be measured with the evaluation harness before they ship.
 - **RANK-8** The default prompt should score a draft PR lower than the same PR ready for review. (`prompts/v4.md` already scores the developer's own drafts low; extend that to other people's drafts, and measure it as in `RANK-7`.)
+- **RANK-9** Every item must be ranked again at least once every 24 hours, so scores that depend on age stay current. This is a bulk re-rank (`LIVE-24`).
+- **RANK-10** When a scan sees a change to an item, Gitilizer must also rank again the items in the developer's list that it links to. For example, an issue drops when a PR that fixes it is opened, although the issue itself hasn't changed.
+- **RANK-11** At most 4 Gemini requests may run at once for one developer. Ranking uses the model's default thinking level ([Q-74](#q-74)).
+- **RANK-12** Gitilizer must work with a Gemini API key on Google's free tier ([Q-63](#q-63) asks what that means in practice).
+- **RANK-13** When the developer's daily quota is used up, ranking must pause until the quota resets, and the developer sees the "Your Gemini daily quota is used up" warning, which says when ranking will resume if that's known.
 
-> **TODO · [Q-48](#q-48):** The default prompt makes scores depend on time ("let it sink as it ages", "after a week of silence…"), but `RANK-5` only re-ranks items that change. An item nobody touches keeps the score it had on the day it was last ranked. Now that "Save changes" saves a new prompt without re-ranking, old scores can also come from an old prompt. Suggestion: also re-rank every item at least once every 24 hours.
+> **TODO(double check) · [Q-74](#q-74):** For Q-51 you wrote "use the default linking limit". I've taken that to mean "the model's default thinking level". Is that right? For reference, the [model comparison](../eval/model-comparison-2026-11-01.md) found that `gemini-3.8-flash` ranks better with high thinking (Kendall tau 0.81, against 0.77 at the default) but uses about 2.6 times as many output tokens, which matters for cost and for free-tier limits.
 
-NEW: rerank at least every 24 hours
-
-
-> **TODO(double check) · [Q-49](#q-49):** An item's score depends on related items (for example, an issue drops when a PR that fixes it is opened), but a change to the related item doesn't change the issue's `updated_at`. Suggestion: when a scan sees a change to an item, also re-rank the items in the developer's list that it links to.
-
-NEW: yes
-
-> **TODO(double check) · [Q-51](#q-51):** Undefined: how many Gemini calls run at once for one developer (suggestion: 4, to stay under free-tier per-minute limits) and which thinking level is used (suggestion: the model's default, until the evaluation harness shows a better one).
-
-NEW: use the default linking limit. 4 simultaneous requests.
-
-> **TODO · [Q-63](#q-63):** Ranking makes one Gemini call per item, so a first sync, or a full re-rank, can make up to 1,000 calls (`LIST-19`) on the developer's key within minutes. Google sets free-tier limits per Google Cloud project, varies them by model, shows them only in AI Studio and resets daily limits at midnight Pacific time. A free-tier developer may therefore use up their daily quota on their first day and see "Your Gemini daily quota is used up". (Full re-ranks after a settings change are now the developer's choice, through "Save and re-rank", which helps.) Undefined: whether Gitilizer must work on the free tier; the order items are ranked in when quota runs short (suggestion: most recently updated first, so the top of the list fills in first); and whether to score several items per call to save requests (this needs measuring with the evaluation harness).
-
-NEW: Gitilizer must work on the free tier. Maybe, if the user is out of quota, we should display a warning indicating issues will not be ranked until they have more quota - we can show how long that will be if we know.
+> **TODO · [Q-63](#q-63):** "Gitilizer must work on the free tier" (`RANK-12`) needs a definition, because one Gemini call per item may not fit in it. Google shows free-tier limits only in [AI Studio](https://aistudio.google.com/rate-limit). A third-party summary updated on 2026-10-19 ([scriptbyai.com](https://www.scriptbyai.com/gemini-api-free-tier-limits/)) lists `gemini-3.8-flash`, the model Gitilizer uses, at **5 requests a minute and 20 a day**, and `gemini-3.5-flash-lite` at 10 a minute and 500 a day. Please check the real numbers for your key in AI Studio. If they're right, a free-tier developer with 100 items waits 5 days for the first sync, and the daily re-rank (`RANK-9`) alone needs 100 requests a day.
+>
+> Options, which can be combined:
+>
+> 1. **Score several items per call.** The agent already has a listwise strategy. At about 4,900 input tokens per item, 20 items make a call of about 100,000 tokens. Ranking quality has to be measured with the evaluation harness (`RANK-7`).
+> 2. **Use a cheaper model when the key is on the free tier.** More requests a day, but in the model comparison `gemini-3.5-flash-lite` ranks much worse (Kendall tau 0.58, against 0.77).
+> 3. **Spend free-tier requests where they matter most.** Rank the most recently updated items first, rank changed items before the daily re-rank, and thin out or skip the daily re-rank (for example, only the top 100 items) when quota is short.
+> 4. **Set a target for the free tier**, for example "with up to 100 items, every item is ranked on the first day, and changes are ranked within the hour".
+>
+> Suggestion: set the target (option 4) first, then measure option 1 against it, with option 3 as the fallback. Also undecided: while the quota is used up, are new items hidden, as `LIST-30` says for items not yet ranked, or shown at the end with "–", so that an urgent new item isn't invisible until midnight Pacific time? Suggestion: shown at the end with "–".
 
 > **TODO(double check) · [Q-50](#q-50):** `RANK-4` follows the code (recency, then number). The Google Doc doesn't define the tie-break for the Priority sort. Confirm.
 
@@ -803,48 +711,29 @@ Gitilizer keeps:
 
 ## Open questions
 
-Each row matches a TODO in the document. Q-58 to Q-63 were found by building the prototype described in the [design doc](design.md); Q-64 to Q-69 came from the product owner's 2026-11-01 answers and the new Settings design. **Needed by** says which step can't finish until it's answered: **Figma** (a design is missing), **Design doc** (the architecture depends on it) or **Implementation** (it can be decided while building).
+Each row matches a TODO in the document. Q-58 to Q-63 were found by building the prototype described in the [design doc](design.md); Q-64 to Q-74 came from the product owner's 2026-11-01 answers and the new Settings design. **Needed by** says which step can't finish until it's answered: **Figma** (a design is missing), **Design doc** (the architecture depends on it) or **Implementation** (it can be decided while building).
 
 | ID | Area | Question | Suggested answer | Needed by |
 |---|---|---|---|---|
 | <a id="q-2"></a>Q-2 | Platform | What does "10,000 developers using the application at once" mean, and what are the sizing assumptions? | 10,000 with the app visible, up to 100,000 accounts, up to 1,000 items each. | Design doc |
 | <a id="q-10"></a>Q-10 | Sign-in | What does failed sign-in look like? | An inline message above the buttons. | Figma |
-| <a id="q-11"></a>Q-11 | Sign-in | Session length is decided (30 days). Does "Log out" end only this browser's session, or every session? | This browser only. | Design doc |
-| <a id="q-12"></a>Q-12 | Account menu | The open menu isn't visible in any frame; how does it close; "Log out" or "Sign out"? | Draw the open state; close on outside click or Esc; "Log out" everywhere. | Figma |
-| <a id="q-19"></a>Q-19 | Notifications | Should a PAT that belongs to a different GitHub account from the one used to sign in be flagged? | No notification; show the token's account in the Validate result. | Implementation |
-| <a id="q-21"></a>Q-21 | List | Do items opened by bots appear? | Yes; let prompts score them down. | Design doc |
-| <a id="q-28"></a>Q-28 | List | What does the first sync look like? Where do found-but-unranked items and items that failed to rank appear? | Skeleton rows with "Scanning your issues and PRs…"; unranked items hidden; failed items at the end with "–". | Figma |
-| <a id="q-29"></a>Q-29 | List | When does a sync count as finished, so the Sync now icon stops? | When the scan has finished and every new and changed item has been ranked or has failed. | Implementation |
-| <a id="q-30"></a>Q-30 | List | What label does a leaving row show for each reason, and is there an undo? | Closed, Merged, Moved to Icebox, No longer yours; no undo. | Implementation |
-| <a id="q-35"></a>Q-35 | Icebox | Which changes bring an item back from the Icebox, and who decides? | Any change not made only by the developer or by bots; no agent involved. | Design doc |
-| <a id="q-37"></a>Q-37 | Settings | What does the eye icon show if saved credentials never return to the browser? | Only a value typed in this visit. | Figma |
 | <a id="q-38"></a>Q-38 | Settings | What do validation in progress, validation failures and the status chips look like, and does Save validate? | Design each state; Save validates and shows an inline error. | Figma |
-| <a id="q-39"></a>Q-39 | Settings | Which Gemini model is used, and can the developer choose it? | Gitilizer chooses; Settings doesn't show it. | Design doc |
-| <a id="q-40"></a>Q-40 | Settings | Which PAT types and permissions are supported? | Accept both kinds; recommend fine-grained read-only; document when a classic `repo` token is needed. | Design doc |
 | <a id="q-41"></a>Q-41 | Settings | How is a saved repository's prioritization prompt edited, what are the other access states, how is input validated, and what are the limits? | Edit in place; design the states; accept URLs; 25 repositories, 500 characters. | Figma |
-| <a id="q-42"></a>Q-42 | Settings | Generic avatar for GitHub failures, explaining the error icon, input validation and the maximum number of collaborators. | Draw the generic avatar; tooltip; strip "@", reject duplicates; 50. | Figma |
-| <a id="q-44"></a>Q-44 | Settings | Should the section description match the pointwise agent? Is the default `prompts/v4.md`? What is the length limit, and do defaults update? | New description; yes; 20,000 characters; yes. | Figma |
-| <a id="q-45"></a>Q-45 | Settings | Do the save buttons save credentials, what happens with unsaved changes, and is the re-rank cost shown? | Yes; confirm before leaving; add the item count to the note. | Figma |
-| <a id="q-46"></a>Q-46 | Settings | Draw the approved confirmation dialog. How quickly is data removed? | Immediate, and gone from backups within 30 days. | Figma |
-| <a id="q-47"></a>Q-47 | Scanning | Should background scans stop for inactive developers? | After 14 days without a visit. | Design doc |
-| <a id="q-48"></a>Q-48 | Ranking | How do time-dependent scores stay current for items that don't change? | Re-rank every item at least daily. | Design doc |
-| <a id="q-49"></a>Q-49 | Ranking | Should a change to a related item re-rank the items that link to it? | Yes. | Design doc |
+| <a id="q-46"></a>Q-46 | Settings | Deletion is immediate. How long may copies stay in database backups? | At most 7 days. | Design doc |
 | <a id="q-50"></a>Q-50 | Ranking | Is the tie-break for equal scores right? | Most recent activity, then repository and number. | Implementation |
-| <a id="q-51"></a>Q-51 | Ranking | How many Gemini calls run at once per developer, and with which thinking level? | 4; the model's default. | Design doc |
 | <a id="q-52"></a>Q-52 | Privacy | How long is item data kept, and should developers be told about Gemini free-tier data use? | 30 days; yes, in Connections. | Design doc |
 | <a id="q-53"></a>Q-53 | Performance | What are the performance and availability targets? | 2 s to a usable list (p95); 100 ms sort and page; 99.5% monthly availability. | Design doc |
 | <a id="q-54"></a>Q-54 | Platform | Which browsers and screen sizes are supported? | Latest two versions of Chrome, Edge, Firefox and Safari; 1024 px and wider. | Figma |
 | <a id="q-55"></a>Q-55 | Accessibility | Which accessibility standard applies? | WCAG 2.2 AA. | Implementation |
 | <a id="q-56"></a>Q-56 | Platform | Languages, time zones and themes? | English; browser time zone; light only. | Implementation |
 | <a id="q-57"></a>Q-57 | Settings | Do additional repositories mean "keep an eye on" or "I'm responsible for"? The default prompt says the latter. | "Keep an eye on"; change the agent's wording and measure it. | Design doc |
-| <a id="q-58"></a>Q-58 | Settings | Does Validate check the typed value without saving it? | Yes; with an empty field it re-checks the saved value. | Implementation |
-| <a id="q-63"></a>Q-63 | Ranking | One Gemini call per item can exhaust a free-tier daily quota in one re-rank. Must the free tier work, and in what order are items ranked when quota runs short? | Rank the most recently updated first; measure several-items-per-call with the eval harness. | Design doc |
-| <a id="q-64"></a>Q-64 | Navigation | Should "Save changes" and "Save and re-rank" return to the Prioritized list? | Yes when the save succeeds; stay on Settings when something fails. | Implementation |
-| <a id="q-65"></a>Q-65 | List | Team mentions need an extra token permission to read the developer's teams. Include them? | No; leave them out with team reviews. | Design doc |
-| <a id="q-66"></a>Q-66 | List | Do Icebox items count toward the 1,000-item limit, is the developer told about items left out, and what does a row show when it leaves because of the limit? | No; no; no label. | Implementation |
-| <a id="q-67"></a>Q-67 | List | Where does "Assigned to you" go in the order of inclusion reasons? Is repeating the repository name intended? | Second, after "Review requested"; yes. | Implementation |
+| <a id="q-63"></a>Q-63 | Ranking | What does "works on the free tier" mean, given free-tier limits that may be as low as 20 requests a day? Are items waiting for quota hidden? | Set a target first, then measure several items per call; show waiting items at the end with "–". | Design doc |
 | <a id="q-68"></a>Q-68 | Privacy | Was the Settings privacy note removed on purpose? | Bring back one note under the Gemini key that also covers free-tier data use. | Figma |
-| <a id="q-69"></a>Q-69 | Settings | Small copy and icon differences in the new Settings design. | As listed in the TODO. | Figma |
+| <a id="q-70"></a>Q-70 | Metrics | Should the owner be alerted when something is wrong? | Yes, by email, through Cloud Monitoring. | Design doc |
+| <a id="q-71"></a>Q-71 | Settings | Does "Cancel" also return to the Prioritized list? | Yes. | Implementation |
+| <a id="q-72"></a>Q-72 | Icebox | Can the developer see or change the Icebox check's prompt? | No. | Implementation |
+| <a id="q-73"></a>Q-73 | Settings | How are errors in Settings shown (prompt too long, duplicate repository or collaborator, bad format, failed validation)? | Red border and a message under the field; saving disabled while errors show. | Figma |
+| <a id="q-74"></a>Q-74 | Ranking | Does "default linking limit" mean the model's default thinking level? | Yes. | Implementation |
 
 ### Answered questions
 
@@ -858,29 +747,53 @@ Each row matches a TODO in the document. Q-58 to Q-63 were found by building the
 | <a id="q-7"></a>Q-7 | Getting back to the list | The Gitilizer logo links to the Prioritized list. (Whether saving Settings also goes back is [Q-64](#q-64).) | `NAV-7` |
 | <a id="q-8"></a>Q-8 | When Warm Welcome is shown | Until the developer has entered both credentials. After that, problems appear as error notifications on the Prioritized list. | `NAV-2` |
 | <a id="q-9"></a>Q-9 | Google and GitHub sign-in for one person | Two separate accounts. | `AUTH-7` |
+| <a id="q-11"></a>Q-11 | Sessions | 30 days, extended while used. Signing out ends only the current browser's session. | `AUTH-8`, `AUTH-9` |
+| <a id="q-12"></a>Q-12 | Account menu | Drawn in Figma ("Account menu · Open"). "Sign out" everywhere, without the arrow. Closes like the notification popover. | `ACCT-2` to `ACCT-5` |
 | <a id="q-13"></a>Q-13 | Hidden app bar layers | Leftovers. Deleted from Figma. | `BAR-2` |
 | <a id="q-14"></a>Q-14 | Bell with only warnings | Amber, doesn't swing; errors take precedence. Figma's bell now has a "Warning" state. | `NOTIF-5` |
 | <a id="q-15"></a>Q-15 | Bell's accessible name; popover closing, focus and height | As suggested. | `NOTIF-18`, `NOTIF-20` |
 | <a id="q-16"></a>Q-16 | Order of notifications | Errors before warnings, oldest first. Figma already matches. | `NOTIF-19` |
 | <a id="q-17"></a>Q-17 | Thresholds | Short-lived problems are retried for 15 minutes and then shown as warnings, not errors. Stale list after 3 hours. The PAT expiry warning first appears 7 days ahead. | `NOTIF-21`, `NOTIF-22`, [Catalogue](#catalogue) |
 | <a id="q-18"></a>Q-18 | A missing credential after setup | Follows from Q-8: an error notification. | `NOTIF-16` |
+| <a id="q-19"></a>Q-19 | Errors missing from the catalogue | Added, except "Some of your issues couldn't be loaded" (not needed) and "Your token belongs to @{login}" (the Validate result names the account instead). | [Catalogue](#catalogue), `SET-2` |
 | <a id="q-20"></a>Q-20 | Where a "Settings" link goes | Settings is one page; the link scrolls to the control that fixes the problem and focuses it. | `NOTIF-9`, `LIST-14` |
+| <a id="q-21"></a>Q-21 | Which items appear | Personal review requests, assigned, mentioned, created, commented on, additional repositories; drafts and bot items included; archived repositories excluded; no team reviews. | `LIST-1`, `LIST-20`, `LIST-29` |
 | <a id="q-22"></a>Q-22 | Which inclusion reason is shown | Review requested, @handle, Created by you, Commented on by you, repository name. "Interested repository" is now "additional repository", and its label is the repository's name. ("Assigned to you" is [Q-67](#q-67).) | `LIST-3`, `LIST-21` |
 | <a id="q-23"></a>Q-23 | Title link; ranks of 100 or more | New tab. Ranks are never zero-padded; Figma updated. The Priority column already fits four digits. | `LIST-4`, [Columns](#columns) |
 | <a id="q-24"></a>Q-24 | Relative times | Short, as suggested, with the full date and time on hover. | `LIST-22` |
 | <a id="q-25"></a>Q-25 | Sorting | Click toggles; first directions as suggested; stored on the account per view; sorting returns to page 1. | `LIST-9`, `LIST-25`, `LIST-26` |
 | <a id="q-26"></a>Q-26 | Many pages; item count | First, last, current ±1 with "…"; the count is always shown. Figma updated. | `LIST-12`, `LIST-27` |
 | <a id="q-27"></a>Q-27 | Maximum list size | The 1,000 most recently updated items, kept up to date as items are updated. (Details in [Q-66](#q-66).) | `LIST-19`, `SCAN-1` |
+| <a id="q-28"></a>Q-28 | First sync; unranked and failed items | Skeleton rows that pulse (drawn in Figma); items hidden until ranked; failed items at the end with "–" and a warning. | `LIST-15`, `LIST-30` |
+| <a id="q-29"></a>Q-29 | Sync now | Spins for any sync; never disabled; no throttle; finished when the scan is done and every item is ranked or failed. Spinning state drawn in Figma. | `LIST-17`, `LIST-28`, `LIST-32` |
+| <a id="q-30"></a>Q-30 | Labels on leaving rows; undo | As suggested; no undo. | `LIVE-25`, `LIST-31` |
 | <a id="q-31"></a>Q-31 | Showing the agent's next action and reasoning | Not shown. | `LIST-24` |
 | <a id="q-32"></a>Q-32 | Update latency | Within 5 seconds of ranking finishing. | `LIVE-23` |
 | <a id="q-33"></a>Q-33 | How the Icebox updates | The leave animation, without holding rules. | `ICE-9` |
 | <a id="q-34"></a>Q-34 | Where a restored item goes | It keeps its last score. | `ICE-10` |
+| <a id="q-35"></a>Q-35 | Which changes bring an item back from the Icebox | A separate Icebox check prompt decides, leaning toward bringing items back. | `ICE-6`, `ICE-12`, `ICE-13` |
 | <a id="q-36"></a>Q-36 | Ineligible items in the Icebox | Removed automatically. | `ICE-11` |
+| <a id="q-37"></a>Q-37 | The eye icon | Shows only a value typed in this visit; a saved credential can only be replaced. | `SET-21` |
+| <a id="q-39"></a>Q-39 | Model | Gitilizer chooses; Settings doesn't show it. | `SET-22` |
+| <a id="q-40"></a>Q-40 | Token kinds | Accept both, recommend fine-grained, explain in the documentation behind "Learn more". One token per developer. | `SET-20`, [Non-goals](#non-goals) |
+| <a id="q-42"></a>Q-42 | Collaborators | As suggested: tooltip on the error icon, "@" removed, duplicates rejected, at most 50. Generic avatar drawn in Figma. | `SET-19`, `SET-25` |
 | <a id="q-43"></a>Q-43 | Review teams | Out of scope for now; listed in non-goals to revisit. | [Non-goals](#non-goals) |
+| <a id="q-44"></a>Q-44 | Ranking prompt | New section description (in Figma); default `prompts/v4.md`; 20,000 characters; defaults update automatically. | `SET-23`, `SET-24` |
+| <a id="q-45"></a>Q-45 | Saving | Cancel is back; the save buttons save everything; confirm before leaving with unsaved changes; no item count. | `SET-14`, `SET-15`, `SET-26` |
+| <a id="q-47"></a>Q-47 | Inactive accounts | Background scans every 2 hours only for developers seen in the last 7 days; others are scanned on their next visit. | `SCAN-5` |
+| <a id="q-48"></a>Q-48 | Ageing scores | Every item re-ranked at least every 24 hours. | `RANK-9` |
+| <a id="q-49"></a>Q-49 | Related items | A change re-ranks the items it links to. | `RANK-10` |
+| <a id="q-51"></a>Q-51 | Concurrency and thinking | 4 requests at once; the model's default thinking level (see [Q-74](#q-74)). | `RANK-11` |
+| <a id="q-58"></a>Q-58 | What Validate checks | The typed value; disabled when the field is empty. | `SET-2`, `SET-21` |
 | <a id="q-59"></a>Q-59 | Long titles and repository names | One line with "…": at the end for titles, at the start for repository names. | `LIST-23` |
 | <a id="q-60"></a>Q-60 | Bulk re-ranks | Applied once when finished, without row indicators. | `LIVE-24` |
 | <a id="q-61"></a>Q-61 | A bell that swings for days | Stops once the popover has been opened; a new error starts it again. | `NOTIF-17` |
 | <a id="q-62"></a>Q-62 | "N issues" includes PRs | "{N} issues and PRs". Figma updated. | `LIST-27` |
+| <a id="q-64"></a>Q-64 | After saving | Back to the Prioritized list when the save succeeds. | `NAV-8` |
+| <a id="q-65"></a>Q-65 | Team mentions | Left out. | `LIST-1`, [Non-goals](#non-goals) |
+| <a id="q-66"></a>Q-66 | The 1,000-item limit | Prioritized list only; no notice; a dropped item slides off the bottom like an item moving to a later page. | `LIST-19`, `LIVE-26` |
+| <a id="q-67"></a>Q-67 | "Assigned to you" | Second, after "Review requested". Repeating the repository name is intended. | `LIST-21` |
+| <a id="q-69"></a>Q-69 | Settings copy and icons | All fixed in Figma. | [Settings](#settings) |
 
 ---
 
@@ -913,3 +826,10 @@ Each row matches a TODO in the document. Q-58 to Q-63 were found by building the
 - Explained Q-11, Q-30, Q-35 and Q-40 in more detail, as asked, with options for Q-35 and Q-40.
 - Added Q-64 to Q-69.
 - Changed Figma: deleted the hidden "Destinations", "Connection status" and "User account" layers from the app bar; added a "Warning" state to the bell and used it in the warning frame; removed zero-padding from every rank, including on the Live reorder prototype page; replaced "Interested repository" labels with the repository's name; added "{N} issues and PRs" to the list and Icebox pagination rows; fixed "chose" and removed "to monitor" in the empty list; added the [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369) component with a spinning Syncing state; renamed the Settings link to "Additional repositories"; fixed "its complex" in the Delete account panel.
+
+### Fourth revision (2026-11-01, second round)
+
+- Folded in the product owner's answers to 24 more questions (Q-11, Q-12, Q-19, Q-21, Q-28 to Q-30, Q-35, Q-37, Q-39, Q-40, Q-42, Q-44, Q-45, Q-47 to Q-49, Q-51, Q-58, Q-64 to Q-67, Q-69) and parts of Q-46 and Q-63. New requirements: `METRIC-3`, `NAV-8`, `AUTH-9`, `ACCT-4`, `ACCT-5`, `LIST-29` to `LIST-32`, `LIVE-25`, `LIVE-26`, `ICE-12`, `ICE-13`, `SET-20` to `SET-26` and `RANK-9` to `RANK-13`.
+- The action is "Sign out" everywhere. An Icebox check prompt decides whether a change brings an item back. The daily-quota notification is now a warning, and Gitilizer must work on the free tier.
+- Added Q-70 to Q-74. Q-63 now asks what "works on the free tier" means, because one call per item may not fit.
+- Changed Figma: "Sign out" and the new menu icons in the app bar's account menu, and no arrow on "Sign out" in Settings; the six Settings fixes from Q-69 and the new Ranking prompt description; a "samkim" collaborator showing the generic avatar; both Validate buttons shown disabled; a pulsing [Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433) component on the Animations page, used in Issue inbox · Loading.
