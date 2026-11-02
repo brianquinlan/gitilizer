@@ -1,4 +1,5 @@
 // A scan for one developer (design: Scanner; PRD SCAN-1..4, LIST-1, LIST-19).
+import { log } from "./log.ts";
 import { EXPIRY_WARNING_DAYS, type NotificationCode, type Reason, type RemovalReason } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 import { getCredential } from "./credentials.ts";
@@ -56,8 +57,11 @@ export async function scan(
     return { outcome: "skipped" }; // a scan is already running (SCAN-4)
   }
   await pushSync(ctx, userId);
-  const finish = async (outcome: string, errorCode: string | null) => {
+  const started = Date.now();
+  const finish = async (outcome: string, errorCode: string | null, queued?: number) => {
     await db.query(`update scans set finished_at = now(), outcome = $2, error_code = $3 where id = $1`, [scanId, outcome, errorCode]);
+    // One line per scan: its duration and outcome feed the scan metrics (NFR-6).
+    log[outcome === "error" ? "warn" : "info"]("scan", "scan finished", { user: userId, trigger, kind, outcome, errorCode, queued, ms: Date.now() - started });
     if (outcome === "ok" && full) await db.query(`update users set last_full_scan_at = now() where id = $1`, [userId]);
     await pushSync(ctx, userId);
   };
@@ -74,7 +78,7 @@ export async function scan(
     const since = full ? null : new Date(Date.parse(lastOk.t) - 120_000).toISOString().replace(/\.\d+Z$/, "Z");
     const queued = await scanWith(ctx, gh, userId, since);
     await clear(ctx, userId, SCAN_CLEARS);
-    await finish("ok", null);
+    await finish("ok", null, queued);
     await markFirstSyncIfDone(ctx, userId);
     return { outcome: "ok", kind, queued };
   } catch (e) {
@@ -84,7 +88,7 @@ export async function scan(
       return { outcome: "error", kind, errorCode: e.code };
     }
     // The backend's own failure, not GitHub's (catalogue: "Gitilizer couldn't finish scanning").
-    console.error(`[scan ${userId}]`, e);
+    log.error("scan", "scan failed", { user: userId, error: String((e as Error)?.stack ?? e) });
     await raise(ctx, userId, "scan_failed");
     await finish("error", "internal");
     return { outcome: "error", kind, errorCode: "internal" };
@@ -106,7 +110,7 @@ export async function reportGitHubProblem(ctx: Ctx, userId: string, p: GitHubPro
       return raise(ctx, userId, "github_permission_missing", { permission }, permission);
     }
     default:
-      console.warn(`[scan ${userId}] unexpected GitHub response ${p.details.status ?? ""}: ${p.message}`);
+      log.warn("scan", "unexpected GitHub response", { user: userId, status: p.details.status, message: p.message.slice(0, 300) });
       return raise(ctx, userId, "github_unexpected");
   }
 }
@@ -138,7 +142,13 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
   for (const q of discoveryQueries(viewer.login, repos, since)) {
     let hits: SearchHit[];
     try {
-      ({ hits } = await gh.search(q.q, ctx.config.maxItems));
+      let ssoOrgs: string[] | undefined;
+      ({ hits, ssoOrgs } = await gh.search(q.q, ctx.config.maxItems));
+      // Results from organizations the token isn't authorized for are left out (D-7).
+      for (const org of ssoOrgs ?? []) {
+        partial.add("sso");
+        await raise(ctx, userId, "github_sso_required", { org }, org);
+      }
     } catch (e) {
       if (!(e instanceof GitHubProblem)) throw e;
       if (q.repo && (e.code === "not_found" || e.details.status === 422)) {

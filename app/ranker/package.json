@@ -1,0 +1,26 @@
+{
+  "name": "@gitilizer/ranker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "evaluate": "tsx src/cli/evaluate.ts",
+    "snapshot": "tsx src/cli/snapshot.ts",
+    "ranking-sheet": "tsx src/cli/rankingSheet.ts",
+    "check": "tsx src/cli/check.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^2.0.0",
+    "tsx": "^4.20.0",
+    "yaml": "^2.8.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

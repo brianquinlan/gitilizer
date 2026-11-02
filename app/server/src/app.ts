@@ -1,5 +1,6 @@
 // HTTP routes (design: HTTP API). Browser routes on the public port; worker
 // routes on a separate internal port.
+import { log } from "./log.ts";
 import cookie from "@fastify/cookie";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -12,7 +13,7 @@ import {
 import type { Ctx } from "./context.ts";
 import { checkValue, credentialStatus, getCredential, saveCredential } from "./credentials.ts";
 import type { FixtureStore } from "./github/fixtures.ts";
-import { claimJobs, completeJob, failJob, pushSync, queueFullRerank, queueRankJobs, syncState } from "./jobs.ts";
+import { pushSync, queueFullRerank, queueRankJobs, syncState } from "./jobs.ts";
 import { currentVersion, listRows, publish } from "./list.ts";
 import { clear, clearForCredential, markSeen, raise, shownNotifications } from "./notify.ts";
 import { localUserId } from "./local.ts";
@@ -31,7 +32,8 @@ async function bad(reply: any, status: number, message: string) {
 
 export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore | null): FastifyInstance {
   const app = Fastify({
-    logger: { level: process.env.LOG_LEVEL ?? "warn", redact: ["req.headers.authorization", "req.headers.cookie"] },
+    // Cloud Run logs every request, so Fastify only reports its own problems (design: Logging).
+    logger: { level: "warn", redact: ["req.headers.authorization", "req.headers.cookie"] },
   });
   app.register(cookie);
   const db = ctx.db;
@@ -200,7 +202,8 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     const n = c && c.minute === minute ? c.n + 1 : 1;
     telemetryCounts.set(uid(req), { minute, n });
     if (n > 30) return reply.code(429).send({ error: "too many telemetry reports" });
-    for (const e of body.events) console.log(JSON.stringify({ telemetry: e.name, value: e.value, page: e.page }));
+    // A log-based metric turns these lines into a distribution (design: Monitoring).
+    for (const e of body.events) log.info("telemetry", e.name, { value: e.value, page: e.page });
     return reply.code(204).send();
   });
 
@@ -350,45 +353,31 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof z.ZodError) return reply.code(400).send({ error: err.issues.map((i) => i.message).join("; ") });
-    console.error(err);
+    // Fastify's own client errors (a malformed body, for example) keep their status.
+    const status = (err as { statusCode?: number }).statusCode;
+    if (status && status >= 400 && status < 500) return reply.code(status).send({ error: (err as Error).message });
+    log.error("api", "unhandled error", { url: _req.url, error: String((err as Error)?.stack ?? err) });
     return reply.code(500).send({ error: "internal error" });
   });
   return app;
 }
 
-/** Endpoints for the ranking worker, on the internal port (design: Ranking worker). */
+/** Operator endpoints, on a port that isn't exposed to the internet (design: Security). */
 export function buildInternalApp(ctx: Ctx): FastifyInstance {
-  const app = Fastify({ logger: false, bodyLimit: 50 * 1024 * 1024 });
+  const app = Fastify({ logger: false });
   app.addHook("preHandler", async (req, reply) => {
     if (req.headers.authorization !== `Bearer ${ctx.config.workerToken}`) return reply.code(401).send({ error: "bad token" });
   });
-  // Product metrics (PRD METRIC-1): users, users who finished setup, and daily/weekly/monthly actives.
+  // Product metrics (PRD METRIC-1): users, users who finished setup, daily/weekly/monthly actives, deleted accounts.
   app.get("/internal/metrics", async () => {
-    const r = await ctx.db.one(`
+    return ctx.db.one(`
       select (select count(*) from users)::int as users,
              (select count(*) from users where setup_completed_at is not null)::int as setup_completed,
              (select count(distinct user_id) from user_activity where day = current_date)::int as daily_active,
              (select count(distinct user_id) from user_activity where day > current_date - 7)::int as weekly_active,
-             (select count(distinct user_id) from user_activity where day > current_date - 30)::int as monthly_active`);
-    return r;
-  });
-
-  app.post("/internal/rank-jobs/claim", async (req) => {
-    const { max, leaseSeconds } = z.object({ max: z.number().int().min(1).max(50).default(8), leaseSeconds: z.number().int().min(10).max(900).default(120) }).parse(req.body ?? {});
-    return { jobs: await claimJobs(ctx, max, leaseSeconds) };
-  });
-  app.post("/internal/rank-jobs/:id/result", async (req, reply) => {
-    const r = z.union([
-      z.object({ priority: z.number().min(0).max(1), actionable: z.boolean(), next_action: z.string(), reasoning: z.string() }),
-      z.object({ bring_back: z.boolean(), reason: z.string() }), // Icebox check (ICE-6)
-    ]).parse(req.body);
-    const ok = await completeJob(ctx, Number((req.params as any).id), r);
-    return ok ? { ok } : reply.code(409).send({ error: "job not leased" });
-  });
-  app.post("/internal/rank-jobs/:id/error", async (req, reply) => {
-    const e = z.object({ code: z.string(), message: z.string(), retryAfterSeconds: z.number().nullable().optional() }).parse(req.body);
-    const ok = await failJob(ctx, Number((req.params as any).id), e);
-    return ok ? { ok } : reply.code(409).send({ error: "job not leased" });
+             (select count(distinct user_id) from user_activity where day > current_date - 30)::int as monthly_active,
+             (select count(*) from deleted_users)::int as deleted_accounts,
+             (select count(*) from deleted_users where deleted_at > now() - interval '30 days')::int as deleted_last_30_days`);
   });
   return app;
 }

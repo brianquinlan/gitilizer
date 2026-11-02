@@ -1,5 +1,5 @@
 // Types and schemas shared by the server and the web app.
-// See docs/design.md#http-api and docs/design.md#live-updates.
+// See contributor/DESIGN.md#http-api and contributor/DESIGN.md#live-updates.
 import { z } from "zod";
 
 export * from "./notifications.ts";
@@ -232,7 +232,7 @@ export function checkMessage(kind: CredentialKind, r: CheckResult): string {
   const gh = kind === "github_pat";
   switch (r.code) {
     case "ok": return gh ? `Validated just now · Reading GitHub as @${r.login}` : "Validated just now · Gemini accepted this key";
-    case "not_accepted": return gh ? "GitHub didn't accept this token. Check that you copied all of it." : "Google didn't accept this API key. Check that you copied all of it.";
+    case "not_accepted": return gh ? "GitHub didn't accept this token. Check that you copied it correctly." : "Google didn't accept this API key. Check that you copied all of it.";
     case "expired": return `This token expired on ${r.expiresAt ? new Date(r.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "an earlier date"}. Create a new one.`;
     case "permission": return `This token can't read ${r.permission ?? "issues"}. Give it read access to Issues, Pull requests and Metadata.`;
     case "leaked": return "Google has disabled this key because it was reported as leaked. Create a new one.";

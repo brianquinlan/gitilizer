@@ -4,23 +4,23 @@
 |---|---|
 | **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype follows the 2026-11-01 PRD except where [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) says otherwise. |
 | **Author** | brian@sweetapp.com (drafted with Claude) |
-| **Last updated** | 2026-11-01 (answers to D-1 to D-4: live-update streams, a load balancer with its costs, `us-east4`, an OAuth app) |
+| **Last updated** | 2026-11-02 (the ranker is TypeScript; logging and deployment; answers to D-5 to D-7) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Google Cloud project** | `gitilizer` |
 | **Source** | [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer) |
 | **Requirements** | [PRD](PRD.md) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 
-This document explains how Gitilizer is built. It refers to requirements in the [PRD](PRD.md) by ID (for example `LIST-4`) and to the PRD's questions by number (for example [Q-28](PRD.md#q-28)). The decisions this design depends on are summarized in [PRD decisions](#prd-decisions). The PRD's one open question, [Q-78](PRD.md#q-78), came from building the prototype, which follows its suggested answer.
+This document explains how Gitilizer is built. It refers to requirements in the [PRD](PRD.md) by ID (for example `LIST-4`) and to the PRD's questions by number (for example [Q-28](PRD.md#q-28)). The decisions this design depends on are summarized in [PRD decisions](#prd-decisions). [README.md](README.md) explains where everything is in the repository.
 
-Questions about the design itself are marked the same way as in the PRD. **OPENQUESTION:** marks missing information. **CONFIRM:** marks a choice this design has made that the owner should confirm. Each links to a row in [Open questions](#open-questions), numbered D-1, D-2 and so on so they can't be confused with the PRD's.
+Questions about the design itself are marked the same way as in the PRD: **TODO:** marks missing information, or a choice this design has made that the owner should confirm. Each links to a row in [Open questions](#open-questions), numbered D-1, D-2 and so on so they can't be confused with the PRD's.
 
 ## Contents
 
 1. [Scope](#scope)
 2. [PRD decisions](#prd-decisions)
 3. [Architecture](#architecture)
-4. [Reused code](#reused-code)
+4. [The ranking agent](#the-ranking-agent)
 5. [Hosting on Google Cloud](#hosting-on-google-cloud)
 6. [Sign-in and sessions](#sign-in-and-sessions)
 7. [Repository layout](#repository-layout)
@@ -35,11 +35,13 @@ Questions about the design itself are marked the same way as in the PRD. **OPENQ
 16. [Security](#security)
 17. [Scale](#scale)
 18. [Testing](#testing)
-19. [Prototype status](#prototype-status)
-20. [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd)
-21. [Findings from the prototype](#findings-from-the-prototype)
-22. [Local development](#local-development)
-23. [Open questions](#open-questions)
+19. [Logging](#logging)
+20. [Deployment](#deployment)
+21. [Prototype status](#prototype-status)
+22. [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd)
+23. [Findings from the prototype](#findings-from-the-prototype)
+24. [Local development](#local-development)
+25. [Open questions](#open-questions)
 
 ---
 
@@ -89,6 +91,8 @@ The product owner's answers to the PRD questions this design depends on. The PRD
 
 ## Architecture
 
+Gitilizer is one TypeScript code base: the web app, the API, the scanner, the scheduler, the ranking worker and the ranking agent itself. (The agent and its evaluation harness started in Python, and were ported to TypeScript on 2026-11-02; see [The ranking agent](#the-ranking-agent).)
+
 ```mermaid
 flowchart LR
   subgraph Browser
@@ -98,9 +102,8 @@ flowchart LR
     API["API server<br/>Fastify"]
     SCH["Scheduler"]
     SCN["Scanner"]
-  end
-  subgraph "Ranking (Python)"
-    WRK["Ranking worker<br/>gitilizer/worker.py"]
+    WRK["Ranking worker<br/>app/server/src/worker.ts"]
+    AGT["Ranking agent<br/>app/ranker"]
   end
   DB[("Postgres")]
   GH["GitHub API"]
@@ -111,45 +114,53 @@ flowchart LR
   SCH --> SCN
   SCN -- "developer's PAT" --> GH
   SCN --> DB
-  WRK -- "claim jobs / report results<br/>(internal HTTP)" --> API
-  WRK -- "developer's key" --> GM
+  WRK -- "claim jobs, store results" --> DB
+  WRK --> AGT
+  AGT -- "developer's key" --> GM
 ```
 
-| Component | Language | Responsibility |
+| Component | Where | Responsibility |
 |---|---|---|
-| Web app | TypeScript, React, Vite | All screens. Holds the developer's whole list in memory, so sorting and paging are instant (`LIST-10`, `LIST-13`), and applies live updates under the PRD's holding and animation rules. |
-| API server | TypeScript, Fastify | Sign-in, sessions, settings, credentials, list queries, server-sent events, and the internal endpoints the ranking worker uses. |
-| Scheduler | TypeScript | Decides when each developer is due a scan (`SCAN-5`, `SCAN-6`) from presence reported by the web app. |
-| Scanner | TypeScript, Octokit | Finds items, fetches snapshots of new and changed items, detects removals, applies the 1,000-item limit, classifies GitHub errors into notifications, and queues ranking jobs. |
-| Ranking worker | Python | Claims ranking jobs, scores each item with the existing agent (`gitilizer/prioritizer.py`, pointwise), reports scores and classified Gemini errors. Holds no state and no database connection. |
+| Web app | `app/web` (React, Vite) | All screens. Holds the developer's whole list in memory, so sorting and paging are instant (`LIST-10`, `LIST-13`), and applies live updates under the PRD's holding and animation rules. |
+| API server | `app/server` (Fastify) | Sign-in, sessions, settings, credentials, list queries and server-sent events. |
+| Scheduler | `app/server` | Decides when each developer is due a scan (`SCAN-5`, `SCAN-6`) from presence reported by the web app. |
+| Scanner | `app/server` (Octokit) | Finds items, fetches snapshots of new and changed items, detects removals, applies the 1,000-item limit, classifies GitHub errors into notifications, and queues ranking jobs. |
+| Ranking worker | `app/server/src/worker.ts` | Claims ranking jobs from the queue, asks the agent to score each item (or to make an Icebox check), stores the result, and turns Gemini failures into notifications and pauses. |
+| Ranking agent | `app/ranker` | Turns a snapshot into the text the model reads, calls Gemini, and holds the evaluation harness. Knows nothing about the database or HTTP, so the worker and the harness use exactly the same code. |
 | Database | Postgres | All state. The job queue is a table (`rank_jobs`) claimed with `FOR UPDATE SKIP LOCKED`. |
 
-**Why the worker talks HTTP instead of reading the database.** The worker is the part most likely to be rewritten (in TypeScript, or for another model provider). Keeping it behind four small HTTP endpoints means it needs no database driver or schema knowledge, can run anywhere that can reach the API, and can be replaced without touching the rest of the system.
+**The worker runs inside the server and reads the queue directly.** While the agent was in Python, the worker was a separate Python process that reached the queue through four internal HTTP endpoints, so that it needed no database driver. With everything in TypeScript that boundary costs more than it saves: the worker now calls the same queue functions the rest of the server uses (`claimJobs`, `completeJob`, `failJob`), a Gemini key never crosses the network, and local development needs no Python. Every server process runs a worker loop; the queue is in Postgres, so several processes share the work without coordinating, and the per-developer limit of 4 (`RANK-11`) is enforced by the claim query. `WORKER=off` leaves the worker out of a process.
 
-**Why snapshots are fetched in TypeScript.** All GitHub access (and so all GitHub error handling and notifications) stays in one place, and the worker never sees the developer's PAT. The scanner produces snapshots in the same JSON format as `eval/fixtures/`, so the evaluation harness and the production worker read identical input. A contract test checks this ([Testing](#testing)).
+**Why snapshots are fetched by the scanner.** All GitHub access (and so all GitHub error handling and notifications) stays in one place, and the agent never sees the developer's PAT. The scanner produces snapshots in the same JSON format as `eval/fixtures/`, so the evaluation harness and the production worker read identical input.
 
-In production the API server and the scheduler/scanner run as separate deployments of the same TypeScript package (`gitilizer-server api` and `gitilizer-server scanner`), so scanning load doesn't affect request latency. The prototype runs them in one process.
+In production the API server and the scheduler/scanner can run as separate deployments of the same package, so scanning load doesn't affect request latency ([Hosting on Google Cloud](#hosting-on-google-cloud)). The prototype runs everything in one process.
 
 ---
 
-## Reused code
+## The ranking agent
 
-The backend reuses the ranking agent that already exists:
+`app/ranker` (`@gitilizer/ranker`) is the agent and its evaluation harness:
 
 | Path | Used for |
 |---|---|
-| `gitilizer/prioritizer.py` | The agent. The worker uses `system_instruction()`, `GeminiLLM` and the `ItemAssessment` output schema (`actionable`, `next_action`, `priority`, `reasoning`). Scoring is *pointwise*: one call per item, so a change to one item re-scores only that item. |
-| `gitilizer/context.py` | `build_context()` turns a snapshot into the text the agent reads, with derived signals (roles, who acted last, review state, mentions, draft state). `UserSettings` holds the login, additional repositories (still the `interested_repos` field, each `{repo, filter}`, where `filter` carries the prioritization prompt) and collaborators. Its `review_teams` field is always empty, because team reviews are out of scope ([Q-43](PRD.md#q-43)). |
-| `prompts/v4.md` | The default ranking prompt. |
-| `gitilizer/snapshot.py` | The snapshot format (schema version 2) that the TypeScript scanner reproduces. |
-| `gitilizer/evaluate.py`, `eval/` | The evaluation harness and its 36 hand-ranked items. Any change to the default prompt or model is measured here first (PRD `RANK-7`). |
+| `src/context.ts` | `buildContext()` turns a snapshot into the text the agent reads: header facts, derived signals (roles, who acted last, review state, mentions, draft state, the PR stack), related items, the description and the activity log, trimmed to at most 60,000 characters. `UserSettings` holds the login, additional repositories (each `{repo, filter}`, where `filter` carries the prioritization prompt) and collaborators. |
+| `src/prioritizer.ts` | `systemInstruction()` (the prompt, the "About me" block and the output contract), the output schemas, and `prioritize()`, which scores a set of items `pointwise` (one call per item, `RANK-18`), `listwise` (one call for all, for comparison) or by `recency` (no model, the floor). |
+| `src/agent.ts` | What the worker asks for one job: `scoreItem()` and `iceboxCheck()` (`ICE-6`). |
+| `src/gemini.ts` | `GeminiLLM` (structured JSON output, the thinking level, retries), `classifyGemini()` (the error codes in [Ranking worker](#ranking-worker)) and `FakeLLM` for tests and fixture mode. |
+| `src/rewind.ts` | Rebuilds a snapshot as it was at an earlier time, for eval items with `as_of`. |
+| `src/evaluate.ts`, `src/metrics.ts` | The evaluation harness (`npm run evaluate`) and its ranking metrics. |
+| `src/snapshot.ts`, `src/rankingSheet.ts` | Downloading eval fixtures (`npm run snapshot`) and building the ranking page's data (`npm run ranking-sheet`). |
+| `prompts/v4.md` | The default ranking prompt; `prompts/icebox_check_v1.md` is the Icebox check's. |
+| `eval/` | The 36 hand-ranked items, their snapshots and past runs. Any change to the default prompt or model is measured here first (PRD `RANK-7`). |
 
-New Python code is `gitilizer/worker.py` and the Icebox check (`gitilizer/icebox_check.py`, with its prompt in `prompts/icebox_check_v1.md` and labelled examples in `eval/icebox/`; see [Ranking worker](#ranking-worker)). Adding another model provider means a new `LLM` implementation in the worker; nothing else changes, because the job tells the worker which model to use ([non-goals](PRD.md#non-goals)).
+**The port is exact.** The TypeScript agent produces, character for character, the text the Python one did: the same contexts for all 36 fixtures, the same system prompts for v1 to v4, the same requests in an eval run (including rewound and thumbs-down items) and the same ranking-page data. `app/ranker/test/golden.test.ts` checks this against hashes of the Python output, so evaluation results measured before the port (including the [model comparison](../eval/model-comparison-2026-11-01.md)) still compare with results measured after it. Python's formatting rules that the prompts depend on (`repr()` of strings and lists, round-half-to-even, lengths in code points) are reproduced in `src/py.ts`.
+
+**What changed with the port.** Nothing in the prompts. Gemini is called through `@google/genai` with a JSON schema instead of Pydantic models, and the eval CLIs are npm scripts (`npm run evaluate`, `npm run snapshot`, `npm run ranking-sheet`, `npm run check`) instead of `python -m gitilizer.…`. The eval's own data (`eval/ground_truth.yaml`, `eval/fixtures/`, `eval/runs/`) is unchanged. The design no longer depends on Python anywhere, so the Python virtual environment, `requirements.txt` and `pyproject.toml` are gone.
 
 **Prompt changes the PRD now asks for.** Two changes to the agent's text, each measured with the evaluation harness before it ships (`RANK-7`):
 
-- **Additional repositories mean "keep an eye on"** (`SET-31`). `prompts/v4.md` describes them as "repositories I am responsible for", where "I am the default reviewer", and the "About me" block written by `context.py` introduces them the same way. Both change to "repositories I follow", and the scoring that rewards "repositories I'm responsible for" moves to the per-repository prioritization prompt ("I'm responsible for this one"). The eval's ground truth (`eval/ground_truth.yaml`) assumed the old meaning, so some labels may need revisiting.
-- **Drafts score lower** (`RANK-8`). v4 already scores the developer's own drafts at 0.15–0.35. Extend that to other people's draft PRs, whose review isn't wanted yet. `context.py` already exposes `draft`.
+- **Additional repositories mean "keep an eye on"** (`SET-31`). `prompts/v4.md` describes them as "repositories I am responsible for", where "I am the default reviewer", and the "About me" block written by `prioritizer.ts` introduces them the same way. Both change to "repositories I follow", and the scoring that rewards "repositories I'm responsible for" moves to the per-repository prioritization prompt ("I'm responsible for this one"). The eval's ground truth (`eval/ground_truth.yaml`) assumed the old meaning, so some labels may need revisiting.
+- **Drafts score lower** (`RANK-8`). v4 already scores the developer's own drafts at 0.15–0.35. Extend that to other people's draft PRs, whose review isn't wanted yet. `context.ts` already exposes `draft`.
 
 ---
 
@@ -160,13 +171,12 @@ Everything runs in the Google Cloud project `gitilizer`.
 | Component | Google Cloud service | Notes |
 |---|---|---|
 | API server and web app | Cloud Run service | Serves the built web app as static files and the API at `https://gitilizer.com`. Server-sent events are ordinary long requests; Cloud Run ends a request after at most 60 minutes, and the browser's `EventSource` reconnects and replays from `Last-Event-ID`. |
-| Scheduler and scanner | Cloud Run service with minimum 1 instance and always-allocated CPU | Same TypeScript package started as `scanner`. |
-| Ranking worker | Cloud Run worker pool (or a service with always-allocated CPU) | Python; scales with the queue length. |
+| Scheduler, scanner and ranking worker | Cloud Run service with minimum 1 instance and always-allocated CPU | The same container image as the API, so a release deploys one build. Its instances scale with the scan and ranking load; the API service runs with `WORKER=off` and no scheduler, so request latency doesn't depend on that load. (The prototype runs all of this in one process.) |
 | Database | Cloud SQL for PostgreSQL | Smallest shared-core tier to start. Automated daily backups kept for 180 days (`PRIV-4`); Cloud SQL allows up to 365. |
-| Secrets | Secret Manager for `WORKER_TOKEN` and the OAuth client secrets; Cloud KMS for the credential key | |
-| Metrics (`METRIC-1`, `METRIC-2`) | Looker Studio dashboard on Cloud SQL, plus Cloud Monitoring for operations | User counts come from `users` and the `user_activity` table (one row per developer per day with a visit), so daily, weekly and monthly actives are available for past days. The internal `GET /internal/metrics` endpoint returns the same numbers. |
+| Secrets | Secret Manager for `WORKER_TOKEN` (which protects the operator endpoints) and the OAuth client secrets; Cloud KMS for the credential key | |
+| Metrics (`METRIC-1`, `METRIC-2`) | Looker Studio dashboard on Cloud SQL, plus Cloud Monitoring for operations | User counts come from `users`, the `user_activity` table (one row per developer per day with a visit), so daily, weekly and monthly actives are available for past days, and `deleted_users` (accounts deleted, in total and per month). The internal `GET /internal/metrics` endpoint returns the same numbers. |
 
-**Monitoring (`METRIC-3`, `NFR-6`).** Cloud Run already records request latency and response codes for every request, so API latency by endpoint and status codes for page loads and API calls come from Cloud Monitoring without extra code. Browser-side load time can't be seen from the server: the web app measures the time from navigation to a usable list (and the standard web vitals) and sends it to `POST /api/telemetry`, which writes it as a structured log line that a log-based metric turns into a distribution. Scan and ranking durations, and error and notification counts, are custom metrics from the scanner and worker. One Cloud Monitoring dashboard shows them all. Alerting policies email the owner (`METRIC-4`) when an uptime check on `https://gitilizer.com` fails, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for 30 minutes.
+**Monitoring (`METRIC-3`, `NFR-6`).** Cloud Run already records request latency and response codes for every request, so API latency by endpoint and status codes for page loads and API calls come from Cloud Monitoring without extra code. Browser-side load time can't be seen from the server: the web app measures the time from navigation to a usable list (and the standard web vitals) and sends it to `POST /api/telemetry`, which writes it as a structured log line that a log-based metric turns into a distribution. Scan and ranking durations, and error and notification counts, are log-based metrics on the scanner's and worker's structured log lines ([Logging](#logging)), so they need no metrics client in the code. One Cloud Monitoring dashboard shows them all. Alerting policies email the owner (`METRIC-4`) when an uptime check on `https://gitilizer.com` fails, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for 30 minutes.
 
 **Region.** `us-east4` (Northern Virginia), decided in [D-3](#d-3). One region in the eastern United States is the best single choice for North America and Western Europe together (`PLAT-3`). A second region in Europe would double the fixed cost.
 
@@ -205,6 +215,9 @@ GitHub sign-in uses an OAuth app with only the `user:email` scope, decided in [D
 
 - **Accounts (`AUTH-3`, `AUTH-7`).** `users` has a unique index on `(provider, provider_user_id)`. Email is stored for display only and is never used to merge accounts, so the same person signing in with both providers gets two accounts. `METRIC-1` counts them as two users.
 - **Provider tokens.** The callback reads the profile (name, email, avatar) and then discards the provider's tokens. Gitilizer keeps no Google or GitHub sign-in token, which is why revoking access at the provider doesn't sign the developer out ([Q-11](PRD.md#q-11)).
+
+  This is what developers expect from "Sign in with Google/GitHub" elsewhere. Signing in asks for authorization only the first time: after signing out, "Continue with Google" or "Continue with GitHub" goes straight through (Google shows its account chooser; GitHub redirects back at once if the developer is signed in to GitHub and has already authorized the app), so signing in again is one or two clicks. Keeping the providers' tokens would only let Gitilizer notice a revocation, and would mean storing more credentials that it never otherwise uses (`PRIV-1`). A developer who wants to cut Gitilizer off entirely deletes the account (`SET-17`), which ends every session.
+
 - **Sessions (`AUTH-8`).** A random 32-byte session ID in a `__Host-gitilizer_session` cookie (`HttpOnly`, `Secure`, `SameSite=Lax`, no `Domain`). `sessions.expires_at` is 30 days after the last use; to avoid a write on every request, it is pushed forward only when less than 29 days remain, so at most once a day.
 - **Sign out (`ACCT-3`, `AUTH-9`).** Deletes the current session row only. Deleting the account deletes every session.
 - **Failed sign-in (`AUTH-10` to `AUTH-14`).** The callback sorts every failure into one of four categories and redirects to `/sign-in?error={cancelled|provider_unavailable|expired|gitilizer_error}`:
@@ -220,22 +233,23 @@ GitHub sign-in uses an OAuth app with only the `user:email` scope, decided in [D
 ## Repository layout
 
 ```
-gitilizer2/
-├── docs/                 PRD.md, design.md, local-development.md, and the user documentation (FOOT-3, FOOT-4)
+gitilizer/
+├── README.md             what Gitilizer is, and where to start
+├── docs/                 user documentation, published through the footer (FOOT-2 to FOOT-4): user-guide.md
+├── contributor/          documentation for people working on Gitilizer: README.md, PRD.md, DESIGN.md, LOCAL_DEVELOPMENT.md
 ├── scripts/local.mjs     npm run local: the whole app on one computer (Local development)
 ├── .local/               local mode's databases and keys (gitignored)
-├── gitilizer/            Python: agent, eval harness, and worker.py (new)
-├── prompts/              ranking prompts; v4.md is the default
-├── eval/                 eval set and fixtures
-├── tests/                Python tests
+├── prompts/              ranking prompts (v4.md is the default) and the Icebox check's prompt
+├── eval/                 the eval set, its snapshots and past runs
 ├── package.json          npm workspaces root
 └── app/
     ├── shared/           types and zod schemas used by server and web
-    ├── server/           API, scheduler, scanner
+    ├── ranker/           the ranking agent and the evaluation harness (The ranking agent)
+    ├── server/           API, scheduler, scanner and ranking worker
     └── web/              React app
 ```
 
-The footer's "Documentation" link (`FOOT-2`) points at the user documentation in `docs/` on GitHub, for example `docs/user-guide.md`. It has to be written before launch (`FOOT-3`), including the token instructions from [Q-40](PRD.md#q-40).
+Files in `contributor/` have upper-case names, so they stand out from code and from the user documentation. The footer's "Documentation" link (`FOOT-2`) points at `docs/user-guide.md` on GitHub.
 
 ---
 
@@ -245,8 +259,8 @@ Postgres. Times are `timestamptz`. IDs are text UUIDs unless stated.
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `users` | `id`, `provider`, `provider_user_id`, `name`, `email`, `avatar_url`, `github_login`, `created_at`, `last_seen_at`, `setup_completed_at`, `ranking_paused_until` | Unique on `(provider, provider_user_id)` (`AUTH-7`). `github_login` comes from the PAT (`GET /user`), not from sign-in (`AUTH-5`). `last_seen_at` drives [Q-47](PRD.md#q-47). `setup_completed_at` decides Warm Welcome ([Q-8](PRD.md#q-8)). |
-| `user_activity` | `user_id`, `day` | One row per developer per day with a visit, for `METRIC-1`. |
+| `users` | `id`, `provider`, `provider_user_id`, `name`, `email`, `avatar_url`, `github_login`, `created_at`, `last_seen_at`, `setup_completed_at`, `ranking_paused_until` | Unique on `(provider, provider_user_id)` (`AUTH-7`). `github_login` comes from the PAT (`GET /user`), not from sign-in (`AUTH-5`). `last_seen_at` drives [Q-47](PRD.md#q-47). `setup_completed_at` decides Warm Welcome ([Q-8](PRD.md#q-8)); see the note below. |
+| `user_activity` | `user_id`, `day` | One row per developer per day with a visit, for `METRIC-1`; see the note below. Rows older than 13 months are deleted by the daily clean-up. |
 | `sessions` | `id` (random 32 bytes, base64url), `user_id`, `expires_at` | Sliding 30-day expiry ([Sign-in and sessions](#sign-in-and-sessions)). |
 | `credentials` | `user_id`, `kind` (`github_pat`, `gemini_key`), `ciphertext`, `nonce`, `expires_at`, `token_login`, `token_type` | AES-256-GCM ([Security](#security)). Saved without being checked (`SET-29`). `expires_at` from GitHub's `GitHub-Authentication-Token-Expiration` header (`SET-6`). The scanner fills in `token_login` (the PAT's account) and `token_type` (`classic` or `fine-grained`, from the token's prefix). The status chip (`SET-30`) isn't stored: it comes from the shown notifications. |
 | `settings` | `user_id`, `custom_prompt` (null = default), `sort_prioritized`, `sort_icebox` | |
@@ -262,11 +276,17 @@ Postgres. Times are `timestamptz`. IDs are text UUIDs unless stated.
 | `gemini_quota` | `user_id`, `model`, `exhausted_until` | Set when Gemini reports a per-day quota for that model (`RANK-13`): `exhausted_until` is the next midnight Pacific time, or the time the error gives. The model used for a job is the first in `GITILIZER_MODELS` that isn't exhausted. Quotas belong to the key's Google Cloud project, so the rows are cleared when a new key is saved. |
 | `deleted_users` | `id`, `deleted_at` | Only the IDs of deleted accounts. After a backup is restored, every account in this table deleted after the backup was taken is deleted again (`PRIV-4`). The table itself must be copied out before the restore and put back afterwards. |
 
+Notes on three tables:
+
+- **Why `users.setup_completed_at` instead of checking for credentials.** It records an event, not a state. Warm Welcome is shown until setup is first completed and never again (`NAV-2`): a developer who later loses a credential (today only through a fault, because Settings can't remove one, `NOTIF-16`) sees the list with an error notification, not Warm Welcome. Checking "are both credentials there?" would get that case wrong. `METRIC-1` also counts users who completed setup, and the timestamp shows when. It costs one column.
+- **Why `user_activity` instead of a time-series database.** `METRIC-1` needs distinct-user counts per day, week and month, including for past days, and that is a `count(distinct user_id)` over one small row per developer per day. Cloud Monitoring's metrics can't count distinct users, and a separate time-series database would be another service to run and pay for in the US$200 budget (`PLAT-4`), for data that already fits in Postgres: at 100,000 accounts it is at most 100,000 rows a day, kept for 13 months. Operational metrics (latency, errors, durations) do go to Cloud Monitoring ([Hosting on Google Cloud](#hosting-on-google-cloud)).
+- **`deleted_users` doubles as a metric.** `GET /internal/metrics` and the dashboard report the number of deleted accounts, in total and per month (`METRIC-1`).
+
 ---
 
 ## HTTP API
 
-JSON over HTTPS. Every request and response body is defined by a zod schema in `app/shared`, used for validation on the server and for types in the web app. Browser endpoints need the session cookie; internal endpoints need `Authorization: Bearer $WORKER_TOKEN`.
+JSON over HTTPS. Every request and response body is defined by a zod schema in `app/shared`, used for validation on the server and for types in the web app. Browser endpoints need the session cookie; the operator endpoint on the internal port needs `Authorization: Bearer $WORKER_TOKEN`.
 
 | Method and path | Purpose |
 |---|---|
@@ -276,7 +296,7 @@ JSON over HTTPS. Every request and response body is defined by a zod schema in `
 | `GET /api/me` | Account, which screen to show (`NAV-1`), whether the first sync has finished. |
 | `GET /api/list` | Every active, iceboxed and recently gone item for the developer, plus `version`. The web app sorts and pages locally. |
 | `POST /api/items/icebox`, `POST /api/items/restore` | `LIST-18`, `ICE-5`. Body `{ key }` (keys contain `/` and `#`, so they aren't path segments). Return the new `version`. |
-| `POST /api/sync` | `LIST-16`. Always returns 202; a request while a sync runs joins it (`LIST-28`). |
+| `POST /api/sync` | `LIST-16`. Always returns 202; a request while a sync runs joins it (the button is disabled then, `LIST-28`, but another tab may not know yet). |
 | `POST /api/presence` | `{ visible: boolean }` from each tab on load, on `visibilitychange` and every 60 s ([Scheduler](#scheduler)). |
 | `GET /api/events` | Server-sent events ([Live updates](#live-updates)). |
 | `GET /api/notifications` | Shown notifications, with `seen`. |
@@ -287,10 +307,7 @@ JSON over HTTPS. Every request and response body is defined by a zod schema in `
 | `POST /api/credentials/:kind/check` | Check a typed value without saving it (`SET-2`, `SET-28`). Returns `{ ok, code, login?, expires_at?, permission? }`, where `code` selects the message. For a GitHub token: `GET /user` (login, expiry header) and one search, which shows a missing permission through `X-Accepted-GitHub-Permissions`. For a Gemini key: `GET /v1beta/models/{model}`, which checks the key and access to the model without using the developer's request quota. |
 | `DELETE /api/account` | `SET-17`. Sent after the confirmation dialog; requires `{ confirm: true }` so a stray request can't delete an account. |
 | `POST /api/telemetry` | Browser timings for `METRIC-3` (time to a usable list, web vitals). Accepts small JSON bodies only, rate-limited per session. |
-| `POST /internal/rank-jobs/claim` | Worker: lease up to N jobs. |
-| `POST /internal/rank-jobs/:id/result` | Worker: report a score. |
-| `POST /internal/rank-jobs/:id/error` | Worker: report a classified failure. |
-| `GET /internal/metrics` | `METRIC-1` counts. |
+| `GET /internal/metrics` | `METRIC-1` counts, including deleted accounts. On the internal port, not exposed to the internet. |
 | `POST /api/dev/fixtures/touch`, `…/close`, `POST /api/dev/notify` | Fixture mode only: simulate GitHub activity, a closed item or a notification. |
 
 ---
@@ -326,7 +343,7 @@ Animation uses the FLIP technique on table rows (measure, apply the new order, a
 
 ## Web app
 
-React 18 with Vite. No component library: the Figma file is the design system, so colors, type and spacing are CSS custom properties taken from it (Inter, accent `#315BDE`, error `#B74439`, warning `#D4A017`, borders `#E2E6EB`). Routes follow `NAV-3`.
+React 19 with Vite. No component library: the Figma file is the design system, so colors, type and spacing are CSS custom properties taken from it (Inter, accent `#315BDE`, error `#B74439`, warning `#D4A017`, borders `#E2E6EB`). Routes follow `NAV-3`.
 
 The app keeps one store per signed-in developer: the account, the full item list, notifications and sync state, fed by `GET /api/me`, `GET /api/list` and the event stream. Screens are thin views over that store. "Can't connect to Gitilizer" (`NOTIF-12`) is raised by the store when the event stream has been disconnected for 30 s and `GET /api/me` fails.
 
@@ -338,9 +355,7 @@ Details that need more than markup:
 - **Bell.** Swings while any shown error has no `seen_at`; opening the popover calls `POST /api/notifications/seen` (`NOTIF-17`). Amber and still when there are only warnings (`NOTIF-5`).
 - **Sync now** is never disabled, and spins whenever the `sync` event says `running` (`LIST-17`, `LIST-28`).
 - **Saving Settings.** A successful save navigates to `/` (`NAV-8`); per-field errors keep the page open and are shown under their fields, and the save buttons are disabled while any error shows (`SET-27`). Duplicate and format checks run in the browser as well, so most errors appear before saving. "Cancel" discards changes and also navigates to `/` (`NAV-9`). Leaving with unsaved changes asks first, through the router and `beforeunload` (`SET-26`).
-- **Checking what was just added.** A repository or collaborator is looked up as soon as it is added, so its access state or avatar shows before saving.
-
-  > **CONFIRM: [D-6](#d-6)** Two check endpoints use the saved PAT and store nothing; the scan after saving records the same results. Without a saved PAT the row shows "Checking…" until then.
+- **Checking what was just added.** A repository or collaborator is looked up as soon as it is added, so its access state or avatar shows before saving ([D-6](#d-6)). Two check endpoints use the saved PAT and store nothing; the scan after saving records the same results. Without a saved PAT the row shows "Checking…" until then.
 
 - **Credentials.** Saved credentials are shown as dots; "Validate" is disabled until something is typed, and the eye icon shows only typed text (`SET-21`).
 - **Account menu.** Closes on a click outside, on Esc and when an item is chosen (`ACCT-4`). The action is "Sign out" everywhere (`ACCT-5`).
@@ -362,7 +377,7 @@ A scan for one developer:
    - `is:open archived:false` with each of `assignee:{login}`, `mentions:{login}`, `author:{login}` and `commenter:{login}`;
    - `is:open archived:false repo:{owner}/{name}` for each additional repository. Before the search, `GET /repos/{owner}/{name}` checks access (`SET-8`): a 404 means `not_found`, a 403 with `X-GitHub-SSO` means `sso_required`, a 403 naming the token type means `token_type_blocked`, and `archived: true` means `archived`. GitHub follows renames, so the response's `full_name` replaces the stored name, which keeps `repo:` searches working.
 
-   > **CONFIRM: [D-7](#d-7)** A search can answer `X-GitHub-SSO: partial-results; organizations={ids}`, naming organizations only by ID. The suggestion is to look the names up with `GET /organizations/{id}` for the "Your token isn't authorized for {org}" notification. The prototype doesn't handle this header yet.
+   A search can also answer `X-GitHub-SSO: partial-results; organizations={ids}`: GitHub left out results from organizations the token isn't authorized for, and names them only by numeric ID. The scanner looks each name up with `GET /organizations/{id}` (public, and cached for the process) and raises "Your token isn't authorized for {org}" ([D-7](#d-7)).
 
    Each result contributes a reason to that item. Team mentions (`team:`) are not searched ([Q-65](PRD.md#q-65)). For mentions the scanner records the handle `@{login}`, or none ("@-mentioned") when it can't tell.
 
@@ -377,7 +392,7 @@ A scan for one developer:
    - previously active, still open, but not found by a full scan → `gone` with reason `no_longer_matches`. Only a full scan can tell this (an unassignment, a removed repository, an archived repository).
 5. **Icebox (`ICE-6`, `ICE-11`).** An iceboxed item that changed gets an `icebox_check` job, not a ranking job ([Ranking worker](#ranking-worker)). An iceboxed item that is closed, merged or no longer matches is removed from the Icebox.
    **Linked items (`RANK-10`).** For each changed item, the scanner reads the issues and PRs its snapshot links to (closing references, cross-references and the PR stack) and queues a `linked` ranking job for each one that is active in the developer's list and wasn't itself changed.
-6. **Snapshot.** A TypeScript port of `gitilizer/snapshot.py`, producing schema version 2 with the same keys, plus two limits the Python version lacks:
+6. **Snapshot.** The format of `app/ranker/src/snapshot.ts` (schema version 2, the eval's fixtures), plus two limits:
    - the PRs stacked *above* are looked up only when the head branch is in the same repository, which fixes the bug that made `dart-lang/http#579` a 20 MB snapshot ([Findings](#findings-from-the-prototype));
    - `timeline`, `comments` and `files` are capped (first 50 and last 250 entries), with a `fetch_warnings` entry when they are cut.
 
@@ -400,11 +415,9 @@ Each web app tab reports presence (`POST /api/presence`) on load, on every `visi
 | Open, not visible | 30 minutes |
 | Neither | 2 hours for developers seen in the last 7 days; otherwise none until the next visit (`SCAN-5`) |
 
-A scan is **full** if it is the developer's first, if Sync now or saving Settings started it, or if the last full scan finished more than 1 hour ago; otherwise it is **incremental**. Removals that only a full scan can see (`no_longer_matches`) therefore reach the list within about an hour, or at once after Sync now.
+A scan is **full** if it is the developer's first, if Sync now or saving Settings started it, or if the last full scan finished more than 1 hour ago; otherwise it is **incremental** ([D-5](#d-5)). Removals that only a full scan can see (`no_longer_matches`) therefore reach the list within about an hour, or at once after Sync now. Full scans aren't more frequent because one can use many of the 30 search requests a minute that GitHub allows each token, which other tools using the same token share.
 
-> **CONFIRM: [D-5](#d-5)** A full scan at most once an hour, with incremental scans in between. More often makes "No longer yours" removals appear sooner, but a full scan can use many of the 30 search requests a minute that GitHub allows each token, which other tools using the same token share.
-
-A Sync now or a save while an incremental scan is running joins it (`SCAN-4`), and a full scan follows as soon as it finishes.
+Sync now is disabled while a sync runs (`LIST-28`). Saving Settings while an incremental scan is running joins it (`SCAN-4`), and a full scan follows as soon as it finishes.
 
 A presence report that changes the developer to visible starts a scan at once if the last one finished more than 5 minutes ago (`SCAN-6`). The scheduler loop runs every 10 s: `SELECT … WHERE next_scan_at <= now() … FOR UPDATE SKIP LOCKED LIMIT n`, so several scanner processes can share the work. A daily pass queues an `ageing` batch for every active item not ranked in the last 24 hours (`RANK-9`).
 
@@ -412,27 +425,26 @@ A presence report that changes the developer to visible starts a scan at once if
 
 ## Ranking worker
 
-`gitilizer/worker.py` is a long-running Python process. It needs `GITILIZER_API` and `WORKER_TOKEN`, nothing else.
+`app/server/src/worker.ts` runs in every server process (`WORKER=off` leaves it out):
 
 ```
 loop:
-  jobs = POST /internal/rank-jobs/claim {max: 8, lease_seconds: 120}
-  for each job (4 at a time per developer):
-      settings = job.user              # UserSettings: login, additional repos + prioritization prompts, collaborators
-      guidance = job.prompt or prompts/v4.md
-      item     = Item(id, job.snapshot)
-      scored   = prioritize([item], settings, "pointwise", GeminiLLM(api_key=job.gemini_key, model=job.model), guidance, now=job.now)
-      POST …/result {priority, actionable, next_action, reasoning, usage}
-      or  POST …/error {code, message, retry_after}
+  jobs = claimJobs(max: room left, lease: 120 s)      # at most 4 leased per developer (RANK-11)
+  for each job, concurrently:
+      llm = GeminiLLM(model: job.model, key: job.geminiKey, thinking: "low", retries: 2)   # FakeLLM in fixture mode
+      if job.kind == "icebox_check":  completeJob(job, iceboxCheck(job, llm))
+      else:                           completeJob(job, scoreItem(job, llm))   # one item, as of now
+      on failure:                     failJob(job, classifyGemini(error))
+  if nothing was claimed: wait 1 s
 ```
 
-A claim response carries everything needed for one item: the snapshot, the developer's settings, the custom prompt (or null), the Gemini key and the model. The key is sent over the internal network only, and only to the worker; see [Security](#security). Ranking uses the lowest thinking level the model allows (`RANK-11`).
+A claimed job carries everything needed for one item: the snapshot, the developer's settings, the custom prompt (or null), the Gemini key and the model. The key is decrypted only for the job and never leaves the process ([Security](#security)). Ranking uses the lowest thinking level the model allows (`RANK-11`).
 
-**Icebox check (`ICE-6`, `ICE-12`).** An `icebox_check` job carries the snapshot and the time the item was iceboxed. The worker sends a short, fixed prompt (`prompts/icebox_check_v1.md`) that describes what happened since then and asks whether it should bring the item back, with the output `{ bring_back: boolean, reason: string }`. The prompt tells the agent to answer yes unless the change is clearly unimportant (a bot's comment, a label or milestone edit, a CI result), and to treat the developer's own changes like anyone else's. Only the events since the item was iceboxed are sent, so the call is small. On `bring_back: true`, or if the job fails after its retries, the server makes the item active again and queues a `changed` ranking job. On `false`, the item stays in the Icebox and `ranked_updated_at` is advanced. Changes to the prompt are measured against the labelled examples in `eval/icebox/` (`ICE-13`).
+**Icebox check (`ICE-6`, `ICE-12`).** An `icebox_check` job carries the snapshot and the time the item was iceboxed. The agent sends a short, fixed prompt (`prompts/icebox_check_v1.md`) that describes what happened since then and asks whether it should bring the item back, with the output `{ bring_back: boolean, reason: string }`. The prompt tells the agent to answer yes unless the change is clearly unimportant (a bot's comment, a label or milestone edit, a CI result), and to treat the developer's own changes like anyone else's. Only the events since the item was iceboxed are sent, so the call is small. On `bring_back: true`, or if the job fails after its retries, the server makes the item active again and queues a `changed` ranking job. On `false`, the item stays in the Icebox and `ranked_updated_at` is advanced. Changes to the prompt are measured against the labelled examples in `eval/icebox/` (`ICE-13`).
 
-**Spending quota well (`RANK-12` to `RANK-16`).** The claim query takes a developer's jobs in this order: Icebox checks, then `new` and `changed` items (most recently updated first), then `linked`, then `rerank` and `ageing` batches, so the primary model's small quota goes to the work most likely to matter (`RANK-17`). Each claim response names the model to use: the first in `GITILIZER_MODELS` without a current `gemini_quota` row. The score is stored with that model (`ranked_model`, `RANK-16`).
+**Spending quota well (`RANK-12` to `RANK-16`).** The claim query takes a developer's jobs in this order: Icebox checks, then `new` and `changed` items (most recently updated first), then `linked`, then `rerank` and `ageing` batches, so the primary model's small quota goes to the work most likely to matter (`RANK-17`). Each claimed job names the model to use: the first in `GITILIZER_MODELS` without a current `gemini_quota` row. The score is stored with that model (`ranked_model`, `RANK-16`).
 
-**Running out of quota.** The worker reads the `quotaId` in each 429's error details. A per-minute quota (`…PerMinute…`) means wait and retry on the same model (`RANK-14`). A per-day quota (`…PerDay…`) is reported as `daily_quota` with the model: the server writes a `gemini_quota` row and puts the job back in the queue, and the next claim gets the next model. While the primary model is exhausted and a backup isn't, the server raises the `gemini_backup_model` warning naming the model in use. When every model is exhausted, it pauses the developer's queue until the earliest reset and raises the `gemini_daily_quota` error. At reset, the rows expire, the next claim gets the primary model again and both notifications clear. Items still waiting are shown at the end of the list with "–" (`LIST-30`). Every call scores one item (`RANK-18`).
+**Running out of quota.** `classifyGemini()` reads the `quotaId` in each 429's error details. A per-minute quota (`…PerMinute…`) means wait and retry on the same model (`RANK-14`). A per-day quota (`…PerDay…`) is reported as `daily_quota` with the model: the server writes a `gemini_quota` row and puts the job back in the queue, and the next claim gets the next model. While the primary model is exhausted and a backup isn't, the server raises the `gemini_backup_model` warning naming the model in use. When every model is exhausted, it pauses the developer's queue until the earliest reset and raises the `gemini_daily_quota` error. At reset, the rows expire, the next claim gets the primary model again and both notifications clear. Items still waiting are shown at the end of the list with "–" (`LIST-30`). Every call scores one item (`RANK-18`).
 
 **Error codes.** The worker classifies every Gemini failure, using the status codes in the PRD's catalogue: `key_invalid`, `key_leaked`, `permission_denied`, `credits_exhausted`, `billing_required`, `daily_quota`, `rate_limited`, `unavailable`, `model_not_found`, `blocked` (safety, recitation), `invalid_output`, `unknown`. Key-level codes (`key_*`, `permission_denied`, `credits_exhausted`, `billing_required`, `model_not_found`) make the server pause that developer's other jobs until the key changes or `retry_after` passes, instead of failing every item one by one. `daily_quota` is per model and handled as above.
 
@@ -458,11 +470,11 @@ Changes are pushed to the browser as `notifications` events.
 
 ## Security
 
-- **Credentials.** AES-256-GCM, with a random 96-bit nonce per value and the user ID as associated data, so a ciphertext can't be moved to another user. The key-encryption key comes from `CREDENTIAL_KEY` (32 bytes, base64) in the prototype and from a cloud KMS in production. Values are decrypted only in the scanner (PAT) and when building a claim response (Gemini key) (`PRIV-1`).
+- **Credentials.** AES-256-GCM, with a random 96-bit nonce per value and the user ID as associated data, so a ciphertext can't be moved to another user. The key-encryption key comes from `CREDENTIAL_KEY` (32 bytes, base64) in the prototype and from a cloud KMS in production. Values are decrypted only in the scanner (PAT) and when the worker claims a job (Gemini key), and never leave the process (`PRIV-1`).
 - **Tokens that can write.** A classic PAT with the `repo` scope can write to every repository the developer can reach ([Q-40](PRD.md#q-40)). Gitilizer only ever sends `GET` requests and searches with it, and the Octokit wrapper rejects any other method, so a bug can't turn into a write.
-- **Worker channel.** The internal endpoints are on a separate port that isn't exposed to the internet, need a bearer token, and must use TLS between hosts.
+- **Operator endpoint.** `GET /internal/metrics` is on a separate port that isn't exposed to the internet and needs a bearer token.
 - **Sessions.** See [Sign-in and sessions](#sign-in-and-sessions). State-changing requests also need an `X-Gitilizer: 1` header, which a cross-site form can't send.
-- **Logging.** Request logging redacts `authorization`, cookies and credential bodies.
+- **Logging.** Log fields whose names look like secrets are replaced with `[redacted]`, and request bodies aren't logged ([Logging](#logging)).
 
 ---
 
@@ -484,39 +496,91 @@ At 10,000 visible developers scanning every 5 minutes there are about **33 scans
 
 | Layer | What | Tool |
 |---|---|---|
-| Live-update state machine | Every PRD case: holding, pairs, page disappearing, batching above 5, bulk re-ranks, indicators, other sort orders | Vitest, pure functions |
-| Scanner | Discovery, the 1,000-item limit, full and incremental scans, removal reasons, the Icebox return rule, against a fake GitHub | Vitest |
-| Snapshot contract | The TypeScript snapshotter's output for a recorded item has the same shape as the Python one, and `build_context()` accepts it | Python test over a TypeScript-produced file |
-| Worker | Claim/result loop, Gemini error classification, queue order when quota is short, the Icebox check's handling of failures | pytest with fakes |
-| Icebox check quality | Labelled examples of changes to iceboxed items, each marked "bring back" or "keep", in `eval/icebox/`. The harness reports how many "bring back" cases were missed, which matters more than false returns (`ICE-12`). | New, alongside the existing harness |
-| End to end | **Fixture mode**: `GITHUB_MODE=fixtures` serves `eval/fixtures/` as the developer's GitHub, and `--fake-llm` scores without Gemini. The web app, API, scanner and worker run together with no external access. | Playwright |
-| Ranking quality | Unchanged: `python -m gitilizer.evaluate`. Run before and after the prompt changes in [Reused code](#reused-code). | Existing harness |
+| Live-update state machine | Every PRD case: holding, pairs, page disappearing, batching above 5, bulk re-ranks, indicators, other sort orders | Vitest, pure functions (`app/web`) |
+| Scanner, queue, notifications | Discovery, the 1,000-item limit, full and incremental scans, removal reasons, Icebox checks, model fallback, the HTTP API, against a fake GitHub and in-memory Postgres | Vitest (`app/server`) |
+| Worker | The worker loop with the fake model; Gemini failures turned into pauses and notifications | Vitest (`app/server`) |
+| Agent | Signals, context trimming, rewinding, the strategies, Gemini error classification, the Icebox check's input | Vitest with synthetic snapshots (`app/ranker`) |
+| Agent, against the Python original | The exact text built for every eval item, system prompt and request, compared with hashes of the Python agent's output (`test/golden.json`) | Vitest (`app/ranker`) |
+| Icebox check quality | Labelled examples of changes to iceboxed items, each marked "bring back" or "keep", in `eval/icebox/`. The harness reports how many "bring back" cases were missed, which matters more than false returns (`ICE-12`). | Not built yet |
+| End to end | **Fixture mode**: `eval/fixtures/` serves as the developer's GitHub, and the fake model scores without Gemini. The web app, API, scanner and worker run together with no external access. | Playwright |
+| Ranking quality | `npm run evaluate`. Run before and after the prompt changes in [The ranking agent](#the-ranking-agent). | The evaluation harness |
+
+`npm test` runs every Vitest suite and `npm run typecheck` the type checks; continuous integration runs both, and the end-to-end run, on every pull request ([Deployment](#deployment)).
+
+---
+
+## Logging
+
+The goal (`NFR-11`) is a log that answers "what went wrong for this developer?" without wading through routine success. `app/server/src/log.ts` writes one line per event, with a component, a message and fields:
+
+- **Format.** In production (`LOG_FORMAT=json`) each line is a JSON object with `severity`, `component`, `message` and the fields, which Cloud Logging reads as a structured entry, so entries can be filtered by severity, component, developer or error code. Locally it is plain text.
+- **Levels.** `error`: something Gitilizer must fix (an unhandled error, a scan that crashed). `warn`: a problem a developer may see (an unexpected GitHub or Gemini response, a ranking job that failed for a reason other than a rate limit). `info`: one line per scan (trigger, full or incremental, outcome, items queued, duration), one summary a minute from each worker (jobs done, failures by code, median and 95th-percentile duration), startup, and browser timings. `debug`: one line per ranked item and per expected, short-lived failure. Production runs at `info`; local mode at `debug`.
+- **What is never logged.** Credentials (fields whose names look like secrets are replaced with `[redacted]`), request bodies and item content. Developers appear by ID, not by email.
+- **Requests.** Cloud Run logs every HTTP request with its status and latency, so the server doesn't log requests itself.
+- **Metrics from logs.** The scan lines and the worker summaries become log-based metrics for scan and ranking durations and error rates (`NFR-6`), and the browser timings a distribution for `METRIC-3`, so the code needs no metrics client.
+
+Cloud Logging keeps logs for 30 days by default, which is enough to look into a report.
+
+---
+
+## Deployment
+
+`NFR-12` asks for a development environment that every change runs in before it reaches gitilizer.com.
+
+| | Development | Production |
+|---|---|---|
+| Address | `dev.gitilizer.com` | `gitilizer.com` |
+| Deployed | Automatically, after every merge to `main` whose checks pass | Deliberately: a release deploys a build that is already running in development |
+| Cloud Run | One service running everything (API, scheduler, scanner, worker), scaling to zero when unused | The services in [Hosting on Google Cloud](#hosting-on-google-cloud) |
+| Database | Its own database, `gitilizer_dev`, on the same Cloud SQL instance | `gitilizer` |
+| Credential key, OAuth apps | Its own (a separate KMS key; OAuth apps whose redirect URLs are on `dev.gitilizer.com`) | Its own |
+| Who can sign in | An allowlist (PRD [Q-80](PRD.md#q-80)) | Everyone |
+
+**The pipeline.**
+
+1. **Every pull request:** GitHub Actions runs `npm run typecheck`, `npm test` and the Playwright run in fixture mode. Merging needs them to pass.
+2. **Every merge to `main`:** a Cloud Build trigger builds one container image, tagged with the commit, pushes it to Artifact Registry and deploys it to development.
+3. **A release:** pushing a tag `release-YYYY-MM-DD` runs a GitHub Actions workflow that deploys the image already built for that commit to production. Because it is the same image, what was tested in development is exactly what ships. GitHub's environment protection makes the owner approve the run.
+4. **Rolling back:** Cloud Run keeps earlier revisions, so moving traffic back to the previous one takes seconds.
+
+GitHub Actions reaches Google Cloud with Workload Identity Federation, so no long-lived service-account key is stored in GitHub.
+
+**Database changes.** The server upgrades the schema when it starts, with statements that can run any number of times (`create … if not exists`, `add column if not exists`), as it does for local databases today. During a deployment the old and new revisions run side by side, so a change must work with both: add a column in one release and stop using an old one in a later release, never rename or drop in one step.
+
+**Cost.** Development adds little: the service scales to zero, its database shares the Cloud SQL instance, and `dev.gitilizer.com` shares the load balancer (one more host rule and a free certificate), so it adds no forwarding-rule charge. Scaling to zero means development scans only while someone has it open.
+
+> **TODO: [D-8](#d-8)** Development and production share the `gitilizer` Google Cloud project, as separate services, databases and keys. Separate projects would isolate permissions and quotas completely, but double the setup (load balancer, Cloud SQL instance, monitoring) and much of the fixed cost. Suggestion: one project.
+
+> **TODO: [D-9](#d-9)** How is a release started? Suggestion: a `release-*` git tag on a commit that development is already running, approved by the owner in GitHub. The alternative is a "Deploy to production" button (a manually started workflow), which is just as safe but leaves no tag to show what was released.
 
 ---
 
 ## Prototype status
 
-The prototype implements the slice end to end, following the PRD as revised on 2026-11-01. It runs on one machine with no external services in **fixture mode**: `eval/fixtures/` stands in for GitHub (as @brianquinlan, with search qualifiers, sorting and `updated:>=` evaluated against the snapshots), and a fake model gives deterministic scores and Icebox answers. Drop `--fixtures` and `--fake-llm` to use real GitHub and Gemini. [local-development.md](local-development.md) explains how to run it.
+The prototype implements the slice end to end, following the PRD as revised on 2026-11-02. It runs on one machine with no external services in **fixture mode**: `eval/fixtures/` stands in for GitHub (as @brianquinlan, with search qualifiers, sorting and `updated:>=` evaluated against the snapshots), and a fake model gives deterministic scores and Icebox answers. Drop `--fixtures` to use real GitHub and Gemini. [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md) explains how to run it.
 
 | Area | Status |
 |---|---|
 | Sign-in | Development stub only ("Continue with Google/GitHub" both open it). No OAuth. The sign-in page shows the four failure notices for `/sign-in?error=…` (grey for `cancelled`, red otherwise) and removes the parameter. |
 | Warm Welcome, screen selection | Done. |
-| App bar, account menu, footer | Done: "Sign out" in red with icons, real Documentation and GitHub URLs. |
+| App bar, account menu, footer | Done: "Sign out" in red with icons, real Documentation and GitHub URLs, and the Gitilizer symbol as the favicon (`BAR-3`). |
 | Notifications | The whole catalogue (28 codes) with its severities; short-lived problems become warnings after 15 minutes; the backup-model warning and the all-models error; `seen_at`, so the bell swings only for unseen errors and stops on every device once the popover opens; amber, still bell for warnings; links that open Settings and focus the control (`github-pat`, `gemini-key`, `repo-{owner}-{name}`, `ranking-prompt`, `add-repository`); focus moves into the popover and back to the bell. |
-| Prioritized list | Columns with unpadded ranks and "–" for unranked items; repository names cut off at the start; full dates on hover; inclusion reasons with the PRD's precedence and repository names; "{N} issues and PRs"; pages with "…"; the empty state's link to "Add repository"; the first-sync state as in Figma (three pulsing skeleton rows and "Scanning your issues and PRs…"); Sync now never disabled, turning for any sync. |
+| Prioritized list | Columns with unpadded ranks and "–" for unranked items; repository names cut off at the start; full dates on hover; inclusion reasons with the PRD's precedence and repository names; "{N} issues and PRs"; pages with "…"; the empty state's link to "Add repository"; the first-sync state as in Figma (three pulsing skeleton rows and "Scanning your issues and PRs…"); Sync now disabled and turning while any sync runs. |
 | Live updates | Holding rules (pointer, focus, hidden tab, Icebox), one at a time and batches above 5, bulk events in one step without indicators, page boundaries, leave labels, FLIP animations, row indicators, reduced-motion cross-fade, screen-reader announcements ("3 issues changed rank"). **Not done:** the fade toward the top or bottom for rows moving to another page (`LIVE-12`, `LIVE-13`, and the over-limit removal in `LIVE-26`); those rows disappear instead. |
 | Icebox | View, Restore (keeps the score unless the item changed), the Icebox check job and prompt (`prompts/icebox_check_v1.md`), automatic return with the leave animation, removal of ineligible items. **Not done:** the labelled examples in `eval/icebox/` (`ICE-13`). |
 | Settings | Rebuilt from Figma: sections 01–04, the account panel and Delete account panel in the left column, credential cards with chips, Validate (typed values only) with the `SET-28` messages, repositories by name or URL with prioritization prompts and the four access states, collaborators with avatars and the not-found icon, the 20,000-character prompt with its count, inline errors (in the browser, and from the server's 422 response), the three save buttons, and a confirmation before leaving with unsaved changes. |
-| Scanner | Full and incremental scans; the five personal searches plus one per repository, newest first, up to 1,000 results each; the 1,000-item limit with `over_limit`; closed, merged and no-longer-matching removals; repository access states and renames; collaborator lookups; linked-item re-ranks; Icebox checks; the GitHub error classification for the whole catalogue. **Not done:** `X-GitHub-SSO: partial-results` on searches ([D-7](#d-7)). |
+| Scanner | Full and incremental scans; the five personal searches plus one per repository, newest first, up to 1,000 results each; the 1,000-item limit with `over_limit`; closed, merged and no-longer-matching removals; repository access states and renames; collaborator lookups; linked-item re-ranks; Icebox checks; the GitHub error classification for the whole catalogue. `X-GitHub-SSO: partial-results` on searches, with the organizations' names looked up ([D-7](#d-7)). |
 | Scheduler | Presence, intervals, scan on becoming visible, the 7-day background cut-off, full scans at most hourly (and for Sync now and saving Settings, including after a running incremental scan), the stale-list check, the daily re-rank as one bulk batch per developer, quota resets, and the 30-day clean-up (`PRIV-5`). Simplified to one loop over all developers. |
-| Ranking worker | One item per call at the "low" thinking level; claims in queue order with at most 4 jobs per developer; model fallback (`gemini_quota`, `ranked_model`); key-level pauses; retries and failure after 3 attempts; Icebox checks. Not yet run against real Gemini. |
+| Ranking worker and agent | In TypeScript, in the server process. One item per call at the "low" thinking level; claims in queue order with at most 4 jobs per developer; model fallback (`gemini_quota`, `ranked_model`); key-level pauses; retries and failure after 3 attempts; Icebox checks. The agent's prompts are identical to the Python agent's. Not yet run against real Gemini. |
+| Evaluation harness | In TypeScript: `npm run evaluate`, `npm run snapshot`, `npm run ranking-sheet`, `npm run check`. The recency baseline gives the same Kendall tau (0.114) as before the port, and `eval/ranking.json` rebuilds identically. |
+| Logging | `log.ts`: structured JSON in production, levels, one line per scan, a worker summary a minute, secrets redacted. |
 | Account deletion | Simple confirmation; `{ confirm: true }`; the account's ID kept in `deleted_users`. |
-| Metrics | `user_activity`, `GET /internal/metrics`, and `POST /api/telemetry`, which logs the time to a usable list. **Not done:** the dashboard and alerts (`METRIC-3`, `METRIC-4`). |
-| Documentation | [user-guide.md](user-guide.md): getting started, GitHub tokens (the "Learn more" page), Gemini keys, every notification, and the privacy section (`FOOT-3`, `FOOT-4`). |
+| Metrics | `user_activity`, `GET /internal/metrics` (including deleted accounts), and `POST /api/telemetry`, which logs the time to a usable list. **Not done:** the dashboard and alerts (`METRIC-3`, `METRIC-4`). |
+| Deployment | **Not done:** the container image, the two environments and the pipeline ([Deployment](#deployment)). |
+| Documentation | [docs/user-guide.md](../docs/user-guide.md): getting started, GitHub tokens (the "Learn more" page), Gemini keys and the free tier's limits, every notification, and the privacy section (`FOOT-3`, `FOOT-4`). |
 | Upgrades | A database made by an earlier prototype (for example in `.local/`) is upgraded in place when the server starts: `interested_repos` becomes `additional_repos`, and new columns are added. |
 
-**Tests.** 14 web tests (the live-update state machine, including bulk events, waiting and failed items, over-limit removals and the Icebox return), 32 server tests (error classification, snapshot limits, discovery, the Settings rules, quota resets, local mode, a full scan → rank → change → close → Icebox → over-limit → bulk re-rank → quota fallback → key-failure cycle on in-memory Postgres, and the HTTP API for Settings, Validate, Sync now, notifications and deletion) and 44 Python tests (the original 25, 18 for the worker and 1 for the snapshot fix). A browser run in fixture mode covered the list, the first-sync state, notifications and their Settings links, the Settings rules and errors, Validate, saving, Delete account's dialog, the account menu and the sign-in notices.
+**Tests.** 14 web tests (the live-update state machine, including bulk events, waiting and failed items, over-limit removals and the Icebox return), 33 server tests (error classification, snapshot limits, discovery, the Settings rules, quota resets, local mode, a full scan → rank → change → close → Icebox → over-limit → bulk re-rank → quota fallback → key-failure cycle on in-memory Postgres, the in-process worker, and the HTTP API for Settings, Validate, Sync now, notifications and deletion) and 48 agent tests (the original Python tests and the worker's, ported, plus the comparison with the Python agent's output). A browser run in fixture mode covered the list, the first-sync state, notifications and their Settings links, the Settings rules and errors, Validate, saving, Delete account's dialog, the account menu and the sign-in notices.
 
 ---
 
@@ -530,7 +594,7 @@ What the prototype had to change to match the third PRD revision, and where each
 | Inclusion | `user-review-requested:` and `commenter:`; no team searches; the new order of precedence. | `LIST-1`, `LIST-21` | Done |
 | List size | Searches sorted by `updated`, the 1,000-item cap, `over_limit`, incremental scans. | `LIST-19`, `SCAN-1` | Done |
 | List | Unpadded ranks; "{N} issues and PRs"; repository names cut off at the start; "You can choose more repositories in the settings." | `LIST-12`, `LIST-14`, `LIST-23`, `LIST-27` | Done |
-| Sync now | No throttle and no disabled state; turns for automatic syncs too. | `LIST-17`, `LIST-28` | Done |
+| Sync now | No throttle; turns for automatic syncs too; disabled while any sync runs (`LIST-28` as corrected on 2026-11-02). | `LIST-17`, `LIST-28` | Done |
 | Bulk re-ranks | `batch_id`, `rank_batches` and `bulk` list events. | `LIVE-24` | Done |
 | Icebox | The Icebox check job and prompt; ineligible items removed. | `ICE-6`, `ICE-11` to `ICE-13` | Done, except the labelled examples (`ICE-13`) |
 | Notifications | Warnings for short-lived problems, the quota notifications, the still amber bell, `seen_at`, the nine new codes, links that focus controls. | `NOTIF-5`, `NOTIF-9`, `NOTIF-17`, `NOTIF-21`, `RANK-13` | Done. A short-lived Gemini warning clears on the first success, not after 15 minutes without 429s. |
@@ -577,13 +641,15 @@ Building the slice turned up these gaps. Those that need a product decision are 
 | F19 | **A change while an item is being ranked** would be lost if the job stored the item's current `updated_at`. Jobs record `item_updated_at` when claimed. | Done; [Data model](#data-model) |
 | F20 | **Sync now during an incremental scan** would only join it and so miss "No longer yours" removals. A full scan follows straight after. | Done; [Scheduler](#scheduler) |
 | F21 | **React development mode runs state initializers twice**, which made the sign-in notice read and remove `?error=` on the first run and find nothing on the second. The page reads it once per page load. | Done in `Simple.tsx` |
+| F22 | **The agent moved to TypeScript.** Matching the Python prompts exactly needed Python's `repr()`, round-half-to-even and code-point string lengths (`app/ranker/src/py.ts`). Without them, the "Derived signals" block would have differed in small ways (`3.0` versus `3`, `None` versus `null`), which would have made earlier evaluation results incomparable. | Done; [The ranking agent](#the-ranking-agent) |
+| F23 | **One log line per ranked item would drown everything else** at the scale in `NFR-1` (thousands of items a minute). The worker logs a summary a minute instead, and per-item lines only at `debug`. | Done; [Logging](#logging) |
 
 
 ---
 
 ## Local development
 
-Developers run the whole application on their own computer with one command; [local-development.md](local-development.md) is the how-to. The choice of approach:
+Developers run the whole application on their own computer with one command; [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md) is the how-to. The choice of approach:
 
 | Option | Notes |
 |---|---|
@@ -592,32 +658,31 @@ Developers run the whole application on their own computer with one command; [lo
 | Postgres installed locally | One more service to install and run, with no gain over PGlite for one developer. Still supported through `DATABASE_URL`. |
 | SQLite | The schema relies on `jsonb`, `text[]`, `timestamptz`, `FOR UPDATE SKIP LOCKED`, partial unique indexes and `LISTEN/NOTIFY`. A second SQL dialect would hide bugs until production. |
 
-**`npm run local`** (`scripts/local.mjs`, plain Node with no extra packages) starts three processes in one terminal and stops them all on Ctrl+C:
+**`npm run local`** (`scripts/local.mjs`, plain Node with no extra packages) starts two processes in one terminal and stops them both on Ctrl+C:
 
-1. the API server (`app/server/src/main.ts --local`, through `tsx`), with `LOCAL_MODE=1`, `PGLITE_DIR=.local/{real|fixtures}/db`, `AUTO_SCAN=off` (unless `--scheduler`) and a `CREDENTIAL_KEY` generated once and kept in `.local/{real|fixtures}/credential-key`;
-2. the ranking worker (`python -m gitilizer.worker`, using `.venv` if it exists), once the API's ports accept connections;
-3. the Vite dev server for the web app on port 5173, which proxies `/api` to the API.
+1. the server (`app/server/src/main.ts --local`, through `tsx`), which also runs the ranking worker, with `LOCAL_MODE=1`, `PGLITE_DIR=.local/{real|fixtures}/db`, `AUTO_SCAN=off` (unless `--scheduler`), `LOG_LEVEL=debug` and a `CREDENTIAL_KEY` generated once and kept in `.local/{real|fixtures}/credential-key`;
+2. the Vite dev server for the web app on port 5173, which proxies `/api` to the server.
 
-`--fixtures` adds `--fixtures` to the server and `--fake-llm` to the worker, and keeps its data in a separate folder. `--reset` deletes the mode's data folder first.
+Only Node is needed. `--fixtures` adds `--fixtures` to the server, which serves `eval/fixtures/` as GitHub and uses the fake model, and keeps its data in a separate folder. `--reset` deletes the mode's data folder first.
 
 **Local mode in the server** (`config.localMode`, `app/server/src/local.ts`):
 
 - There is one account, provider `local`. The session hook signs any request without a session in as that account, and `POST /api/auth/dev` always signs in as it, so signing out and in again returns to the same account.
 - At startup, any credential the account doesn't have is saved from `LOCAL_GITHUB_TOKEN` and `LOCAL_GEMINI_API_KEY`, which the launcher fills from `.env` (`GITHUB_TOKEN`, `GEMINI_API_KEY`), or with placeholder values in fixture mode. A saved credential is never replaced, so Settings stays in charge after the first run. If this completes setup, the first sync starts (`SET-5`).
-- With `config.autoScan` off, the scheduler still reaps job leases and promotes short-lived notifications, but doesn't start scans on its own, doesn't scan when a tab becomes visible, and skips the daily re-rank and the stale-list check. Only Sync now and saving Settings scan.
+- With `config.autoScan` off, the scheduler still promotes short-lived notifications and resets quotas, but doesn't start scans on its own, doesn't scan when a tab becomes visible, and skips the daily re-rank and the stale-list check. Only Sync now and saving Settings scan.
 
 Nothing changes outside local mode: production never sets `LOCAL_MODE`, and `AUTO_SCAN` defaults to on. Tests in `app/server/test/local.test.ts` cover automatic sign-in, seeding (once, never overwriting), and scanning with `autoScan` on and off.
+
 ---
 
 ## Open questions
 
-Questions about the design itself. The PRD's own open question is [Q-78](PRD.md#q-78). **Kind** says whether information is missing (OPENQUESTION) or a choice needs the owner's confirmation (CONFIRM).
+Questions about the design itself; each is marked **TODO:** where it comes up. The PRD's own open question is [Q-80](PRD.md#q-80), about who can use the development environment.
 
-| ID | Area | Question | Suggested answer | Kind |
-|---|---|---|---|---|
-| <a id="d-5"></a>D-5 | Scanning | How often does a full scan run? | At most once an hour, plus Sync now and saving Settings. | CONFIRM |
-| <a id="d-6"></a>D-6 | Settings | Should a repository or collaborator be looked up as soon as it is added, before saving, so its access state or avatar shows at once (`SET-8`, `SET-19`)? | Yes, with `POST /api/repos/check` and `POST /api/collaborators/check`, which use the saved PAT and store nothing. Without a saved PAT the row shows "Checking…" until the scan after saving. | CONFIRM |
-| <a id="d-7"></a>D-7 | Scanning | A search can return `X-GitHub-SSO: partial-results; organizations=…`, which names organizations by numeric ID only. How does the "Your token isn't authorized for {org}" notification get the name? | Look each ID up with `GET /organizations/{id}` (public), and cache the name. Not done in the prototype. | CONFIRM |
+| ID | Area | Question | Suggested answer |
+|---|---|---|---|
+| <a id="d-8"></a>D-8 | Deployment | One Google Cloud project for development and production, or two? | One project, with separate services, databases and keys. |
+| <a id="d-9"></a>D-9 | Deployment | How is a release to production started? | A `release-*` tag on a commit development is already running, approved by the owner in GitHub. |
 
 ### Answered design questions
 
@@ -627,3 +692,6 @@ Questions about the design itself. The PRD's own open question is [Q-78](PRD.md#
 | <a id="d-2"></a>D-2 | How does `gitilizer.com` reach Cloud Run? | A global external Application Load Balancer, about US$18–20 a month at small scale and US$30–40 at full scale. |
 | <a id="d-3"></a>D-3 | Which region? | `us-east4`. |
 | <a id="d-4"></a>D-4 | OAuth app or GitHub App for GitHub sign-in? | An OAuth app with the `user:email` scope only. |
+| <a id="d-5"></a>D-5 | How often does a full scan run? | At most once an hour, plus Sync now and saving Settings. |
+| <a id="d-6"></a>D-6 | Look up a repository or collaborator as soon as it is added, before saving? | Yes, with two check endpoints that use the saved PAT and store nothing. |
+| <a id="d-7"></a>D-7 | How does an organization named only by ID in `X-GitHub-SSO: partial-results` get its name? | `GET /organizations/{id}`, cached. |

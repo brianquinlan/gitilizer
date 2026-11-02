@@ -28,9 +28,11 @@ export interface GitHubApi {
   viewer(): Promise<{ login: string; tokenExpiresAt: string | null; tokenType: "classic" | "fine-grained" }>;
   /**
    * Items matching a GitHub issue-search query, newest `updated_at` first,
-   * up to `limit` (at most 1,000, the most GitHub returns; SCAN-1).
+   * up to `limit` (at most 1,000, the most GitHub returns; SCAN-1). `ssoOrgs`
+   * names organizations whose results GitHub left out because the token isn't
+   * authorized for their single sign-on (X-GitHub-SSO: partial-results).
    */
-  search(q: string, limit: number): Promise<{ hits: SearchHit[]; total: number }>;
+  search(q: string, limit: number): Promise<{ hits: SearchHit[]; total: number; ssoOrgs?: string[] }>;
   /** Current state of one item (used to tell closed from merged from no-longer-matching). */
   item(repo: string, number: number): Promise<ItemState>;
   /** A snapshot in the eval/fixtures format (schema_version 2). */

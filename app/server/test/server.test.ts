@@ -5,13 +5,14 @@ import { parseLogin, parseRepo, type SettingsUpdate } from "@gitilizer/shared";
 import { buildApp, settingsErrors } from "../src/app.ts";
 import type { Ctx } from "../src/context.ts";
 import type { FixtureStore } from "../src/github/fixtures.ts";
-import { classify } from "../src/github/octokit.ts";
+import { classify, partialResultOrgIds } from "../src/github/octokit.ts";
 import { limitSnapshot } from "../src/github/types.ts";
 import { claimJobs, completeJob, failJob, nextPacificMidnight, queueFullRerank, refreshQuotas } from "../src/jobs.ts";
 import { listRows } from "../src/list.ts";
 import { shownNotifications } from "../src/notify.ts";
 import { discoveryQueries, scan } from "../src/scanner.ts";
 import { Scheduler } from "../src/scheduler.ts";
+import { RankingWorker } from "../src/worker.ts";
 import { addUser, FIXTURES, makeCtx, MODELS, type RecordingHub } from "./helpers.ts";
 
 describe("GitHub error classification (PRD catalogue)", () => {
@@ -32,6 +33,8 @@ describe("GitHub error classification (PRD catalogue)", () => {
     const perm = classify(err(403, "Resource not accessible by personal access token", { "x-accepted-github-permissions": "pull_requests=read" }));
     expect(perm).toMatchObject({ code: "permission", details: { permission: "Pull requests" } });
     expect(classify(err(502, "Bad gateway")).code).toBe("unavailable");
+    expect(partialResultOrgIds("partial-results; organizations=21955855,20582480")).toEqual(["21955855", "20582480"]);
+    expect(partialResultOrgIds("required; url=https://github.com/orgs/acme/sso")).toEqual([]);
     expect(classify(new Error("ECONNRESET")).code).toBe("unavailable");
   });
 });
@@ -377,5 +380,33 @@ describe("HTTP API", () => {
     expect(await ctx.db.query(`select id from deleted_users`)).toEqual([{ id: me.user.id }]);
     expect(await ctx.db.query(`select 1 from users where id = $1`, [me.user.id])).toHaveLength(0);
     expect((await call("GET", "/api/me")).statusCode).toBe(401);
+  });
+});
+
+// --- The ranking worker, in-process (design: Ranking worker) ---
+
+describe("ranking worker", () => {
+  it("ranks a first sync with the fake model, and turns a Gemini failure into a paused queue", async () => {
+    const { ctx, store } = await makeCtx();
+    await addUser(ctx, "w1");
+    await scan(ctx, "w1", "test");
+    const worker = new RankingWorker(ctx, { idleMs: 20 });
+    worker.start();
+    for (let i = 0; i < 100; i++) {
+      if ((await ctx.db.one(`select first_sync_done from users where id = 'w1'`)).first_sync_done) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    await worker.stop();
+    const rows = await listRows(ctx.db, "w1");
+    expect(rows.every((r) => r.score !== null)).toBe(true);
+    expect((await ctx.db.one(`select ranked_model from user_items limit 1`)).ranked_model).toBe(MODELS[0]);
+
+    store.touch("dart-lang/native#3752");
+    await scan(ctx, "w1", "test");
+    const failing = new RankingWorker(ctx, { llm: () => ({ generate: () => Promise.reject(Object.assign(new Error("API key not valid [reason: API_KEY_INVALID]"), { status: 400 })) }) });
+    const [job] = await claimJobs(ctx, 1, 60);
+    await failing.run(job);
+    expect((await shownNotifications(ctx, "w1")).map((n) => n.code)).toEqual(["gemini_invalid"]);
+    expect(await claimJobs(ctx, 5, 60)).toHaveLength(0); // paused until the key changes
   });
 });

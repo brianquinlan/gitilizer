@@ -81,6 +81,14 @@ export function classify(e: any, expiresAt?: string | null): GitHubProblem {
   return new GitHubProblem("unexpected", message, { status });
 }
 
+/** Organization IDs in `X-GitHub-SSO: partial-results; organizations=21955855,20582480` (design: Scanner, D-7). */
+export function partialResultOrgIds(header: string | undefined): string[] {
+  if (!header || !/partial-results/i.test(header)) return [];
+  return (/organizations=([\d,\s]+)/i.exec(header)?.[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+const ORG_NAMES = new Map<string, string>();
+
 function hitFrom(raw: any): SearchHit {
   const m = /repos\/([^/]+\/[^/]+)$/.exec(raw.repository_url);
   const repo = m ? m[1] : "";
@@ -149,16 +157,33 @@ export class OctokitGitHub implements GitHubApi {
 
   async search(q: string, limit: number) {
     const hits: SearchHit[] = [];
+    const ssoIds = new Set<string>();
     let total = 0;
     // Newest first, so the first 1,000 results are always enough (SCAN-1).
     for (let page = 1; hits.length < limit && page <= 10; page++) {
       const r = await this.req("GET /search/issues", { q, sort: "updated", order: "desc", per_page: 100, page });
       total = r.data.total_count;
+      for (const id of partialResultOrgIds((r.headers as any)["x-github-sso"])) ssoIds.add(id);
       const items = r.data.items as any[];
       hits.push(...items.map(hitFrom));
       if (items.length < 100) break;
     }
-    return { hits: hits.slice(0, limit), total };
+    const ssoOrgs = ssoIds.size ? await Promise.all([...ssoIds].map((id) => this.orgName(id))) : undefined;
+    return { hits: hits.slice(0, limit), total, ssoOrgs };
+  }
+
+  /** An organization's login from its numeric ID (public, so it works without SSO). Cached for the process. */
+  private async orgName(id: string): Promise<string> {
+    let name = ORG_NAMES.get(id);
+    if (!name) {
+      try {
+        name = (await this.req(`GET /organizations/${id}`)).data.login as string;
+        ORG_NAMES.set(id, name);
+      } catch {
+        return `organization ${id}`;
+      }
+    }
+    return name;
   }
 
   async item(repo: string, number: number): Promise<ItemState> {
@@ -194,7 +219,7 @@ export class OctokitGitHub implements GitHubApi {
     }
   }
 
-  /** TypeScript port of gitilizer/snapshot.py (schema_version 2). */
+  /** A snapshot in the eval fixtures format (schema_version 2; app/ranker/src/snapshot.ts). */
   async snapshot(repo: string, number: number) {
     const [owner, name] = repo.split("/");
     const base = `/repos/${repo}/issues/${number}`;

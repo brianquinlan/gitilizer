@@ -4,6 +4,7 @@
   "type": "module",
   "workspaces": [
     "app/shared",
+    "app/ranker",
     "app/server",
     "app/web"
   ],
@@ -13,7 +14,11 @@
     "dev:server": "npm run dev -w app/server",
     "dev:fixtures": "npm run fixtures -w app/server",
     "dev:web": "npm run dev -w app/web",
-    "test": "npm test -w app/server && npm test -w app/web",
-    "typecheck": "npm run typecheck -w app/server && npm run typecheck -w app/web"
+    "test": "npm test -w app/ranker && npm test -w app/server && npm test -w app/web",
+    "typecheck": "npm run typecheck -w app/ranker && npm run typecheck -w app/server && npm run typecheck -w app/web",
+    "evaluate": "npm run evaluate -w app/ranker --",
+    "snapshot": "npm run snapshot -w app/ranker --",
+    "ranking-sheet": "npm run ranking-sheet -w app/ranker --",
+    "check": "npm run check -w app/ranker --"
   }
 }

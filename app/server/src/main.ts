@@ -10,14 +10,16 @@ import { Hub, type Config, type Ctx } from "./context.ts";
 import { FixtureGitHub, FixtureStore } from "./github/fixtures.ts";
 import { OctokitGitHub } from "./github/octokit.ts";
 import { localUserId, seedLocalCredentials } from "./local.ts";
+import { log } from "./log.ts";
 import { Scheduler } from "./scheduler.ts";
+import { RankingWorker } from "./worker.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const env = process.env;
 const num = (v: string | undefined, d: number) => (v ? Number(v) : d);
 /** `--fixtures`: serve eval/fixtures as GitHub and accept any Gemini key (design: Testing). */
 const FIXTURES_FLAG = process.argv.includes("--fixtures");
-/** `--local`: local mode (docs/local-development.md). */
+/** `--local`: local mode (contributor/LOCAL_DEVELOPMENT.md). */
 const LOCAL_FLAG = process.argv.includes("--local") || env.LOCAL_MODE === "1";
 
 /** RANK-13: the primary model, then the backups. GITILIZER_MODEL replaces only the primary model. */
@@ -70,7 +72,7 @@ async function validateGeminiReal(key: string, model: string): Promise<CheckResu
   if (res.status === 400 || res.status === 401 || /API_KEY_INVALID/.test(body)) return { ok: false, code: "not_accepted" };
   if (res.status === 403) return { ok: false, code: "permission_denied" };
   if (res.status >= 500) return { ok: false, code: "unreachable" };
-  console.warn(`Gemini key check: ${res.status} ${body.slice(0, 300)}`);
+  log.warn("credentials", "Gemini key check failed", { status: res.status, body: body.slice(0, 300) });
   return { ok: false, code: "error" };
 }
 
@@ -85,7 +87,7 @@ async function main() {
   const config = loadConfig();
   const db = await openDb(env.DATABASE_URL, env.PGLITE_DIR ?? join(ROOT, "app", "server", ".data"));
   const cipher = new CredentialCipher(env.CREDENTIAL_KEY ?? Buffer.alloc(32, 7).toString("base64"));
-  if (!env.CREDENTIAL_KEY) console.warn("CREDENTIAL_KEY not set: using an insecure development key");
+  if (!env.CREDENTIAL_KEY) log.warn("startup", "CREDENTIAL_KEY not set: using an insecure development key");
 
   let fixtures: FixtureStore | null = null;
   if (config.githubMode === "fixtures") {
@@ -93,7 +95,7 @@ async function main() {
       env.FIXTURES_DIR ?? join(ROOT, "eval", "fixtures"),
       env.FIXTURE_LOGIN ?? "brianquinlan",
     );
-    console.log(`GitHub fixture mode: ${fixtures.entries.size} items as @${fixtures.login}`);
+    log.info("startup", `GitHub fixture mode: ${fixtures.entries.size} items as @${fixtures.login}`);
   }
 
   const hub = new Hub();
@@ -116,14 +118,17 @@ async function main() {
     const { seeded, setupCompleted } = await seedLocalCredentials(ctx, userId, {
       github_pat: env.LOCAL_GITHUB_TOKEN, gemini_key: env.LOCAL_GEMINI_API_KEY,
     });
-    if (seeded.length) console.log(`Local mode: saved the ${seeded.map((k) => (k === "github_pat" ? "GitHub token" : "Gemini API key")).join(" and ")} for the local developer`);
+    if (seeded.length) log.info("startup", `Local mode: saved the ${seeded.map((k) => (k === "github_pat" ? "GitHub token" : "Gemini API key")).join(" and ")} for the local developer`);
     // SET-5: completing setup starts the first sync.
     if (setupCompleted) scheduler.trigger(userId, "credentials");
-    console.log(`Local mode: signed in automatically as the local developer${config.autoScan ? "" : "; automatic scans are off"}`);
+    log.info("startup", `Local mode: signed in automatically as the local developer${config.autoScan ? "" : "; automatic scans are off"}`);
   }
-  console.log(`Gitilizer API on :${config.port}, worker API on :${config.internalPort}`);
+  // The ranking worker runs in the same process (design: Ranking worker). WORKER=off leaves it out.
+  const worker = env.WORKER === "off" ? null : new RankingWorker(ctx);
+  worker?.start();
+  log.info("startup", `Gitilizer API on :${config.port}, metrics on :${config.internalPort}${worker ? ", ranking worker running" : ""}`);
 
-  const stop = async () => { scheduler.stop(); await app.close(); await internal.close(); await db.close(); process.exit(0); };
+  const stop = async () => { scheduler.stop(); await worker?.stop(); await app.close(); await internal.close(); await db.close(); process.exit(0); };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
 }

@@ -1,4 +1,5 @@
 // Scan scheduling from presence (design: Scheduler; PRD SCAN-5, SCAN-6, RANK-9, PRIV-5).
+import { log } from "./log.ts";
 import type { Ctx } from "./context.ts";
 import { queueFullRerank, reapLeases, refreshQuotas } from "./jobs.ts";
 import { clear, promote, raise } from "./notify.ts";
@@ -60,7 +61,7 @@ export class Scheduler {
     this.running.add(userId);
     this.runningKind.set(userId, undefined);
     scan(this.ctx, userId, trigger, {}, (kind) => this.runningKind.set(userId, kind))
-      .catch((e) => console.error(`[scan ${userId}]`, e))
+      .catch((e) => log.error("scan", "scan crashed", { user: userId, error: String(e?.stack ?? e) }))
       .finally(() => {
         this.running.delete(userId);
         this.runningKind.delete(userId);
@@ -69,7 +70,7 @@ export class Scheduler {
   }
 
   start() {
-    const tick = () => this.tick().catch((e) => console.error("[scheduler]", e)).finally(() => {
+    const tick = () => this.tick().catch((e) => log.error("scheduler", "tick failed", { error: String(e?.stack ?? e) })).finally(() => {
       this.timer = setTimeout(tick, this.ctx.config.schedulerTickMs);
     });
     this.timer = setTimeout(tick, 500);
@@ -128,4 +129,6 @@ export async function deleteOldItems(ctx: Ctx) {
   await ctx.db.query(`delete from items i where not exists (select 1 from user_items ui where ui.item_key = i.key) and coalesce(i.snapshot_updated_at, i.updated_at) < now() - interval '1 day'`);
   await ctx.db.query(`delete from rank_jobs where state in ('done', 'failed') and finished_at < now() - interval '30 days'`);
   await ctx.db.query(`delete from rank_batches where finished_at < now() - interval '30 days'`);
+  // METRIC-1 needs past days and months, not years (design: Data model).
+  await ctx.db.query(`delete from user_activity where day < current_date - interval '13 months'`);
 }

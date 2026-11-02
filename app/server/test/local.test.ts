@@ -1,4 +1,4 @@
-// Local mode (docs/local-development.md): automatic sign-in, credentials from .env, no scheduled scans.
+// Local mode (contributor/LOCAL_DEVELOPMENT.md): automatic sign-in, credentials from .env, no scheduled scans.
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";

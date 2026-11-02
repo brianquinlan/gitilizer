@@ -1,6 +1,6 @@
 # Running Gitilizer on your own computer
 
-This page explains how to run the whole application (the web app, the API and the ranking worker) on your own computer with one command. It's meant for trying Gitilizer out and testing changes; production runs on Google Cloud as described in the [design doc](design.md).
+This page explains how to run the whole application (the web app, the API and the ranking worker) on your own computer with one command. It's meant for trying Gitilizer out and testing changes; production runs on Google Cloud as described in the [design doc](DESIGN.md).
 
 In local mode:
 
@@ -23,8 +23,9 @@ The commands on this page are for Windows PowerShell. On macOS or Linux they're 
 You need:
 
 - [Node.js](https://nodejs.org) 22 or later. Check with `node --version`.
-- [Python](https://www.python.org/downloads/) 3.11 or later. Check with `py --version` (macOS and Linux: `python3 --version`).
 - [Git](https://git-scm.com).
+
+Everything, including the ranking agent, is TypeScript, so you don't need Python.
 
 You don't need Docker or a database server: Gitilizer stores its data in PGlite, a copy of Postgres that runs inside the application.
 
@@ -34,14 +35,9 @@ You don't need Docker or a database server: Gitilizer stores its data in PGlite,
 git clone https://github.com/brianquinlan/gitilizer.git
 cd gitilizer
 npm install
-py -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
 ```
 
-On macOS and Linux, use `python3 -m venv .venv` and `source .venv/bin/activate`.
-
-You don't need to activate the virtual environment again later: `npm run local` finds `.venv` by itself.
+If you set the repository up before the ranking agent moved to TypeScript, run `npm install` again; the old `.venv` folder is no longer used and can be deleted.
 
 ## 3. Add your credentials (for real mode only)
 
@@ -57,13 +53,12 @@ GEMINI_API_KEY=...
 - **GitHub token:** create one at [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens/new). A fine-grained token needs read access to Issues, Pull requests and Metadata. Gitilizer only reads; it never writes to GitHub.
 - **Gemini API key:** create one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). A free-tier key works, but it allows only a limited number of rankings a day.
 
-`.env` is ignored by Git, so your credentials stay on your computer. The evaluation tools (`python -m gitilizer.check` and the others in the README) use the same file.
+`.env` is ignored by Git, so your credentials stay on your computer. The evaluation tools ([README.md](README.md)) use the same file.
 
 To check both credentials before starting the app:
 
 ```powershell
-.venv\Scripts\Activate.ps1
-python -m gitilizer.check
+npm run check
 ```
 
 ## 4. Start Gitilizer
@@ -80,9 +75,9 @@ Wait for this line:
 Ready: open http://localhost:5173  (Ctrl+C stops everything)
 ```
 
-Then open [http://localhost:5173](http://localhost:5173). The output from the three parts is mixed in one window, each line labeled `[api]`, `[worker]` or `[web]`.
+Then open [http://localhost:5173](http://localhost:5173). The output from the two parts is mixed in one window, each line labeled `[api]` (the server, including the ranking worker's `[worker]` lines) or `[web]`.
 
-**Ctrl+C** stops all three.
+**Ctrl+C** stops both.
 
 ## 5. Use it
 
@@ -95,7 +90,7 @@ After that:
 - **Settings → Save changes** saves without re-ranking.
 - **Sign out** takes you to the sign-in page. Choose either sign-in button and then **Sign in**: you're back in as the same local account, whatever name you type.
 
-Fixture mode has a few extra tricks for testing live updates: see the `/api/dev/...` routes in the [design doc](design.md#http-api).
+Fixture mode has a few extra tricks for testing live updates: see the `/api/dev/...` routes in the [design doc](DESIGN.md#http-api).
 
 ## Where your data lives
 
@@ -124,7 +119,7 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 |---|---|
 | `GITILIZER_MODEL` | The primary Gemini model to rank with; the backup models stay the same (also read from `.env`). |
 | `GITILIZER_MODELS` | The whole fallback list, comma-separated, primary first (default `gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite`). |
-| `PYTHON` | The Python to run the worker with, if it isn't `.venv`. |
+| `LOG_LEVEL` | How much the server logs: `debug` (the default in local mode: every ranked item), `info`, `warn` or `error`. |
 | `CREDENTIAL_KEY` | Overrides the saved encryption key. If you change it, credentials saved with the old key can no longer be read; use `--reset`. |
 | `DATABASE_URL` | Uses a real Postgres server instead of PGlite, for example `postgres://localhost/gitilizer`. |
 
@@ -132,33 +127,29 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 
 | Problem | What to do |
 |---|---|
-| "Gitilizer's Node packages aren't installed" or "Cannot find module 'tsx/cli'" | Run `npm install` in the repository folder. Installed packages (`node_modules`) and the Python environment (`.venv`) belong to one folder: after cloning, copying or moving the repository, do step 2 again. |
-| "The ranking worker needs Python with Gitilizer's packages" | Do the Python part of step 2: create `.venv` and run `pip install -r requirements.txt` in it. |
+| "Gitilizer's Node packages aren't installed", "Cannot find module 'tsx/cli'" or "Cannot find package '@gitilizer/ranker'" | Run `npm install` in the repository folder. Installed packages (`node_modules`) belong to one folder: after cloning, copying, moving or updating the repository, do step 2 again. |
 | "Port 8787 is already in use" (or 8788, 5173) | Gitilizer is probably already running in another window. Stop it with Ctrl+C there. |
 | Your list looks wrong after updating Gitilizer | The database in `.local` is upgraded automatically when the server starts. If something still looks wrong, start again with `--reset`. |
 | The bell shows "Gitilizer is using a backup Gemini model" | Your free-tier key's daily quota for the main model is used up, so ranking uses a smaller model until midnight Pacific time. This is expected on the free tier, especially after a first sync or **Save and re-rank**. |
 | The app opens on "Welcome to your prioritized inbox" | A credential is missing: `.env` didn't have it on the first run. Go to Settings and enter it, or fill in `.env` and restart with `--reset`. |
 | The bell shows "Your GitHub token isn't valid" or a Gemini error | Fix the credential in Settings. Changing `.env` alone doesn't replace a credential that is already saved. |
-| "Gitilizer is using a backup Gemini model" or "Your Gemini daily quota is used up" | Your key's daily quota for that model is used up. It resets at midnight Pacific time. |
+| "Your Gemini daily quota is used up" | Every model's daily quota is used up. Ranking resumes at midnight Pacific time; until then new items wait at the end of the list with "–". |
 | You want a completely fresh start | `npm run local -- --reset` (or `npm run local:fixtures -- --reset`). |
 
 ## Running the tests
 
 ```powershell
-npm test                     # server and web tests
+npm test                     # ranking agent, server and web tests
 npm run typecheck
-.venv\Scripts\Activate.ps1
-python -m pytest             # Python tests (agent, worker)
 ```
 
-## The old way: three terminals
+## Running the parts by hand
 
-`npm run local` replaces running the parts by hand, which still works if you need to restart one part on its own:
+`npm run local` replaces running the parts in two terminals, which still works if you need to restart one part on its own:
 
 ```powershell
-npm run dev:fixtures                     # terminal 1: API (:8787) and worker API (:8788)
-python -m gitilizer.worker --fake-llm    # terminal 2: ranking worker
-npm run dev:web                          # terminal 3: http://localhost:5173
+npm run dev:fixtures     # terminal 1: the server (:8787, metrics on :8788), with the ranking worker
+npm run dev:web          # terminal 2: http://localhost:5173
 ```
 
-Started this way, the server isn't in local mode: you sign in with the development form, enter credentials in Settings, and the scheduler runs. For real GitHub and Gemini, use `npm run dev:server` and `python -m gitilizer.worker`.
+Started this way, the server isn't in local mode: you sign in with the development form, enter credentials in Settings, and the scheduler runs. For real GitHub and Gemini, use `npm run dev:server` instead of `npm run dev:fixtures`.

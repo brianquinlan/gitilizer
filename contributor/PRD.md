@@ -4,18 +4,18 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-01, eleventh round (answers to Q-77 and Q-79; Q-78 is open) |
+| **Last updated** | 2026-11-02 (logging, deployment, favicon, quota documentation, Sync now disabled while syncing, deleted-account count; Q-78 answered; new question Q-80) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Replaces** | [Gitilizer PRD (Google Doc)](https://docs.google.com/document/d/1iN4HGqn5_Nz4g8oweqg0PK-iLlKQ8dza7ruqxADpu6U/edit) |
-| **Next document** | [Design doc](design.md), then implementation |
+| **Next document** | [Design doc](DESIGN.md), then implementation |
 
 ## How to read this document
 
 - Each requirement has an ID, such as `LIST-4`, so the design doc, code reviews and tests can refer to it.
 - **Must** means required for launch. **Should** means expected unless the design doc gives a reason not to. **May** means optional.
 - Figma links open the exact frame or component. Where this document and Figma disagree, this document wins, and the disagreement is listed in [Open questions](#open-questions).
-- **OPENQUESTION:** marks missing information. **CONFIRM:** marks a suggested answer that the product owner must confirm before the design doc relies on it. Each one links to a row in [Open questions](#open-questions).
+- **TODO:** marks something the product owner needs to answer or confirm: missing information, or a suggested answer that the design doc relies on. Each one links to a row in [Open questions](#open-questions). Search for "TODO:" to find them all.
 - "Item" means a GitHub issue or a pull request (PR). "Developer" means the person using Gitilizer.
 
 ## Contents
@@ -86,7 +86,8 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
 - **METRIC-1** The owner must be able to see, without writing queries, at least:
   - the total number of users (everyone who has ever signed in);
   - the number of users who have completed setup (entered both credentials, see [Which screen is shown](#which-screen-is-shown));
-  - the number of active users per day, per week and per month, including for past days.
+  - the number of active users per day, per week and per month, including for past days;
+  - the number of accounts that have been deleted (`SET-17`), in total and per month.
 - **METRIC-2** Metrics should use what Google Cloud already provides (for example Cloud Monitoring dashboards) rather than a custom admin screen.
 - **METRIC-3** The owner must also be able to see the health of the system, without writing queries and including for past days: the latency of API calls (by endpoint, median and 95th percentile), how long the app takes to load and show a usable list in developers' browsers, the HTTP status codes returned for page loads and API calls, and the error rates in `NFR-6`.
 - **METRIC-4** The owner must be alerted by email, without having to look at the dashboard, when gitilizer.com stops responding, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for any developer in 30 minutes. Alerts should use Cloud Monitoring.
@@ -169,7 +170,7 @@ The [Animations](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?n
 
 ### Source code
 
-The source code and documentation are hosted on GitHub at [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer). The repository already contains the ranking agent and its evaluation harness. How the application is built, including how it reuses them, is in the [design doc](design.md).
+The source code and documentation are hosted on GitHub at [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer). The repository already contains the ranking agent and its evaluation harness. How the application is built, including how it reuses them, is in the [design doc](DESIGN.md).
 
 ---
 
@@ -246,9 +247,9 @@ Figma: [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Git
 
 - **FOOT-1** Every page, including the sign-in page, must show the footer.
 - **FOOT-2** The footer must show the tagline "Less triage. More shipping." and two links, both opening in a new tab:
-  - "Documentation": the user documentation, hosted in the GitHub repository (for example `https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md`; the exact path is set when the documentation is written);
+  - "Documentation": the user documentation, hosted in the GitHub repository (`https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md`);
   - "GitHub": the project's GitHub page, [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer), which is also the project's landing page.
-- **FOOT-3** The user documentation must exist at launch. At least, it must explain the two kinds of GitHub token and how to create one with the right permissions (the page that "Learn more" in Settings opens, `SET-20`), how to create a Gemini API key, and what each [notification](#catalogue) means.
+- **FOOT-3** The user documentation must exist at launch. At least, it must explain the two kinds of GitHub token and how to create one with the right permissions (the page that "Learn more" in Settings opens, `SET-20`), how to create a Gemini API key, and what each [notification](#catalogue) means. It must also explain the limits of a free-tier Gemini API key: the small daily quota, how Gitilizer then falls back to smaller models and finally pauses ranking (`RANK-13` to `RANK-15`), and how to get a key with billing turned on, with a link to Google's instructions.
 - **FOOT-4** The user documentation must have a privacy section that explains, in plain language:
   - what Gitilizer stores about a developer ([Data and privacy](#data-and-privacy)), and that credentials are encrypted and never shown again (`PRIV-1`);
   - when it is deleted: an item's data 30 days after no developer has it (`PRIV-5`), everything about a developer immediately when they delete their account (`SET-17`), and copies in backups within 6 months (`PRIV-4`);
@@ -263,6 +264,7 @@ Figma: [Shared / App bar](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gi
 
 - **BAR-1** Every page after sign-in must show the app bar.
 - **BAR-2** The app bar must show, from left to right: the Gitilizer symbol and wordmark (a link to the Prioritized list, `NAV-7`), the [notification bell](#bell) and the [account menu](#account-menu) avatar.
+- **BAR-3** The browser tab must show the Gitilizer symbol (the blue square from the app bar) as the page's icon (favicon), on every page including the sign-in page.
 
 ---
 
@@ -444,7 +446,7 @@ Figma: [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 
 - **LIST-16** A "Sync now" button must start a sync: a scan for new, changed and removed items, followed by ranking of only the new and changed items.
 - **LIST-17** While any sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), the button must show the **Syncing** state: its icon, in the accent color, turns clockwise once per second. With reduced motion, the icon is still and in the accent color.
-- **LIST-28** The button must never be disabled. Choosing it while a sync is running joins that sync (`SCAN-4`). There is no minimum interval between manual syncs.
+- **LIST-28** The button must be disabled while a sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), and enabled again as soon as the sync finishes (`LIST-32`). There is no other minimum interval between manual syncs.
 - **LIST-32** A sync counts as finished, and the icon stops turning, when the scan has finished and every new and changed item has been ranked, has failed, or is waiting because the daily quota is used up for every model (`RANK-15`). Waiting items are shown with "–" (`LIST-30`), and the "Your Gemini daily quota is used up" error explains the wait, so the icon doesn't turn until midnight Pacific time.
 
 ### Moving an item to the Icebox
@@ -574,7 +576,7 @@ Both credentials are required.
   | Checking | A spinner and "Checking…". The button is disabled until the check finishes. |
   | GitHub token works | ✓ "Validated just now · Reading GitHub as @{login}". Naming the account makes a token from the wrong account easy to spot; Gitilizer doesn't otherwise check it. |
   | Gemini key works | ✓ "Validated just now · Gemini accepted this key" |
-  | GitHub token not accepted | ✗ "GitHub didn't accept this token. Check that you copied all of it." |
+  | GitHub token not accepted | ✗ "GitHub didn't accept this token. Check that you copied it correctly." |
   | GitHub token expired | ✗ "This token expired on {date}. Create a new one." |
   | GitHub token missing a permission | ✗ "This token can't read {permission}. Give it read access to Issues, Pull requests and Metadata." |
   | Gemini key not accepted | ✗ "Google didn't accept this API key. Check that you copied all of it." |
@@ -583,7 +585,7 @@ Both credentials are required.
   | Provider can't be reached | ✗ "Couldn't reach GitHub. Check your connection and try again." ("Google" for the Gemini key) |
   | Anything else | ✗ "Something went wrong on our side. Try again." |
 
-> **CONFIRM: [Q-78](#q-78)** "GitHub token expired" can't be told apart for a token typed into the field: GitHub answers 401 "Bad credentials" for an expired token just as for a mistyped one, and it sends the expiry date only with successful responses. The expiry date is known only for a token Gitilizer has already used, which can't be validated again (`SET-21`). The prototype therefore shows "GitHub didn't accept this token…" for an expired typed token. The expired state stays in the table in case GitHub's answer changes; the "Your GitHub token has expired" notification is unaffected.
+GitHub answers an expired token the same way as a mistyped one, and sends the expiry date only with successful responses, so Validate can tell an expired typed token apart only if GitHub's answer changes. Until then it shows "GitHub didn't accept this token…" ([Q-78](#q-78)). The "Your GitHub token has expired" notification is unaffected, because by then Gitilizer has seen the expiry date.
 
 - **SET-29** Saving doesn't validate credentials. A saved credential that doesn't work shows up as a [notification](#catalogue) when Gitilizer first uses it.
 - **SET-30** The status chip on each credential card must show one of: "Not set" (grey) when no credential is saved; "Connected" (green) when one is saved and no error notification about it is active; "Not working" (red) while an error notification about it is active; "Expires soon" (amber) while the GitHub token's expiry warning is active.
@@ -607,7 +609,7 @@ Both credentials are required.
 
 - **SET-11** The page must show the current ranking prompt in an editor. With no custom prompt, it shows the default prompt.
 - **SET-12** The developer can edit the prompt. When the prompt differs from the default, a "Restore default" control must be shown; it replaces the text with the default.
-- **SET-13** The custom prompt replaces only the instructions part of what the agent receives. Gitilizer always adds the "About me" block (login, additional repositories with their prioritization prompts, and collaborators) and the output format, as in `system_instruction()` in `gitilizer/prioritizer.py`. These additions are not shown in or editable from Settings.
+- **SET-13** The custom prompt replaces only the instructions part of what the agent receives. Gitilizer always adds the "About me" block (login, additional repositories with their prioritization prompts, and collaborators) and the output format, as in `systemInstruction()` in `app/ranker/src/prioritizer.ts`. These additions are not shown in or editable from Settings.
 - **SET-23** The section description must read "The agent reads each issue's title, description, labels, comments and reviews and gives it a score."
 - **SET-24** The default prompt is `prompts/v4.md`. A developer who has never changed the prompt always gets the current default, so they pick up improvements automatically. A custom prompt can be at most 20,000 characters (`SET-27`).
 
@@ -743,18 +745,20 @@ Gitilizer keeps:
 
 - **NFR-5** All traffic must use HTTPS.
 - **NFR-6** The backend must record metrics for scan duration, ranking duration, GitHub and Gemini error rates by type, and notification counts by type, so operators can see problems before developers report them.
+- **NFR-11** The backend must log enough to find the cause of a production problem without reproducing it, and no more. Each line records one event (a scan finishing, a job failing, an unexpected GitHub or Gemini response, an unhandled error) with what it was about (developer, item, error code). Routine success is not logged one line per item, logs can be searched by severity, and credentials never appear in them (`PRIV-1`).
+- **NFR-12** A change must run in a separate development environment, with its own database, before it reaches gitilizer.com. Deploying to the development environment is automatic; deploying to gitilizer.com is a deliberate step, of a build that has already run in the development environment. The design doc describes the environments.
+
+> **TODO: [Q-80](#q-80)** Who can sign in to the development environment, and does it use real GitHub and Gemini? Suggestion: it is at `dev.gitilizer.com`, uses real GitHub and Gemini with each developer's own credentials like production, and only accounts on an allowlist (the owner and anyone they add) can sign in, because it may run untested code against their credentials.
 
 ---
 
 ## Open questions
 
-Q-58 to Q-63 were found by building the prototype described in the [design doc](design.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers and the new Figma designs.
-
-Q-77 to Q-79 were found while bringing the prototype in line with this document. Q-78 is still open; the prototype follows its suggested answer.
+Q-58 to Q-63 were found by building the prototype described in the [design doc](DESIGN.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers and the new Figma designs; Q-77 to Q-79 came from bringing the prototype in line with this document. Q-80 came from the decision to have a development environment.
 
 | ID | Area | Question | Suggested answer | Needed by |
 |---|---|---|---|---|
-| <a id="q-78"></a>Q-78 | Settings | Validate can't tell an expired typed token from a mistyped one. What does it show? | "GitHub didn't accept this token. Check that you copied all of it." | Implementation |
+| <a id="q-80"></a>Q-80 | Deployment | Who can sign in to the development environment, and does it use real GitHub and Gemini? | `dev.gitilizer.com`, real GitHub and Gemini with each developer's own credentials, sign-in limited to an allowlist. | Before the first deployment |
 
 ### Answered questions
 
@@ -788,7 +792,7 @@ Q-77 to Q-79 were found while bringing the prototype in line with this document.
 | <a id="q-26"></a>Q-26 | Many pages; item count | First, last, current ±1 with "…"; the count is always shown. Figma updated. | `LIST-12`, `LIST-27` |
 | <a id="q-27"></a>Q-27 | Maximum list size | The 1,000 most recently updated items, kept up to date as items are updated. (Details in [Q-66](#q-66).) | `LIST-19`, `SCAN-1` |
 | <a id="q-28"></a>Q-28 | First sync; unranked and failed items | Skeleton rows that pulse (drawn in Figma); items hidden until ranked; failed items at the end with "–" and a warning. | `LIST-15`, `LIST-30` |
-| <a id="q-29"></a>Q-29 | Sync now | Spins for any sync; never disabled; no throttle; finished when the scan is done and every item is ranked or failed. Spinning state drawn in Figma. | `LIST-17`, `LIST-28`, `LIST-32` |
+| <a id="q-29"></a>Q-29 | Sync now | Spins for any sync, and is disabled while it does (corrected on 2026-11-02: the earlier record said "never disabled"); no other throttle; finished when the scan is done and every item is ranked, has failed or is waiting for quota. Spinning state drawn in Figma. | `LIST-17`, `LIST-28`, `LIST-32` |
 | <a id="q-30"></a>Q-30 | Labels on leaving rows; undo | As suggested; no undo. | `LIVE-25`, `LIST-31` |
 | <a id="q-31"></a>Q-31 | Showing the agent's next action and reasoning | Not shown. | `LIST-24` |
 | <a id="q-32"></a>Q-32 | Update latency | Within 5 seconds of ranking finishing. | `LIVE-23` |
@@ -837,6 +841,7 @@ Q-77 to Q-79 were found while bringing the prototype in line with this document.
 | <a id="q-75"></a>Q-75 | Scores from different models; how often the backup-model warning shows | Accept the mix; it resolves as items are re-ranked with the primary model. The warning shows for as long as a backup model is in use. | `RANK-13`, `RANK-17` |
 | <a id="q-76"></a>Q-76 | Archived additional repositories | Their own "Archived" state, in grey. | `SET-8` |
 | <a id="q-77"></a>Q-77 | Leave label when the Icebox check brings an item back | "Back in your list". | `LIVE-25` |
+| <a id="q-78"></a>Q-78 | What Validate shows for an expired typed token | GitHub answers it like a mistyped one, so: "GitHub didn't accept this token. Check that you copied it correctly." | `SET-28` |
 | <a id="q-79"></a>Q-79 | Sync now while items wait for quota | The sync counts as finished; the quota error explains the wait. | `LIST-32` |
 
 ---
@@ -856,7 +861,7 @@ Q-77 to Q-79 were found while bringing the prototype in line with this document.
 
 - Folded in the product owner's answers to Q-1, Q-3, Q-4, Q-6 and Q-8 (and Q-18, which follows from Q-8), and moved them to [Answered questions](#answered-questions).
 - Used "rank" for the position, "score" for the agent's number, and "Priority" only for the column and its sort order.
-- Moved technical detail (the system diagram, the existing code and how scanning works) to the [design doc](design.md), leaving the product requirements here.
+- Moved technical detail (the system diagram, the existing code and how scanning works) to the [design doc](DESIGN.md), leaving the product requirements here.
 - Added Q-58 to Q-63, found by building an end-to-end prototype.
 
 ### Third revision (2026-11-01)
@@ -919,3 +924,10 @@ Q-77 to Q-79 were found while bringing the prototype in line with this document.
 ### Thirteenth revision (2026-11-01, eleventh round)
 
 - Folded in the answers to Q-77 (a "Back in your list" row in `LIVE-25`) and Q-79 (`LIST-32` counts items waiting for quota as finished). Q-78 is still open.
+
+### Fourteenth revision (2026-11-02)
+
+- Moved to `contributor/PRD.md`, next to the design doc; the user documentation stays in `docs/`. Questions and confirmations are now both marked "TODO:".
+- Sync now is disabled while a sync is in progress (`LIST-28`). The Q-29 record had said "never disabled", which wasn't what the product owner meant.
+- Added logging (`NFR-11`), a development environment (`NFR-12`, with Q-80), the favicon (`BAR-3`), the count of deleted accounts (`METRIC-1`), and the free-tier quota in the user documentation (`FOOT-3`).
+- Folded in the answer to Q-78 ("Check that you copied it correctly").

@@ -1,4 +1,4 @@
-// Local mode (docs/local-development.md): one developer on their own machine.
+// Local mode (contributor/LOCAL_DEVELOPMENT.md): one developer on their own machine.
 // The account is created once and signed in automatically, and its credentials
 // can be filled in from .env, so a fresh database needs no clicks to get going.
 import { randomUUID } from "node:crypto";

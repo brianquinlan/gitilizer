@@ -8,6 +8,7 @@ import type { GitHubApi } from "./github/types.ts";
 export type Config = {
   port: number;
   internalPort: number;
+  /** Bearer token for the operator endpoints on the internal port (/internal/metrics). */
   workerToken: string;
   githubMode: "real" | "fixtures";
   geminiMode: "real" | "fake";
@@ -28,7 +29,7 @@ export type Config = {
   /** At most this many Gemini requests at once for one developer (RANK-11). */
   perDeveloperConcurrency: number;
   schedulerTickMs: number;
-  /** Local mode: one developer, signed in automatically (docs/local-development.md). */
+  /** Local mode: one developer, signed in automatically (contributor/LOCAL_DEVELOPMENT.md). */
   localMode: boolean;
   /** Scan on a schedule (SCAN-5, SCAN-6) and run the daily re-rank. Off in local mode unless asked for. */
   autoScan: boolean;

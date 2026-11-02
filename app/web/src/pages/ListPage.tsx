@@ -161,7 +161,7 @@ function Rows(props: {
   );
 }
 
-/** Never disabled; the icon turns while any sync runs, however it started (LIST-17, LIST-28). */
+/** Disabled while any sync runs, however it started, with the icon turning (LIST-17, LIST-28). */
 function SyncButton({ running }: { running: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const start = async () => {
@@ -171,7 +171,7 @@ function SyncButton({ running }: { running: boolean }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
       {error && <span className="hint">{error}</span>}
-      <button className={`btn sync ${running ? "syncing" : ""}`} onClick={start} aria-busy={running}>
+      <button className={`btn sync ${running ? "syncing" : ""}`} onClick={start} disabled={running} aria-busy={running}>
         <RefreshIcon className={running ? "spin" : ""} /> Sync now
       </button>
     </span>

@@ -54,7 +54,21 @@ Validate, next to the token field, checks a token before you save it and shows w
 
 Create a key in [Google AI Studio](https://aistudio.google.com/apikey). A key on Google's free tier works. Gitilizer makes one Gemini request for each new or changed item, and for every item once a day so that scores that depend on age stay current.
 
-Free-tier keys have a small daily quota. When the quota for Gitilizer's main model runs out, Gitilizer switches to smaller backup models until the quota resets at midnight Pacific time, and tells you with a warning. If every model's quota runs out, ranking pauses until the reset, and new items wait at the end of the list with "–". A key with billing turned on avoids this.
+### Free-tier limits
+
+A free-tier key has a small **daily quota** for each Gemini model: a limit on how many requests it can make per day. You can see your key's limits in [AI Studio](https://aistudio.google.com/rate-limit). Quotas belong to the key's Google Cloud project, not to Gitilizer, so other apps that use a key from the same project share them. They reset at **midnight Pacific time**.
+
+A first sync, or **Save and re-rank**, sends one request for every item on your list, which can use up a free-tier quota quickly. When that happens, Gitilizer doesn't stop:
+
+1. It ranks with its main model, `gemini-3.8-flash`, while that model's quota lasts.
+2. When it's used up, Gitilizer switches to smaller backup models (`gemini-3.5-flash-lite`, then `gemini-3.1-flash-lite`), which have their own quotas, and shows the warning **"Gitilizer is using a backup Gemini model"**. Their rankings are a little less accurate. At midnight Pacific time it goes back to the main model, and the daily re-rank gradually improves the scores.
+3. If every model's quota is used up, ranking pauses until midnight Pacific time, and the error **"Your Gemini daily quota is used up"** appears. New and changed items wait at the end of your list with "–" instead of a rank.
+
+Gitilizer also slows down by itself when Gemini limits how many requests your key can make per minute; that is a separate, short limit.
+
+### Getting a paid key
+
+A key with billing turned on has much higher limits, so it rarely runs out, and Google doesn't use what it's sent to improve its products (see [Privacy](#privacy)). To turn billing on for your key's project, follow Google's [billing instructions](https://ai.google.dev/gemini-api/docs/billing): in AI Studio, set up billing for the project, attach a Cloud billing account and add prepaid credit. Your existing key keeps working, so you don't need to change anything in Gitilizer. Google's [rate limits page](https://ai.google.dev/gemini-api/docs/rate-limits) explains the limits of each tier.
 
 ## Your list
 
@@ -62,7 +76,7 @@ Free-tier keys have a small daily quota. When the quota for Gitilizer's main mod
 - The list holds the 1,000 most recently updated items.
 - Ranks come from the agent's scores. Items that couldn't be ranked are shown at the end with "–".
 - **Move to icebox** sets an item aside. If it changes later in a way that matters (for example, someone comments), Gitilizer brings it back. Bot comments and label changes don't. **Restore** brings it back yourself.
-- Gitilizer scans every 5 minutes while the list is open in a visible tab, every 30 minutes while it's in a background tab, and every 2 hours otherwise, if you've used Gitilizer in the last 7 days. **Sync now** scans at once.
+- Gitilizer scans every 5 minutes while the list is open in a visible tab, every 30 minutes while it's in a background tab, and every 2 hours otherwise, if you've used Gitilizer in the last 7 days. **Sync now** scans at once; it is greyed out, with its icon turning, while a sync is already running.
 
 ## Notifications
 
@@ -83,8 +97,8 @@ The bell shows problems that stop Gitilizer from working fully. Red means an err
 | Your Gemini API key isn't valid / Google has disabled your Gemini API key | Create a new key in Google AI Studio and add it in Settings. Google disables keys that were published, for example in a public repository. |
 | Your Gemini API key can't use the Gemini API | The key is restricted to other Google APIs. Create a new key in Google AI Studio. |
 | Your Gemini credits have run out / Your Gemini project needs billing | Fix billing for the key's project in Google AI Studio or the Google Cloud console. |
-| Gitilizer is using a backup Gemini model | Your main model's daily quota is used up; see [Gemini API keys](#gemini-api-keys). |
-| Your Gemini daily quota is used up | Every model's quota is used up. Ranking resumes at midnight Pacific time. |
+| Gitilizer is using a backup Gemini model | Your main model's daily quota is used up; see [Free-tier limits](#free-tier-limits). |
+| Your Gemini daily quota is used up | Every model's quota is used up. Ranking resumes at midnight Pacific time; a [paid key](#getting-a-paid-key) avoids this. |
 | Gemini is limiting requests from your key | Too many requests a minute. Ranking slows down and catches up by itself. |
 | Gemini isn't responding | Check the [Google AI Studio status page](https://aistudio.google.com/status). |
 | The Gemini model Gitilizer uses isn't available | A problem with Gitilizer. Please report it. |

@@ -1,4 +1,5 @@
 // Storing, reading and checking the developer's credentials (PRD SET-1..6, SET-28..30, PRIV-1).
+import { log } from "./log.ts";
 import { credentialErrorCodes, type CheckResult, type CredentialKind, type CredentialStatus } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 import { GitHubProblem } from "./github/types.ts";
@@ -53,7 +54,7 @@ export async function checkValue(ctx: Ctx, kind: CredentialKind, value: string):
       case "permission": return { ok: false, code: "permission", permission: e.details.permission };
       case "unavailable": return { ok: false, code: "unreachable" };
       default:
-        console.warn(`GitHub token check: ${e.code} ${e.message}`);
+        log.warn("credentials", "GitHub token check failed", { code: e.code, message: e.message.slice(0, 300) });
         return { ok: false, code: "error" };
     }
   }
