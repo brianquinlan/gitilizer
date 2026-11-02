@@ -3,6 +3,7 @@ import { log } from "./log.ts";
 import { EXPIRY_WARNING_DAYS, type NotificationCode, type Reason, type RemovalReason } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 import { getCredential } from "./credentials.ts";
+import { pgJson, pgText } from "./db.ts";
 import { GitHubProblem, type GitHubApi, type SearchHit } from "./github/types.ts";
 import { firstSyncBatch, pushSync, queueRankJobs, updateUnranked, type QueuedJob } from "./jobs.ts";
 import { publish } from "./list.ts";
@@ -36,6 +37,30 @@ const SCAN_CLEARS: NotificationCode[] = [
 /** Started by the developer: always a full scan (design: Scheduler). */
 export const FULL_TRIGGERS = new Set(["manual", "settings", "credentials"]);
 
+/** A running scan records that it is alive this often; one silent for SCAN_STALE_MS was interrupted. */
+const HEARTBEAT_MS = 30_000;
+const SCAN_STALE_MS = 2 * 60_000;
+
+/**
+ * Closes scans whose process stopped before they finished (a crash, a deployment, Ctrl+C).
+ * Without this, the open row would show the developer a sync that never ends, keep Sync now
+ * disabled, and block every later scan (one running scan per developer, SCAN-4).
+ * `all` closes every open scan: only for a process that is the only scanner (local mode at startup).
+ */
+export async function reapScans(ctx: Ctx, all = false): Promise<number> {
+  const rows = await ctx.db.query(
+    `update scans set finished_at = now(), outcome = 'error', error_code = 'interrupted'
+     where finished_at is null and ($1 or coalesce(heartbeat_at, started_at) < now() - make_interval(secs => $2))
+     returning user_id, id`,
+    [all, SCAN_STALE_MS / 1000],
+  );
+  for (const r of rows) {
+    log.warn("scan", "closed a scan that stopped without finishing", { user: r.user_id, scan: Number(r.id) });
+    await pushSync(ctx, r.user_id);
+  }
+  return rows.length;
+}
+
 export type ScanResult = { outcome: "ok" | "skipped" | "error"; kind?: "full" | "incremental"; errorCode?: string; queued?: number };
 
 export async function scan(
@@ -58,7 +83,12 @@ export async function scan(
   }
   await pushSync(ctx, userId);
   const started = Date.now();
+  const beat = setInterval(() => {
+    db.query(`update scans set heartbeat_at = now() where id = $1`, [scanId]).catch(() => {});
+  }, HEARTBEAT_MS);
+  beat.unref?.();
   const finish = async (outcome: string, errorCode: string | null, queued?: number) => {
+    clearInterval(beat);
     await db.query(`update scans set finished_at = now(), outcome = $2, error_code = $3 where id = $1`, [scanId, outcome, errorCode]);
     // One line per scan: its duration and outcome feed the scan metrics (NFR-6).
     log[outcome === "error" ? "warn" : "info"]("scan", "scan finished", { user: userId, trigger, kind, outcome, errorCode, queued, ms: Date.now() - started });
@@ -210,10 +240,23 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
     if (existing.get(c.key)?.status === "active") await gone(c.key, "over_limit"); // LIVE-26
   }
 
+  // A first scan of a busy account fetches hundreds of items; these lines show it's moving.
+  log.debug("scan", "discovery finished", { user: userId, found: found.size, kept: kept.size });
+  let snapshots = 0;
+
   // 5. Store what was found; queue ranking and Icebox checks.
+  // Each item is queued as soon as it's stored, so ranking runs alongside the
+  // downloads and a first sync's list starts filling in at once (LIST-15).
   const batchId = await firstSyncBatch(ctx, userId);
+  let queued = 0;
+  const queuedKeys = new Set<string>();
+  const queue = async (j: QueuedJob) => {
+    queuedKeys.add(j.key);
+    // New items during the first sync belong to its batch (LIVE-24).
+    const inBatch = j.reason === "new" && j.kind !== "icebox_check";
+    queued += await queueRankJobs(ctx, userId, [j], inBatch ? batchId : null);
+  };
   const upserts: string[] = [];
-  const toRank: QueuedJob[] = [];
   const changed: { key: string; snap: any }[] = [];
   for (const [key, f] of found) {
     const prev = existing.get(key);
@@ -224,7 +267,7 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
     await db.query(
       `insert into items (key, kind, title, html_url, state, updated_at) values ($1, $2, $3, $4, $5, $6)
        on conflict (key) do update set kind = $2, title = $3, html_url = $4, state = $5, updated_at = $6`,
-      [h.key, h.kind, h.title, h.htmlUrl, h.state, h.updatedAt],
+      [h.key, h.kind, pgText(h.title), h.htmlUrl, h.state, h.updatedAt],
     );
     const isChange = !prev || prev.status === "gone" || !prev.ranked_updated_at || Date.parse(prev.ranked_updated_at) < Date.parse(h.updatedAt);
     const needsSnapshot = !prev || !prev.snapshot_updated_at || Date.parse(prev.snapshot_updated_at) < Date.parse(h.updatedAt);
@@ -233,11 +276,13 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
         const snap = await gh.snapshot(h.repo, h.number);
         await db.query(
           `update items set snapshot = $2, snapshot_updated_at = $3, draft = $4 where key = $1`,
-          [h.key, JSON.stringify(snap), snap.issue?.updated_at ?? h.updatedAt, Boolean(snap.pull?.draft)],
+          [h.key, pgJson(snap), snap.issue?.updated_at ?? h.updatedAt, Boolean(snap.pull?.draft)],
         );
         if (isChange) changed.push({ key, snap });
+        if (++snapshots % 25 === 0) log.debug("scan", "fetching items", { user: userId, fetched: snapshots, of: kept.size });
       } catch (e) {
         if (e instanceof GitHubProblem && e.code === "not_found") continue; // deleted or made private since the search
+        if (!(e instanceof GitHubProblem)) log.warn("scan", "couldn't store an item", { user: userId, item: h.key });
         throw e;
       }
     }
@@ -246,7 +291,7 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
         `insert into user_items (user_id, item_key, reasons, mention_handle, status) values ($1, $2, $3, $4, 'active')`,
         [userId, h.key, reasons, f.handle],
       );
-      toRank.push({ key, reason: "new" });
+      await queue({ key, reason: "new" });
       continue;
     }
     const back = prev.status === "gone";
@@ -261,7 +306,7 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
     }
     if (!isChange) continue;
     // An iceboxed item that changed gets the Icebox check, not a ranking (ICE-6).
-    toRank.push(iceboxed ? { key, reason: "changed", kind: "icebox_check" } : { key, reason: back ? "new" : "changed" });
+    await queue(iceboxed ? { key, reason: "changed", kind: "icebox_check" } : { key, reason: back ? "new" : "changed" });
   }
 
   // 6. Items a full scan didn't find: closed, merged or no longer the developer's (SCAN-2, ICE-11).
@@ -281,22 +326,21 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
   }
 
   // 7. Linked items (RANK-10): rank again the items in the list that a changed item links to.
-  const queuedKeys = new Set(toRank.map((j) => j.key));
+  // This needs every change, so it waits for the whole download.
+  const linkedJobs: QueuedJob[] = [];
   const active = new Set([...existing].filter(([, p]) => p.status === "active").map(([k]) => k));
   for (const { key, snap } of changed) {
     for (const linked of linkedKeys(snap)) {
       if (linked === key || queuedKeys.has(linked) || !active.has(linked) || removals.some((r) => r.key === linked)) continue;
       queuedKeys.add(linked);
-      toRank.push({ key: linked, reason: "linked" });
+      linkedJobs.push({ key: linked, reason: "linked" });
     }
   }
 
   await publish(ctx, userId, upserts, removals);
   if (removals.length) await updateUnranked(ctx, userId);
-  // New items during the first sync belong to its batch (LIVE-24).
-  const firstSync = toRank.filter((j) => j.reason === "new" && j.kind !== "icebox_check");
-  const rest = toRank.filter((j) => !(j.reason === "new" && j.kind !== "icebox_check"));
-  return (await queueRankJobs(ctx, userId, firstSync, batchId)) + (await queueRankJobs(ctx, userId, rest));
+  for (const j of linkedJobs) await queue(j);
+  return queued;
 }
 
 const REASONS_IN_ORDER: Reason[] = ["review_requested", "assigned", "mentioned", "created", "commented", "additional_repo"];

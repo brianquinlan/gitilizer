@@ -81,7 +81,7 @@ Then open [http://localhost:5173](http://localhost:5173). The output from the tw
 
 ## 5. Use it
 
-**The first time** you start each mode, Gitilizer saves the credentials and runs the first sync by itself. In fixture mode the list fills in within a few seconds. In real mode it takes longer: Gitilizer finds your items on GitHub and then asks Gemini to score each one.
+**The first time** you start each mode, Gitilizer saves the credentials and runs the first sync by itself. In fixture mode the list fills in within a few seconds. In real mode it takes longer: Gitilizer finds your items on GitHub, downloads each one and asks Gemini to score it. Items appear in the list as they are scored, while the rest are still downloading.
 
 After that:
 
@@ -129,6 +129,7 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 | Problem | What to do |
 |---|---|
 | "Gitilizer's Node packages aren't installed", "Cannot find module 'tsx/cli'" or "Cannot find package '@gitilizer/ranker'" | Run `npm install` in the repository folder. Installed packages (`node_modules`) belong to one folder: after cloning, copying, moving or updating the repository, do step 2 again. |
+| "Scanning your issues and PRs…" for a long time | The first sync of a busy account fetches hundreds of items, a few seconds each, and ranks them as they arrive. The `[api]` lines in the terminal show its progress: `discovery finished`, then `fetching items fetched=25 of=…` every 25 items, with a `ranking summary` each minute once items are being ranked, then `scan finished`. If items are being fetched but none appear, check the bell for a Gemini problem. If the terminal shows none of these lines, stop Gitilizer and start it again: a sync cut off by Ctrl+C or a crash starts over. A busy account's first sync can also reach GitHub's limit of 5,000 requests an hour; the bell then says so. Automatic scans are off in local mode, so after the reset press **Sync now**; the sync carries on where it stopped. |
 | "Port 8787 is already in use" (or 8788, 5173) | Gitilizer is probably already running in another window. Stop it with Ctrl+C there. |
 | Your list looks wrong after updating Gitilizer | The database in `.local` is upgraded automatically when the server starts. If something still looks wrong, start again with `--reset`. |
 | The bell shows "Gitilizer is using a backup Gemini model" | Your free-tier key's daily quota for the main model is used up, so ranking uses a smaller model until midnight Pacific time. This is expected on the free tier, especially after a first sync or **Save and re-rank**. |

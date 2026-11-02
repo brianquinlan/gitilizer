@@ -3,7 +3,7 @@ import { log } from "./log.ts";
 import type { Ctx } from "./context.ts";
 import { queueFullRerank, reapLeases, refreshQuotas } from "./jobs.ts";
 import { clear, promote, raise } from "./notify.ts";
-import { FULL_TRIGGERS, scan } from "./scanner.ts";
+import { FULL_TRIGGERS, reapScans, scan } from "./scanner.ts";
 
 const PRESENCE_TTL_MS = 90_000;
 
@@ -81,6 +81,7 @@ export class Scheduler {
   async tick() {
     const { db, config } = this.ctx;
     await reapLeases(this.ctx);
+    await reapScans(this.ctx);
     await promote(this.ctx);
     await refreshQuotas(this.ctx);
     // With automatic scans off (local mode), only Sync now and saving Settings scan.

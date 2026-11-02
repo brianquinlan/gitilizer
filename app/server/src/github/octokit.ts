@@ -89,6 +89,9 @@ export function partialResultOrgIds(header: string | undefined): string[] {
 
 const ORG_NAMES = new Map<string, string>();
 
+/** A search query that already names its kind (is:issue, is:pr, is:pull-request, type:issue, type:pr). */
+const TYPED_QUERY = /(^|\s)(is|type):(issue|pr|pull-request)(\s|$)/i;
+
 function hitFrom(raw: any): SearchHit {
   const m = /repos\/([^/]+\/[^/]+)$/.exec(raw.repository_url);
   const repo = m ? m[1] : "";
@@ -114,6 +117,7 @@ function parseExpiry(h: string | undefined): string | null {
 
 export class OctokitGitHub implements GitHubApi {
   private o: InstanceType<typeof GitilizerOctokit>;
+  private repos = new Map<string, Promise<any>>();
   private expiresAt: string | null = null;
   private tokenType: "classic" | "fine-grained";
 
@@ -156,6 +160,19 @@ export class OctokitGitHub implements GitHubApi {
   }
 
   async search(q: string, limit: number) {
+    // GitHub's issue search now rejects a query that doesn't say whether it wants issues or pull
+    // requests (422 "Query must include 'is:issue' or 'is:pull-request'"), so an untyped query
+    // runs once per kind and the halves merge, newest first.
+    if (!TYPED_QUERY.test(q)) {
+      const [issues, prs] = await Promise.all([this.searchTyped(`${q} is:issue`, limit), this.searchTyped(`${q} is:pull-request`, limit)]);
+      const hits = [...issues.hits, ...prs.hits].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+      const ssoOrgs = [...new Set([...(issues.ssoOrgs ?? []), ...(prs.ssoOrgs ?? [])])];
+      return { hits: hits.slice(0, limit), total: issues.total + prs.total, ssoOrgs: ssoOrgs.length ? ssoOrgs : undefined };
+    }
+    return this.searchTyped(q, limit);
+  }
+
+  private async searchTyped(q: string, limit: number) {
     const hits: SearchHit[] = [];
     const ssoIds = new Set<string>();
     let total = 0;
@@ -170,6 +187,21 @@ export class OctokitGitHub implements GitHubApi {
     }
     const ssoOrgs = ssoIds.size ? await Promise.all([...ssoIds].map((id) => this.orgName(id))) : undefined;
     return { hits: hits.slice(0, limit), total, ssoOrgs };
+  }
+
+  /**
+   * A repository, looked up once per client. A scan uses one client, so its
+   * items share their repository's lookup instead of fetching it each time.
+   */
+  private async repoData(repo: string): Promise<any> {
+    const key = repo.toLowerCase();
+    let p = this.repos.get(key);
+    if (!p) {
+      p = this.req(`GET /repos/${repo}`).then((r) => r.data);
+      this.repos.set(key, p);
+      p.catch(() => this.repos.delete(key)); // a failed lookup isn't remembered
+    }
+    return p;
   }
 
   /** An organization's login from its numeric ID (public, so it works without SSO). Cached for the process. */
@@ -224,7 +256,7 @@ export class OctokitGitHub implements GitHubApi {
     const [owner, name] = repo.split("/");
     const base = `/repos/${repo}/issues/${number}`;
     const warnings: string[] = [];
-    const repoObj = (await this.req(`GET /repos/${repo}`)).data;
+    const repoObj = await this.repoData(repo);
     const snap: Record<string, any> = {
       schema_version: 2,
       ref: { owner, repo: name, number },

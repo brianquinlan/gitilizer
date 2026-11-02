@@ -75,14 +75,16 @@ export async function queueFullRerank(ctx: Ctx, userId: string, reason: "rerank"
 
 async function finishBatchIfDone(ctx: Ctx, batchId: string | null) {
   if (!batchId) return;
+  // A first-sync batch can run dry while its scan is still downloading, so only
+  // markFirstSyncIfDone, after a successful scan, closes it.
   const b = await ctx.db.one(
     `update rank_batches set finished_at = now()
-     where id = $1 and finished_at is null
+     where id = $1 and finished_at is null and reason <> 'first_sync'
        and not exists (select 1 from rank_jobs where batch_id = $1 and state in ('queued', 'leased'))
      returning user_id, reason`,
     [batchId],
   );
-  if (!b || b.reason === "first_sync") return;
+  if (!b) return;
   const keys = await ctx.db.query(`select distinct item_key from rank_jobs where batch_id = $1`, [batchId]);
   await publish(ctx, b.user_id, keys.map((k) => k.item_key), [], true);
 }

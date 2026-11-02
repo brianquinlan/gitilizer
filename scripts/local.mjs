@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Runs Gitilizer on this machine with one command (docs/local-development.md):
-// the API, the ranking worker and the web app, with data kept in .local/.
+// Runs Gitilizer on this machine with one command (contributor/LOCAL_DEVELOPMENT.md):
+// the API (which also runs the ranking worker) and the web app, with data kept in .local/.
 //
 //   npm run local                 real GitHub and Gemini, credentials from .env
 //   npm run local -- --fixtures   eval/fixtures as GitHub and a fake model; no network
 //   npm run local -- --scheduler  also scan on a schedule, as in production
 //   npm run local -- --reset      start again with an empty database
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -53,18 +53,8 @@ const keyFile = join(dataDir, "credential-key");
 if (!existsSync(keyFile)) writeFileSync(keyFile, randomBytes(32).toString("base64") + "\n", { mode: 0o600 });
 const credentialKey = process.env.CREDENTIAL_KEY ?? readFileSync(keyFile, "utf8").trim();
 
-// --- Python for the worker -----------------------------------------------------
-function findPython() {
-  if (process.env.PYTHON) return process.env.PYTHON;
-  const candidates = process.platform === "win32"
-    ? [join(ROOT, ".venv", "Scripts", "python.exe"), "python"]
-    : [join(ROOT, ".venv", "bin", "python"), "python3"];
-  return candidates.find((c) => !c.includes("/") && !c.includes("\\") ? true : existsSync(c));
-}
-const python = findPython();
-
-// --- Check the setup before starting anything (docs/local-development.md, step 2) ---
-const SETUP = "See \"Set up the repository\" in docs/local-development.md.";
+// --- Check the setup before starting anything (contributor/LOCAL_DEVELOPMENT.md, step 2) ---
+const SETUP = "See \"Set up the repository\" in contributor/LOCAL_DEVELOPMENT.md.";
 function resolveOrExit(resolveIt) {
   try {
     return resolveIt();
@@ -75,15 +65,6 @@ function resolveOrExit(resolveIt) {
 }
 const tsxCli = resolveOrExit(() => require.resolve("tsx/cli"));
 const viteCli = resolveOrExit(() => join(dirname(require.resolve("vite/package.json")), "bin", "vite.js"));
-
-const pyCheck = spawnSync(python, ["-c", "import google.genai, requests, yaml"], { cwd: ROOT, encoding: "utf8" });
-if (pyCheck.error || pyCheck.status !== 0) {
-  const venvSteps = process.platform === "win32"
-    ? "    py -m venv .venv\n    .venv\\Scripts\\Activate.ps1\n    pip install -r requirements.txt"
-    : "    python3 -m venv .venv\n    source .venv/bin/activate\n    pip install -r requirements.txt";
-  console.error(`The ranking worker needs Python with Gitilizer's packages, and ${python} ${pyCheck.error ? "couldn't be run" : "doesn't have them"}. Run this first:\n\n${venvSteps}\n\n${SETUP}`);
-  process.exit(1);
-}
 
 // --- Child processes -------------------------------------------------------------
 const children = [];
@@ -168,6 +149,8 @@ const serverEnv = {
   PGLITE_DIR: join(dataDir, "db"),
   CREDENTIAL_KEY: credentialKey,
   AUTO_SCAN: scheduler ? "on" : "off",
+  // Show each ranked item, which is useful on one machine but too much in production.
+  LOG_LEVEL: process.env.LOG_LEVEL ?? "debug",
   GITILIZER_MODEL: process.env.GITILIZER_MODEL ?? dotenv.GITILIZER_MODEL ?? "",
   GITILIZER_MODELS: process.env.GITILIZER_MODELS ?? dotenv.GITILIZER_MODELS ?? "",
 };
@@ -193,9 +176,6 @@ await waitForPort(API_PORT).catch((e) => { console.error(`[api]    ${e.message}`
 await waitForPort(API_PORT + 1).catch((e) => { console.error(`[api]    ${e.message}`); stopAll(1); });
 if (stopping) await new Promise(() => {});
 
-run("worker", python, ["-m", "gitilizer.worker", ...(fixtures ? ["--fake-llm"] : [])], {
-  env: { ...process.env, GITILIZER_API: `http://127.0.0.1:${API_PORT + 1}`, PYTHONUNBUFFERED: "1" },
-});
 run("web", process.execPath, [viteCli, "--port", String(WEB_PORT), "--strictPort"], { cwd: join(ROOT, "app", "web") });
 await waitForPort(WEB_PORT).catch((e) => { console.error(`[web]    ${e.message}`); stopAll(1); });
 if (!stopping) console.log(`\nReady: open http://localhost:${WEB_PORT}  (Ctrl+C stops everything)\n`);

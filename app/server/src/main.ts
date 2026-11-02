@@ -11,6 +11,7 @@ import { Hub, type Config, type Ctx } from "./context.ts";
 import { FixtureGitHub, FixtureStore } from "./github/fixtures.ts";
 import { OctokitGitHub } from "./github/octokit.ts";
 import { localUserId, seedLocalCredentials } from "./local.ts";
+import { reapScans } from "./scanner.ts";
 import { log } from "./log.ts";
 import { Scheduler } from "./scheduler.ts";
 import { RankingWorker } from "./worker.ts";
@@ -116,6 +117,8 @@ async function main() {
   const internal = buildInternalApp(ctx);
   await app.listen({ port: config.port, host: env.HOST ?? "127.0.0.1" });
   await internal.listen({ port: config.internalPort, host: "127.0.0.1" });
+  // Local mode is the only scanner, so any scan still open was cut off when it last stopped.
+  if (config.localMode) await reapScans(ctx, true);
   scheduler.start();
   if (config.localMode) {
     const userId = await localUserId(ctx);
@@ -123,8 +126,17 @@ async function main() {
       github_pat: env.LOCAL_GITHUB_TOKEN, gemini_key: env.LOCAL_GEMINI_API_KEY,
     });
     if (seeded.length) log.info("startup", `Local mode: saved the ${seeded.map((k) => (k === "github_pat" ? "GitHub token" : "Gemini API key")).join(" and ")} for the local developer`);
+    const u = await db.one(
+      `select setup_completed_at, exists (select 1 from scans where user_id = $1 and outcome = 'ok') as scanned from users where id = $1`,
+      [userId],
+    );
     // SET-5: completing setup starts the first sync.
     if (setupCompleted) scheduler.trigger(userId, "credentials");
+    // Automatic scans are off, so a first sync cut off last time would otherwise never finish.
+    else if (u?.setup_completed_at && !u.scanned) {
+      log.info("startup", "Local mode: the first sync didn't finish last time; starting it again");
+      scheduler.trigger(userId, "credentials");
+    }
     log.info("startup", `Local mode: signed in automatically as the local developer${config.autoScan ? "" : "; automatic scans are off"}`);
   }
   // The ranking worker runs in the same process (design: Ranking worker). WORKER=off leaves it out.

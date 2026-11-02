@@ -4,14 +4,15 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { parseLogin, parseRepo, type SettingsUpdate } from "@gitilizer/shared";
 import { Allowlist, loadAllowlist, type SignInIdentity } from "../src/allowlist.ts";
 import { buildApp, settingsErrors } from "../src/app.ts";
+import { pgText } from "../src/db.ts";
 import type { Ctx } from "../src/context.ts";
-import type { FixtureStore } from "../src/github/fixtures.ts";
-import { classify, partialResultOrgIds } from "../src/github/octokit.ts";
+import { FixtureGitHub, type FixtureStore } from "../src/github/fixtures.ts";
+import { classify, OctokitGitHub, partialResultOrgIds } from "../src/github/octokit.ts";
 import { limitSnapshot } from "../src/github/types.ts";
 import { claimJobs, completeJob, failJob, nextPacificMidnight, queueFullRerank, refreshQuotas } from "../src/jobs.ts";
 import { listRows } from "../src/list.ts";
 import { shownNotifications } from "../src/notify.ts";
-import { discoveryQueries, scan } from "../src/scanner.ts";
+import { discoveryQueries, reapScans, scan } from "../src/scanner.ts";
 import { Scheduler } from "../src/scheduler.ts";
 import { RankingWorker } from "../src/worker.ts";
 import { addUser, FIXTURES, makeCtx, MODELS, type RecordingHub } from "./helpers.ts";
@@ -482,5 +483,131 @@ describe("sign-in allowlist", () => {
     // Her account and settings stay, so adding her back restores everything.
     expect(await users()).toBe(2);
     await app.close();
+  });
+});
+
+// --- Interrupted scans ---
+
+describe("interrupted scans", () => {
+  it("closes a scan whose process stopped, so the next scan can run (SCAN-4)", async () => {
+    const { ctx } = await makeCtx();
+    await addUser(ctx);
+    const open = (age: string) => ctx.db.query(
+      `insert into scans (user_id, trigger, kind, started_at) values ('u1', 'credentials', 'full', now() - $1::interval)`, [age],
+    );
+    await open("10 minutes");
+    // A scan already open blocks a new one.
+    expect((await scan(ctx, "u1", "manual")).outcome).toBe("skipped");
+    expect(await reapScans(ctx)).toBe(1);
+    expect(await ctx.db.one(`select outcome, error_code from scans order by id limit 1`)).toEqual({ outcome: "error", error_code: "interrupted" });
+    expect((await scan(ctx, "u1", "manual")).outcome).toBe("ok");
+
+    // A scan that is still alive is left alone, except at a local-mode start, where none can be.
+    await open("30 seconds");
+    expect(await reapScans(ctx)).toBe(0);
+    expect(await reapScans(ctx, true)).toBe(1);
+  });
+});
+
+describe("GitHub client (F24, F25)", () => {
+  /** A client whose requests are answered by `answer` instead of GitHub; returns the routes and queries asked for. */
+  const fake = (answer: (route: string, params: any) => any) => {
+    const gh = new OctokitGitHub("ghp_test");
+    const asked: string[] = [];
+    (gh as any).req = async (route: string, params: any = {}) => {
+      asked.push(params.q ? `${route} ${params.q}` : route);
+      return { data: await answer(route, params), headers: {} };
+    };
+    return { gh, asked };
+  };
+  const raw = (n: number, updated: string, pr: boolean) => ({
+    number: n, repository_url: "https://api.github.com/repos/o/r", title: `#${n}`, html_url: `https://github.com/o/r/issues/${n}`,
+    state: "open", updated_at: updated, ...(pr ? { pull_request: { merged_at: null } } : {}),
+  });
+
+  it("searches issues and PRs separately and merges them newest first, because GitHub needs the kind", async () => {
+    const { gh, asked } = fake((_route, p) => {
+      const items = / is:issue$/.test(p.q)
+        ? [raw(1, "2026-11-02T10:00:00Z", false), raw(2, "2026-11-01T10:00:00Z", false)]
+        : [raw(3, "2026-11-02T12:00:00Z", true), raw(4, "2026-10-30T10:00:00Z", true)];
+      return { total_count: items.length, items };
+    });
+    const r = await gh.search("is:open assignee:me", 3);
+    expect(asked).toEqual(["GET /search/issues is:open assignee:me is:issue", "GET /search/issues is:open assignee:me is:pull-request"]);
+    expect(r.hits.map((h) => h.number)).toEqual([3, 1, 2]);
+    expect(r.total).toBe(4);
+    expect(r.ssoOrgs).toBeUndefined();
+
+    asked.length = 0;
+    await gh.search("is:open is:pr assignee:me", 3);
+    expect(asked).toEqual(["GET /search/issues is:open is:pr assignee:me"]);
+  });
+
+  it("looks up each repository once, and doesn't remember a failed lookup", async () => {
+    let fail = true;
+    const { gh, asked } = fake((route) => {
+      if (route === "GET /repos/x/broken" && fail) throw new Error("down");
+      return { full_name: route.slice(11) };
+    });
+    const repo = (name: string) => (gh as any).repoData(name);
+    await Promise.all([repo("o/r"), repo("o/r"), repo("O/R")]);
+    expect(asked).toEqual(["GET /repos/o/r"]);
+    await expect(repo("x/broken")).rejects.toThrow("down");
+    fail = false;
+    await repo("x/broken");
+    expect(asked.filter((a) => a === "GET /repos/x/broken")).toHaveLength(2);
+  });
+
+  it("queues each item for ranking while the scan is still downloading, and keeps the first sync open until it ends (LIST-15, LIST-32)", async () => {
+    const { ctx, store } = await makeCtx();
+    await addUser(ctx, "q1");
+    const gh = new FixtureGitHub(store);
+    const queuedAt: number[] = [];
+    const batchClosed: boolean[] = [];
+    const rankQueued = async () => {
+      for (const j of await claimJobs(ctx, 50, 60)) await completeJob(ctx, j.id, { priority: 0.5, actionable: true, next_action: "x", reasoning: "y" });
+    };
+    const firstSync = async () => ctx.db.one(
+      `select b.finished_at, u.first_sync_done from rank_batches b join users u on u.id = b.user_id where b.user_id = 'q1' and b.reason = 'first_sync'`,
+    );
+    const real = gh.snapshot.bind(gh);
+    gh.snapshot = async (repo, number) => {
+      queuedAt.push((await ctx.db.one(`select count(*)::int as n from rank_jobs where user_id = 'q1'`)).n);
+      // Rank everything queued so far, as the worker would while the scan runs.
+      await rankQueued();
+      batchClosed.push((await firstSync()).finished_at !== null);
+      return real(repo, number);
+    };
+    ctx.github = () => gh;
+    await scan(ctx, "q1", "test");
+    expect(queuedAt.length).toBeGreaterThan(5);
+    expect(queuedAt).toEqual(queuedAt.map((_, i) => i));
+    // The ranker kept up with the downloads, but the first sync stays open until the scan has finished.
+    expect(batchClosed.every((closed) => !closed)).toBe(true);
+    expect(await firstSync()).toMatchObject({ finished_at: null, first_sync_done: false });
+    await rankQueued();
+    expect(await firstSync()).toMatchObject({ first_sync_done: true });
+    expect((await firstSync()).finished_at).not.toBeNull();
+  });
+});
+
+describe("storing GitHub content", () => {
+  it("replaces characters Postgres can't store instead of failing the scan", async () => {
+    expect(pgText("a\u0000b")).toBe("a\uFFFDb");
+    expect(pgText("lone \ud800 and \udc00")).toBe("lone \uFFFD and \uFFFD");
+    expect(pgText("pair \ud83d\ude00 kept")).toBe("pair \ud83d\ude00 kept");
+
+    const { ctx, store } = await makeCtx();
+    await addUser(ctx, "n1");
+    const gh = new FixtureGitHub(store);
+    const real = gh.snapshot.bind(gh);
+    gh.snapshot = async (repo, number) => {
+      const snap = await real(repo, number);
+      return { ...snap, issue: { ...snap.issue, body: "before\u0000after \ud800" } };
+    };
+    ctx.github = () => gh;
+    expect(await scan(ctx, "n1", "test")).toMatchObject({ outcome: "ok" });
+    const row = await ctx.db.one(`select snapshot->'issue'->>'body' as body from items limit 1`);
+    expect(row.body).toBe("before\uFFFDafter \uFFFD");
   });
 });

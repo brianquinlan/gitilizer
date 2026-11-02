@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-02 (development sign-in allowlist; Q-80 answered) |
+| **Last updated** | 2026-11-02 (first sync fills in as items are ranked) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Replaces** | [Gitilizer PRD (Google Doc)](https://docs.google.com/document/d/1iN4HGqn5_Nz4g8oweqg0PK-iLlKQ8dza7ruqxADpu6U/edit) |
@@ -464,7 +464,7 @@ Items change on GitHub all the time, so ranks change while the developer is look
 
 - **LIVE-1** When ranks change, the Prioritized list must update without a page reload. No notice, banner or status message is shown; the only feedback is the animations and the indicators in the affected rows.
 - **LIVE-23** A ranked change must reach the screen within 5 seconds of ranking finishing, unless the rules in [When updates wait](#when-updates-wait) hold it.
-- **LIVE-24** Bulk re-ranks, which change the rank of nearly every item at once, must not play as per-item animations. These are the first sync, a full re-rank after "Save and re-rank" (`SET-15`) and the daily re-rank (`RANK-9`). The new order must be applied once, when the whole re-rank has finished, without row indicators. Changes caused by activity on GitHub keep the per-item animations below.
+- **LIVE-24** Bulk re-ranks, which change the rank of nearly every item at once, must not play as per-item animations. These are a full re-rank after "Save and re-rank" (`SET-15`) and the daily re-rank (`RANK-9`). The new order must be applied once, when the whole re-rank has finished, without row indicators. Items ranked during the first sync also appear without row indicators, but one at a time as they are ranked (`LIST-15`), not all at once at the end. Changes caused by activity on GitHub keep the per-item animations below.
 
 ### Pages during updates
 
@@ -822,7 +822,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 | <a id="q-57"></a>Q-57 | Meaning of additional repositories | "Keep an eye on"; the agent's wording changes to match. | `SET-31` |
 | <a id="q-58"></a>Q-58 | What Validate checks | The typed value; disabled when the field is empty. | `SET-2`, `SET-21` |
 | <a id="q-59"></a>Q-59 | Long titles and repository names | One line with "…": at the end for titles, at the start for repository names. | `LIST-23` |
-| <a id="q-60"></a>Q-60 | Bulk re-ranks | Applied once when finished, without row indicators. | `LIVE-24` |
+| <a id="q-60"></a>Q-60 | Bulk re-ranks | Applied once when finished, without row indicators. The first sync is the exception: its items appear as they are ranked, still without indicators. | `LIVE-24`, `LIST-15` |
 | <a id="q-61"></a>Q-61 | A bell that swings for days | Stops once the popover has been opened; a new error starts it again. | `NOTIF-17` |
 | <a id="q-62"></a>Q-62 | "N issues" includes PRs | "{N} issues and PRs". Figma updated. | `LIST-27` |
 | <a id="q-63"></a>Q-63 | The free tier | Gitilizer must work on it. It falls back from `gemini-3.8-flash` to `gemini-3.5-flash-lite` to `gemini-3.1-flash-lite` as each daily quota runs out, with a warning, and an error when all are used up. Items waiting for quota are shown at the end with "–". One item per call. | `RANK-12` to `RANK-18`, `LIST-30` |
@@ -935,3 +935,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 ### Fifteenth revision (2026-11-02, second round)
 
 - Folded in the answer to Q-80: only accounts on an allowlist can sign in to the development environment (`NFR-12`), and a refused sign-in gets a fifth message, "Not allowed" (`AUTH-10`). [DEPLOYMENT.md](DEPLOYMENT.md) explains how the owner changes the list.
+
+### Sixteenth revision (2026-11-02, third round)
+
+- `LIVE-24` no longer lists the first sync as a bulk re-rank applied at the end: its items appear as they are ranked, as `LIST-15` already said, still without row indicators. The two requirements had contradicted each other. Q-60's answer notes the exception.

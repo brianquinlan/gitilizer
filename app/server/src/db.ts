@@ -136,7 +136,8 @@ create table if not exists scans (
   started_at timestamptz not null default now(),
   finished_at timestamptz,
   outcome text,
-  error_code text
+  error_code text,
+  heartbeat_at timestamptz
 );
 create unique index if not exists scans_one_running on scans(user_id) where finished_at is null;
 create table if not exists rank_batches (
@@ -195,6 +196,7 @@ create table if not exists deleted_users (
 const AFTER_SCHEMA = `
 alter table users add column if not exists last_full_scan_at timestamptz;
 alter table users add column if not exists sign_in_login text;
+alter table scans add column if not exists heartbeat_at timestamptz;
 alter table credentials add column if not exists token_login text;
 alter table credentials add column if not exists token_type text;
 alter table credentials drop column if exists validated_at;
@@ -269,6 +271,23 @@ function wrapPglite(db: PGlite): Db {
     async close() { await db.close(); },
   };
   return self;
+}
+
+/**
+ * Characters Postgres text and jsonb can't hold: U+0000, and a UTF-16 surrogate
+ * without its other half. GitHub content (a comment, a commit message, a diff)
+ * occasionally has them, and one would fail the whole write.
+ */
+const UNSTORABLE = /\u0000|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g;
+
+/** `s` with every character Postgres can't store replaced by U+FFFD. */
+export function pgText(s: string): string {
+  return s.replace(UNSTORABLE, "\uFFFD");
+}
+
+/** `value` as JSON for a jsonb column, with its strings made storable by `pgText`. */
+export function pgJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v) => (typeof v === "string" ? pgText(v) : v));
 }
 
 export async function openDb(url: string | undefined, dataDir: string | undefined): Promise<Db> {
