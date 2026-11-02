@@ -1,5 +1,5 @@
-// Storing, reading and validating the developer's credentials (PRD SET-1..6, PRIV-1).
-import type { CredentialKind, CredentialStatus } from "@gitilizer/shared";
+// Storing, reading and checking the developer's credentials (PRD SET-1..6, SET-28..30, PRIV-1).
+import { credentialErrorCodes, type CheckResult, type CredentialKind, type CredentialStatus } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 import { GitHubProblem } from "./github/types.ts";
 
@@ -8,84 +8,53 @@ export async function getCredential(ctx: Ctx, userId: string, kind: CredentialKi
   return r ? ctx.cipher.decrypt(userId, r.ciphertext, r.nonce) : null;
 }
 
+/** The card's status chip (SET-30): derived from the saved credential and the shown notifications. */
 export async function credentialStatus(ctx: Ctx, userId: string, kind: CredentialKind): Promise<CredentialStatus> {
-  const r = await ctx.db.one(
-    `select validated_at, validation_ok, validation_detail, expires_at from credentials where user_id = $1 and kind = $2`,
-    [userId, kind],
-  );
-  if (!r) return { set: false, status: "missing", validatedAt: null, detail: null, expiresAt: null };
-  return {
-    set: true,
-    status: r.validation_ok === null ? "unchecked" : r.validation_ok ? "connected" : "invalid",
-    validatedAt: r.validated_at ? new Date(r.validated_at).toISOString() : null,
-    detail: r.validation_detail,
-    expiresAt: r.expires_at ? new Date(r.expires_at).toISOString() : null,
-  };
+  const r = await ctx.db.one(`select expires_at from credentials where user_id = $1 and kind = $2`, [userId, kind]);
+  if (!r) return { set: false, chip: "not_set", expiresAt: null };
+  const active = await ctx.db.query(`select code from notifications where user_id = $1 and shown`, [userId]);
+  const codes = new Set(active.map((a) => a.code as string));
+  const failing = credentialErrorCodes(kind).some((c) => codes.has(c));
+  const chip = failing ? "not_working" : kind === "github_pat" && codes.has("github_expiring") ? "expires_soon" : "connected";
+  return { set: true, chip, expiresAt: r.expires_at ? new Date(r.expires_at).toISOString() : null };
 }
 
-export async function saveCredential(ctx: Ctx, userId: string, kind: CredentialKind, value: string) {
+/** Saves a credential without checking it (SET-29). */
+export async function saveCredential(ctx: Ctx, userId: string, kind: CredentialKind, value: string, db = ctx.db) {
   const { ciphertext, nonce } = ctx.cipher.encrypt(userId, value);
-  await ctx.db.query(
+  await db.query(
     `insert into credentials (user_id, kind, ciphertext, nonce) values ($1, $2, $3, $4)
      on conflict (user_id, kind) do update set ciphertext = $3, nonce = $4, expires_at = null,
-       validated_at = null, validation_ok = null, validation_detail = null, updated_at = now()`,
+       token_login = null, token_type = null, updated_at = now()`,
     [userId, kind, ciphertext, nonce],
   );
   if (kind === "gemini_key") {
-    await ctx.db.query(`update users set ranking_paused_until = null, ranking_paused_code = null where id = $1`, [userId]);
+    // Quotas belong to the key's Google Cloud project (design: Data model, gemini_quota).
+    await db.query(`update users set ranking_paused_until = null, ranking_paused_code = null where id = $1`, [userId]);
+    await db.query(`delete from gemini_quota where user_id = $1`, [userId]);
+    await db.query(`update rank_jobs set not_before = now() where user_id = $1 and state = 'queued'`, [userId]);
   }
 }
 
-/** Checks a saved credential and records the result (SET-2). */
-export async function validateCredential(ctx: Ctx, userId: string, kind: CredentialKind): Promise<CredentialStatus> {
-  const value = await getCredential(ctx, userId, kind);
-  if (!value) return credentialStatus(ctx, userId, kind);
-  let ok = false;
-  let detail = "";
-  let expiresAt: string | null = null;
-  if (kind === "github_pat") {
-    try {
-      const v = await ctx.github(value).viewer();
-      ok = true;
-      expiresAt = v.tokenExpiresAt;
-      detail = `Signed in to GitHub as @${v.login}`;
-      await ctx.db.query(`update users set github_login = $2 where id = $1`, [userId, v.login]);
-    } catch (e) {
-      detail = e instanceof GitHubProblem ? describeGitHubProblem(e) : String(e);
+/** Checks a typed value without saving it (SET-2, SET-28). */
+export async function checkValue(ctx: Ctx, kind: CredentialKind, value: string): Promise<CheckResult> {
+  if (kind === "gemini_key") return ctx.validateGemini(value, ctx.config.models[0]);
+  try {
+    const gh = ctx.github(value);
+    const v = await gh.viewer();
+    // One search shows a missing permission through X-Accepted-GitHub-Permissions (design: HTTP API).
+    await gh.search(`is:open involves:${v.login}`, 1);
+    return { ok: true, code: "ok", login: v.login };
+  } catch (e) {
+    if (!(e instanceof GitHubProblem)) return { ok: false, code: "error" };
+    switch (e.code) {
+      case "invalid": return { ok: false, code: "not_accepted" };
+      case "expired": return { ok: false, code: "expired" };
+      case "permission": return { ok: false, code: "permission", permission: e.details.permission };
+      case "unavailable": return { ok: false, code: "unreachable" };
+      default:
+        console.warn(`GitHub token check: ${e.code} ${e.message}`);
+        return { ok: false, code: "error" };
     }
-  } else {
-    const r = await ctx.validateGemini(value, ctx.config.model);
-    ok = r.ok;
-    detail = r.detail;
-  }
-  await ctx.db.query(
-    `update credentials set validated_at = now(), validation_ok = $3, validation_detail = $4, expires_at = $5
-     where user_id = $1 and kind = $2`,
-    [userId, kind, ok, detail, expiresAt],
-  );
-  return credentialStatus(ctx, userId, kind);
-}
-
-/** Checks a value without saving it (the Settings "Validate" button before "Save changes"). */
-export async function checkValue(ctx: Ctx, kind: CredentialKind, value: string): Promise<{ ok: boolean; detail: string }> {
-  if (kind === "github_pat") {
-    try {
-      const v = await ctx.github(value).viewer();
-      return { ok: true, detail: `Signed in to GitHub as @${v.login}` };
-    } catch (e) {
-      return { ok: false, detail: e instanceof GitHubProblem ? describeGitHubProblem(e) : String(e) };
-    }
-  }
-  const r = await ctx.validateGemini(value, ctx.config.model);
-  return { ok: r.ok, detail: r.detail };
-}
-
-export function describeGitHubProblem(e: GitHubProblem): string {
-  switch (e.code) {
-    case "expired": return "This token has expired";
-    case "invalid": return "GitHub didn't accept this token";
-    case "rate_limited": return "GitHub's rate limit has been reached; try again later";
-    case "unavailable": return "GitHub isn't responding; try again later";
-    default: return e.message;
   }
 }

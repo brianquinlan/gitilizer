@@ -63,3 +63,38 @@ export const BrandSymbol = ({ size = 30 }) => (
     </g>
   </svg>
 );
+export const SignOutIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
+);
+export const XIcon = ({ size = 14 }) => <svg {...base(size)}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>;
+export const PlugIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><path d="M12 22v-5" /><path d="M9 8V2" /><path d="M15 8V2" /><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" /></svg>
+);
+export const FolderGitIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><circle cx="12" cy="13" r="2" /><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /><path d="M14 13h3" /><path d="M7 13h3" /></svg>
+);
+export const ListIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><path d="M10 12h11" /><path d="M10 18h11" /><path d="M10 6h11" /><path d="M4 10h2" /><path d="M4 6h1v4" /><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" /></svg>
+);
+export const UsersIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+);
+export const GitHubIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /><path d="M9 18c-4.51 2-5-2-7-2" /></svg>
+);
+export const SparklesIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.13-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.13 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z" /><path d="M20 3v4" /><path d="M22 5h-4" /></svg>
+);
+export const TrashIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></svg>
+);
+export const EyeIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0" /><circle cx="12" cy="12" r="3" /></svg>
+);
+export const EyeOffIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
+);
+export const PlusIcon = ({ size = 14 }) => <svg {...base(size)}><path d="M5 12h14" /><path d="M12 5v14" /></svg>;
+export const UserIcon = ({ size = 14 }) => <svg {...base(size)}><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /></svg>;
+export const XCircleIcon = ({ size = 14 }) => <svg {...base(size)}><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></svg>;
+export const CheckCircleIcon = ({ size = 14 }) => <svg {...base(size)}><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg>;

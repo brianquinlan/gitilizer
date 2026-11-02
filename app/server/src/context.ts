@@ -1,6 +1,6 @@
 // Shared server context, configuration and small helpers.
 import type { FastifyReply } from "fastify";
-import type { ListEvent, Notification, SyncEvent } from "@gitilizer/shared";
+import type { CheckResult, ListEvent, Notification, SyncEvent } from "@gitilizer/shared";
 import type { CredentialCipher } from "./crypto.ts";
 import type { Db } from "./db.ts";
 import type { GitHubApi } from "./github/types.ts";
@@ -11,16 +11,22 @@ export type Config = {
   workerToken: string;
   githubMode: "real" | "fixtures";
   geminiMode: "real" | "fake";
-  model: string;
+  /** Gemini models in fallback order (PRD RANK-13); the first is the primary model. */
+  models: string[];
   defaultPrompt: string;
-  /** Short-lived notifications wait this long before showing (PRD Q-17: 15 min). */
+  /** Short-lived notifications wait this long before showing (PRD NOTIF-21: 15 min). */
   shortLivedSeconds: number;
   staleAfterSeconds: number;
   /** Scan intervals (PRD SCAN-5), in seconds. */
   intervals: { visible: number; open: number; background: number };
+  /** Background scans only for developers seen within this many days (SCAN-5: 7). */
   inactiveDays: number;
+  /** The Prioritized list's limit (LIST-19: 1,000). */
   maxItems: number;
-  manualSyncMinSeconds: number;
+  /** A scan is full when the last full scan is older than this (design: Scheduler, D-5). */
+  fullScanSeconds: number;
+  /** At most this many Gemini requests at once for one developer (RANK-11). */
+  perDeveloperConcurrency: number;
   schedulerTickMs: number;
   /** Local mode: one developer, signed in automatically (docs/local-development.md). */
   localMode: boolean;
@@ -78,7 +84,8 @@ export type Ctx = {
   config: Config;
   /** GitHub client for a PAT (or the fixture store in fixture mode). */
   github(pat: string): GitHubApi;
-  validateGemini(key: string, model: string): Promise<{ ok: boolean; detail: string; code?: string }>;
+  /** Checks a Gemini API key without using request quota (SET-28). */
+  validateGemini(key: string, model: string): Promise<CheckResult>;
   /** Called by routes to ask the scheduler for a scan now. */
   requestScan(userId: string, trigger: string): void;
 };

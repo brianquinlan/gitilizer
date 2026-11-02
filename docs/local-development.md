@@ -122,7 +122,8 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 
 | Variable | What it does |
 |---|---|
-| `GITILIZER_MODEL` | The Gemini model to rank with (also read from `.env`). |
+| `GITILIZER_MODEL` | The primary Gemini model to rank with; the backup models stay the same (also read from `.env`). |
+| `GITILIZER_MODELS` | The whole fallback list, comma-separated, primary first (default `gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite`). |
 | `PYTHON` | The Python to run the worker with, if it isn't `.venv`. |
 | `CREDENTIAL_KEY` | Overrides the saved encryption key. If you change it, credentials saved with the old key can no longer be read; use `--reset`. |
 | `DATABASE_URL` | Uses a real Postgres server instead of PGlite, for example `postgres://localhost/gitilizer`. |
@@ -134,6 +135,8 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 | "Gitilizer's Node packages aren't installed" or "Cannot find module 'tsx/cli'" | Run `npm install` in the repository folder. Installed packages (`node_modules`) and the Python environment (`.venv`) belong to one folder: after cloning, copying or moving the repository, do step 2 again. |
 | "The ranking worker needs Python with Gitilizer's packages" | Do the Python part of step 2: create `.venv` and run `pip install -r requirements.txt` in it. |
 | "Port 8787 is already in use" (or 8788, 5173) | Gitilizer is probably already running in another window. Stop it with Ctrl+C there. |
+| Your list looks wrong after updating Gitilizer | The database in `.local` is upgraded automatically when the server starts. If something still looks wrong, start again with `--reset`. |
+| The bell shows "Gitilizer is using a backup Gemini model" | Your free-tier key's daily quota for the main model is used up, so ranking uses a smaller model until midnight Pacific time. This is expected on the free tier, especially after a first sync or **Save and re-rank**. |
 | The app opens on "Welcome to your prioritized inbox" | A credential is missing: `.env` didn't have it on the first run. Go to Settings and enter it, or fill in `.env` and restart with `--reset`. |
 | The bell shows "Your GitHub token isn't valid" or a Gemini error | Fix the credential in Settings. Changing `.env` alone doesn't replace a credential that is already saved. |
 | "Gitilizer is using a backup Gemini model" or "Your Gemini daily quota is used up" | Your key's daily quota for that model is used up. It resets at midnight Pacific time. |

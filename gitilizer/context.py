@@ -53,7 +53,13 @@ class UserSettings:
     def from_dict(cls, d: dict) -> "UserSettings":
         return cls(
             github_login=d["github_login"],
-            interested_repos=[r if isinstance(r, dict) else {"repo": r} for r in d.get("interested_repos") or []],
+            interested_repos=(
+                # The server sends additional repositories with their prioritization prompts (PRD SET-9).
+                [{"repo": r["repo"], **({"filter": r["prioritization_prompt"]} if r.get("prioritization_prompt") else {})}
+                 for r in d["additional_repos"]]
+                if "additional_repos" in d else
+                [r if isinstance(r, dict) else {"repo": r} for r in d.get("interested_repos") or []]
+            ),
             collaborators=list(d.get("collaborators") or []),
             review_teams=list(d.get("review_teams") or []),
         )

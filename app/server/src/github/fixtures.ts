@@ -4,20 +4,27 @@
 // "touch" or close an item to exercise live updates.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { GitHubProblem, itemKey, limitSnapshot, type GitHubApi, type ItemState, type SearchHit } from "./types.ts";
+import { GitHubProblem, itemKey, limitSnapshot, type GitHubApi, type ItemState, type RepoInfo, type SearchHit } from "./types.ts";
 
 type Entry = { snap: Record<string, any>; closed: boolean; merged: boolean };
 
 export class FixtureStore {
   entries = new Map<string, Entry>();
 
-  constructor(dir: string, public login: string, public teams: string[]) {
+  /** Logins that exist on the fake GitHub: everyone who appears in a fixture. */
+  logins = new Set<string>();
+
+  constructor(dir: string, public login: string) {
     for (const f of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
       const snap = limitSnapshot(JSON.parse(readFileSync(join(dir, f), "utf8")));
       const { owner, repo, number } = snap.ref;
       const key = itemKey(`${owner}/${repo}`, number);
       this.entries.set(key, { snap, closed: snap.issue.state !== "open", merged: false });
+      for (const u of [snap.issue.user, ...(snap.issue.assignees ?? []), ...(snap.comments ?? []).map((c: any) => c.user), ...(snap.reviews ?? []).map((r: any) => r.user)]) {
+        if (u?.login) this.logins.add(u.login.toLowerCase());
+      }
     }
+    this.logins.add(login.toLowerCase());
   }
 
   /** Simulate new activity on GitHub: bump updated_at and add a comment. */
@@ -59,6 +66,7 @@ function hit(e: Entry): SearchHit {
     htmlUrl: e.snap.issue.html_url,
     state: e.closed ? "closed" : "open",
     updatedAt: e.snap.issue.updated_at,
+    merged: e.merged,
   };
 }
 
@@ -70,23 +78,30 @@ function texts(snap: Record<string, any>): string[] {
   return out;
 }
 
+function commenters(snap: Record<string, any>): string[] {
+  return [...(snap.comments ?? []), ...(snap.review_comments ?? []), ...(snap.reviews ?? [])]
+    .map((c: any) => (c.user?.login ?? "").toLowerCase());
+}
+
+/** Evaluates the qualifiers the scanner uses (design: Scanner, step 2). */
 function matches(snap: Record<string, any>, q: string): boolean {
   const full = `${snap.ref.owner}/${snap.ref.repo}`.toLowerCase();
   for (const term of q.split(/\s+/)) {
-    const [k, v0] = term.split(":");
-    const v = (v0 ?? "").toLowerCase();
+    const c = term.indexOf(":");
+    const k = c < 0 ? term : term.slice(0, c);
+    const v = (c < 0 ? "" : term.slice(c + 1)).toLowerCase();
     switch (k) {
       case "is": if (v === "open" && snap.issue.state !== "open") return false; break;
       case "archived": if (v === "false" && snap.repo?.archived) return false; break;
       case "assignee": if (!(snap.issue.assignees ?? []).some((a: any) => a.login.toLowerCase() === v)) return false; break;
       case "author": if ((snap.issue.user?.login ?? "").toLowerCase() !== v) return false; break;
+      case "commenter": if (!commenters(snap).includes(v)) return false; break;
       case "mentions": if (!texts(snap).some((t) => new RegExp(`@${v}\\b`, "i").test(t))) return false; break;
-      case "team": if (!texts(snap).some((t) => t.toLowerCase().includes(`@${v}`))) return false; break;
-      case "review-requested":
+      case "user-review-requested":
         if (!(snap.pull?.requested_reviewers ?? []).some((u: any) => u.login.toLowerCase() === v)) return false; break;
-      case "team-review-requested":
-        if (!(snap.pull?.requested_teams ?? []).some((t: any) => `${snap.ref.owner}/${t.slug}`.toLowerCase() === v)) return false; break;
       case "repo": if (full !== v) return false; break;
+      case "updated":
+        if (v.startsWith(">=") && Date.parse(snap.issue.updated_at) < Date.parse(term.slice(c + 3))) return false; break;
       default: break;
     }
   }
@@ -96,14 +111,14 @@ function matches(snap: Record<string, any>, q: string): boolean {
 export class FixtureGitHub implements GitHubApi {
   constructor(private store: FixtureStore) {}
 
-  async viewer() { return { login: this.store.login, tokenExpiresAt: null }; }
-  async teams() { return this.store.teams; }
+  async viewer() { return { login: this.store.login, tokenExpiresAt: null, tokenType: "fine-grained" as const }; }
 
   async search(q: string, limit: number) {
     const hits = [...this.store.entries.values()]
-      .filter((e) => !e.closed && matches(e.snap, q))
-      .map(hit);
-    return { hits: hits.slice(0, limit), total: hits.length };
+      .filter((e) => matches(e.snap, q))
+      .map(hit)
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+    return { hits: hits.slice(0, Math.min(limit, 1000)), total: hits.length };
   }
 
   async item(repo: string, number: number): Promise<ItemState> {
@@ -118,12 +133,15 @@ export class FixtureGitHub implements GitHubApi {
     return e.snap;
   }
 
-  async repoAccess(fullName: string) {
-    const known = [...this.store.entries.values()].some((e) => `${e.snap.ref.owner}/${e.snap.ref.repo}` === fullName);
-    return known ? "ok" as const : "not_found" as const;
+  async repo(fullName: string): Promise<RepoInfo> {
+    const e = [...this.store.entries.values()].find((e) => `${e.snap.ref.owner}/${e.snap.ref.repo}`.toLowerCase() === fullName.toLowerCase());
+    if (!e) return { access: "not_found" };
+    return { access: e.snap.repo?.archived ? "archived" : "ok", fullName: `${e.snap.ref.owner}/${e.snap.ref.repo}` };
   }
 
-  async userExists(login: string) {
-    return /^[A-Za-z0-9-]+$/.test(login);
+  async user(login: string) {
+    return this.store.logins.has(login.toLowerCase())
+      ? { exists: true as const, avatarUrl: `https://github.com/${login}.png?size=64` }
+      : { exists: false as const };
   }
 }

@@ -4,19 +4,23 @@ import type { Ctx } from "./context.ts";
 
 export async function shownNotifications(ctx: Ctx, userId: string): Promise<Notification[]> {
   const rows = await ctx.db.query(
-    `select code, subject, params, first_detected_at from notifications where user_id = $1 and shown`,
+    `select code, subject, params, first_detected_at, seen_at from notifications where user_id = $1 and shown`,
     [userId],
   );
   return rows
-    .map((r) => ({ code: r.code, subject: r.subject, params: r.params ?? {}, firstDetectedAt: new Date(r.first_detected_at).toISOString() }))
+    .filter((r) => r.code in CATALOGUE)
+    .map((r) => ({
+      code: r.code, subject: r.subject, params: r.params ?? {},
+      firstDetectedAt: new Date(r.first_detected_at).toISOString(), seen: r.seen_at !== null,
+    }))
     .sort(compareNotifications);
 }
 
-async function push(ctx: Ctx, userId: string) {
+export async function push(ctx: Ctx, userId: string) {
   ctx.hub.notifications(userId, await shownNotifications(ctx, userId));
 }
 
-/** Records that a condition is present. Short-lived ones are shown only after the threshold. */
+/** Records that a condition is present. Short-lived ones are shown only after the threshold (NOTIF-21). */
 export async function raise(ctx: Ctx, userId: string, code: NotificationCode, params: Record<string, string> = {}, subject = "") {
   const entry = CATALOGUE[code];
   const before = await ctx.db.one(`select shown from notifications where user_id = $1 and code = $2 and subject = $3`, [userId, code, subject]);
@@ -27,6 +31,15 @@ export async function raise(ctx: Ctx, userId: string, code: NotificationCode, pa
   );
   const changed = await promote(ctx, userId);
   if (!before || changed || before.shown) await push(ctx, userId);
+}
+
+/**
+ * The developer opened the popover: the bell stops swinging on every device
+ * while the same errors last (NOTIF-17). A new notification starts unseen.
+ */
+export async function markSeen(ctx: Ctx, userId: string) {
+  const rows = await ctx.db.query(`update notifications set seen_at = now() where user_id = $1 and shown and seen_at is null returning code`, [userId]);
+  if (rows.length) await push(ctx, userId);
 }
 
 /** Records that a condition is gone. */

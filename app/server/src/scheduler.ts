@@ -1,9 +1,8 @@
-// Scan scheduling from presence (design: Scheduler; PRD SCAN-5, SCAN-6, Q-47, Q-48).
-import { STALE_AFTER_HOURS } from "@gitilizer/shared";
+// Scan scheduling from presence (design: Scheduler; PRD SCAN-5, SCAN-6, RANK-9, PRIV-5).
 import type { Ctx } from "./context.ts";
-import { queueRankJobs, reapLeases } from "./jobs.ts";
+import { queueFullRerank, reapLeases, refreshQuotas } from "./jobs.ts";
 import { clear, promote, raise } from "./notify.ts";
-import { scan } from "./scanner.ts";
+import { FULL_TRIGGERS, scan } from "./scanner.ts";
 
 const PRESENCE_TTL_MS = 90_000;
 
@@ -47,12 +46,26 @@ export class Scheduler {
     return r?.t ? Date.parse(r.t) : null;
   }
 
+  /** Developers who asked for a full scan (Sync now, Settings) while an incremental one was running. */
+  private wantsFull = new Set<string>();
+  private runningKind = new Map<string, "full" | "incremental" | undefined>();
+
   trigger(userId: string, trigger: string) {
-    if (this.running.has(userId)) return; // joins the running scan (SCAN-4)
+    if (this.running.has(userId)) {
+      // Joins the running scan (SCAN-4). If that scan is incremental, a full one follows straight
+      // after, so Sync now always sees "No longer yours" removals (design: Scheduler).
+      if (FULL_TRIGGERS.has(trigger) && this.runningKind.get(userId) !== "full") this.wantsFull.add(userId);
+      return;
+    }
     this.running.add(userId);
-    scan(this.ctx, userId, trigger)
+    this.runningKind.set(userId, undefined);
+    scan(this.ctx, userId, trigger, {}, (kind) => this.runningKind.set(userId, kind))
       .catch((e) => console.error(`[scan ${userId}]`, e))
-      .finally(() => this.running.delete(userId));
+      .finally(() => {
+        this.running.delete(userId);
+        this.runningKind.delete(userId);
+        if (this.wantsFull.delete(userId)) this.trigger(userId, "manual");
+      });
   }
 
   start() {
@@ -68,6 +81,7 @@ export class Scheduler {
     const { db, config } = this.ctx;
     await reapLeases(this.ctx);
     await promote(this.ctx);
+    await refreshQuotas(this.ctx);
     // With automatic scans off (local mode), only Sync now and saving Settings scan.
     if (!config.autoScan) return;
     // Prototype: one query over all developers with a token. Production: next_scan_at + SKIP LOCKED (design: Scheduler).
@@ -83,26 +97,35 @@ export class Scheduler {
       const inactive = Date.now() - Date.parse(u.last_seen_at) > config.inactiveDays * 86_400_000;
       const last = u.last_finished ? Date.parse(u.last_finished) : 0;
       if (!inactive && Date.now() - last >= interval * 1000) this.trigger(u.id, `schedule:${state}`);
-      // "Your issues haven't updated since {time}" (PRD catalogue; Q-17 threshold).
+      // "Your issues haven't updated since {time}" (PRD catalogue: 3 hours).
       const lastOk = u.last_ok ? Date.parse(u.last_ok) : null;
       if (u.first_sync_done && lastOk && Date.now() - lastOk > config.staleAfterSeconds * 1000) {
-        await raise(this.ctx, u.id, "stale", {
-          time: new Date(lastOk).toISOString(),
-          duration: `${Math.round(config.staleAfterSeconds / 3600) || STALE_AFTER_HOURS} hours`,
-        });
+        await raise(this.ctx, u.id, "stale", { since: new Date(lastOk).toISOString() });
       } else if (lastOk) {
         await clear(this.ctx, u.id, ["stale"]);
       }
     }
-    // Daily ageing pass (PRD Q-48, assumed): re-rank items not ranked in 24 hours.
+    // Hourly: re-rank, as one bulk batch per developer, items not ranked in the last 24 hours (RANK-9, LIVE-24),
+    // and delete item data no developer has had for 30 days (PRIV-5).
     if (Date.now() - this.lastAgeingPass > 3_600_000) {
       this.lastAgeingPass = Date.now();
-      const stale = await db.query(
-        `select user_id, item_key from user_items where status in ('active', 'iceboxed') and ranked_at < now() - interval '24 hours'`,
+      const due = await db.query(
+        `select distinct ui.user_id from user_items ui join users u on u.id = ui.user_id
+         where ui.status = 'active' and ui.ranked_at < now() - interval '24 hours'
+           and u.last_seen_at > now() - make_interval(days => $1)
+           and not exists (select 1 from rank_batches b where b.user_id = ui.user_id and b.reason = 'ageing' and b.finished_at is null)`,
+        [config.inactiveDays],
       );
-      const byUser = new Map<string, { key: string; reason: string }[]>();
-      for (const r of stale) byUser.set(r.user_id, [...(byUser.get(r.user_id) ?? []), { key: r.item_key, reason: "ageing" }]);
-      for (const [userId, jobs] of byUser) await queueRankJobs(this.ctx, userId, jobs);
+      for (const r of due) await queueFullRerank(this.ctx, r.user_id, "ageing", 24);
+      await deleteOldItems(this.ctx);
     }
   }
+}
+
+/** PRIV-5: an item's data, and each developer's record of it, go 30 days after no developer has it. */
+export async function deleteOldItems(ctx: Ctx) {
+  await ctx.db.query(`delete from user_items where status = 'gone' and gone_at < now() - interval '30 days'`);
+  await ctx.db.query(`delete from items i where not exists (select 1 from user_items ui where ui.item_key = i.key) and coalesce(i.snapshot_updated_at, i.updated_at) < now() - interval '1 day'`);
+  await ctx.db.query(`delete from rank_jobs where state in ('done', 'failed') and finished_at < now() - interval '30 days'`);
+  await ctx.db.query(`delete from rank_batches where finished_at < now() - interval '30 days'`);
 }

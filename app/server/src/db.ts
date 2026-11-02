@@ -11,6 +11,25 @@ export interface Db {
   close(): Promise<void>;
 }
 
+// Upgrades a database made by an earlier version of the prototype (for example
+// a local-mode database in .local/). Runs before SCHEMA, and every statement is
+// safe to run again.
+const BEFORE_SCHEMA = `
+do $$ begin
+  if exists (select 1 from information_schema.tables where table_name = 'interested_repos')
+     and not exists (select 1 from information_schema.tables where table_name = 'additional_repos') then
+    alter table interested_repos rename to additional_repos;
+    alter table additional_repos rename column filter to prioritization_prompt;
+    update additional_repos set access = 'checking' where access not in ('ok', 'not_found', 'sso_required', 'token_type_blocked', 'archived');
+  end if;
+  if exists (select 1 from information_schema.columns where table_name = 'collaborators' and column_name = 'exists_on_github') then
+    alter table collaborators add column if not exists status text not null default 'unknown';
+    update collaborators set status = case exists_on_github when true then 'ok' when false then 'not_found' else 'unknown' end;
+    alter table collaborators drop column exists_on_github;
+  end if;
+end $$;
+`;
+
 const SCHEMA = `
 create table if not exists users (
   id text primary key,
@@ -27,7 +46,7 @@ create table if not exists users (
   first_sync_done boolean not null default false,
   ranking_paused_until timestamptz,
   ranking_paused_code text,
-  last_manual_sync_at timestamptz,
+  last_full_scan_at timestamptz,
   setup_completed_at timestamptz,
   unique (provider, provider_user_id)
 );
@@ -47,9 +66,8 @@ create table if not exists credentials (
   ciphertext text not null,
   nonce text not null,
   expires_at timestamptz,
-  validated_at timestamptz,
-  validation_ok boolean,
-  validation_detail text,
+  token_login text,
+  token_type text,
   updated_at timestamptz not null default now(),
   primary key (user_id, kind)
 );
@@ -57,22 +75,25 @@ create table if not exists settings (
   user_id text primary key references users(id) on delete cascade,
   custom_prompt text,
   sort_prioritized jsonb not null default '{"column":"priority","dir":"asc"}',
-  sort_icebox jsonb not null default '{"column":"type","dir":"asc"}',
-  review_teams text[] not null default '{}',
-  review_teams_fetched_at timestamptz
+  sort_icebox jsonb not null default '{"column":"type","dir":"asc"}'
 );
-create table if not exists interested_repos (
+create table if not exists additional_repos (
   user_id text not null references users(id) on delete cascade,
   full_name text not null,
-  filter text not null default '',
-  access text not null default 'unknown',
+  prioritization_prompt text not null default '',
+  access text not null default 'checking',
+  token_type text,
+  checked_at timestamptz,
   position int not null default 0,
   primary key (user_id, full_name)
 );
 create table if not exists collaborators (
   user_id text not null references users(id) on delete cascade,
   login text not null,
-  exists_on_github boolean,
+  status text not null default 'unknown',
+  avatar_url text,
+  checked_at timestamptz,
+  position int not null default 0,
   primary key (user_id, login)
 );
 create table if not exists items (
@@ -81,6 +102,7 @@ create table if not exists items (
   title text not null,
   html_url text not null,
   state text not null,
+  draft boolean not null default false,
   updated_at timestamptz not null,
   snapshot jsonb,
   snapshot_updated_at timestamptz
@@ -98,13 +120,17 @@ create table if not exists user_items (
   reasoning text,
   ranked_at timestamptz,
   ranked_updated_at timestamptz,
+  ranked_model text,
   rank_failed boolean not null default false,
+  rank_error text,
   gone_reason text,
+  gone_at timestamptz,
   primary key (user_id, item_key)
 );
 create table if not exists scans (
   id bigserial primary key,
   user_id text not null references users(id) on delete cascade,
+  kind text not null default 'full',
   trigger text not null,
   started_at timestamptz not null default now(),
   finished_at timestamptz,
@@ -112,20 +138,31 @@ create table if not exists scans (
   error_code text
 );
 create unique index if not exists scans_one_running on scans(user_id) where finished_at is null;
+create table if not exists rank_batches (
+  id text primary key,
+  user_id text not null references users(id) on delete cascade,
+  reason text not null,
+  created_at timestamptz not null default now(),
+  finished_at timestamptz
+);
 create table if not exists rank_jobs (
   id bigserial primary key,
   user_id text not null references users(id) on delete cascade,
   item_key text not null,
+  kind text not null default 'rank',
   reason text not null,
+  priority int not null default 0,
+  batch_id text,
   state text not null default 'queued',
   attempts int not null default 0,
   lease_expires_at timestamptz,
   not_before timestamptz not null default now(),
+  model text,
   error_code text,
+  item_updated_at timestamptz,
   created_at timestamptz not null default now(),
   finished_at timestamptz
 );
-create unique index if not exists rank_jobs_one_queued on rank_jobs(user_id, item_key) where state in ('queued', 'leased');
 create table if not exists notifications (
   user_id text not null references users(id) on delete cascade,
   code text not null,
@@ -134,12 +171,55 @@ create table if not exists notifications (
   first_detected_at timestamptz not null default now(),
   condition_since timestamptz not null default now(),
   shown boolean not null default false,
+  seen_at timestamptz,
   primary key (user_id, code, subject)
 );
 create table if not exists list_versions (
   user_id text primary key references users(id) on delete cascade,
   version bigint not null default 0
 );
+create table if not exists gemini_quota (
+  user_id text not null references users(id) on delete cascade,
+  model text not null,
+  exhausted_until timestamptz not null,
+  primary key (user_id, model)
+);
+create table if not exists deleted_users (
+  id text primary key,
+  deleted_at timestamptz not null default now()
+);
+`;
+
+// Columns added after the first prototype, for databases made before them.
+const AFTER_SCHEMA = `
+alter table users add column if not exists last_full_scan_at timestamptz;
+alter table credentials add column if not exists token_login text;
+alter table credentials add column if not exists token_type text;
+alter table credentials drop column if exists validated_at;
+alter table credentials drop column if exists validation_ok;
+alter table credentials drop column if exists validation_detail;
+alter table settings drop column if exists review_teams;
+alter table settings drop column if exists review_teams_fetched_at;
+alter table additional_repos add column if not exists token_type text;
+alter table additional_repos add column if not exists checked_at timestamptz;
+alter table collaborators add column if not exists avatar_url text;
+alter table collaborators add column if not exists checked_at timestamptz;
+alter table collaborators add column if not exists position int not null default 0;
+alter table items add column if not exists draft boolean not null default false;
+alter table user_items add column if not exists ranked_model text;
+alter table user_items add column if not exists rank_error text;
+alter table user_items add column if not exists gone_at timestamptz;
+update user_items set reasons = array_replace(reasons, 'interested_repo', 'additional_repo') where 'interested_repo' = any(reasons);
+alter table scans add column if not exists kind text not null default 'full';
+alter table rank_jobs add column if not exists kind text not null default 'rank';
+alter table rank_jobs add column if not exists priority int not null default 0;
+alter table rank_jobs add column if not exists batch_id text;
+alter table rank_jobs add column if not exists model text;
+alter table rank_jobs add column if not exists item_updated_at timestamptz;
+drop index if exists rank_jobs_one_queued;
+create unique index if not exists rank_jobs_one_open on rank_jobs(user_id, item_key, kind) where state in ('queued', 'leased');
+create index if not exists rank_jobs_claim on rank_jobs(state, not_before, priority);
+alter table notifications add column if not exists seen_at timestamptz;
 `;
 
 function wrapPg(pool: pg.Pool | pg.PoolClient, isClient = false): Db {
@@ -197,6 +277,8 @@ export async function openDb(url: string | undefined, dataDir: string | undefine
     const { PGlite } = await import("@electric-sql/pglite");
     db = wrapPglite(new PGlite(dataDir));
   }
+  await db.exec(BEFORE_SCHEMA);
   await db.exec(SCHEMA);
+  await db.exec(AFTER_SCHEMA);
   return db;
 }

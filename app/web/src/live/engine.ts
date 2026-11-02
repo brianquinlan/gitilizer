@@ -9,7 +9,8 @@ export const PAGE_SIZE = 25;
 export const BATCH_THRESHOLD = 5; // LIVE-9: more than 5 waiting play together
 
 export type Row = ItemRow & { leaving?: string };
-export type Change = { key: string; row: ItemRow | null; reason?: RemovalReason };
+/** `bulk`: part of a bulk re-rank, applied in one step without indicators (LIVE-24). */
+export type Change = { key: string; row: ItemRow | null; reason?: RemovalReason; bulk?: boolean };
 export type Live = { shown: Record<string, Row>; latest: Record<string, ItemRow>; queue: Change[]; version: number };
 export type View = "prioritized" | "icebox";
 
@@ -19,7 +20,11 @@ export const LEAVE_LABEL: Record<RemovalReason, string> = {
   iceboxed: "Moved to Icebox",
   restored: "Restored",
   no_longer_matches: "No longer yours",
+  over_limit: "", // LIVE-26: no label
 };
+
+/** An Icebox item the Icebox check sent back to the list (ICE-6, ICE-9). */
+export const RETURNED_LABEL = "Back in your list";
 
 export function init(items: ItemRow[], version: number): Live {
   const m: Record<string, ItemRow> = {};
@@ -41,9 +46,9 @@ export function receive(s: Live, e: ListEvent): Live {
     const known = s.latest[r.key];
     latest[r.key] = r;
     if (known && JSON.stringify(known) === JSON.stringify(r)) continue;
-    put({ key: r.key, row: r });
+    put({ key: r.key, row: r, bulk: e.bulk || undefined });
   }
-  for (const r of e.removals) { delete latest[r.key]; put({ key: r.key, row: null, reason: r.reason }); }
+  for (const r of e.removals) { delete latest[r.key]; put({ key: r.key, row: null, reason: r.reason, bulk: e.bulk || undefined }); }
   return { ...s, latest, queue: queue.filter((c) => !sameAsShown(s, c)), version: e.version };
 }
 
@@ -64,11 +69,15 @@ export function own(s: Live, key: string, row: ItemRow | null, leaveLabel?: stri
   return { ...s, latest, shown, queue: s.queue.filter((c) => c.key !== key) };
 }
 
-/** Rows in a view, before sorting: ranked active items, or iceboxed items. Leaving rows stay until they collapse. */
+/**
+ * Rows in a view, before sorting: active items that have been ranked, or that
+ * are shown with "–" (failed, or waiting for quota; LIST-30), or iceboxed
+ * items. Leaving rows stay until they collapse.
+ */
 export function rowsFor(shown: Record<string, Row>, view: View): Row[] {
   const out: Row[] = [];
   for (const r of Object.values(shown)) {
-    if (view === "prioritized" && r.status === "active" && (r.score !== null || r.rankFailed)) out.push(r);
+    if (view === "prioritized" && r.status === "active" && (r.score !== null || r.rankFailed || r.waitingForQuota)) out.push(r);
     else if (view === "icebox" && r.status === "iceboxed") out.push(r);
     else if (r.leaving && ((view === "prioritized" && r.status === "active") || (view === "icebox" && r.status === "iceboxed"))) out.push(r);
   }
@@ -77,7 +86,8 @@ export function rowsFor(shown: Record<string, Row>, view: View): Row[] {
 
 /** Rank = position by priority among active, ranked items (RANK-3), independent of the table's sort. */
 export function ranks(shown: Record<string, Row>): Record<string, number> {
-  const rows = rowsFor(shown, "prioritized").filter((r) => !r.leaving).sort(compareByPriority);
+  // Items shown with "–" have no rank (LIST-30).
+  const rows = rowsFor(shown, "prioritized").filter((r) => !r.leaving && r.score !== null && !r.rankFailed).sort(compareByPriority);
   const out: Record<string, number> = {};
   rows.forEach((r, i) => { out[r.key] = i + 1; });
   return out;
@@ -107,8 +117,9 @@ export function clampPage(page: number, n: number): number {
   return Math.min(Math.max(1, page), pageCount(n));
 }
 
+/** LIVE-8, LIVE-9; a bulk re-rank always plays as one step with whatever else is waiting (LIVE-24). */
 export function nextBatch(s: Live): Change[] {
-  return s.queue.length > BATCH_THRESHOLD ? s.queue : s.queue.slice(0, 1);
+  return s.queue.length > BATCH_THRESHOLD || s.queue.some((c) => c.bulk) ? s.queue : s.queue.slice(0, 1);
 }
 
 export type Applied = {
@@ -128,13 +139,19 @@ export function apply(s: Live, batch: Change[]): Applied {
   for (const c of batch) {
     const cur = shown[c.key];
     if (!c.row) {
-      if (cur) { shown[c.key] = { ...cur, leaving: LEAVE_LABEL[c.reason ?? "no_longer_matches"] }; leaving.push(c.key); }
+      if (!cur) continue;
+      const label = LEAVE_LABEL[c.reason ?? "no_longer_matches"];
+      // LIVE-26: an item pushed past the 1,000-item limit goes without a label.
+      if (!label) { delete shown[c.key]; continue; }
+      shown[c.key] = { ...cur, leaving: label };
+      leaving.push(c.key);
       continue;
     }
     if (cur?.leaving) continue; // finalize() will pick up the latest row when the leave label ends
-    if (cur && cur.status !== c.row.status) {
-      // Moved between the list and the Icebox by the server (e.g. ICE-6 automatic return).
-      shown[c.key] = c.row;
+    if (cur && cur.status === "iceboxed" && c.row.status === "active") {
+      // The Icebox check sent it back: it leaves the Icebox with the leave animation (ICE-9).
+      shown[c.key] = { ...cur, leaving: RETURNED_LABEL };
+      leaving.push(c.key);
       continue;
     }
     shown[c.key] = c.row;
@@ -143,7 +160,7 @@ export function apply(s: Live, batch: Change[]): Applied {
   const indicators: Record<string, string> = {};
   let changed = 0;
   for (const c of batch) {
-    if (!c.row) continue;
+    if (!c.row || c.bulk) continue; // no indicators for bulk re-ranks (LIVE-24)
     const a = after[c.key];
     const b = before[c.key];
     if (a === undefined) continue;

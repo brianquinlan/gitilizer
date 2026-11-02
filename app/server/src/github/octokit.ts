@@ -3,7 +3,7 @@ import { Octokit } from "@octokit/core";
 import { paginateRest } from "@octokit/plugin-paginate-rest";
 import { retry } from "@octokit/plugin-retry";
 import { throttling } from "@octokit/plugin-throttling";
-import { GitHubProblem, itemKey, limitSnapshot, type GitHubApi, type ItemState, type SearchHit } from "./types.ts";
+import { GitHubProblem, itemKey, limitSnapshot, type GitHubApi, type ItemState, type RepoInfo, type SearchHit } from "./types.ts";
 
 const GitilizerOctokit = Octokit.plugin(paginateRest, retry, throttling);
 const FULL_MEDIA = "application/vnd.github.full+json";
@@ -64,9 +64,16 @@ export function classify(e: any, expiresAt?: string | null): GitHubProblem {
     const tokenType = lower.includes("(classic)") ? "classic" : "fine-grained";
     return new GitHubProblem("org_blocks_token", message, { status, org, tokenType });
   }
-  if (status === 403 && headers["x-github-sso"]) return new GitHubProblem("sso", message, { status });
+  if (status === 403 && headers["x-github-sso"]) {
+    // "required; url=https://github.com/orgs/{org}/sso?authorization_request=…"
+    const org = /\/orgs\/([^/]+)\/sso/.exec(headers["x-github-sso"])?.[1] ?? "";
+    return new GitHubProblem("sso", message, { status, org });
+  }
   if (status === 403 && lower.includes("resource not accessible by personal access token")) {
-    return new GitHubProblem("permission", message, { status });
+    // e.g. "issues=read; pull_requests=read"
+    const accepted = headers["x-accepted-github-permissions"] ?? "";
+    const permission = accepted.split(/[;,]/)[0]?.split("=")[0]?.trim().replace(/_/g, " ") || "this resource";
+    return new GitHubProblem("permission", message, { status, permission: permission.replace(/^\w/, (c) => c.toUpperCase()) });
   }
   if (status === 403 && lower.includes("bad credentials")) return new GitHubProblem("invalid", message, { status });
   if (status === 404 || status === 410) return new GitHubProblem("not_found", message, { status });
@@ -86,6 +93,7 @@ function hitFrom(raw: any): SearchHit {
     htmlUrl: raw.html_url,
     state: raw.state,
     updatedAt: raw.updated_at,
+    merged: Boolean(raw.pull_request?.merged_at),
   };
 }
 
@@ -99,8 +107,10 @@ function parseExpiry(h: string | undefined): string | null {
 export class OctokitGitHub implements GitHubApi {
   private o: InstanceType<typeof GitilizerOctokit>;
   private expiresAt: string | null = null;
+  private tokenType: "classic" | "fine-grained";
 
   constructor(token: string) {
+    this.tokenType = token.startsWith("github_pat_") ? "fine-grained" : "classic";
     this.o = new GitilizerOctokit({
       auth: token,
       userAgent: "gitilizer",
@@ -134,24 +144,15 @@ export class OctokitGitHub implements GitHubApi {
 
   async viewer() {
     const r = await this.req("GET /user");
-    return { login: r.data.login as string, tokenExpiresAt: this.expiresAt };
-  }
-
-  async teams() {
-    try {
-      const teams = await this.pages("GET /user/teams");
-      return teams.map((t: any) => `${t.organization.login}/${t.slug}`);
-    } catch (e) {
-      if (e instanceof GitHubProblem && (e.code === "permission" || e.code === "not_found")) return [];
-      throw e;
-    }
+    return { login: r.data.login as string, tokenExpiresAt: this.expiresAt, tokenType: this.tokenType };
   }
 
   async search(q: string, limit: number) {
     const hits: SearchHit[] = [];
     let total = 0;
+    // Newest first, so the first 1,000 results are always enough (SCAN-1).
     for (let page = 1; hits.length < limit && page <= 10; page++) {
-      const r = await this.req("GET /search/issues", { q, per_page: 100, page });
+      const r = await this.req("GET /search/issues", { q, sort: "updated", order: "desc", per_page: 100, page });
       total = r.data.total_count;
       const items = r.data.items as any[];
       hits.push(...items.map(hitFrom));
@@ -168,22 +169,27 @@ export class OctokitGitHub implements GitHubApi {
     return { ...hitFrom(raw), merged };
   }
 
-  async repoAccess(fullName: string) {
+  async repo(fullName: string): Promise<RepoInfo> {
     try {
-      await this.req(`GET /repos/${fullName}`);
-      return "ok" as const;
+      // GitHub follows renames, so full_name is the current name (SET-8).
+      const r = await this.req(`GET /repos/${fullName}`);
+      return { access: r.data.archived ? "archived" : "ok", fullName: r.data.full_name };
     } catch (e) {
-      if (e instanceof GitHubProblem && e.code === "not_found") return "not_found" as const;
+      if (!(e instanceof GitHubProblem)) throw e;
+      const org = e.details.org || fullName.split("/")[0];
+      if (e.code === "not_found") return { access: "not_found" };
+      if (e.code === "sso") return { access: "sso_required", org };
+      if (e.code === "org_blocks_token") return { access: "token_type_blocked", org, tokenType: e.details.tokenType === "classic" ? "classic" : "fine-grained" };
       throw e;
     }
   }
 
-  async userExists(login: string) {
+  async user(login: string) {
     try {
-      await this.req(`GET /users/${login}`);
-      return true;
+      const r = await this.req(`GET /users/${login}`);
+      return { exists: true as const, avatarUrl: r.data.avatar_url as string };
     } catch (e) {
-      if (e instanceof GitHubProblem && e.code === "not_found") return false;
+      if (e instanceof GitHubProblem && e.code === "not_found") return { exists: false as const };
       throw e;
     }
   }

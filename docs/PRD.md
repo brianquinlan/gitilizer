@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-01, ninth round (answer to Q-52; no open questions) |
+| **Last updated** | 2026-11-01, tenth round (Q-77 to Q-79, found while bringing the prototype in line with this document) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Replaces** | [Gitilizer PRD (Google Doc)](https://docs.google.com/document/d/1iN4HGqn5_Nz4g8oweqg0PK-iLlKQ8dza7ruqxADpu6U/edit) |
@@ -447,6 +447,10 @@ Figma: [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 - **LIST-28** The button must never be disabled. Choosing it while a sync is running joins that sync (`SCAN-4`). There is no minimum interval between manual syncs.
 - **LIST-32** A sync counts as finished, and the icon stops turning, when the scan has finished and every new and changed item has been ranked or has failed.
 
+> **CONFIRM: [Q-79](#q-79)** When every model's daily quota is used up (`RANK-15`), new items wait until midnight Pacific time, so under `LIST-32` the icon would turn for hours. The prototype counts the sync as finished once every new and changed item has been ranked, has failed, or is waiting for quota (shown with "–", `LIST-30`); the "Your Gemini daily quota is used up" error explains the wait.
+
+Yep, that's fine.
+
 ### Moving an item to the Icebox
 
 - **LIST-18** "Move to icebox" must move the item to the [Icebox](#icebox) immediately. The row leaves the list as described in `LIVE-15`, and the next item moves up so the page still has 25 rows.
@@ -501,6 +505,10 @@ Each animation takes about 0.4 seconds.
   | The PR was closed without merging | Closed |
   | The developer chose "Move to icebox" | Moved to Icebox |
   | It no longer matches `LIST-1` (the developer was unassigned, a review request was withdrawn, its repository was archived or removed from additional repositories) | No longer yours |
+
+> **CONFIRM: [Q-77](#q-77)** The table has no row for an item the Icebox check sends back to the list (`ICE-6`), which leaves the Icebox with the leave animation (`ICE-9`). The prototype shows "Back in your list". ("Restored" would suggest the developer did it.)
+
+That's fine.
 
 - **LIVE-26** An item that leaves because of the 1,000-item limit (`LIST-19`) shows no label. It moves off the bottom of the page as an item moving to a later page does (`LIVE-13`).
 
@@ -581,6 +589,8 @@ Both credentials are required.
   | Gemini key can't use Gemini | ✗ "This key can't use the Gemini API. Create a key in Google AI Studio." |
   | Provider can't be reached | ✗ "Couldn't reach GitHub. Check your connection and try again." ("Google" for the Gemini key) |
   | Anything else | ✗ "Something went wrong on our side. Try again." |
+
+> **CONFIRM: [Q-78](#q-78)** "GitHub token expired" can't be told apart for a token typed into the field: GitHub answers 401 "Bad credentials" for an expired token just as for a mistyped one, and it sends the expiry date only with successful responses. The expiry date is known only for a token Gitilizer has already used, which can't be validated again (`SET-21`). The prototype therefore shows "GitHub didn't accept this token…" for an expired typed token. The expired state stays in the table in case GitHub's answer changes; the "Your GitHub token has expired" notification is unaffected.
 
 - **SET-29** Saving doesn't validate credentials. A saved credential that doesn't work shows up as a [notification](#catalogue) when Gitilizer first uses it.
 - **SET-30** The status chip on each credential card must show one of: "Not set" (grey) when no credential is saved; "Connected" (green) when one is saved and no error notification about it is active; "Not working" (red) while an error notification about it is active; "Expires soon" (amber) while the GitHub token's expiry warning is active.
@@ -747,7 +757,13 @@ Gitilizer keeps:
 
 Q-58 to Q-63 were found by building the prototype described in the [design doc](design.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers and the new Figma designs.
 
-There are no open questions: every OPENQUESTION and CONFIRM has been resolved, and the decisions are in the table below.
+Q-77 to Q-79 were found while bringing the prototype in line with this document. Each has a suggested answer, which the prototype already follows.
+
+| ID | Area | Question | Suggested answer | Needed by |
+|---|---|---|---|---|
+| <a id="q-77"></a>Q-77 | Live updates | What label does an item show as it leaves the Icebox because the Icebox check brought it back? | "Back in your list". | Implementation |
+| <a id="q-78"></a>Q-78 | Settings | Validate can't tell an expired typed token from a mistyped one. What does it show? | "GitHub didn't accept this token. Check that you copied all of it." | Implementation |
+| <a id="q-79"></a>Q-79 | Prioritized list | Does Sync now keep turning while new items wait for the daily quota to reset? | No: the sync counts as finished; the quota error explains the wait. | Implementation |
 
 ### Answered questions
 
@@ -902,3 +918,7 @@ There are no open questions: every OPENQUESTION and CONFIRM has been resolved, a
 ### Eleventh revision (2026-11-01, ninth round)
 
 - Folded in the rest of Q-52: the user documentation gets a privacy section (`FOOT-4`). No questions are open.
+
+### Twelfth revision (2026-11-01, tenth round)
+
+- Added Q-77 to Q-79 (each a CONFIRM with the answer the prototype follows), found while bringing the prototype in line with this document and the design doc.

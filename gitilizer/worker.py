@@ -28,8 +28,21 @@ from typing import Any
 
 import requests
 
-from .context import UserSettings, build_context, parse_time
+from pathlib import Path
+
+from pydantic import BaseModel, Field
+
+from .context import UserSettings, build_context, build_events, is_bot, parse_time
 from .prioritizer import DEFAULT_PROMPT, GeminiLLM, Item, ItemAssessment, system_instruction
+
+ICEBOX_PROMPT = Path(__file__).resolve().parent.parent / "prompts" / "icebox_check_v1.md"
+#: Ranking uses the lowest thinking level the models allow (PRD RANK-11).
+THINKING_LEVEL = "low"
+
+
+class IceboxDecision(BaseModel):
+    bring_back: bool = Field(description="True if the change should bring the item back to the prioritized list.")
+    reason: str = Field(description="One short sentence explaining the decision.")
 
 
 # --------------------------------------------------------------------------- #
@@ -91,20 +104,31 @@ def classify_gemini(e: BaseException) -> Classified:
 # Fake model for fixture mode
 # --------------------------------------------------------------------------- #
 
-class FakeLLM:
-    """Deterministic scores without a network call. A changed item gets a new score.
+_UNIMPORTANT = ("labeled", "unlabeled", "milestoned", "demilestoned", "renamed")
 
-    FAKE_LLM_ERROR=<code> makes every call fail with that code, to exercise error handling.
+
+class FakeLLM:
+    """Deterministic answers without a network call. A changed item gets a new score.
+
+    The Icebox check keeps an item only when every new event is a bot's or a label or
+    milestone edit, as the real prompt asks. FAKE_LLM_ERROR=<code> makes every call
+    fail with that code, to exercise error handling.
     """
 
     def generate(self, system: str, user: str, schema):
         forced = os.environ.get("FAKE_LLM_ERROR")
         if forced:
             raise Classified(forced, f"forced by FAKE_LLM_ERROR={forced}", 60)
+        if schema is IceboxDecision:
+            events = [line for line in user.splitlines() if line.startswith("[")]
+            keep = bool(events) and all(
+                "[bot]" in line.split("] ", 1)[-1].split(" ", 1)[0]
+                or any(f" {k}" in line for k in _UNIMPORTANT)
+                for line in events
+            )
+            return IceboxDecision(bring_back=not keep, reason="Fake model: " + ("only unimportant changes" if keep else "a person changed it")), {}
         h = int(hashlib.sha256(user.encode()).hexdigest()[:8], 16)
         priority = round((h % 1000) / 1000, 3)
-        if "thumbs_down_at:" in user:
-            priority = round(priority * 0.1, 3)
         return schema(actionable=priority > 0.5, next_action="(fake) Look at this.",
                       priority=priority, reasoning="Fake model: score derived from the item's content."), {}
 
@@ -114,15 +138,50 @@ class FakeLLM:
 # --------------------------------------------------------------------------- #
 
 def score(job: dict[str, Any], llm_factory) -> ItemAssessment:
+    """Scores one item (PRD RANK-18)."""
     user = UserSettings.from_dict(job["user"])
-    item = Item(job["itemKey"], job["snapshot"], thumbs_down_at=job.get("thumbsDownAt"))
+    item = Item(job["itemKey"], job["snapshot"])
     guidance = job.get("prompt") or DEFAULT_PROMPT.read_text(encoding="utf-8")
-    # Score as of now, not as of the snapshot, so ageing works (PRD Q-48).
+    # Score as of now, not as of the snapshot, so ageing works (PRD RANK-9).
     now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
     system = system_instruction(guidance, user, "pointwise")
-    context = build_context(item.snap, user, now=now, thumbs_down_at=item.thumbs_down_at)
+    context = build_context(item.snap, user, now=now)
     msg = f"current_time: {now.isoformat().replace('+00:00', 'Z')}\n\n{context}"
     result, _usage = llm_factory(job).generate(system, msg, ItemAssessment)
+    return result
+
+
+def icebox_message(job: dict[str, Any], now: dt.datetime) -> str:
+    """What the Icebox check sees: the item and only the events since it was iceboxed (design: Ranking worker)."""
+    snap = job["snapshot"]
+    issue = snap["issue"]
+    me = job["user"]["github_login"]
+    since = parse_time(job.get("iceboxedAt")) or now
+    kind = "pull request" if issue.get("pull_request") else "issue"
+    lines = [
+        f"current_time: {now.isoformat().replace('+00:00', 'Z')}",
+        f"me: {me}",
+        f"item: {kind} {job['itemKey']} {issue.get('title')!r} (state: {issue.get('state')})",
+        f"iceboxed_at: {since.isoformat().replace('+00:00', 'Z')}",
+        "",
+        "Changes since it was iceboxed (oldest first; (ME) marks the developer):",
+    ]
+    events = [e for e in build_events(snap) if e.at > since]
+    for e in events:
+        line = e.render(now, 1500, me)
+        if is_bot(e.actor) and "[bot]" not in (e.actor or ""):
+            line = line.replace(f"] {e.actor} ", f"] {e.actor}[bot] ", 1)
+        lines.append(line)
+    if not events:
+        lines.append("(no individual events found; the item's updated_at changed)")
+    return "\n".join(lines)
+
+
+def icebox_check(job: dict[str, Any], llm_factory) -> IceboxDecision:
+    """Asks whether a change should bring an iceboxed item back (PRD ICE-6, ICE-12)."""
+    now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    system = ICEBOX_PROMPT.read_text(encoding="utf-8")
+    result, _usage = llm_factory(job).generate(system, icebox_message(job, now), IceboxDecision)
     return result
 
 
@@ -138,13 +197,17 @@ class Worker:
         if self.fake:
             return FakeLLM()
         # Few retries: the job's lease is 120 s, and the server re-queues transient failures.
-        return GeminiLLM(model=job["model"], api_key=job["geminiKey"], max_retries=2)
+        return GeminiLLM(model=job["model"], api_key=job["geminiKey"], thinking_level=THINKING_LEVEL, max_retries=2)
 
     def post(self, path: str, body: dict) -> requests.Response:
         return self.s.post(f"{self.api}{path}", json=body, timeout=30)
 
     def run_job(self, job: dict[str, Any]) -> str:
         try:
+            if job.get("kind") == "icebox_check":
+                d = icebox_check(job, self.llm)
+                self.post(f"/internal/rank-jobs/{job['id']}/result", {"bring_back": bool(d.bring_back), "reason": d.reason})
+                return f"{job['itemKey']} icebox -> {'back' if d.bring_back else 'stay'}"
             a = score(job, self.llm)
             self.post(f"/internal/rank-jobs/{job['id']}/result", {
                 "priority": max(0.0, min(1.0, float(a.priority))),

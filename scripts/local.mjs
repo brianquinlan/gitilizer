@@ -125,28 +125,32 @@ function run(name, command, argv, options = {}) {
   return child;
 }
 
-function waitForPort(port, timeoutMs = 60_000) {
-  const start = Date.now();
-  return new Promise((ok, fail) => {
-    const attempt = () => {
-      const s = net.connect(port, "127.0.0.1");
-      s.once("connect", () => { s.end(); ok(); });
-      s.once("error", () => {
-        s.destroy();
-        if (Date.now() - start > timeoutMs) fail(new Error(`nothing listening on port ${port} after ${timeoutMs / 1000} s`));
-        else setTimeout(attempt, 300);
-      });
-    };
-    attempt();
+// Vite listens on "localhost", which is ::1 (IPv6) on Windows and 127.0.0.1 elsewhere, so check both.
+const HOSTS = ["127.0.0.1", "::1"];
+
+function listening(port, host) {
+  return new Promise((ok) => {
+    const s = net.connect(port, host);
+    s.once("connect", () => { s.end(); ok(true); });
+    s.once("error", () => { s.destroy(); ok(false); });
   });
 }
 
-function portFree(port) {
-  return new Promise((ok) => {
-    const s = net.connect(port, "127.0.0.1");
-    s.once("connect", () => { s.end(); ok(false); });
-    s.once("error", () => { s.destroy(); ok(true); });
-  });
+async function anyListening(port) {
+  return (await Promise.all(HOSTS.map((h) => listening(port, h)))).some(Boolean);
+}
+
+async function waitForPort(port, timeoutMs = 60_000) {
+  const start = Date.now();
+  while (!(await anyListening(port))) {
+    if (stopping) return;
+    if (Date.now() - start > timeoutMs) throw new Error(`nothing listening on port ${port} after ${timeoutMs / 1000} s`);
+    await new Promise((r) => setTimeout(r, 300));
+  }
+}
+
+async function portFree(port) {
+  return !(await anyListening(port));
 }
 
 // --- Start ---------------------------------------------------------------------------
@@ -165,8 +169,10 @@ const serverEnv = {
   CREDENTIAL_KEY: credentialKey,
   AUTO_SCAN: scheduler ? "on" : "off",
   GITILIZER_MODEL: process.env.GITILIZER_MODEL ?? dotenv.GITILIZER_MODEL ?? "",
+  GITILIZER_MODELS: process.env.GITILIZER_MODELS ?? dotenv.GITILIZER_MODELS ?? "",
 };
 if (!serverEnv.GITILIZER_MODEL) delete serverEnv.GITILIZER_MODEL;
+if (!serverEnv.GITILIZER_MODELS) delete serverEnv.GITILIZER_MODELS;
 if (fixtures) {
   // Fixture GitHub and the fake model accept any value, so the account needs no real credentials.
   serverEnv.LOCAL_GITHUB_TOKEN = "fixture-github-token";

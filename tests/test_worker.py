@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from gitilizer.prioritizer import ItemAssessment
-from gitilizer.worker import Classified, FakeLLM, classify_gemini, score
+from gitilizer.worker import Classified, FakeLLM, IceboxDecision, Worker, classify_gemini, icebox_check, score
 
 FIXTURES = Path(__file__).resolve().parent.parent / "eval" / "fixtures"
 
@@ -49,9 +49,10 @@ def test_bad_output_is_an_item_level_failure():
 def job_for(name: str, **extra):
     snap = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
     job = {
-        "id": 1, "itemKey": "x", "snapshot": snap, "prompt": None, "geminiKey": "k", "model": "m", "thumbsDownAt": None,
-        "user": {"github_login": "brianquinlan", "interested_repos": [{"repo": "dart-lang/http", "filter": "not responsible for http2"}],
-                 "collaborators": ["kevmoo"], "review_teams": []},
+        "id": 1, "kind": "rank", "itemKey": "x", "snapshot": snap, "prompt": None, "geminiKey": "k", "model": "m", "iceboxedAt": None,
+        "user": {"github_login": "brianquinlan",
+                 "additional_repos": [{"repo": "dart-lang/http", "prioritization_prompt": "not responsible for http2"}],
+                 "collaborators": ["kevmoo"]},
     }
     job.update(extra)
     return job
@@ -67,20 +68,48 @@ def test_score_runs_the_real_agent_code_on_a_snapshot():
 
     a = score(job_for("dart-lang__http__2031.json"), lambda job: Spy())
     assert isinstance(a, ItemAssessment) and a.priority == 0.7
-    assert "not responsible for http2" in seen["system"]  # the repository filter reaches the agent
+    assert "not responsible for http2" in seen["system"]  # the prioritization prompt reaches the agent
     assert seen["user"].startswith("current_time: 20")
 
 
-def test_icebox_time_reaches_the_agent_as_thumbs_down():
+def with_comment(job, login, body, at="2099-01-01T00:00:00Z"):
+    snap = dict(job["snapshot"])
+    snap["timeline"] = [*snap["timeline"], {"event": "commented", "actor": {"login": login}, "created_at": at, "body": body}]
+    return {**job, "snapshot": snap}
+
+
+def test_icebox_check_sees_only_changes_since_the_item_was_iceboxed():
     seen = {}
 
     class Spy:
         def generate(self, system, user, schema):
-            seen["user"] = user
-            return schema(actionable=False, next_action="n", priority=0.0, reasoning="r"), {}
+            seen["system"], seen["user"], seen["schema"] = system, user, schema
+            return IceboxDecision(bring_back=True, reason="r"), {}
 
-    score(job_for("dart-lang__http__2031.json", thumbsDownAt="2026-10-30T00:00:00Z"), lambda job: Spy())
-    assert "thumbs_down_at: 2026-10-30" in seen["user"]
+    job = with_comment(job_for("dart-lang__http__2031.json", kind="icebox_check", iceboxedAt="2098-12-31T00:00:00Z"),
+                       "kevmoo", "Can you take another look?")
+    d = icebox_check(job, lambda j: Spy())
+    assert d.bring_back and seen["schema"] is IceboxDecision
+    assert "Lean strongly toward bringing it back" in seen["system"]
+    events = [line for line in seen["user"].splitlines() if line.startswith("[")]
+    assert len(events) == 1 and "kevmoo commented" in events[0]
+
+
+def test_fake_icebox_check_keeps_only_unimportant_changes():
+    base = job_for("dart-lang__http__2031.json", kind="icebox_check", iceboxedAt="2098-12-31T00:00:00Z")
+    fake = lambda j: FakeLLM()  # noqa: E731
+    assert icebox_check(with_comment(base, "dependabot[bot]", "Bumped"), fake).bring_back is False
+    assert icebox_check(with_comment(base, "brianquinlan", "This is a critical security issue, I'll work on it right away"), fake).bring_back is True
+
+
+def test_worker_reports_icebox_answers_and_uses_low_thinking(monkeypatch):
+    posted = []
+    w = Worker("http://api", "t", fake=True, concurrency=1)
+    monkeypatch.setattr(w, "post", lambda path, body: posted.append((path, body)))
+    w.run_job(with_comment(job_for("dart-lang__http__2031.json", kind="icebox_check", iceboxedAt="2098-12-31T00:00:00Z"), "kevmoo", "hi"))
+    assert posted == [("/internal/rank-jobs/1/result", {"bring_back": True, "reason": "Fake model: a person changed it"})]
+    from gitilizer import worker
+    assert worker.THINKING_LEVEL == "low"
 
 
 def test_fake_llm_is_deterministic_and_can_be_forced_to_fail(monkeypatch):

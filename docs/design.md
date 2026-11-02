@@ -2,16 +2,16 @@
 
 | | |
 |---|---|
-| **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype predates the 2026-11-01 PRD revision; [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) lists what it must change. |
+| **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype follows the 2026-11-01 PRD except where [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) says otherwise. |
 | **Author** | brian@sweetapp.com (drafted with Claude) |
-| **Last updated** | 2026-11-01 (design open questions added) |
+| **Last updated** | 2026-11-01 (prototype brought in line with the PRD; D-6 and D-7 added) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Google Cloud project** | `gitilizer` |
 | **Source** | [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer) |
 | **Requirements** | [PRD](PRD.md) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 
-This document explains how Gitilizer is built. It refers to requirements in the [PRD](PRD.md) by ID (for example `LIST-4`) and to the PRD's questions by number (for example [Q-28](PRD.md#q-28)). The PRD has no open questions; the decisions this design depends on are summarized in [PRD decisions](#prd-decisions).
+This document explains how Gitilizer is built. It refers to requirements in the [PRD](PRD.md) by ID (for example `LIST-4`) and to the PRD's questions by number (for example [Q-28](PRD.md#q-28)). The decisions this design depends on are summarized in [PRD decisions](#prd-decisions). The PRD's open questions, [Q-77](PRD.md#q-77) to [Q-79](PRD.md#q-79), came from building the prototype, which follows their suggested answers.
 
 Questions about the design itself are marked the same way as in the PRD. **OPENQUESTION:** marks missing information. **CONFIRM:** marks a choice this design has made that the owner should confirm. Each links to a row in [Open questions](#open-questions), numbered D-1, D-2 and so on so they can't be confused with the PRD's.
 
@@ -172,6 +172,8 @@ Everything runs in the Google Cloud project `gitilizer`.
 
 > **CONFIRM: [D-3](#d-3)** The region is `us-east4` (Northern Virginia). `us-east1` (South Carolina) would work equally well.
 
+us-east4 is fine.
+
 **Domain (`PLAT-5`).** `gitilizer.com` (the apex, with `www.gitilizer.com` redirecting to it) points at the API service. The OAuth redirect URLs ([Sign-in and sessions](#sign-in-and-sessions)) and the session cookie are tied to this domain, so preview deployments sign in with the development stub.
 
 > **CONFIRM: [D-2](#d-2)** How `gitilizer.com` reaches Cloud Run. There are three ways ([Google's comparison](https://docs.cloud.google.com/run/docs/mapping-custom-domains)):
@@ -182,9 +184,13 @@ Everything runs in the Google Cloud project `gitilizer`.
 >
 > Suggestion: the load balancer if the cost estimate leaves room for it; otherwise the domain mapping, accepting the Preview risk.
 
+Let's go with (2). Include the estimated costs.
+
 **Budget (`PLAT-4`) is the main design risk.** US$200 a month has to cover Cloud SQL, the always-on scanner and worker, the domain, and enough API instances to hold 10,000 open event streams.
 
 > **OPENQUESTION: [D-1](#d-1)** Does the design fit in US$200 a month at the load in [Scale](#scale)? It needs a cost estimate with the Google Cloud pricing calculator before the design is approved. If holding 10,000 event streams on Cloud Run is too expensive, the web app can poll `GET /api/list?since={version}` every 15–30 seconds instead. That still meets the "no page reload" requirement, but not the 5-second latency in `LIVE-23`.
+
+Let's go with the non-polling option for now. Mark that it might have higher cost and what the alternative is in case we have to change our minds.
 
 ---
 
@@ -198,6 +204,8 @@ Everything runs in the Google Cloud project `gitilizer`.
 | Account key | `sub` | Numeric user `id` |
 
 > **CONFIRM: [D-4](#d-4)** GitHub sign-in uses an OAuth app with only the `user:email` scope. GitHub now recommends GitHub Apps for new integrations, and a GitHub App can also sign people in, but its user tokens expire after 8 hours and it adds an app installation concept that sign-in doesn't need. Since Gitilizer discards the token right after sign-in and never uses it to read items (`AUTH-5`), the simpler OAuth app is enough.
+
+Confirmed.
 
 - **Accounts (`AUTH-3`, `AUTH-7`).** `users` has a unique index on `(provider, provider_user_id)`. Email is stored for display only and is never used to merge accounts, so the same person signing in with both providers gets two accounts. `METRIC-1` counts them as two users.
 - **Provider tokens.** The callback reads the profile (name, email, avatar) and then discards the provider's tokens. Gitilizer keeps no Google or GitHub sign-in token, which is why revoking access at the provider doesn't sign the developer out ([Q-11](PRD.md#q-11)).
@@ -244,14 +252,15 @@ Postgres. Times are `timestamptz`. IDs are text UUIDs unless stated.
 | `users` | `id`, `provider`, `provider_user_id`, `name`, `email`, `avatar_url`, `github_login`, `created_at`, `last_seen_at`, `setup_completed_at`, `ranking_paused_until` | Unique on `(provider, provider_user_id)` (`AUTH-7`). `github_login` comes from the PAT (`GET /user`), not from sign-in (`AUTH-5`). `last_seen_at` drives [Q-47](PRD.md#q-47). `setup_completed_at` decides Warm Welcome ([Q-8](PRD.md#q-8)). |
 | `user_activity` | `user_id`, `day` | One row per developer per day with a visit, for `METRIC-1`. |
 | `sessions` | `id` (random 32 bytes, base64url), `user_id`, `expires_at` | Sliding 30-day expiry ([Sign-in and sessions](#sign-in-and-sessions)). |
-| `credentials` | `user_id`, `kind` (`github_pat`, `gemini_key`), `ciphertext`, `nonce`, `expires_at`, `validated_at`, `validation_detail`, `token_login` | AES-256-GCM ([Security](#security)). `expires_at` from GitHub's `GitHub-Authentication-Token-Expiration` header (`SET-6`). `token_login` is the account that owns the PAT, shown in the Validate result ([Q-19](PRD.md#q-19)). |
+| `credentials` | `user_id`, `kind` (`github_pat`, `gemini_key`), `ciphertext`, `nonce`, `expires_at`, `token_login`, `token_type` | AES-256-GCM ([Security](#security)). Saved without being checked (`SET-29`). `expires_at` from GitHub's `GitHub-Authentication-Token-Expiration` header (`SET-6`). The scanner fills in `token_login` (the PAT's account) and `token_type` (`classic` or `fine-grained`, from the token's prefix). The status chip (`SET-30`) isn't stored: it comes from the shown notifications. |
 | `settings` | `user_id`, `custom_prompt` (null = default), `sort_prioritized`, `sort_icebox` | |
 | `additional_repos` | `user_id`, `full_name`, `prioritization_prompt`, `access` (`checking`, `ok`, `not_found`, `sso_required`, `token_type_blocked`, `archived`), `position` | `access` drives the state and hover text in `SET-8`. Called `interested_repos`, with a `filter` column, in the prototype. |
-| `collaborators` | `user_id`, `login`, `status` (`ok`, `not_found`, `unknown`), `avatar_url`, `checked_at` | Added without a check (`SET-18`); the scanner looks each one up (`GET /users/{login}`) and records the result for `SET-19`. |
+| `collaborators` | `user_id`, `login`, `status` (`ok`, `not_found`, `unknown`), `avatar_url`, `checked_at`, `position` | Added without a check (`SET-18`); the scanner looks each one up (`GET /users/{login}`) and records the result for `SET-19`. |
 | `items` | `key` (`owner/repo#number`), `kind`, `title`, `html_url`, `state`, `draft`, `archived`, `updated_at`, `snapshot` (jsonb), `snapshot_fetched_at` | Shared by every developer who has the item; `PRIV-3` limits retention. |
-| `user_items` | `user_id`, `item_key`, `reasons` (text[]: `review_requested`, `assigned`, `mentioned`, `created`, `commented`, `additional_repo`), `mention_handle`, `status` (`active`, `iceboxed`, `gone`), `iceboxed_at`, `score`, `actionable`, `next_action`, `reasoning`, `ranked_at`, `ranked_model`, `ranked_updated_at`, `rank_error`, `gone_reason`, `version` | One row per developer and item. **Rank is not stored**: it is the position when active items are ordered by `score DESC, items.updated_at DESC, item_key` (`RANK-3`, `RANK-4`). Storing ranks would mean rewriting many rows whenever one item moves. `gone_reason` is `closed`, `merged`, `no_longer_matches` or `over_limit` (`LIST-19`). |
+| `user_items` | `user_id`, `item_key`, `reasons` (text[]: `review_requested`, `assigned`, `mentioned`, `created`, `commented`, `additional_repo`), `mention_handle`, `status` (`active`, `iceboxed`, `gone`), `iceboxed_at`, `score`, `actionable`, `next_action`, `reasoning`, `ranked_at`, `ranked_model`, `ranked_updated_at`, `rank_error`, `gone_reason`, `gone_at` | One row per developer and item. **Rank is not stored**: it is the position when active items are ordered by `score DESC, items.updated_at DESC, item_key` (`RANK-3`, `RANK-4`). Storing ranks would mean rewriting many rows whenever one item moves. `gone_reason` is `closed`, `merged`, `no_longer_matches` or `over_limit` (`LIST-19`); `gone_at` starts the 30 days in `PRIV-5`. |
 | `scans` | `user_id`, `started_at`, `finished_at`, `kind` (`full`, `incremental`), `trigger`, `outcome`, `error_code` | One running scan per developer (`SCAN-4`), enforced by a partial unique index on unfinished rows. |
-| `rank_jobs` | `id`, `user_id`, `item_key`, `kind` (`rank`, `icebox_check`), `reason` (`new`, `changed`, `linked`, `rerank`, `ageing`, `restore`), `priority`, `batch_id`, `state` (`queued`, `leased`, `done`, `failed`), `lease_expires_at`, `attempts` | One queued job per developer, item and kind (unique index on queued rows), so repeated changes coalesce. `batch_id` groups the jobs of one bulk re-rank (`LIVE-24`). `priority` orders the queue when quota is short ([Ranking worker](#ranking-worker)). |
+| `rank_jobs` | `id`, `user_id`, `item_key`, `kind` (`rank`, `icebox_check`), `reason` (`new`, `changed`, `linked`, `rerank`, `ageing`, `restore`), `priority`, `batch_id`, `state` (`queued`, `leased`, `done`, `failed`), `lease_expires_at`, `attempts`, `model`, `item_updated_at` | One open job per developer, item and kind (unique index on queued and leased rows), so repeated changes coalesce; a more urgent job takes over a queued bulk one and leaves its batch. `batch_id` groups the jobs of one bulk re-rank (`LIVE-24`). `priority` orders the queue when quota is short ([Ranking worker](#ranking-worker)). `item_updated_at` is the item's `updated_at` when the job was claimed; it becomes `ranked_updated_at`, so a change made while the job runs is ranked again by the next scan. |
+| `rank_batches` | `id`, `user_id`, `reason` (`first_sync`, `rerank`, `ageing`), `created_at`, `finished_at` | One row per bulk re-rank (`LIVE-24`). When its last job is done or failed, a `rerank` or `ageing` batch publishes every row at once; a `first_sync` batch publishes as it goes. |
 | `notifications` | `user_id`, `code`, `subject` (org, repo or empty), `params` (jsonb), `first_detected_at`, `shown`, `seen_at` | Severity comes from `code`. For short-lived codes, `first_detected_at` is when the problem started and `shown` flips after 15 minutes (`NOTIF-21`). `seen_at` is set when the developer opens the popover (`NOTIF-17`). |
 | `list_versions` | `user_id`, `version` (bigint) | Incremented on every change to the developer's list; carried in every live-update event. |
 | `gemini_quota` | `user_id`, `model`, `exhausted_until` | Set when Gemini reports a per-day quota for that model (`RANK-13`): `exhausted_until` is the next midnight Pacific time, or the time the error gives. The model used for a job is the first in `GITILIZER_MODELS` that isn't exhausted. Quotas belong to the key's Google Cloud project, so the rows are cleared when a new key is saved. |
@@ -278,6 +287,7 @@ JSON over HTTPS. Every request and response body is defined by a zod schema in `
 | `POST /api/notifications/seen` | The popover was opened: sets `seen_at` on every shown notification, which stops the bell swinging on all of the developer's devices (`NOTIF-17`). |
 | `GET /api/settings`, `PUT /api/settings` | Additional repositories with prioritization prompts, collaborators with their status and avatar, ranking prompt, sort preferences. `PUT` takes everything on the page, `{ …, credentials?: { github_pat?, gemini_key? }, rerank: boolean }`: "Save changes" sends `rerank: false`, "Save and re-rank" sends `true`, which queues a full re-rank (`SET-15`). Credentials are stored without being validated (`SET-29`). Returns per-field errors for anything that breaks the rules in `SET-27`, which keep the developer on Settings (`NAV-8`). |
 | `PUT /api/sort` | Saves one view's sort order (`LIST-9`). |
+| `POST /api/repos/check`, `POST /api/collaborators/check` | Look up a repository (`{ access, fullName, tokenType }`) or a collaborator (`{ status, avatarUrl }`) as soon as it is added in Settings, before saving, with the saved PAT. Nothing is stored; the scan after saving records the same results ([D-6](#d-6)). |
 | `POST /api/credentials/:kind/check` | Check a typed value without saving it (`SET-2`, `SET-28`). Returns `{ ok, code, login?, expires_at?, permission? }`, where `code` selects the message. For a GitHub token: `GET /user` (login, expiry header) and one search, which shows a missing permission through `X-Accepted-GitHub-Permissions`. For a Gemini key: `GET /v1beta/models/{model}`, which checks the key and access to the model without using the developer's request quota. |
 | `DELETE /api/account` | `SET-17`. Sent after the confirmation dialog; requires `{ confirm: true }` so a stray request can't delete an account. |
 | `POST /api/telemetry` | Browser timings for `METRIC-3` (time to a usable list, web vitals). Accepts small JSON bodies only, rate-limited per session. |
@@ -332,6 +342,10 @@ Details that need more than markup:
 - **Bell.** Swings while any shown error has no `seen_at`; opening the popover calls `POST /api/notifications/seen` (`NOTIF-17`). Amber and still when there are only warnings (`NOTIF-5`).
 - **Sync now** is never disabled, and spins whenever the `sync` event says `running` (`LIST-17`, `LIST-28`).
 - **Saving Settings.** A successful save navigates to `/` (`NAV-8`); per-field errors keep the page open and are shown under their fields, and the save buttons are disabled while any error shows (`SET-27`). Duplicate and format checks run in the browser as well, so most errors appear before saving. "Cancel" discards changes and also navigates to `/` (`NAV-9`). Leaving with unsaved changes asks first, through the router and `beforeunload` (`SET-26`).
+- **Checking what was just added.** A repository or collaborator is looked up as soon as it is added, so its access state or avatar shows before saving.
+
+  > **CONFIRM: [D-6](#d-6)** Two check endpoints use the saved PAT and store nothing; the scan after saving records the same results. Without a saved PAT the row shows "Checking…" until then.
+
 - **Credentials.** Saved credentials are shown as dots; "Validate" is disabled until something is typed, and the eye icon shows only typed text (`SET-21`).
 - **Account menu.** Closes on a click outside, on Esc and when an item is chosen (`ACCT-4`). The action is "Sign out" everywhere (`ACCT-5`).
 - **Delete account.** A simple confirmation dialog, then `DELETE /api/account` and a redirect to `/sign-in` (`SET-17`).
@@ -351,6 +365,8 @@ A scan for one developer:
    - `is:open archived:false user-review-requested:{login}` (personal review requests only; no team requests, [Q-43](PRD.md#q-43));
    - `is:open archived:false` with each of `assignee:{login}`, `mentions:{login}`, `author:{login}` and `commenter:{login}`;
    - `is:open archived:false repo:{owner}/{name}` for each additional repository. Before the search, `GET /repos/{owner}/{name}` checks access (`SET-8`): a 404 means `not_found`, a 403 with `X-GitHub-SSO` means `sso_required`, a 403 naming the token type means `token_type_blocked`, and `archived: true` means `archived`. GitHub follows renames, so the response's `full_name` replaces the stored name, which keeps `repo:` searches working.
+
+   > **CONFIRM: [D-7](#d-7)** A search can answer `X-GitHub-SSO: partial-results; organizations={ids}`, naming organizations only by ID. The suggestion is to look the names up with `GET /organizations/{id}` for the "Your token isn't authorized for {org}" notification. The prototype doesn't handle this header yet.
 
    Each result contributes a reason to that item. Team mentions (`team:`) are not searched ([Q-65](PRD.md#q-65)). For mentions the scanner records the handle `@{login}`, or none ("@-mentioned") when it can't tell.
 
@@ -391,6 +407,8 @@ Each web app tab reports presence (`POST /api/presence`) on load, on every `visi
 A scan is **full** if it is the developer's first, if Sync now or saving Settings started it, or if the last full scan finished more than 1 hour ago; otherwise it is **incremental**. Removals that only a full scan can see (`no_longer_matches`) therefore reach the list within about an hour, or at once after Sync now.
 
 > **CONFIRM: [D-5](#d-5)** A full scan at most once an hour, with incremental scans in between. More often makes "No longer yours" removals appear sooner, but a full scan can use many of the 30 search requests a minute that GitHub allows each token, which other tools using the same token share.
+
+A Sync now or a save while an incremental scan is running joins it (`SCAN-4`), and a full scan follows as soon as it finishes.
 
 A presence report that changes the developer to visible starts a scan at once if the last one finished more than 5 minutes ago (`SCAN-6`). The scheduler loop runs every 10 s: `SELECT … WHERE next_scan_at <= now() … FOR UPDATE SKIP LOCKED LIMIT n`, so several scanner processes can share the work. A daily pass queues an `ageing` batch for every active item not ranked in the last 24 hours (`RANK-9`).
 
@@ -482,61 +500,57 @@ At 10,000 visible developers scanning every 5 minutes there are about **33 scans
 
 ## Prototype status
 
-The prototype implements the slice end to end, against the PRD as it stood on 2026-10-31. It runs on one machine with no external services in **fixture mode**: `eval/fixtures/` stands in for GitHub (as @brianquinlan, with search qualifiers evaluated against the snapshots), and a fake model gives deterministic scores. Drop `--fixtures` and `--fake-llm` to use real GitHub and Gemini.
-
-```
-npm install                          # once, at the repository root
-npm run dev:fixtures                 # API on :8787, worker API on :8788
-python -m gitilizer.worker --fake-llm
-npm run dev:web                      # http://localhost:5173
-```
+The prototype implements the slice end to end, following the PRD as revised on 2026-11-01. It runs on one machine with no external services in **fixture mode**: `eval/fixtures/` stands in for GitHub (as @brianquinlan, with search qualifiers, sorting and `updated:>=` evaluated against the snapshots), and a fake model gives deterministic scores and Icebox answers. Drop `--fixtures` and `--fake-llm` to use real GitHub and Gemini. [local-development.md](local-development.md) explains how to run it.
 
 | Area | Status |
 |---|---|
-| Sign-in | Development stub only ("Continue with Google/GitHub" both open it). No OAuth. |
-| Warm Welcome, screen selection | Done, with the decided Q-8 rule. |
-| App bar, account menu, footer | Done, including the wordmark link to the list. Footer URLs are placeholders. |
-| Notifications | Bell states and swing, popover, ordering, links, the catalogue as of 2026-10-31, thresholds for short-lived errors, clearing on credential save, browser-side "Can't connect". |
-| Prioritized list | Columns, inclusion reasons with precedence, sorting (stored on the account), pagination with "…", empty and first-sync states, Sync now with a spinner and 30-second throttle, Move to icebox. |
-| Live updates | Holding rules (pointer, focus, tap, hidden tab, Icebox), one-at-a-time and batches above 5, page boundaries, leave labels, FLIP slide and expand animations, row indicators, reduced-motion cross-fade, screen-reader announcements. **Not done:** the fade toward the top or bottom for rows moving to another page (`LIVE-12`, `LIVE-13`); those rows disappear instead. |
-| Icebox | View, Restore, automatic return with the `thumbs_down_at` rule. |
-| Settings | Credentials (save, check typed value, validate, status), interested repositories with filters and access checks, collaborators, ranking prompt with Restore default, whole-page Save/Cancel with the re-rank cost, Delete account with typed confirmation. |
-| Scanner | Discovery searches, diff, removal reasons (closed, merged, no longer matches), snapshot port with size limits, GitHub error classification, review teams. |
-| Scheduler | Presence, intervals, scan on becoming visible, inactive cut-off, stale-list check, daily ageing pass. Simplified to one loop over all developers. |
-| Ranking worker | Claim/result/error loop, Gemini error classification, key-level pause, retries and failure after 3 attempts. **Not done:** per-developer concurrency limit (4). Not yet run against real Gemini. |
-| Metrics | `user_activity` table and `GET /internal/metrics`. No dashboard. |
+| Sign-in | Development stub only ("Continue with Google/GitHub" both open it). No OAuth. The sign-in page shows the four failure notices for `/sign-in?error=…` (grey for `cancelled`, red otherwise) and removes the parameter. |
+| Warm Welcome, screen selection | Done. |
+| App bar, account menu, footer | Done: "Sign out" in red with icons, real Documentation and GitHub URLs. |
+| Notifications | The whole catalogue (28 codes) with its severities; short-lived problems become warnings after 15 minutes; the backup-model warning and the all-models error; `seen_at`, so the bell swings only for unseen errors and stops on every device once the popover opens; amber, still bell for warnings; links that open Settings and focus the control (`github-pat`, `gemini-key`, `repo-{owner}-{name}`, `ranking-prompt`, `add-repository`); focus moves into the popover and back to the bell. |
+| Prioritized list | Columns with unpadded ranks and "–" for unranked items; repository names cut off at the start; full dates on hover; inclusion reasons with the PRD's precedence and repository names; "{N} issues and PRs"; pages with "…"; the empty state's link to "Add repository"; the first-sync state as in Figma (three pulsing skeleton rows and "Scanning your issues and PRs…"); Sync now never disabled, turning for any sync. |
+| Live updates | Holding rules (pointer, focus, hidden tab, Icebox), one at a time and batches above 5, bulk events in one step without indicators, page boundaries, leave labels, FLIP animations, row indicators, reduced-motion cross-fade, screen-reader announcements ("3 issues changed rank"). **Not done:** the fade toward the top or bottom for rows moving to another page (`LIVE-12`, `LIVE-13`, and the over-limit removal in `LIVE-26`); those rows disappear instead. |
+| Icebox | View, Restore (keeps the score unless the item changed), the Icebox check job and prompt (`prompts/icebox_check_v1.md`), automatic return with the leave animation, removal of ineligible items. **Not done:** the labelled examples in `eval/icebox/` (`ICE-13`). |
+| Settings | Rebuilt from Figma: sections 01–04, the account panel and Delete account panel in the left column, credential cards with chips, Validate (typed values only) with the `SET-28` messages, repositories by name or URL with prioritization prompts and the four access states, collaborators with avatars and the not-found icon, the 20,000-character prompt with its count, inline errors (in the browser, and from the server's 422 response), the three save buttons, and a confirmation before leaving with unsaved changes. |
+| Scanner | Full and incremental scans; the five personal searches plus one per repository, newest first, up to 1,000 results each; the 1,000-item limit with `over_limit`; closed, merged and no-longer-matching removals; repository access states and renames; collaborator lookups; linked-item re-ranks; Icebox checks; the GitHub error classification for the whole catalogue. **Not done:** `X-GitHub-SSO: partial-results` on searches ([D-7](#d-7)). |
+| Scheduler | Presence, intervals, scan on becoming visible, the 7-day background cut-off, full scans at most hourly (and for Sync now and saving Settings, including after a running incremental scan), the stale-list check, the daily re-rank as one bulk batch per developer, quota resets, and the 30-day clean-up (`PRIV-5`). Simplified to one loop over all developers. |
+| Ranking worker | One item per call at the "low" thinking level; claims in queue order with at most 4 jobs per developer; model fallback (`gemini_quota`, `ranked_model`); key-level pauses; retries and failure after 3 attempts; Icebox checks. Not yet run against real Gemini. |
+| Account deletion | Simple confirmation; `{ confirm: true }`; the account's ID kept in `deleted_users`. |
+| Metrics | `user_activity`, `GET /internal/metrics`, and `POST /api/telemetry`, which logs the time to a usable list. **Not done:** the dashboard and alerts (`METRIC-3`, `METRIC-4`). |
+| Documentation | [user-guide.md](user-guide.md): getting started, GitHub tokens (the "Learn more" page), Gemini keys, every notification, and the privacy section (`FOOT-3`, `FOOT-4`). |
+| Upgrades | A database made by an earlier prototype (for example in `.local/`) is upgraded in place when the server starts: `interested_repos` becomes `additional_repos`, and new columns are added. |
 
-**Tests.** 10 web tests (the live-update state machine), 11 server tests (error classification, snapshot limits, and a full scan → rank → change → close → Icebox → key-failure cycle on in-memory Postgres) and 42 Python tests (the original 25, 16 for the worker and 1 for the snapshot fix). A browser run in fixture mode covered sign-in, setup, the first sync, a live re-rank, a merged PR leaving, holding while the pointer is on the table, notifications, the Icebox and Restore, and pages.
+**Tests.** 14 web tests (the live-update state machine, including bulk events, waiting and failed items, over-limit removals and the Icebox return), 32 server tests (error classification, snapshot limits, discovery, the Settings rules, quota resets, local mode, a full scan → rank → change → close → Icebox → over-limit → bulk re-rank → quota fallback → key-failure cycle on in-memory Postgres, and the HTTP API for Settings, Validate, Sync now, notifications and deletion) and 44 Python tests (the original 25, 18 for the worker and 1 for the snapshot fix). A browser run in fixture mode covered the list, the first-sync state, notifications and their Settings links, the Settings rules and errors, Validate, saving, Delete account's dialog, the account menu and the sign-in notices.
 
 ---
 
 ## Changes from the 2026-11-01 PRD
 
-What the prototype must change to match the third PRD revision. None of these has been made yet.
+What the prototype had to change to match the third PRD revision, and where each change stands.
 
-| Area | Change | PRD |
-|---|---|---|
-| Terminology | Rename interested repositories to additional repositories, and `filter` to `prioritization_prompt` (table, API, UI). The inclusion label is the repository's name, not "Interested repository" (also in the sign-in page's preview rows, `Simple.tsx`). | `LIST-3`, `SET-9` |
-| Inclusion | Replace `review-requested:` with `user-review-requested:`; add `commenter:`; drop the `team-review-requested:` and `team:` searches, `GET /user/teams` and `settings.review_teams`. New order of precedence. | `LIST-1`, `LIST-21` |
-| List size | Sort searches by `updated`, cap at 1,000, add `over_limit`. Add incremental scans. (Splitting large searches, previously "not done", is no longer needed.) | `LIST-19`, `SCAN-1` |
-| List | Unpadded ranks (`ListPage.tsx` pads ranks below 100); "{N} issues and PRs" in every state; repository names cut off at the start; "You can choose more repositories in the settings." | `LIST-12`, `LIST-14`, `LIST-23`, `LIST-27` |
-| Sync now | Remove the 30-second throttle (`manualSyncMinSeconds` and its 429) and the disabled state; spin for automatic syncs too. | `LIST-17`, `LIST-28` |
-| Bulk re-ranks | `batch_id` on jobs and `bulk` list events. | `LIVE-24` |
-| Icebox | Replace the `thumbs_down_at` rule with the Icebox check job and prompt; remove ineligible items. | `ICE-6`, `ICE-11` to `ICE-13` |
-| Notifications | Short-lived codes become warnings; the backup-model warning and the all-models daily-quota error; the warning bell doesn't swing; `seen_at` and the stop-after-opening rule; nine new codes; links focus the control that fixes the problem. | `NOTIF-5`, `NOTIF-9`, `NOTIF-17`, `NOTIF-21`, `RANK-13` |
-| Settings | "Save changes", "Save and re-rank" and "Cancel", all returning to the list; the Validate states and "Not set" / "Connected" / "Not working" / "Expires soon" chips (`SET-28`, `SET-30`); saving no longer validates; repository URLs accepted, 25-repository and 500-character limits; inline errors; collaborators with avatars and a not-found icon, added without a check; Delete account panel in the left column with a simple confirmation instead of typing "delete"; sections in the order 01 Connections, 02 Additional repositories, 03 Ranking prompt, 04 Collaborators; the PAT's account in the Validate result; Validate disabled for an empty field, and the saved-credential validate endpoint removed. | `SET-14` to `SET-26`, `NAV-8`, [Q-71](PRD.md#q-71), [Q-73](PRD.md#q-73) |
-| Account menu | "Sign out" instead of "Log out" (`Chrome.tsx`), and no arrow in Settings. | `ACCT-5` |
-| First sync | Pulsing skeleton rows; items hidden until ranked. | `LIST-15`, `LIST-30` |
-| Ranking | Linked-item re-ranks; queue order when quota is short; the per-developer limit of 4 (previously "not done"). | `RANK-10` to `RANK-13` |
-| Scheduler | Background scans only for developers seen in the last 7 days (the prototype uses 14). | `SCAN-5` |
-| Monitoring | Telemetry endpoint, dashboard and email alerts. | `METRIC-3`, `METRIC-4` |
-| Live updates | Remove the hold after a tap (touch isn't supported). | `LIVE-5` |
-| Ranking model | Lowest thinking level; model fallback with `gemini_quota` and `ranked_model`. | `RANK-11`, `RANK-13` to `RANK-16` |
-| Deletion | `deleted_users` table; 180-day backups. | `PRIV-4` |
-| Sign-in | Real Google and GitHub OAuth; sliding 30-day sessions; the four failed-sign-in messages. | `AUTH-7` to `AUTH-14` |
-| Footer | Real "Documentation" and "GitHub" URLs; write the user documentation, including its privacy section. | `FOOT-2` to `FOOT-4` |
-| Prompt | "Keep an eye on" wording for additional repositories; lower scores for drafts; measure both. | [Q-57](PRD.md#q-57), `RANK-8` |
-| Hosting | The `gitilizer.com` domain and the OAuth redirect URLs. | `PLAT-5` |
+| Area | Change | PRD | Status |
+|---|---|---|---|
+| Terminology | Interested repositories are additional repositories, with a prioritization prompt; the inclusion label is the repository's name. | `LIST-3`, `SET-9` | Done |
+| Inclusion | `user-review-requested:` and `commenter:`; no team searches; the new order of precedence. | `LIST-1`, `LIST-21` | Done |
+| List size | Searches sorted by `updated`, the 1,000-item cap, `over_limit`, incremental scans. | `LIST-19`, `SCAN-1` | Done |
+| List | Unpadded ranks; "{N} issues and PRs"; repository names cut off at the start; "You can choose more repositories in the settings." | `LIST-12`, `LIST-14`, `LIST-23`, `LIST-27` | Done |
+| Sync now | No throttle and no disabled state; turns for automatic syncs too. | `LIST-17`, `LIST-28` | Done |
+| Bulk re-ranks | `batch_id`, `rank_batches` and `bulk` list events. | `LIVE-24` | Done |
+| Icebox | The Icebox check job and prompt; ineligible items removed. | `ICE-6`, `ICE-11` to `ICE-13` | Done, except the labelled examples (`ICE-13`) |
+| Notifications | Warnings for short-lived problems, the quota notifications, the still amber bell, `seen_at`, the nine new codes, links that focus controls. | `NOTIF-5`, `NOTIF-9`, `NOTIF-17`, `NOTIF-21`, `RANK-13` | Done. A short-lived Gemini warning clears on the first success, not after 15 minutes without 429s. |
+| Settings | The three save buttons returning to the list; Validate states and chips; saving without validating; repository URLs and the limits; inline errors; collaborators with avatars; the Delete account panel; the section order; Validate only for typed values. | `SET-14` to `SET-31`, `NAV-8`, `NAV-9` | Done |
+| Account menu | "Sign out". | `ACCT-5` | Done |
+| First sync | Pulsing skeleton rows and the message; items hidden until ranked. | `LIST-15`, `LIST-30` | Done |
+| Ranking | Linked-item re-ranks; queue order; at most 4 at a time per developer. | `RANK-10` to `RANK-13` | Done |
+| Scheduler | Background scans only for developers seen in the last 7 days. | `SCAN-5` | Done |
+| Monitoring | Telemetry endpoint, dashboard and email alerts. | `METRIC-3`, `METRIC-4` | Endpoint done; dashboard and alerts need the hosting |
+| Live updates | No hold after a tap. | `LIVE-5` | Done |
+| Ranking model | Low thinking; model fallback with `gemini_quota` and `ranked_model`. | `RANK-11`, `RANK-13` to `RANK-16` | Done |
+| Deletion | `deleted_users`; 180-day backups. | `PRIV-4` | Table done; backups need the hosting |
+| Sign-in | Real Google and GitHub OAuth; sliding 30-day sessions; the four failed-sign-in messages. | `AUTH-7` to `AUTH-15` | Sessions and messages done; OAuth needs the OAuth apps and the domain |
+| Footer | Real URLs; the user documentation with its privacy section. | `FOOT-2` to `FOOT-4` | Done |
+| Prompt | "Keep an eye on" wording for additional repositories; lower scores for drafts. | `SET-31`, `RANK-8` | Not done: both need measuring with the evaluation harness against real Gemini first (`RANK-7`) |
+| Hosting | The `gitilizer.com` domain and the OAuth redirect URLs. | `PLAT-5` | Not done ([D-2](#d-2)) |
 
 ---
 
@@ -561,6 +575,12 @@ Building the slice turned up these gaps. Those that need a product decision are 
 | F13 | **"First sync finished"** needed a definition (scan done and every queued item ranked or failed) before the empty state could be chosen. | Decided: `LIST-32` |
 | F14 | **Item data is shared between developers** (one `items` row per GitHub item), so deleting an account (`PRIV-3`) leaves items another developer still has. A daily clean-up job deletes `items` rows, and `gone` `user_items` rows, once no developer has had the item as active or iceboxed for 30 days (`PRIV-5`). | Designed; to do |
 | F15 | **The 1,000-item limit makes search splitting unnecessary**, and sorting by `updated` makes incremental scans cheap. A full scan is still needed now and then to see items that stop matching without being closed. | [Scanner](#scanner) |
+| F16 | **An expired token can't be recognized before it is saved.** GitHub answers 401 "Bad credentials" for an expired token and sends the expiry date only on success, so Validate can't show "This token expired on {date}" for a typed token. | PRD [Q-78](PRD.md#q-78) |
+| F17 | **Waiting for quota would keep Sync now turning for hours** under `LIST-32`. The prototype counts items waiting for quota as finished. | PRD [Q-79](PRD.md#q-79) |
+| F18 | **No leave label for an automatic return from the Icebox** (`LIVE-25`). The prototype shows "Back in your list". | PRD [Q-77](PRD.md#q-77) |
+| F19 | **A change while an item is being ranked** would be lost if the job stored the item's current `updated_at`. Jobs record `item_updated_at` when claimed. | Done; [Data model](#data-model) |
+| F20 | **Sync now during an incremental scan** would only join it and so miss "No longer yours" removals. A full scan follows straight after. | Done; [Scheduler](#scheduler) |
+| F21 | **React development mode runs state initializers twice**, which made the sign-in notice read and remove `?error=` on the first run and find nothing on the second. The page reads it once per page load. | Done in `Simple.tsx` |
 
 
 ---
@@ -595,7 +615,7 @@ Nothing changes outside local mode: production never sets `LOCAL_MODE`, and `AUT
 
 ## Open questions
 
-Questions about the design itself. The PRD has none left open. **Kind** says whether information is missing (OPENQUESTION) or a choice needs the owner's confirmation (CONFIRM).
+Questions about the design itself. The PRD's own open questions are [Q-77](PRD.md#q-77) to [Q-79](PRD.md#q-79). **Kind** says whether information is missing (OPENQUESTION) or a choice needs the owner's confirmation (CONFIRM).
 
 | ID | Area | Question | Suggested answer | Kind |
 |---|---|---|---|---|
@@ -604,3 +624,5 @@ Questions about the design itself. The PRD has none left open. **Kind** says whe
 | <a id="d-3"></a>D-3 | Hosting | Which region? | `us-east4`. | CONFIRM |
 | <a id="d-4"></a>D-4 | Sign-in | OAuth app or GitHub App for GitHub sign-in? | OAuth app, `user:email` only. | CONFIRM |
 | <a id="d-5"></a>D-5 | Scanning | How often does a full scan run? | At most once an hour, plus Sync now and saving Settings. | CONFIRM |
+| <a id="d-6"></a>D-6 | Settings | Should a repository or collaborator be looked up as soon as it is added, before saving, so its access state or avatar shows at once (`SET-8`, `SET-19`)? | Yes, with `POST /api/repos/check` and `POST /api/collaborators/check`, which use the saved PAT and store nothing. Without a saved PAT the row shows "Checking…" until the scan after saving. | CONFIRM |
+| <a id="d-7"></a>D-7 | Scanning | A search can return `X-GitHub-SSO: partial-results; organizations=…`, which names organizations by numeric ID only. How does the "Your token isn't authorized for {org}" notification get the name? | Look each ID up with `GET /organizations/{id}` (public), and cache the name. Not done in the prototype. | CONFIRM |

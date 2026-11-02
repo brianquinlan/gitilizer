@@ -89,7 +89,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const onList = useCallback((l: Listener) => { listeners.current.add(l); return () => { listeners.current.delete(l); }; }, []);
 
   const notifications = cannotConnect
-    ? [...serverNotes, { code: "cannot_connect" as const, subject: "", params: {}, firstDetectedAt: cannotConnect }]
+    ? [...serverNotes, { code: "cannot_connect" as const, subject: "", params: {}, firstDetectedAt: cannotConnect, seen: false }]
     : serverNotes;
 
   return (

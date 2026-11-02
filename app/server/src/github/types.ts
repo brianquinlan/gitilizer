@@ -10,23 +10,35 @@ export type SearchHit = {
   htmlUrl: string;
   state: "open" | "closed";
   updatedAt: string;
+  /** For a closed PR: whether it was merged (search results carry pull_request.merged_at). */
+  merged?: boolean;
 };
 
 export type ItemState = SearchHit & { merged: boolean };
 
+/** What GET /repos/{repo} says about an additional repository (PRD SET-8). */
+export type RepoInfo =
+  | { access: "ok" | "archived"; fullName: string }
+  | { access: "not_found" }
+  | { access: "sso_required"; org: string }
+  | { access: "token_type_blocked"; org: string; tokenType: "classic" | "fine-grained" };
+
 export interface GitHubApi {
-  /** The PAT's user and, if GitHub sent one, the token's expiry time. */
-  viewer(): Promise<{ login: string; tokenExpiresAt: string | null }>;
-  /** Teams the PAT's user belongs to, as "org/slug". Empty if the token can't read them. */
-  teams(): Promise<string[]>;
-  /** Open items matching a GitHub issue-search query, up to `limit`. */
+  /** The PAT's user, the token's expiry time if GitHub sent one, and the kind of token. */
+  viewer(): Promise<{ login: string; tokenExpiresAt: string | null; tokenType: "classic" | "fine-grained" }>;
+  /**
+   * Items matching a GitHub issue-search query, newest `updated_at` first,
+   * up to `limit` (at most 1,000, the most GitHub returns; SCAN-1).
+   */
   search(q: string, limit: number): Promise<{ hits: SearchHit[]; total: number }>;
   /** Current state of one item (used to tell closed from merged from no-longer-matching). */
   item(repo: string, number: number): Promise<ItemState>;
   /** A snapshot in the eval/fixtures format (schema_version 2). */
   snapshot(repo: string, number: number): Promise<Record<string, any>>;
-  repoAccess(fullName: string): Promise<"ok" | "not_found">;
-  userExists(login: string): Promise<boolean>;
+  /** Access to an additional repository, following renames. */
+  repo(fullName: string): Promise<RepoInfo>;
+  /** A collaborator's profile (SET-19). Throws GitHubProblem if GitHub can't be reached. */
+  user(login: string): Promise<{ exists: true; avatarUrl: string } | { exists: false }>;
 }
 
 /** A classified GitHub failure (PRD notification catalogue). */
@@ -38,7 +50,7 @@ export class GitHubProblem extends Error {
   constructor(
     public code: GitHubProblemCode,
     message: string,
-    public details: { org?: string; tokenType?: string; resetAt?: string; status?: number } = {},
+    public details: { org?: string; tokenType?: string; resetAt?: string; status?: number; permission?: string } = {},
   ) {
     super(message);
   }

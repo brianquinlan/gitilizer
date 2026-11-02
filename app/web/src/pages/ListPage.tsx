@@ -43,7 +43,7 @@ export function ListPage({ view }: { view: View }) {
   const chooseSort = (column: SortColumn) => {
     const dir = sort.column === column ? (sort.dir === "asc" ? "desc" : "asc") : FIRST_DIRECTION[column];
     setSort(view, { column, dir });
-    navigate(location.pathname); // Q-25 (assumed): sorting returns to page 1
+    navigate(location.pathname); // LIST-26: sorting returns to page 1
   };
 
   const firstSyncRunning = view === "prioritized" && !me?.firstSyncDone;
@@ -70,13 +70,13 @@ export function ListPage({ view }: { view: View }) {
           <span role="columnheader" style={{ textAlign: "right", paddingRight: 46 }}>Actions</span>
         </div>
         <div {...tableProps} role="rowgroup">
-          {!live ? <Skeleton /> :
+          {!live ? (firstSyncRunning ? <FirstSync /> : <Skeleton />) :
             visible.length === 0 && firstSyncRunning ? <FirstSync /> :
             visible.length === 0 ? <Empty view={view} /> :
             <Rows rows={visible} rank={rank} view={view} indicators={indicators} collapsing={collapsing} step={step}
                   onIcebox={moveToIcebox} onRestore={restore} />}
         </div>
-        <Pager page={page} total={settled} />
+        <Pager page={page} total={live ? settled : null} />
       </div>
       <div className="sr-only" aria-live="polite">{announcement}</div>
     </>
@@ -130,14 +130,15 @@ function Rows(props: {
                className={`tr ${indicators[r.key] ? "highlight" : ""} ${r.leaving ? "leaving" : ""} ${collapsing.has(r.key) ? "collapse" : ""} ${n === 1 && view === "prioritized" ? "top" : ""}`}>
             {view === "prioritized" && (
               <span role="cell" className={`rank ${n === 1 ? "first" : ""}`}>
-                {r.leaving ? "" : r.rankFailed ? "–" : n !== undefined ? (n < 100 ? String(n).padStart(2, "0") : n) : ""}
+                {/* Ranks are never zero-padded; unranked items show "–" (Columns, LIST-30). */}
+                {r.leaving ? "" : n !== undefined ? n : "–"}
                 {indicators[r.key] && <span className="indicator">{indicators[r.key]}</span>}
               </span>
             )}
             <span role="cell" className="issue">
               <span className={`kind ${r.kind}`} aria-label={r.kind === "pr" ? "Pull request" : "Issue"}>{r.kind === "pr" ? <PrIcon /> : <IssueIcon />}</span>
               <span className="issue-text">
-                <a className="issue-title" href={r.htmlUrl} target="_blank" rel="noreferrer">{r.title}</a>
+                <a className="issue-title" href={r.htmlUrl} target="_blank" rel="noreferrer" title={r.title}>{r.title}</a>
                 <span className="issue-meta">
                   <span className="num">{r.kind === "pr" ? "PR" : "Issue"} #{r.number}</span>
                   <span className="dot" />
@@ -145,8 +146,9 @@ function Rows(props: {
                 </span>
               </span>
             </span>
-            <span role="cell" className="mono">{r.repo}</span>
-            <span role="cell" className="mono">{relativeTime(r.updatedAt)}</span>
+            {/* LIST-23: a long repository name is cut off at the start; the mark keeps punctuation in place. */}
+            <span role="cell" className="mono repo" title={r.repo}>{r.repo}{"\u200e"}</span>
+            <span role="cell" className="mono" title={fullDate(r.updatedAt)}>{relativeTime(r.updatedAt)}</span>
             <span role="cell" className="td-actions">
               {r.leaving ? <span className="chip">{r.leaving}</span> : view === "prioritized"
                 ? <button className="btn" onClick={() => props.onIcebox(r)}><BoxIcon /> Move to icebox</button>
@@ -159,6 +161,7 @@ function Rows(props: {
   );
 }
 
+/** Never disabled; the icon turns while any sync runs, however it started (LIST-17, LIST-28). */
 function SyncButton({ running }: { running: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const start = async () => {
@@ -168,14 +171,14 @@ function SyncButton({ running }: { running: boolean }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
       {error && <span className="hint">{error}</span>}
-      <button className="btn" onClick={start} disabled={running} aria-busy={running}>
-        <RefreshIcon className={running ? "spin" : ""} /> {running ? "Syncing…" : "Sync now"}
+      <button className={`btn sync ${running ? "syncing" : ""}`} onClick={start} aria-busy={running}>
+        <RefreshIcon className={running ? "spin" : ""} /> Sync now
       </button>
     </span>
   );
 }
 
-/** Q-26 (assumed): first, last, current ±1, with "…" for gaps. */
+/** LIST-12: first, last, current ±1, with "…" for gaps. */
 export function pageButtons(page: number, count: number): (number | "…")[] {
   const keep = new Set([1, count, page - 1, page, page + 1].filter((p) => p >= 1 && p <= count));
   const out: (number | "…")[] = [];
@@ -188,12 +191,14 @@ export function pageButtons(page: number, count: number): (number | "…")[] {
   return out;
 }
 
-function Pager({ page, total }: { page: number; total: number }) {
-  const count = pageCount(total);
+function Pager({ page, total }: { page: number; total: number | null }) {
+  const count = pageCount(total ?? 0);
   const go = (p: number) => navigate(p === 1 ? location.pathname : `${location.pathname}?page=${p}`);
   return (
     <div className="pager">
-      <span className="count">{total} {total === 1 ? "issue" : "issues"}</span>
+      {/* LIST-27: "{N} issues and PRs" in every state; a placeholder while loading, as in Figma. */}
+      {total === null ? <span className="count skeleton"><span className="bar" style={{ width: 82 }} /></span>
+        : <span className="count">{total.toLocaleString("en-US")} {total === 1 ? "issue or PR" : "issues and PRs"}</span>}
       <button onClick={() => go(page - 1)} disabled={page <= 1}><ChevronLeft /> Previous</button>
       {pageButtons(page, count).map((p, i) => p === "…"
         ? <span key={`gap${i}`} className="hint">…</span>
@@ -207,35 +212,49 @@ function Empty({ view }: { view: View }) {
   return view === "prioritized" ? (
     <div className="empty">
       <strong>No issues to show 🎉</strong>
-      <p>You can choose more repositories to monitor<br />in the <Link to="/settings#repositories">settings</Link>.</p>
+      {/* LIST-14: "settings" opens Additional repositories with focus on "Add repository". */}
+      <p>You can choose more repositories in the <Link to="/settings#add-repository">settings</Link>.</p>
     </div>
   ) : (
     <div className="empty"><strong>No issues in the Icebox</strong></div>
   );
 }
 
-/** First-sync state (PRD Q-28, assumed: skeleton rows and a message). */
+/** First-sync state (LIST-15, Figma "Issue inbox · Loading"): three pulsing skeleton rows and a message. */
 function FirstSync() {
   return (
     <>
-      <div className="scanning"><RefreshIcon className="spin" /> Scanning your issues and PRs…</div>
       <Skeleton />
+      <div className="scanning" role="status">Scanning your issues and PRs…</div>
     </>
   );
 }
 
+/** Skeleton rows as in Figma "Shared / Skeleton rows"; they pulse unless reduced motion is on. */
 function Skeleton() {
+  const widths = [[62, 30], [53, 27], [69, 33]];
   return (
     <>
-      {[0, 1, 2].map((i) => (
+      {widths.map(([title, meta], i) => (
         <div className="tr skeleton" key={i} aria-hidden="true">
-          <span className="bar" style={{ width: 24 }} />
-          <span className="bar" style={{ width: `${60 - i * 10}%` }} />
-          <span className="bar" style={{ width: 110 }} />
-          <span className="bar" style={{ width: 50 }} />
-          <span />
+          <span><span className="bar" style={{ width: 17 }} /></span>
+          <span className="sk-issue">
+            <span className="bar dot" />
+            <span className="sk-lines">
+              <span className="bar" style={{ width: `${title}%`, height: 11 }} />
+              <span className="bar" style={{ width: `${meta}%`, height: 7 }} />
+            </span>
+          </span>
+          <span><span className="bar" style={{ width: [92, 105, 92][i] }} /></span>
+          <span><span className="bar" style={{ width: 43 }} /></span>
+          <span className="sk-action"><span className="bar block" /></span>
         </div>
       ))}
     </>
   );
+}
+
+/** Full date and time for hovering over a relative time (LIST-22). */
+function fullDate(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }

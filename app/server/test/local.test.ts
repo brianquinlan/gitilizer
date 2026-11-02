@@ -9,25 +9,21 @@ import { openDb } from "../src/db.ts";
 import { FixtureGitHub, FixtureStore } from "../src/github/fixtures.ts";
 import { localUserId, seedLocalCredentials } from "../src/local.ts";
 import { Scheduler } from "../src/scheduler.ts";
+import { testConfig } from "./helpers.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 function config(localMode: boolean, autoScan = true): Config {
-  return {
-    port: 0, internalPort: 0, workerToken: "t", githubMode: "fixtures", geminiMode: "fake", model: "m",
-    defaultPrompt: "default", shortLivedSeconds: 0, staleAfterSeconds: 3600,
-    intervals: { visible: 300, open: 1800, background: 7200 }, inactiveDays: 14, maxItems: 2000,
-    manualSyncMinSeconds: 0, schedulerTickMs: 1000, localMode, autoScan,
-  };
+  return testConfig({ localMode, autoScan });
 }
 
 async function makeCtx(localMode: boolean, autoScan = true): Promise<{ ctx: Ctx; scheduler: Scheduler; triggers: string[] }> {
-  const store = new FixtureStore(join(ROOT, "eval", "fixtures"), "brianquinlan", []);
+  const store = new FixtureStore(join(ROOT, "eval", "fixtures"), "brianquinlan");
   const ctx: Ctx = {
     db: await openDb(undefined, undefined), hub: new Hub(), config: config(localMode, autoScan),
     cipher: new CredentialCipher(Buffer.alloc(32, 3).toString("base64")),
     github: () => new FixtureGitHub(store),
-    validateGemini: async (key) => ({ ok: !/bad/.test(key), detail: "fake" }),
+    validateGemini: async (key) => (/bad/.test(key) ? { ok: false, code: "not_accepted" } : { ok: true, code: "ok" }),
     requestScan: () => {},
   };
   const scheduler = new Scheduler(ctx);
@@ -73,7 +69,7 @@ describe("local mode", () => {
     expect(ctx.cipher.decrypt(userId, row.ciphertext, row.nonce)).toBe("ghp_from_dotenv_1");
     const u = await ctx.db.one(`select setup_completed_at, github_login from users where id = $1`, [userId]);
     expect(u.setup_completed_at).not.toBeNull();
-    expect(u.github_login).toBe("brianquinlan");
+    expect(u.github_login).toBeNull(); // saved without being validated (SET-29); the first scan fills it in
   });
 
   it("doesn't scan on a schedule when automatic scans are off", async () => {

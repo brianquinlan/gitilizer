@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { CheckResult } from "@gitilizer/shared";
 import { CredentialCipher } from "./crypto.ts";
 import { openDb } from "./db.ts";
 import { buildApp, buildInternalApp } from "./app.ts";
@@ -19,6 +20,14 @@ const FIXTURES_FLAG = process.argv.includes("--fixtures");
 /** `--local`: local mode (docs/local-development.md). */
 const LOCAL_FLAG = process.argv.includes("--local") || env.LOCAL_MODE === "1";
 
+/** RANK-13: the primary model, then the backups. GITILIZER_MODEL replaces only the primary model. */
+const DEFAULT_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
+function rankingModels(): string[] {
+  if (env.GITILIZER_MODELS) return env.GITILIZER_MODELS.split(",").map((s) => s.trim()).filter(Boolean);
+  const primary = env.GITILIZER_MODEL?.trim();
+  return primary ? [primary, ...DEFAULT_MODELS.filter((m) => m !== primary)] : DEFAULT_MODELS;
+}
+
 export function loadConfig(): Config {
   return {
     port: num(env.PORT, 8787),
@@ -26,7 +35,7 @@ export function loadConfig(): Config {
     workerToken: env.WORKER_TOKEN ?? "dev-worker-token",
     githubMode: FIXTURES_FLAG || env.GITHUB_MODE === "fixtures" ? "fixtures" : "real",
     geminiMode: FIXTURES_FLAG || env.GEMINI_MODE === "fake" ? "fake" : "real",
-    model: env.GITILIZER_MODEL ?? "gemini-3.8-flash",
+    models: rankingModels(),
     defaultPrompt: readFileSync(join(ROOT, "prompts", "v4.md"), "utf8"),
     shortLivedSeconds: num(env.SHORT_LIVED_SECONDS, 15 * 60),
     staleAfterSeconds: num(env.STALE_AFTER_SECONDS, 3 * 3600),
@@ -35,30 +44,41 @@ export function loadConfig(): Config {
       open: num(env.SCAN_OPEN_SECONDS, 30 * 60),
       background: num(env.SCAN_BACKGROUND_SECONDS, 2 * 3600),
     },
-    inactiveDays: num(env.INACTIVE_DAYS, 14),
-    maxItems: num(env.MAX_ITEMS, 2000),
-    manualSyncMinSeconds: num(env.MANUAL_SYNC_MIN_SECONDS, 30),
+    inactiveDays: num(env.INACTIVE_DAYS, 7),
+    maxItems: num(env.MAX_ITEMS, 1000),
+    fullScanSeconds: num(env.FULL_SCAN_SECONDS, 3600),
+    perDeveloperConcurrency: num(env.PER_DEVELOPER_CONCURRENCY, 4),
     schedulerTickMs: num(env.SCHEDULER_TICK_MS, 5000),
     localMode: LOCAL_FLAG,
     autoScan: env.AUTO_SCAN ? env.AUTO_SCAN !== "off" : true,
   };
 }
 
-async function validateGeminiReal(key: string, model: string) {
-  const { GoogleGenAI } = await import("@google/genai");
+/** GET /v1beta/models/{model}: checks the key and access to the model without using request quota (SET-28). */
+async function validateGeminiReal(key: string, model: string): Promise<CheckResult> {
+  let res: Response;
   try {
-    const ai = new GoogleGenAI({ apiKey: key });
-    await ai.models.get({ model });
-    return { ok: true, detail: `${model} available` };
-  } catch (e: any) {
-    const status = e?.status ?? e?.code;
-    const msg = String(e?.message ?? e);
-    if (/leaked/i.test(msg)) return { ok: false, detail: "Google has disabled this key because it was reported as leaked", code: "key_leaked" };
-    if (status === 400 || status === 401 || /API_KEY_INVALID/.test(msg)) return { ok: false, detail: "Google didn't accept this key", code: "key_invalid" };
-    if (status === 404) return { ok: false, detail: `${model} isn't available to this key`, code: "model_not_found" };
-    if (status === 403) return { ok: false, detail: "This key can't use the Gemini API", code: "permission_denied" };
-    return { ok: false, detail: `Couldn't check the key: ${msg.slice(0, 200)}` };
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}`, {
+      headers: { "x-goog-api-key": key }, signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return { ok: false, code: "unreachable" };
   }
+  if (res.ok) return { ok: true, code: "ok" };
+  const body = await res.text().catch(() => "");
+  if (/leaked/i.test(body)) return { ok: false, code: "leaked" };
+  if (res.status === 400 || res.status === 401 || /API_KEY_INVALID/.test(body)) return { ok: false, code: "not_accepted" };
+  if (res.status === 403) return { ok: false, code: "permission_denied" };
+  if (res.status >= 500) return { ok: false, code: "unreachable" };
+  console.warn(`Gemini key check: ${res.status} ${body.slice(0, 300)}`);
+  return { ok: false, code: "error" };
+}
+
+/** Fixture mode accepts any key except ones that say what should go wrong. */
+async function validateGeminiFake(key: string): Promise<CheckResult> {
+  if (/leak/i.test(key)) return { ok: false, code: "leaked" };
+  if (/bad|invalid/i.test(key)) return { ok: false, code: "not_accepted" };
+  return { ok: true, code: "ok" };
 }
 
 async function main() {
@@ -72,7 +92,6 @@ async function main() {
     fixtures = new FixtureStore(
       env.FIXTURES_DIR ?? join(ROOT, "eval", "fixtures"),
       env.FIXTURE_LOGIN ?? "brianquinlan",
-      (env.FIXTURE_TEAMS ?? "dart-lang/dart-ecosystem-team,googleapis/cloud-sdk-dart-team").split(",").filter(Boolean),
     );
     console.log(`GitHub fixture mode: ${fixtures.entries.size} items as @${fixtures.login}`);
   }
@@ -81,9 +100,7 @@ async function main() {
   const ctx: Ctx = {
     db, cipher, hub, config,
     github: (pat) => (fixtures ? new FixtureGitHub(fixtures) : new OctokitGitHub(pat)),
-    validateGemini: config.geminiMode === "fake"
-      ? async (key) => (/bad|invalid/i.test(key) ? { ok: false, detail: "Google didn't accept this key" } : { ok: true, detail: `${config.model} available (fake)` })
-      : validateGeminiReal,
+    validateGemini: config.geminiMode === "fake" ? validateGeminiFake : validateGeminiReal,
     requestScan: () => {},
   };
   const scheduler = new Scheduler(ctx);
