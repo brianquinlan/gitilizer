@@ -69,6 +69,7 @@ const config: Config = {
   port: 0, internalPort: 0, workerToken: "t", githubMode: "fixtures", geminiMode: "fake", model: "m",
   defaultPrompt: "default", shortLivedSeconds: 0, staleAfterSeconds: 3600,
   intervals: { visible: 300, open: 1800, background: 7200 }, inactiveDays: 14, maxItems: 2000, manualSyncMinSeconds: 0, schedulerTickMs: 1000,
+  localMode: false, autoScan: true,
 };
 
 describe("scan and rank cycle", () => {

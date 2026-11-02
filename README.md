@@ -5,19 +5,15 @@ Requirements are in [docs/PRD.md](docs/PRD.md) and the design in [docs/design.md
 ## Running the app prototype
 
 The web app and API are TypeScript (`app/`); the ranking worker is Python (`gitilizer/worker.py`).
-Fixture mode needs no GitHub token or Gemini key: `eval/fixtures/` stands in for GitHub
-(as @brianquinlan) and the worker uses a fake model. Needs Node 22+.
+Once Node 22+ and a Python virtual environment are set up, one command runs everything on your computer:
 
 ```powershell
-npm install                              # once
-npm run dev:fixtures                     # terminal 1: API (:8787) and worker API (:8788)
-python -m gitilizer.worker --fake-llm    # terminal 2: ranking worker
-npm run dev:web                          # terminal 3: open http://localhost:5173
+npm run local:fixtures     # saved test data as GitHub and a fake model: no network, no quota
+npm run local              # your real issues and PRs, with the credentials in .env
 ```
 
-Sign in with the development form, then enter any values for the two credentials in Settings
-(a Gemini key containing "bad" is rejected). To use real GitHub and Gemini, run `npm run dev:server`
-and `python -m gitilizer.worker` instead, and set `CREDENTIAL_KEY` (32 random bytes, base64).
+Then open http://localhost:5173. You're signed in automatically, and Sync now and Save and re-rank refresh the
+list. [docs/local-development.md](docs/local-development.md) has the setup steps, options and troubleshooting.
 Tests: `npm test` and `python -m pytest`.
 
 ## Prioritization agent and eval

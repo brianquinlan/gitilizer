@@ -26,7 +26,7 @@ export class Scheduler {
     void this.ctx.db.query(`update users set last_seen_at = now() where id = $1`, [userId]);
     void this.ctx.db.query(`insert into user_activity (user_id, day) values ($1, current_date) on conflict do nothing`, [userId]);
     const after = this.state(userId);
-    if (before !== "visible" && after === "visible") void this.maybeScanOnVisible(userId);
+    if (before !== "visible" && after === "visible" && this.ctx.config.autoScan) void this.maybeScanOnVisible(userId);
     return after === "visible";
   }
 
@@ -68,6 +68,8 @@ export class Scheduler {
     const { db, config } = this.ctx;
     await reapLeases(this.ctx);
     await promote(this.ctx);
+    // With automatic scans off (local mode), only Sync now and saving Settings scan.
+    if (!config.autoScan) return;
     // Prototype: one query over all developers with a token. Production: next_scan_at + SKIP LOCKED (design: Scheduler).
     const users = await db.query(
       `select u.id, u.last_seen_at, u.first_sync_done,

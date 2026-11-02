@@ -22,6 +22,10 @@ export type Config = {
   maxItems: number;
   manualSyncMinSeconds: number;
   schedulerTickMs: number;
+  /** Local mode: one developer, signed in automatically (docs/local-development.md). */
+  localMode: boolean;
+  /** Scan on a schedule (SCAN-5, SCAN-6) and run the daily re-rank. Off in local mode unless asked for. */
+  autoScan: boolean;
 };
 
 type Subscriber = { reply: FastifyReply; userId: string };

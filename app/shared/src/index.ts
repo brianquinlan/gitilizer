@@ -105,7 +105,7 @@ export const Me = z.object({
     name: z.string(),
     email: z.string(),
     avatarUrl: z.string().nullable(),
-    provider: z.enum(["google", "github", "dev"]),
+    provider: z.enum(["google", "github", "dev", "local"]),
     githubLogin: z.string().nullable(),
   }),
   /** Which top-level screen to show (PRD NAV-1). */

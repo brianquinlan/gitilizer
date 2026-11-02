@@ -83,7 +83,7 @@ export function SettingsPage() {
     }
   };
 
-  const providerName = { google: "Google", github: "GitHub", dev: "development sign-in" }[me.user.provider];
+  const providerName = { google: "Google", github: "GitHub", dev: "development sign-in", local: "local mode" }[me.user.provider];
 
   return (
     <div>

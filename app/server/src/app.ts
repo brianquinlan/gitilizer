@@ -14,6 +14,7 @@ import type { FixtureStore } from "./github/fixtures.ts";
 import { claimJobs, completeJob, failJob, queueFullRerank, queueRankJobs } from "./jobs.ts";
 import { currentVersion, listRows, publish } from "./list.ts";
 import { clear, clearForCredential, raise, shownNotifications } from "./notify.ts";
+import { localUserId } from "./local.ts";
 import type { Scheduler } from "./scheduler.ts";
 
 const SESSION_COOKIE = "gitilizer_session";
@@ -41,6 +42,11 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     if (req.url.startsWith("/api/auth/dev")) return;
     const sid = req.cookies[SESSION_COOKIE];
     const s = sid ? await db.one(`select user_id from sessions where id = $1 and expires_at > now()`, [sid]) : undefined;
+    if (!s && ctx.config.localMode && !req.url.startsWith("/api/auth/logout")) {
+      // Local mode: there is only one developer, so sign them in without asking.
+      req.userId = await startSession(reply, await localUserId(ctx));
+      return;
+    }
     if (!s) return bad(reply, 401, "not signed in");
     req.userId = s.user_id;
     // Sessions are extended while in use.
@@ -48,8 +54,20 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   });
   const uid = (req: FastifyRequest) => req.userId as string;
 
+  async function startSession(reply: any, userId: string): Promise<string> {
+    const sid = randomBytes(32).toString("base64url");
+    await db.query(`insert into sessions (id, user_id, expires_at) values ($1, $2, now() + interval '${SESSION_DAYS} days')`, [sid, userId]);
+    reply.setCookie(SESSION_COOKIE, sid, { path: "/", httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: SESSION_DAYS * 86400 });
+    return userId;
+  }
+
   // --- Sign-in (prototype stub; real OAuth replaces it) ----------------------
   app.post("/api/auth/dev", async (req, reply) => {
+    if (ctx.config.localMode) {
+      // Local mode: any sign-in is the local developer.
+      await startSession(reply, await localUserId(ctx));
+      return { ok: true };
+    }
     const body = z.object({ name: z.string().min(1), email: z.string().email() }).parse(req.body);
     let user = await db.one(`select id from users where provider = 'dev' and provider_user_id = $1`, [body.email]);
     if (!user) {

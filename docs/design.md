@@ -38,7 +38,8 @@ Questions about the design itself are marked the same way as in the PRD. **OPENQ
 19. [Prototype status](#prototype-status)
 20. [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd)
 21. [Findings from the prototype](#findings-from-the-prototype)
-22. [Open questions](#open-questions)
+22. [Local development](#local-development)
+23. [Open questions](#open-questions)
 
 ---
 
@@ -216,7 +217,9 @@ Everything runs in the Google Cloud project `gitilizer`.
 
 ```
 gitilizer2/
-├── docs/                 PRD.md, design.md, and the user documentation (FOOT-3, FOOT-4)
+├── docs/                 PRD.md, design.md, local-development.md, and the user documentation (FOOT-3, FOOT-4)
+├── scripts/local.mjs     npm run local: the whole app on one computer (Local development)
+├── .local/               local mode's databases and keys (gitignored)
 ├── gitilizer/            Python: agent, eval harness, and worker.py (new)
 ├── prompts/              ranking prompts; v4.md is the default
 ├── eval/                 eval set and fixtures
@@ -559,6 +562,35 @@ Building the slice turned up these gaps. Those that need a product decision are 
 | F14 | **Item data is shared between developers** (one `items` row per GitHub item), so deleting an account (`PRIV-3`) leaves items another developer still has. A daily clean-up job deletes `items` rows, and `gone` `user_items` rows, once no developer has had the item as active or iceboxed for 30 days (`PRIV-5`). | Designed; to do |
 | F15 | **The 1,000-item limit makes search splitting unnecessary**, and sorting by `updated` makes incremental scans cheap. A full scan is still needed now and then to see items that stop matching without being closed. | [Scanner](#scanner) |
 
+
+---
+
+## Local development
+
+Developers run the whole application on their own computer with one command; [local-development.md](local-development.md) is the how-to. The choice of approach:
+
+| Option | Notes |
+|---|---|
+| **Embedded Postgres (PGlite), chosen** | Real Postgres compiled to WebAssembly and stored in a folder, so it runs with no install, keeps data between runs and uses exactly the production SQL. It has one connection at a time, which is fine for one developer. |
+| Docker Compose with Postgres | Docker Desktop needs WSL 2 on Windows, hot reload through mounted folders is slow there, and dependency changes mean rebuilding images. Worth adding later for CI. |
+| Postgres installed locally | One more service to install and run, with no gain over PGlite for one developer. Still supported through `DATABASE_URL`. |
+| SQLite | The schema relies on `jsonb`, `text[]`, `timestamptz`, `FOR UPDATE SKIP LOCKED`, partial unique indexes and `LISTEN/NOTIFY`. A second SQL dialect would hide bugs until production. |
+
+**`npm run local`** (`scripts/local.mjs`, plain Node with no extra packages) starts three processes in one terminal and stops them all on Ctrl+C:
+
+1. the API server (`app/server/src/main.ts --local`, through `tsx`), with `LOCAL_MODE=1`, `PGLITE_DIR=.local/{real|fixtures}/db`, `AUTO_SCAN=off` (unless `--scheduler`) and a `CREDENTIAL_KEY` generated once and kept in `.local/{real|fixtures}/credential-key`;
+2. the ranking worker (`python -m gitilizer.worker`, using `.venv` if it exists), once the API's ports accept connections;
+3. the Vite dev server for the web app on port 5173, which proxies `/api` to the API.
+
+`--fixtures` adds `--fixtures` to the server and `--fake-llm` to the worker, and keeps its data in a separate folder. `--reset` deletes the mode's data folder first.
+
+**Local mode in the server** (`config.localMode`, `app/server/src/local.ts`):
+
+- There is one account, provider `local`. The session hook signs any request without a session in as that account, and `POST /api/auth/dev` always signs in as it, so signing out and in again returns to the same account.
+- At startup, any credential the account doesn't have is saved from `LOCAL_GITHUB_TOKEN` and `LOCAL_GEMINI_API_KEY`, which the launcher fills from `.env` (`GITHUB_TOKEN`, `GEMINI_API_KEY`), or with placeholder values in fixture mode. A saved credential is never replaced, so Settings stays in charge after the first run. If this completes setup, the first sync starts (`SET-5`).
+- With `config.autoScan` off, the scheduler still reaps job leases and promotes short-lived notifications, but doesn't start scans on its own, doesn't scan when a tab becomes visible, and skips the daily re-rank and the stale-list check. Only Sync now and saving Settings scan.
+
+Nothing changes outside local mode: production never sets `LOCAL_MODE`, and `AUTO_SCAN` defaults to on. Tests in `app/server/test/local.test.ts` cover automatic sign-in, seeding (once, never overwriting), and scanning with `autoScan` on and off.
 ---
 
 ## Open questions

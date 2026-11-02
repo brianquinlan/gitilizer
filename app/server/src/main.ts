@@ -8,6 +8,7 @@ import { buildApp, buildInternalApp } from "./app.ts";
 import { Hub, type Config, type Ctx } from "./context.ts";
 import { FixtureGitHub, FixtureStore } from "./github/fixtures.ts";
 import { OctokitGitHub } from "./github/octokit.ts";
+import { localUserId, seedLocalCredentials } from "./local.ts";
 import { Scheduler } from "./scheduler.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -15,6 +16,8 @@ const env = process.env;
 const num = (v: string | undefined, d: number) => (v ? Number(v) : d);
 /** `--fixtures`: serve eval/fixtures as GitHub and accept any Gemini key (design: Testing). */
 const FIXTURES_FLAG = process.argv.includes("--fixtures");
+/** `--local`: local mode (docs/local-development.md). */
+const LOCAL_FLAG = process.argv.includes("--local") || env.LOCAL_MODE === "1";
 
 export function loadConfig(): Config {
   return {
@@ -36,6 +39,8 @@ export function loadConfig(): Config {
     maxItems: num(env.MAX_ITEMS, 2000),
     manualSyncMinSeconds: num(env.MANUAL_SYNC_MIN_SECONDS, 30),
     schedulerTickMs: num(env.SCHEDULER_TICK_MS, 5000),
+    localMode: LOCAL_FLAG,
+    autoScan: env.AUTO_SCAN ? env.AUTO_SCAN !== "off" : true,
   };
 }
 
@@ -89,6 +94,16 @@ async function main() {
   await app.listen({ port: config.port, host: env.HOST ?? "127.0.0.1" });
   await internal.listen({ port: config.internalPort, host: "127.0.0.1" });
   scheduler.start();
+  if (config.localMode) {
+    const userId = await localUserId(ctx);
+    const { seeded, setupCompleted } = await seedLocalCredentials(ctx, userId, {
+      github_pat: env.LOCAL_GITHUB_TOKEN, gemini_key: env.LOCAL_GEMINI_API_KEY,
+    });
+    if (seeded.length) console.log(`Local mode: saved the ${seeded.map((k) => (k === "github_pat" ? "GitHub token" : "Gemini API key")).join(" and ")} for the local developer`);
+    // SET-5: completing setup starts the first sync.
+    if (setupCompleted) scheduler.trigger(userId, "credentials");
+    console.log(`Local mode: signed in automatically as the local developer${config.autoScan ? "" : "; automatic scans are off"}`);
+  }
   console.log(`Gitilizer API on :${config.port}, worker API on :${config.internalPort}`);
 
   const stop = async () => { scheduler.stop(); await app.close(); await internal.close(); await db.close(); process.exit(0); };
