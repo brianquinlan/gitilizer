@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-01, tenth round (Q-77 to Q-79, found while bringing the prototype in line with this document) |
+| **Last updated** | 2026-11-01, eleventh round (answers to Q-77 and Q-79; Q-78 is open) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Replaces** | [Gitilizer PRD (Google Doc)](https://docs.google.com/document/d/1iN4HGqn5_Nz4g8oweqg0PK-iLlKQ8dza7ruqxADpu6U/edit) |
@@ -445,11 +445,7 @@ Figma: [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 - **LIST-16** A "Sync now" button must start a sync: a scan for new, changed and removed items, followed by ranking of only the new and changed items.
 - **LIST-17** While any sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), the button must show the **Syncing** state: its icon, in the accent color, turns clockwise once per second. With reduced motion, the icon is still and in the accent color.
 - **LIST-28** The button must never be disabled. Choosing it while a sync is running joins that sync (`SCAN-4`). There is no minimum interval between manual syncs.
-- **LIST-32** A sync counts as finished, and the icon stops turning, when the scan has finished and every new and changed item has been ranked or has failed.
-
-> **CONFIRM: [Q-79](#q-79)** When every model's daily quota is used up (`RANK-15`), new items wait until midnight Pacific time, so under `LIST-32` the icon would turn for hours. The prototype counts the sync as finished once every new and changed item has been ranked, has failed, or is waiting for quota (shown with "–", `LIST-30`); the "Your Gemini daily quota is used up" error explains the wait.
-
-Yep, that's fine.
+- **LIST-32** A sync counts as finished, and the icon stops turning, when the scan has finished and every new and changed item has been ranked, has failed, or is waiting because the daily quota is used up for every model (`RANK-15`). Waiting items are shown with "–" (`LIST-30`), and the "Your Gemini daily quota is used up" error explains the wait, so the icon doesn't turn until midnight Pacific time.
 
 ### Moving an item to the Icebox
 
@@ -505,10 +501,7 @@ Each animation takes about 0.4 seconds.
   | The PR was closed without merging | Closed |
   | The developer chose "Move to icebox" | Moved to Icebox |
   | It no longer matches `LIST-1` (the developer was unassigned, a review request was withdrawn, its repository was archived or removed from additional repositories) | No longer yours |
-
-> **CONFIRM: [Q-77](#q-77)** The table has no row for an item the Icebox check sends back to the list (`ICE-6`), which leaves the Icebox with the leave animation (`ICE-9`). The prototype shows "Back in your list". ("Restored" would suggest the developer did it.)
-
-That's fine.
+  | The Icebox check brought it back to the Prioritized list (`ICE-6`, `ICE-9`; shown in the Icebox) | Back in your list |
 
 - **LIVE-26** An item that leaves because of the 1,000-item limit (`LIST-19`) shows no label. It moves off the bottom of the page as an item moving to a later page does (`LIVE-13`).
 
@@ -757,13 +750,11 @@ Gitilizer keeps:
 
 Q-58 to Q-63 were found by building the prototype described in the [design doc](design.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers and the new Figma designs.
 
-Q-77 to Q-79 were found while bringing the prototype in line with this document. Each has a suggested answer, which the prototype already follows.
+Q-77 to Q-79 were found while bringing the prototype in line with this document. Q-78 is still open; the prototype follows its suggested answer.
 
 | ID | Area | Question | Suggested answer | Needed by |
 |---|---|---|---|---|
-| <a id="q-77"></a>Q-77 | Live updates | What label does an item show as it leaves the Icebox because the Icebox check brought it back? | "Back in your list". | Implementation |
 | <a id="q-78"></a>Q-78 | Settings | Validate can't tell an expired typed token from a mistyped one. What does it show? | "GitHub didn't accept this token. Check that you copied all of it." | Implementation |
-| <a id="q-79"></a>Q-79 | Prioritized list | Does Sync now keep turning while new items wait for the daily quota to reset? | No: the sync counts as finished; the quota error explains the wait. | Implementation |
 
 ### Answered questions
 
@@ -845,6 +836,8 @@ Q-77 to Q-79 were found while bringing the prototype in line with this document.
 | <a id="q-74"></a>Q-74 | Thinking level | `gemini-3.8-flash` with thinking turned down as far as it goes, for cost; may be revisited. | `RANK-11` |
 | <a id="q-75"></a>Q-75 | Scores from different models; how often the backup-model warning shows | Accept the mix; it resolves as items are re-ranked with the primary model. The warning shows for as long as a backup model is in use. | `RANK-13`, `RANK-17` |
 | <a id="q-76"></a>Q-76 | Archived additional repositories | Their own "Archived" state, in grey. | `SET-8` |
+| <a id="q-77"></a>Q-77 | Leave label when the Icebox check brings an item back | "Back in your list". | `LIVE-25` |
+| <a id="q-79"></a>Q-79 | Sync now while items wait for quota | The sync counts as finished; the quota error explains the wait. | `LIST-32` |
 
 ---
 
@@ -922,3 +915,7 @@ Q-77 to Q-79 were found while bringing the prototype in line with this document.
 ### Twelfth revision (2026-11-01, tenth round)
 
 - Added Q-77 to Q-79 (each a CONFIRM with the answer the prototype follows), found while bringing the prototype in line with this document and the design doc.
+
+### Thirteenth revision (2026-11-01, eleventh round)
+
+- Folded in the answers to Q-77 (a "Back in your list" row in `LIVE-25`) and Q-79 (`LIST-32` counts items waiting for quota as finished). Q-78 is still open.

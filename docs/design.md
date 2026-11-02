@@ -4,14 +4,14 @@
 |---|---|
 | **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype follows the 2026-11-01 PRD except where [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) says otherwise. |
 | **Author** | brian@sweetapp.com (drafted with Claude) |
-| **Last updated** | 2026-11-01 (prototype brought in line with the PRD; D-6 and D-7 added) |
+| **Last updated** | 2026-11-01 (answers to D-1 to D-4: live-update streams, a load balancer with its costs, `us-east4`, an OAuth app) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Google Cloud project** | `gitilizer` |
 | **Source** | [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer) |
 | **Requirements** | [PRD](PRD.md) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 
-This document explains how Gitilizer is built. It refers to requirements in the [PRD](PRD.md) by ID (for example `LIST-4`) and to the PRD's questions by number (for example [Q-28](PRD.md#q-28)). The decisions this design depends on are summarized in [PRD decisions](#prd-decisions). The PRD's open questions, [Q-77](PRD.md#q-77) to [Q-79](PRD.md#q-79), came from building the prototype, which follows their suggested answers.
+This document explains how Gitilizer is built. It refers to requirements in the [PRD](PRD.md) by ID (for example `LIST-4`) and to the PRD's questions by number (for example [Q-28](PRD.md#q-28)). The decisions this design depends on are summarized in [PRD decisions](#prd-decisions). The PRD's one open question, [Q-78](PRD.md#q-78), came from building the prototype, which follows its suggested answer.
 
 Questions about the design itself are marked the same way as in the PRD. **OPENQUESTION:** marks missing information. **CONFIRM:** marks a choice this design has made that the owner should confirm. Each links to a row in [Open questions](#open-questions), numbered D-1, D-2 and so on so they can't be confused with the PRD's.
 
@@ -47,7 +47,7 @@ Questions about the design itself are marked the same way as in the PRD. **OPENQ
 
 The design covers the whole product in the PRD. The prototype implements an end-to-end slice of it (see [Prototype status](#prototype-status)): sign-in through a development stub, credentials and settings, scanning, ranking with the existing agent, the Prioritized list and Icebox with live updates, and notifications.
 
-Not designed here: a cost estimate for the hosting, which is the main open design risk ([D-1](#d-1)).
+Not designed here: a full cost estimate for the hosting. The domain's cost is estimated in [Hosting on Google Cloud](#hosting-on-google-cloud); the live-update streams are the main cost risk, with polling as the fallback.
 
 ---
 
@@ -168,29 +168,27 @@ Everything runs in the Google Cloud project `gitilizer`.
 
 **Monitoring (`METRIC-3`, `NFR-6`).** Cloud Run already records request latency and response codes for every request, so API latency by endpoint and status codes for page loads and API calls come from Cloud Monitoring without extra code. Browser-side load time can't be seen from the server: the web app measures the time from navigation to a usable list (and the standard web vitals) and sends it to `POST /api/telemetry`, which writes it as a structured log line that a log-based metric turns into a distribution. Scan and ranking durations, and error and notification counts, are custom metrics from the scanner and worker. One Cloud Monitoring dashboard shows them all. Alerting policies email the owner (`METRIC-4`) when an uptime check on `https://gitilizer.com` fails, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for 30 minutes.
 
-**Region.** One region in the eastern United States is the best single choice for North America and Western Europe together (`PLAT-3`). A second region in Europe would double the fixed cost.
-
-> **CONFIRM: [D-3](#d-3)** The region is `us-east4` (Northern Virginia). `us-east1` (South Carolina) would work equally well.
-
-us-east4 is fine.
+**Region.** `us-east4` (Northern Virginia), decided in [D-3](#d-3). One region in the eastern United States is the best single choice for North America and Western Europe together (`PLAT-3`). A second region in Europe would double the fixed cost.
 
 **Domain (`PLAT-5`).** `gitilizer.com` (the apex, with `www.gitilizer.com` redirecting to it) points at the API service. The OAuth redirect URLs ([Sign-in and sessions](#sign-in-and-sessions)) and the session cookie are tied to this domain, so preview deployments sign in with the development stub.
 
-> **CONFIRM: [D-2](#d-2)** How `gitilizer.com` reaches Cloud Run. There are three ways ([Google's comparison](https://docs.cloud.google.com/run/docs/mapping-custom-domains)):
->
-> 1. **Cloud Run domain mapping.** No extra cost, and `us-east4` supports it. But it is still a Preview feature that Google says is "not recommended for production services", citing latency issues.
-> 2. **A global external Application Load Balancer** with a Google-managed certificate. Google's recommended option, but it has a fixed monthly charge that counts against the US$200 budget ([D-1](#d-1)).
-> 3. **Firebase Hosting in front of Cloud Run.** A custom domain at no or low cost, but Firebase limits requests it forwards to Cloud Run to 60 seconds, so the live-update stream would reconnect every minute.
->
-> Suggestion: the load balancer if the cost estimate leaves room for it; otherwise the domain mapping, accepting the Preview risk.
+`gitilizer.com` reaches Cloud Run through a **global external Application Load Balancer** with a Google-managed certificate and a serverless network endpoint group for the API service, decided in [D-2](#d-2). It is Google's recommended way to put a custom domain in front of Cloud Run, and unlike Firebase Hosting it doesn't cut requests off at 60 seconds, which the live-update stream needs.
 
-Let's go with (2). Include the estimated costs.
+| Charge | Price | Estimate |
+|---|---|---|
+| Forwarding rules | US$0.025 an hour for the first 5 together | Two rules (HTTPS, and HTTP redirecting to HTTPS): about **US$18.25 a month**, whatever the traffic |
+| Data processed | US$0.008 per GiB in, and per GiB out | A few cents a month for a few dozen developers; about **US$8–16 a month** at the scale in `NFR-1` (roughly 1–2 TiB, mostly presence reports, live-update keepalives and list downloads) |
+| Google-managed certificate (Certificate Manager) | Free for the first 100 certificates in a project | US$0 |
+| Serverless network endpoint group | No separate charge | US$0 |
+| **Total** | | **About US$18–20 a month** at small scale, **about US$30–40 a month** at full scale |
+
+Internet egress to browsers is charged the same with or without the load balancer, so it isn't counted here. Prices are from [Cloud Load Balancing pricing](https://cloud.google.com/load-balancing/pricing) and [Certificate Manager pricing](https://cloud.google.com/certificate-manager/pricing) as of 2026-11-01. The other options were a Cloud Run domain mapping (no cost, but a Preview feature that Google doesn't recommend for production) and Firebase Hosting (little or no cost, but its 60-second limit would make the live-update stream reconnect every minute).
 
 **Budget (`PLAT-4`) is the main design risk.** US$200 a month has to cover Cloud SQL, the always-on scanner and worker, the domain, and enough API instances to hold 10,000 open event streams.
 
-> **OPENQUESTION: [D-1](#d-1)** Does the design fit in US$200 a month at the load in [Scale](#scale)? It needs a cost estimate with the Google Cloud pricing calculator before the design is approved. If holding 10,000 event streams on Cloud Run is too expensive, the web app can poll `GET /api/list?since={version}` every 15–30 seconds instead. That still meets the "no page reload" requirement, but not the 5-second latency in `LIVE-23`.
+**Live-update streams stay, for now** ([D-1](#d-1)). The web app keeps one server-sent event stream open per tab ([Live updates](#live-updates)), which meets the 5-second target in `LIVE-23`.
 
-Let's go with the non-polling option for now. Mark that it might have higher cost and what the alternative is in case we have to change our minds.
+> **Cost risk.** Cloud Run bills an instance for as long as a request is open, so 10,000 open streams keep API instances running all the time. The streams are mostly idle, but an instance holds at most 1,000 requests at once (Cloud Run's concurrency limit), so 10,000 tabs need at least 10 instances running around the clock. This may be the largest single cost. If it does, the fallback is polling: the web app asks `GET /api/list?since={version}` every 15–30 seconds, the stream and its keepalives go away, and instances run only while answering. Polling still updates the list without a page reload, but changes take up to 30 seconds to appear, so `LIVE-23` would have to change. Only the transport changes: the browser's update rules ([Live updates](#live-updates)) stay the same.
 
 ---
 
@@ -203,9 +201,7 @@ Let's go with the non-polling option for now. Mark that it might have higher cos
 | Redirect URL | `https://gitilizer.com/api/auth/google/callback` | `https://gitilizer.com/api/auth/github/callback` |
 | Account key | `sub` | Numeric user `id` |
 
-> **CONFIRM: [D-4](#d-4)** GitHub sign-in uses an OAuth app with only the `user:email` scope. GitHub now recommends GitHub Apps for new integrations, and a GitHub App can also sign people in, but its user tokens expire after 8 hours and it adds an app installation concept that sign-in doesn't need. Since Gitilizer discards the token right after sign-in and never uses it to read items (`AUTH-5`), the simpler OAuth app is enough.
-
-Confirmed.
+GitHub sign-in uses an OAuth app with only the `user:email` scope, decided in [D-4](#d-4). GitHub now recommends GitHub Apps for new integrations, and a GitHub App can also sign people in, but its user tokens expire after 8 hours and it adds an app installation concept that sign-in doesn't need. Since Gitilizer discards the token right after sign-in and never uses it to read items (`AUTH-5`), the simpler OAuth app is enough.
 
 - **Accounts (`AUTH-3`, `AUTH-7`).** `users` has a unique index on `(provider, provider_user_id)`. Email is stored for display only and is never used to merge accounts, so the same person signing in with both providers gets two accounts. `METRIC-1` counts them as two users.
 - **Provider tokens.** The callback reads the profile (name, email, avatar) and then discards the provider's tokens. Gitilizer keeps no Google or GitHub sign-in token, which is why revoking access at the provider doesn't sign the developer out ([Q-11](PRD.md#q-11)).
@@ -550,7 +546,7 @@ What the prototype had to change to match the third PRD revision, and where each
 | Sign-in | Real Google and GitHub OAuth; sliding 30-day sessions; the four failed-sign-in messages. | `AUTH-7` to `AUTH-15` | Sessions and messages done; OAuth needs the OAuth apps and the domain |
 | Footer | Real URLs; the user documentation with its privacy section. | `FOOT-2` to `FOOT-4` | Done |
 | Prompt | "Keep an eye on" wording for additional repositories; lower scores for drafts. | `SET-31`, `RANK-8` | Not done: both need measuring with the evaluation harness against real Gemini first (`RANK-7`) |
-| Hosting | The `gitilizer.com` domain and the OAuth redirect URLs. | `PLAT-5` | Not done ([D-2](#d-2)) |
+| Hosting | The `gitilizer.com` domain (through a load balancer, [D-2](#d-2)) and the OAuth redirect URLs. | `PLAT-5` | Not done |
 
 ---
 
@@ -576,8 +572,8 @@ Building the slice turned up these gaps. Those that need a product decision are 
 | F14 | **Item data is shared between developers** (one `items` row per GitHub item), so deleting an account (`PRIV-3`) leaves items another developer still has. A daily clean-up job deletes `items` rows, and `gone` `user_items` rows, once no developer has had the item as active or iceboxed for 30 days (`PRIV-5`). | Designed; to do |
 | F15 | **The 1,000-item limit makes search splitting unnecessary**, and sorting by `updated` makes incremental scans cheap. A full scan is still needed now and then to see items that stop matching without being closed. | [Scanner](#scanner) |
 | F16 | **An expired token can't be recognized before it is saved.** GitHub answers 401 "Bad credentials" for an expired token and sends the expiry date only on success, so Validate can't show "This token expired on {date}" for a typed token. | PRD [Q-78](PRD.md#q-78) |
-| F17 | **Waiting for quota would keep Sync now turning for hours** under `LIST-32`. The prototype counts items waiting for quota as finished. | PRD [Q-79](PRD.md#q-79) |
-| F18 | **No leave label for an automatic return from the Icebox** (`LIVE-25`). The prototype shows "Back in your list". | PRD [Q-77](PRD.md#q-77) |
+| F17 | **Waiting for quota would keep Sync now turning for hours** under `LIST-32`. Items waiting for quota now count as finished. | Decided: `LIST-32` ([Q-79](PRD.md#q-79)) |
+| F18 | **No leave label for an automatic return from the Icebox** (`LIVE-25`). The row shows "Back in your list". | Decided: `LIVE-25` ([Q-77](PRD.md#q-77)) |
 | F19 | **A change while an item is being ranked** would be lost if the job stored the item's current `updated_at`. Jobs record `item_updated_at` when claimed. | Done; [Data model](#data-model) |
 | F20 | **Sync now during an incremental scan** would only join it and so miss "No longer yours" removals. A full scan follows straight after. | Done; [Scheduler](#scheduler) |
 | F21 | **React development mode runs state initializers twice**, which made the sign-in notice read and remove `?error=` on the first run and find nothing on the second. The page reads it once per page load. | Done in `Simple.tsx` |
@@ -615,14 +611,19 @@ Nothing changes outside local mode: production never sets `LOCAL_MODE`, and `AUT
 
 ## Open questions
 
-Questions about the design itself. The PRD's own open questions are [Q-77](PRD.md#q-77) to [Q-79](PRD.md#q-79). **Kind** says whether information is missing (OPENQUESTION) or a choice needs the owner's confirmation (CONFIRM).
+Questions about the design itself. The PRD's own open question is [Q-78](PRD.md#q-78). **Kind** says whether information is missing (OPENQUESTION) or a choice needs the owner's confirmation (CONFIRM).
 
 | ID | Area | Question | Suggested answer | Kind |
 |---|---|---|---|---|
-| <a id="d-1"></a>D-1 | Hosting | Does the design fit in US$200 a month at the scale in `NFR-1`? | Make a cost estimate with the pricing calculator; fall back to polling if event streams cost too much. | OPENQUESTION |
-| <a id="d-2"></a>D-2 | Hosting | How does `gitilizer.com` reach Cloud Run? | A load balancer if the budget allows; otherwise a Cloud Run domain mapping. | CONFIRM |
-| <a id="d-3"></a>D-3 | Hosting | Which region? | `us-east4`. | CONFIRM |
-| <a id="d-4"></a>D-4 | Sign-in | OAuth app or GitHub App for GitHub sign-in? | OAuth app, `user:email` only. | CONFIRM |
 | <a id="d-5"></a>D-5 | Scanning | How often does a full scan run? | At most once an hour, plus Sync now and saving Settings. | CONFIRM |
 | <a id="d-6"></a>D-6 | Settings | Should a repository or collaborator be looked up as soon as it is added, before saving, so its access state or avatar shows at once (`SET-8`, `SET-19`)? | Yes, with `POST /api/repos/check` and `POST /api/collaborators/check`, which use the saved PAT and store nothing. Without a saved PAT the row shows "Checking…" until the scan after saving. | CONFIRM |
 | <a id="d-7"></a>D-7 | Scanning | A search can return `X-GitHub-SSO: partial-results; organizations=…`, which names organizations by numeric ID only. How does the "Your token isn't authorized for {org}" notification get the name? | Look each ID up with `GET /organizations/{id}` (public), and cache the name. Not done in the prototype. | CONFIRM |
+
+### Answered design questions
+
+| ID | Question | Decision |
+|---|---|---|
+| <a id="d-1"></a>D-1 | Does the design fit in US$200 a month, or should the web app poll instead of holding event streams? | Keep the event streams for now, noting the cost risk and the polling fallback ([Hosting on Google Cloud](#hosting-on-google-cloud)). |
+| <a id="d-2"></a>D-2 | How does `gitilizer.com` reach Cloud Run? | A global external Application Load Balancer, about US$18–20 a month at small scale and US$30–40 at full scale. |
+| <a id="d-3"></a>D-3 | Which region? | `us-east4`. |
+| <a id="d-4"></a>D-4 | OAuth app or GitHub App for GitHub sign-in? | An OAuth app with the `user:email` scope only. |
