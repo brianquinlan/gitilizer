@@ -4,18 +4,21 @@
 |---|---|
 | **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype predates the 2026-11-01 PRD revision; [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) lists what it must change. |
 | **Author** | brian@sweetapp.com (drafted with Claude) |
-| **Last updated** | 2026-11-01 (ninth round of PRD answers) |
+| **Last updated** | 2026-11-01 (design open questions added) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
+| **Google Cloud project** | `gitilizer` |
 | **Source** | [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer) |
 | **Requirements** | [PRD](PRD.md) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 
-This document explains how Gitilizer is built. It refers to requirements in the [PRD](PRD.md) by ID (for example `LIST-4`) and to its open questions by number (for example [Q-28](PRD.md#q-28)). Where the PRD leaves a question open, this design uses the PRD's suggested answer and says so; those choices are collected in [Assumptions](#assumptions).
+This document explains how Gitilizer is built. It refers to requirements in the [PRD](PRD.md) by ID (for example `LIST-4`) and to the PRD's questions by number (for example [Q-28](PRD.md#q-28)). The PRD has no open questions; the decisions this design depends on are summarized in [PRD decisions](#prd-decisions).
+
+Questions about the design itself are marked the same way as in the PRD. **OPENQUESTION:** marks missing information. **CONFIRM:** marks a choice this design has made that the owner should confirm. Each links to a row in [Open questions](#open-questions), numbered D-1, D-2 and so on so they can't be confused with the PRD's.
 
 ## Contents
 
 1. [Scope](#scope)
-2. [Assumptions](#assumptions)
+2. [PRD decisions](#prd-decisions)
 3. [Architecture](#architecture)
 4. [Reused code](#reused-code)
 5. [Hosting on Google Cloud](#hosting-on-google-cloud)
@@ -35,6 +38,7 @@ This document explains how Gitilizer is built. It refers to requirements in the 
 19. [Prototype status](#prototype-status)
 20. [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd)
 21. [Findings from the prototype](#findings-from-the-prototype)
+22. [Open questions](#open-questions)
 
 ---
 
@@ -42,43 +46,43 @@ This document explains how Gitilizer is built. It refers to requirements in the 
 
 The design covers the whole product in the PRD. The prototype implements an end-to-end slice of it (see [Prototype status](#prototype-status)): sign-in through a development stub, credentials and settings, scanning, ranking with the existing agent, the Prioritized list and Icebox with live updates, and notifications.
 
-Not designed here: a cost estimate for the hosting in [Hosting on Google Cloud](#hosting-on-google-cloud), which is the main open design risk.
+Not designed here: a cost estimate for the hosting, which is the main open design risk ([D-1](#d-1)).
 
 ---
 
-## Assumptions
+## PRD decisions
 
-Open PRD questions this design depends on, and the answer it assumes. All are the PRD's suggested answers unless marked **decided** (answered by the product owner).
+The product owner's answers to the PRD questions this design depends on. The PRD has the full list.
 
-| PRD question | Assumed answer |
+| PRD question | Decision |
 |---|---|
-| [Q-2](PRD.md#q-2) Scale | **Decided:** 10,000 developers with the app visible, up to 100,000 accounts, up to 1,000 items each (`NFR-1`). |
-| [Q-1](PRD.md#q-1) Hosting | **Decided:** Google Cloud; best performance in North America and Western Europe; at most US$200 a month; served at `gitilizer.com`. |
-| [Q-3](PRD.md#q-3) Metrics | **Decided:** users, users who completed setup, daily/weekly/monthly actives (`METRIC-1`), and system health (`METRIC-3`). |
-| [Q-8](PRD.md#q-8) Warm Welcome | **Decided:** until both credentials have been entered once; afterwards, notifications. |
-| [Q-9](PRD.md#q-9), [Q-11](PRD.md#q-11) Accounts and sessions | **Decided:** one account per sign-in provider account; 30-day sliding sessions; signing out ends only the current session (`AUTH-7` to `AUTH-9`). |
-| [Q-17](PRD.md#q-17) Thresholds | **Decided:** short-lived problems are retried for 15 minutes, then shown as warnings; stale-list error after 3 hours; expiry warning 7 days ahead. |
-| [Q-21](PRD.md#q-21), [Q-65](PRD.md#q-65) Inclusion | **Decided:** personal review requests, assigned, mentioned by name, created, commented on, additional repositories; drafts and bot items included; archived repositories, team reviews and team mentions excluded. |
-| [Q-22](PRD.md#q-22), [Q-67](PRD.md#q-67) Reason precedence | **Decided:** Review requested, Assigned, @handle, Created, Commented, repository name. |
-| [Q-27](PRD.md#q-27), [Q-66](PRD.md#q-66) List size | **Decided:** the 1,000 most recently updated items, Prioritized list only; no notice; dropped items slide off the bottom. |
-| [Q-28](PRD.md#q-28), [Q-29](PRD.md#q-29) First sync and Sync now | **Decided:** pulsing skeleton rows; unranked items hidden; failed items at the end with "–"; Sync now spins for any sync, is never disabled and isn't throttled. |
-| [Q-35](PRD.md#q-35), [Q-72](PRD.md#q-72) Icebox return | **Decided:** a separate Icebox check prompt decides, leaning toward bringing items back. The developer can't see or change that prompt (`ICE-14`). |
-| [Q-39](PRD.md#q-39), [Q-74](PRD.md#q-74) Model | **Decided:** Gitilizer chooses the models (`GITILIZER_MODELS`, default `gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite`, the first being the primary) with the lowest thinking level each allows, for cost (`RANK-11`); Settings doesn't show it. |
-| [Q-40](PRD.md#q-40) Token kinds | **Decided:** fine-grained and classic tokens, one per developer; no organization permissions needed. |
-| [Q-44](PRD.md#q-44) Default prompt | **Decided:** `prompts/v4.md`, at most 20,000 characters, new defaults followed automatically. |
-| [Q-45](PRD.md#q-45), [Q-64](PRD.md#q-64), [Q-71](PRD.md#q-71) Saving | **Decided:** "Save changes", "Save and re-rank" and "Cancel"; both saves cover credentials; a successful save returns to the list; leaving with unsaved changes asks first. Cancel also returns to the list, or Warm Welcome before setup is complete (`NAV-9`). |
-| [Q-46](PRD.md#q-46) Deletion | **Decided:** immediate, after a simple confirmation; backups kept for 6 months (`PRIV-4`). |
-| [Q-47](PRD.md#q-47) Background scans | **Decided:** every 2 hours for developers seen in the last 7 days; otherwise only on the next visit. |
-| [Q-48](PRD.md#q-48), [Q-49](PRD.md#q-49) Re-ranking | **Decided:** every item re-ranked at least every 24 hours; a change also re-ranks the items it links to. |
-| [Q-51](PRD.md#q-51) Concurrency | **Decided:** 4 Gemini calls at once per developer. |
-| [Q-57](PRD.md#q-57) Additional repositories | **Decided:** "keep an eye on", not "responsible for"; the agent's wording changes to match (`SET-31`). |
-| [Q-41](PRD.md#q-41) Repositories | **Decided:** `owner/name` or a GitHub URL; duplicates and bad formats are errors; at most 25; prioritization prompts up to 500 characters and not editable. Access states "Checking…", "Access confirmed", "Archived" and "Can't access", with the reason on hover (`SET-8`). |
-| [Q-52](PRD.md#q-52), [Q-68](PRD.md#q-68) Item data | **Decided:** no privacy note in Settings; an item's data is deleted 30 days after no developer has it (`PRIV-5`). The documentation's privacy section covers storage, deletion and what is sent to Gemini (`FOOT-4`). |
-| [Q-58](PRD.md#q-58), [Q-37](PRD.md#q-37), [Q-38](PRD.md#q-38) Validate | **Decided:** checks the typed value; disabled when the field is empty, including for a saved credential; the result states in `SET-28`; saving doesn't validate (`SET-29`). |
-| [Q-63](PRD.md#q-63), [Q-75](PRD.md#q-75) Free tier | **Decided:** must work on the free tier, falling back through the models in `RANK-13` as each one's daily quota runs out; items waiting for quota shown at the end with "–"; one item per call; scores from different models share the list; the primary model's quota goes to new and changed items first; the backup-model warning shows for as long as a backup model is in use. |
-| [Q-70](PRD.md#q-70) Alerts | **Decided:** email alerts to the owner from Cloud Monitoring (`METRIC-4`). |
-| [Q-73](PRD.md#q-73) Settings errors | **Decided:** red border and a message under the field; saving disabled while errors show (`SET-27`). |
-| [Q-50](PRD.md#q-50), [Q-53](PRD.md#q-53) to [Q-56](PRD.md#q-56) Other | **Decided:** ties as in `RANK-4`; 2 s to a usable list, 100 ms sorts, 99.5% availability; latest two versions of Chrome, Edge, Firefox and Safari at 1024 px and wider, no touch; WCAG 2.2 AA; English and a light theme only. |
+| [Q-2](PRD.md#q-2) Scale | 10,000 developers with the app visible, up to 100,000 accounts, up to 1,000 items each (`NFR-1`). |
+| [Q-1](PRD.md#q-1) Hosting | Google Cloud; best performance in North America and Western Europe; at most US$200 a month; served at `gitilizer.com`. |
+| [Q-3](PRD.md#q-3) Metrics | Users, users who completed setup, daily/weekly/monthly actives (`METRIC-1`), and system health (`METRIC-3`). |
+| [Q-8](PRD.md#q-8) Warm Welcome | Until both credentials have been entered once; afterwards, notifications. |
+| [Q-9](PRD.md#q-9), [Q-11](PRD.md#q-11) Accounts and sessions | One account per sign-in provider account; 30-day sliding sessions; signing out ends only the current session (`AUTH-7` to `AUTH-9`). |
+| [Q-17](PRD.md#q-17) Thresholds | Short-lived problems are retried for 15 minutes, then shown as warnings; stale-list error after 3 hours; expiry warning 7 days ahead. |
+| [Q-21](PRD.md#q-21), [Q-65](PRD.md#q-65) Inclusion | Personal review requests, assigned, mentioned by name, created, commented on, additional repositories; drafts and bot items included; archived repositories, team reviews and team mentions excluded. |
+| [Q-22](PRD.md#q-22), [Q-67](PRD.md#q-67) Reason precedence | Review requested, Assigned, @handle, Created, Commented, repository name. |
+| [Q-27](PRD.md#q-27), [Q-66](PRD.md#q-66) List size | The 1,000 most recently updated items, Prioritized list only; no notice; dropped items slide off the bottom. |
+| [Q-28](PRD.md#q-28), [Q-29](PRD.md#q-29) First sync and Sync now | Pulsing skeleton rows; unranked items hidden; failed items at the end with "–"; Sync now spins for any sync, is never disabled and isn't throttled. |
+| [Q-35](PRD.md#q-35), [Q-72](PRD.md#q-72) Icebox return | A separate Icebox check prompt decides, leaning toward bringing items back. The developer can't see or change that prompt (`ICE-14`). |
+| [Q-39](PRD.md#q-39), [Q-74](PRD.md#q-74) Model | Gitilizer chooses the models (`GITILIZER_MODELS`, default `gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite`, the first being the primary) with the lowest thinking level each allows, for cost (`RANK-11`); Settings doesn't show it. |
+| [Q-40](PRD.md#q-40) Token kinds | Fine-grained and classic tokens, one per developer; no organization permissions needed. |
+| [Q-44](PRD.md#q-44) Default prompt | `prompts/v4.md`, at most 20,000 characters, new defaults followed automatically. |
+| [Q-45](PRD.md#q-45), [Q-64](PRD.md#q-64), [Q-71](PRD.md#q-71) Saving | "Save changes", "Save and re-rank" and "Cancel"; both saves cover credentials; a successful save returns to the list; leaving with unsaved changes asks first. Cancel also returns to the list, or Warm Welcome before setup is complete (`NAV-9`). |
+| [Q-46](PRD.md#q-46) Deletion | Immediate, after a simple confirmation; backups kept for 6 months (`PRIV-4`). |
+| [Q-47](PRD.md#q-47) Background scans | Every 2 hours for developers seen in the last 7 days; otherwise only on the next visit. |
+| [Q-48](PRD.md#q-48), [Q-49](PRD.md#q-49) Re-ranking | Every item re-ranked at least every 24 hours; a change also re-ranks the items it links to. |
+| [Q-51](PRD.md#q-51) Concurrency | 4 Gemini calls at once per developer. |
+| [Q-57](PRD.md#q-57) Additional repositories | "keep an eye on", not "responsible for"; the agent's wording changes to match (`SET-31`). |
+| [Q-41](PRD.md#q-41) Repositories | `owner/name` or a GitHub URL; duplicates and bad formats are errors; at most 25; prioritization prompts up to 500 characters and not editable. Access states "Checking…", "Access confirmed", "Archived" and "Can't access", with the reason on hover (`SET-8`). |
+| [Q-52](PRD.md#q-52), [Q-68](PRD.md#q-68) Item data | No privacy note in Settings; an item's data is deleted 30 days after no developer has it (`PRIV-5`). The documentation's privacy section covers storage, deletion and what is sent to Gemini (`FOOT-4`). |
+| [Q-58](PRD.md#q-58), [Q-37](PRD.md#q-37), [Q-38](PRD.md#q-38) Validate | Checks the typed value; disabled when the field is empty, including for a saved credential; the result states in `SET-28`; saving doesn't validate (`SET-29`). |
+| [Q-63](PRD.md#q-63), [Q-75](PRD.md#q-75) Free tier | Must work on the free tier, falling back through the models in `RANK-13` as each one's daily quota runs out; items waiting for quota shown at the end with "–"; one item per call; scores from different models share the list; the primary model's quota goes to new and changed items first; the backup-model warning shows for as long as a backup model is in use. |
+| [Q-70](PRD.md#q-70) Alerts | Email alerts to the owner from Cloud Monitoring (`METRIC-4`). |
+| [Q-73](PRD.md#q-73) Settings errors | Red border and a message under the field; saving disabled while errors show (`SET-27`). |
+| [Q-50](PRD.md#q-50), [Q-53](PRD.md#q-53) to [Q-56](PRD.md#q-56) Other | Ties as in `RANK-4`; 2 s to a usable list, 100 ms sorts, 99.5% availability; latest two versions of Chrome, Edge, Firefox and Safari at 1024 px and wider, no touch; WCAG 2.2 AA; English and a light theme only. |
 
 ---
 
@@ -150,6 +154,8 @@ New Python code is `gitilizer/worker.py` and the Icebox check (`gitilizer/icebox
 
 ## Hosting on Google Cloud
 
+Everything runs in the Google Cloud project `gitilizer`.
+
 | Component | Google Cloud service | Notes |
 |---|---|---|
 | API server and web app | Cloud Run service | Serves the built web app as static files and the API at `https://gitilizer.com`. Server-sent events are ordinary long requests; Cloud Run ends a request after at most 60 minutes, and the browser's `EventSource` reconnects and replays from `Last-Event-ID`. |
@@ -161,11 +167,23 @@ New Python code is `gitilizer/worker.py` and the Icebox check (`gitilizer/icebox
 
 **Monitoring (`METRIC-3`, `NFR-6`).** Cloud Run already records request latency and response codes for every request, so API latency by endpoint and status codes for page loads and API calls come from Cloud Monitoring without extra code. Browser-side load time can't be seen from the server: the web app measures the time from navigation to a usable list (and the standard web vitals) and sends it to `POST /api/telemetry`, which writes it as a structured log line that a log-based metric turns into a distribution. Scan and ranking durations, and error and notification counts, are custom metrics from the scanner and worker. One Cloud Monitoring dashboard shows them all. Alerting policies email the owner (`METRIC-4`) when an uptime check on `https://gitilizer.com` fails, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for 30 minutes.
 
-**Region.** One region in the eastern United States (for example `us-east4`) is the best single choice for North America and Western Europe together (`PLAT-3`). A second region in Europe would double the fixed cost.
+**Region.** One region in the eastern United States is the best single choice for North America and Western Europe together (`PLAT-3`). A second region in Europe would double the fixed cost.
 
-**Domain (`PLAT-5`).** `gitilizer.com` (the apex, with `www.gitilizer.com` redirecting to it) points at the API service, either through a Cloud Run domain mapping, where the chosen region supports one, or through a global external Application Load Balancer with a Google-managed certificate. The load balancer has a fixed monthly charge, so the domain mapping is preferred if the chosen region supports it; either way it goes into the cost estimate below. The OAuth redirect URLs ([Sign-in and sessions](#sign-in-and-sessions)) and the session cookie are tied to this domain, so preview deployments sign in with the development stub.
+> **CONFIRM: [D-3](#d-3)** The region is `us-east4` (Northern Virginia). `us-east1` (South Carolina) would work equally well.
 
-**Budget (`PLAT-4`) is the main design risk.** US$200 a month has to cover Cloud SQL, the always-on scanner and worker, the domain, and enough API instances to hold 10,000 open event streams. Before the design is approved, it needs a cost estimate with the Google Cloud pricing calculator for the load in [Scale](#scale). If holding streams is too expensive on Cloud Run, the web app can poll `GET /api/list?since={version}` every 15–30 seconds instead. That would still meet the "no page reload" requirement, but the 5-second latency in `LIVE-23` would no longer hold.
+**Domain (`PLAT-5`).** `gitilizer.com` (the apex, with `www.gitilizer.com` redirecting to it) points at the API service. The OAuth redirect URLs ([Sign-in and sessions](#sign-in-and-sessions)) and the session cookie are tied to this domain, so preview deployments sign in with the development stub.
+
+> **CONFIRM: [D-2](#d-2)** How `gitilizer.com` reaches Cloud Run. There are three ways ([Google's comparison](https://docs.cloud.google.com/run/docs/mapping-custom-domains)):
+>
+> 1. **Cloud Run domain mapping.** No extra cost, and `us-east4` supports it. But it is still a Preview feature that Google says is "not recommended for production services", citing latency issues.
+> 2. **A global external Application Load Balancer** with a Google-managed certificate. Google's recommended option, but it has a fixed monthly charge that counts against the US$200 budget ([D-1](#d-1)).
+> 3. **Firebase Hosting in front of Cloud Run.** A custom domain at no or low cost, but Firebase limits requests it forwards to Cloud Run to 60 seconds, so the live-update stream would reconnect every minute.
+>
+> Suggestion: the load balancer if the cost estimate leaves room for it; otherwise the domain mapping, accepting the Preview risk.
+
+**Budget (`PLAT-4`) is the main design risk.** US$200 a month has to cover Cloud SQL, the always-on scanner and worker, the domain, and enough API instances to hold 10,000 open event streams.
+
+> **OPENQUESTION: [D-1](#d-1)** Does the design fit in US$200 a month at the load in [Scale](#scale)? It needs a cost estimate with the Google Cloud pricing calculator before the design is approved. If holding 10,000 event streams on Cloud Run is too expensive, the web app can poll `GET /api/list?since={version}` every 15–30 seconds instead. That still meets the "no page reload" requirement, but not the 5-second latency in `LIVE-23`.
 
 ---
 
@@ -177,6 +195,8 @@ New Python code is `gitilizer/worker.py` and the Icebox check (`gitilizer/icebox
 | Scopes | `openid email profile` | `user:email` only, to read a private primary email. No repository scopes (`AUTH-5`). |
 | Redirect URL | `https://gitilizer.com/api/auth/google/callback` | `https://gitilizer.com/api/auth/github/callback` |
 | Account key | `sub` | Numeric user `id` |
+
+> **CONFIRM: [D-4](#d-4)** GitHub sign-in uses an OAuth app with only the `user:email` scope. GitHub now recommends GitHub Apps for new integrations, and a GitHub App can also sign people in, but its user tokens expire after 8 hours and it adds an app installation concept that sign-in doesn't need. Since Gitilizer discards the token right after sign-in and never uses it to read items (`AUTH-5`), the simpler OAuth app is enough.
 
 - **Accounts (`AUTH-3`, `AUTH-7`).** `users` has a unique index on `(provider, provider_user_id)`. Email is stored for display only and is never used to merge accounts, so the same person signing in with both providers gets two accounts. `METRIC-1` counts them as two users.
 - **Provider tokens.** The callback reads the profile (name, email, avatar) and then discards the provider's tokens. Gitilizer keeps no Google or GitHub sign-in token, which is why revoking access at the provider doesn't sign the developer out ([Q-11](PRD.md#q-11)).
@@ -329,11 +349,11 @@ A scan for one developer:
    - `is:open archived:false` with each of `assignee:{login}`, `mentions:{login}`, `author:{login}` and `commenter:{login}`;
    - `is:open archived:false repo:{owner}/{name}` for each additional repository. Before the search, `GET /repos/{owner}/{name}` checks access (`SET-8`): a 404 means `not_found`, a 403 with `X-GitHub-SSO` means `sso_required`, a 403 naming the token type means `token_type_blocked`, and `archived: true` means `archived`. GitHub follows renames, so the response's `full_name` replaces the stored name, which keeps `repo:` searches working.
 
-   Each result contributes a reason to that item. Team mentions (`team:`) are not searched ([Q-65](PRD.md#q-65), assumed). For mentions the scanner records the handle `@{login}`, or none ("@-mentioned") when it can't tell.
+   Each result contributes a reason to that item. Team mentions (`team:`) are not searched ([Q-65](PRD.md#q-65)). For mentions the scanner records the handle `@{login}`, or none ("@-mentioned") when it can't tell.
 
    - **Full scan:** each search reads until it runs out of results or has read 1,000. That is always enough: any item among the developer's 1,000 most recently updated is among the first 1,000 results of every search it matches (`SCAN-1`). No search is ever split.
    - **Incremental scan:** the same searches without `is:open`, plus `updated:>={since}`, where `since` is the start of the last successful scan minus 2 minutes. Because closing an item updates it, closed and merged items show up here too. Paging stops at the first result older than `since`.
-3. **Apply the limit (`LIST-19`).** Merge the results with the developer's current active items, order by `updated_at` (newest first) and keep the first 1,000. Icebox items don't count ([Q-66](PRD.md#q-66), assumed).
+3. **Apply the limit (`LIST-19`).** Merge the results with the developer's current active items, order by `updated_at` (newest first) and keep the first 1,000. Icebox items don't count (`LIST-19`).
 4. **Diff.** Compare with the developer's `user_items`:
    - not seen before, and within the limit → insert, fetch a snapshot, queue a `new` job;
    - `updated_at` later than `ranked_updated_at` → fetch a snapshot, queue a `changed` job;
@@ -366,6 +386,8 @@ Each web app tab reports presence (`POST /api/presence`) on load, on every `visi
 | Neither | 2 hours for developers seen in the last 7 days; otherwise none until the next visit (`SCAN-5`) |
 
 A scan is **full** if it is the developer's first, if Sync now or saving Settings started it, or if the last full scan finished more than 1 hour ago; otherwise it is **incremental**. Removals that only a full scan can see (`no_longer_matches`) therefore reach the list within about an hour, or at once after Sync now.
+
+> **CONFIRM: [D-5](#d-5)** A full scan at most once an hour, with incremental scans in between. More often makes "No longer yours" removals appear sooner, but a full scan can use many of the 30 search requests a minute that GitHub allows each token, which other tools using the same token share.
 
 A presence report that changes the developer to visible starts a scan at once if the last one finished more than 5 minutes ago (`SCAN-6`). The scheduler loop runs every 10 s: `SELECT … WHERE next_scan_at <= now() … FOR UPDATE SKIP LOCKED LIMIT n`, so several scanner processes can share the work. A daily pass queues an `ageing` batch for every active item not ranked in the last 24 hours (`RANK-9`).
 
@@ -533,6 +555,20 @@ Building the slice turned up these gaps. Those that need a product decision are 
 | F10 | **Timestamps have one-second precision.** Two changes within a second look like one. That's harmless for real GitHub activity, but tests must step the clock. | Done in the fixture store |
 | F11 | **Credentials can't be removed**, only replaced, so the "No GitHub token is set" error can happen only through a fault. | Noted in PRD `NOTIF-16` |
 | F12 | **Hosting cost.** Holding 10,000 event streams on Cloud Run within US$200 a month needs a cost estimate before the design is approved. | [Hosting on Google Cloud](#hosting-on-google-cloud) |
-| F13 | **"First sync finished"** needed a definition (scan done and every queued item ranked or failed) before the empty state could be chosen. | Implemented as PRD [Q-29](PRD.md#q-29) suggests (still to be confirmed) |
+| F13 | **"First sync finished"** needed a definition (scan done and every queued item ranked or failed) before the empty state could be chosen. | Decided: `LIST-32` |
 | F14 | **Item data is shared between developers** (one `items` row per GitHub item), so deleting an account (`PRIV-3`) leaves items another developer still has. A daily clean-up job deletes `items` rows, and `gone` `user_items` rows, once no developer has had the item as active or iceboxed for 30 days (`PRIV-5`). | Designed; to do |
 | F15 | **The 1,000-item limit makes search splitting unnecessary**, and sorting by `updated` makes incremental scans cheap. A full scan is still needed now and then to see items that stop matching without being closed. | [Scanner](#scanner) |
+
+---
+
+## Open questions
+
+Questions about the design itself. The PRD has none left open. **Kind** says whether information is missing (OPENQUESTION) or a choice needs the owner's confirmation (CONFIRM).
+
+| ID | Area | Question | Suggested answer | Kind |
+|---|---|---|---|---|
+| <a id="d-1"></a>D-1 | Hosting | Does the design fit in US$200 a month at the scale in `NFR-1`? | Make a cost estimate with the pricing calculator; fall back to polling if event streams cost too much. | OPENQUESTION |
+| <a id="d-2"></a>D-2 | Hosting | How does `gitilizer.com` reach Cloud Run? | A load balancer if the budget allows; otherwise a Cloud Run domain mapping. | CONFIRM |
+| <a id="d-3"></a>D-3 | Hosting | Which region? | `us-east4`. | CONFIRM |
+| <a id="d-4"></a>D-4 | Sign-in | OAuth app or GitHub App for GitHub sign-in? | OAuth app, `user:email` only. | CONFIRM |
+| <a id="d-5"></a>D-5 | Scanning | How often does a full scan run? | At most once an hour, plus Sync now and saving Settings. | CONFIRM |
