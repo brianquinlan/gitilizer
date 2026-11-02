@@ -1,6 +1,7 @@
 // Shared server context, configuration and small helpers.
 import type { FastifyReply } from "fastify";
 import type { CheckResult, ListEvent, Notification, SyncEvent } from "@gitilizer/shared";
+import type { Allowlist } from "./allowlist.ts";
 import type { CredentialCipher } from "./crypto.ts";
 import type { Db } from "./db.ts";
 import type { GitHubApi } from "./github/types.ts";
@@ -33,6 +34,8 @@ export type Config = {
   localMode: boolean;
   /** Scan on a schedule (SCAN-5, SCAN-6) and run the daily re-rank. Off in local mode unless asked for. */
   autoScan: boolean;
+  /** Who may sign in (the development environment); null lets everyone in (PRD NFR-12). */
+  allowlist: Allowlist | null;
 };
 
 type Subscriber = { reply: FastifyReply; userId: string };

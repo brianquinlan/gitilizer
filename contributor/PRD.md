@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-02 (logging, deployment, favicon, quota documentation, Sync now disabled while syncing, deleted-account count; Q-78 answered; new question Q-80) |
+| **Last updated** | 2026-11-02 (development sign-in allowlist; Q-80 answered) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Replaces** | [Gitilizer PRD (Google Doc)](https://docs.google.com/document/d/1iN4HGqn5_Nz4g8oweqg0PK-iLlKQ8dza7ruqxADpu6U/edit) |
@@ -231,9 +231,10 @@ Signing in uses full-page redirects, not a pop-up. "Continue with Google" or "Co
   | Cancelled | The developer cancelled or denied access on the provider's page (`access_denied`) | "Sign-in was cancelled. Choose an option below to try again." |
   | Provider unavailable | The provider reported a problem (`server_error`, `temporarily_unavailable`), or didn't respond when Gitilizer finished the sign-in | "Google isn't responding right now. Try again in a few minutes." ("GitHub" for GitHub) |
   | Expired | Gitilizer's security check failed: the sign-in took too long, was finished in another tab, or the browser blocked cookies | "Sign-in didn't finish. Try again, and make sure your browser allows cookies for gitilizer.com." |
+  | Not allowed | Only in the development environment: the account isn't on its allowlist (`NFR-12`) | "This is Gitilizer's development site, and only invited accounts can sign in. Ask the owner for access." |
   | Gitilizer error | Anything else, including problems on Gitilizer's side and unexpected provider errors | "Something went wrong on our side. Try again. If it keeps happening, report it using the GitHub link below." |
 
-- **AUTH-15** The "Cancelled" notice must be neutral (grey), because cancelling isn't an error. The other three categories must use the same notice in red: the error color (#B74439) for the border and the text, on a light red background, as in [Sign in · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=306-1355).
+- **AUTH-15** The "Cancelled" notice must be neutral (grey), because cancelling isn't an error. The other categories must use the same notice in red: the error color (#B74439) for the border and the text, on a light red background, as in [Sign in · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=306-1355).
 - **AUTH-11** The message must not include the provider's own error description, which is written for programmers and often missing. The server must log the provider's error code and description, and any error of its own, for the owner (`NFR-6`).
 - **AUTH-12** The messages must not suggest signing in with the other provider, because that creates a separate, empty account (`AUTH-7`).
 - **AUTH-13** The notice must disappear when the developer reloads the page or starts another sign-in.
@@ -747,18 +748,16 @@ Gitilizer keeps:
 - **NFR-6** The backend must record metrics for scan duration, ranking duration, GitHub and Gemini error rates by type, and notification counts by type, so operators can see problems before developers report them.
 - **NFR-11** The backend must log enough to find the cause of a production problem without reproducing it, and no more. Each line records one event (a scan finishing, a job failing, an unexpected GitHub or Gemini response, an unhandled error) with what it was about (developer, item, error code). Routine success is not logged one line per item, logs can be searched by severity, and credentials never appear in them (`PRIV-1`).
 - **NFR-12** A change must run in a separate development environment, with its own database, before it reaches gitilizer.com. Deploying to the development environment is automatic; deploying to gitilizer.com is a deliberate step, of a build that has already run in the development environment. The design doc describes the environments.
-
-> **TODO: [Q-80](#q-80)** Who can sign in to the development environment, and does it use real GitHub and Gemini? Suggestion: it is at `dev.gitilizer.com`, uses real GitHub and Gemini with each developer's own credentials like production, and only accounts on an allowlist (the owner and anyone they add) can sign in, because it may run untested code against their credentials.
+  - The development environment is at `dev.gitilizer.com` and uses real GitHub and Gemini, with each developer's own credentials, like production.
+  - Because it runs untested code with those credentials, only accounts on an allowlist can sign in there ([Q-80](#q-80)). The owner lists Google accounts by email address and GitHub accounts by username or numeric ID, and can change the list without a release. Someone removed from the list is signed out at their next request; their account stays. Anyone else sees the "Not allowed" message (`AUTH-10`). Production has no allowlist.
 
 ---
 
 ## Open questions
 
-Q-58 to Q-63 were found by building the prototype described in the [design doc](DESIGN.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers and the new Figma designs; Q-77 to Q-79 came from bringing the prototype in line with this document. Q-80 came from the decision to have a development environment.
+There are no open questions at the moment. New ones are marked **TODO:** where they come up and listed here.
 
-| ID | Area | Question | Suggested answer | Needed by |
-|---|---|---|---|---|
-| <a id="q-80"></a>Q-80 | Deployment | Who can sign in to the development environment, and does it use real GitHub and Gemini? | `dev.gitilizer.com`, real GitHub and Gemini with each developer's own credentials, sign-in limited to an allowlist. | Before the first deployment |
+Q-58 to Q-63 were found by building the prototype described in the [design doc](DESIGN.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers and the new Figma designs; Q-77 to Q-79 came from bringing the prototype in line with this document; Q-80 came from the decision to have a development environment.
 
 ### Answered questions
 
@@ -843,6 +842,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 | <a id="q-77"></a>Q-77 | Leave label when the Icebox check brings an item back | "Back in your list". | `LIVE-25` |
 | <a id="q-78"></a>Q-78 | What Validate shows for an expired typed token | GitHub answers it like a mistyped one, so: "GitHub didn't accept this token. Check that you copied it correctly." | `SET-28` |
 | <a id="q-79"></a>Q-79 | Sync now while items wait for quota | The sync counts as finished; the quota error explains the wait. | `LIST-32` |
+| <a id="q-80"></a>Q-80 | Who can sign in to the development environment | `dev.gitilizer.com`, with real GitHub and Gemini and each developer's own credentials. Only accounts on an allowlist can sign in: Google accounts by email, GitHub accounts by username or ID, kept in a setting the owner can change without a release. | `NFR-12`, `AUTH-10` |
 
 ---
 
@@ -931,3 +931,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 - Sync now is disabled while a sync is in progress (`LIST-28`). The Q-29 record had said "never disabled", which wasn't what the product owner meant.
 - Added logging (`NFR-11`), a development environment (`NFR-12`, with Q-80), the favicon (`BAR-3`), the count of deleted accounts (`METRIC-1`), and the free-tier quota in the user documentation (`FOOT-3`).
 - Folded in the answer to Q-78 ("Check that you copied it correctly").
+
+### Fifteenth revision (2026-11-02, second round)
+
+- Folded in the answer to Q-80: only accounts on an allowlist can sign in to the development environment (`NFR-12`), and a refused sign-in gets a fifth message, "Not allowed" (`AUTH-10`). [DEPLOYMENT.md](DEPLOYMENT.md) explains how the owner changes the list.

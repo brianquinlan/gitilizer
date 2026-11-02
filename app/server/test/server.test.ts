@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { parseLogin, parseRepo, type SettingsUpdate } from "@gitilizer/shared";
+import { Allowlist, loadAllowlist, type SignInIdentity } from "../src/allowlist.ts";
 import { buildApp, settingsErrors } from "../src/app.ts";
 import type { Ctx } from "../src/context.ts";
 import type { FixtureStore } from "../src/github/fixtures.ts";
@@ -408,5 +409,78 @@ describe("ranking worker", () => {
     await failing.run(job);
     expect((await shownNotifications(ctx, "w1")).map((n) => n.code)).toEqual(["gemini_invalid"]);
     expect(await claimJobs(ctx, 5, 60)).toHaveLength(0); // paused until the key changes
+  });
+});
+
+// --- Sign-in allowlist (PRD NFR-12, Q-80; contributor/DEPLOYMENT.md) ---
+
+describe("sign-in allowlist", () => {
+  const who = (over: Partial<SignInIdentity>): SignInIdentity => ({
+    provider: "google", providerUserId: "1", email: "x@example.com", emailVerified: true, login: null, ...over,
+  });
+
+  it("reads entries separated by spaces, commas or new lines, and refuses malformed ones", () => {
+    const list = Allowlist.parse("google:Maya@Example.com, github:@OctoCat\n github-id:583231");
+    expect([...list.emails]).toEqual(["maya@example.com"]);
+    expect([...list.logins]).toEqual(["octocat"]);
+    expect([...list.githubIds]).toEqual(["583231"]);
+    expect(() => Allowlist.parse("google:maya@example.com maya@example.com github-id:abc")).toThrow(
+      /"maya@example\.com", "github-id:abc"/,
+    );
+    expect(() => Allowlist.parse("github:-bad-")).toThrow(/github:-bad-/);
+  });
+
+  it("is required in the development environment and optional elsewhere", () => {
+    expect(() => loadAllowlist({ GITILIZER_ENV: "development" })).toThrow(/needs SIGN_IN_ALLOWLIST/);
+    expect(() => loadAllowlist({ GITILIZER_ENV: "development", SIGN_IN_ALLOWLIST: "  " })).toThrow(/needs SIGN_IN_ALLOWLIST/);
+    expect(loadAllowlist({ GITILIZER_ENV: "development", SIGN_IN_ALLOWLIST: "github:octocat" })?.size).toBe(1);
+    expect(loadAllowlist({ GITILIZER_ENV: "production" })).toBeNull();
+    expect(loadAllowlist({})).toBeNull();
+  });
+
+  it("matches Google by verified email and GitHub by username or ID", () => {
+    const list = Allowlist.parse("google:maya@example.com github:octocat github-id:42");
+    expect(list.allows(who({ email: "MAYA@example.com" }))).toBe(true);
+    expect(list.allows(who({ email: "maya@example.com", emailVerified: false }))).toBe(false);
+    expect(list.allows(who({ email: "sam@example.com" }))).toBe(false);
+    expect(list.allows(who({ provider: "github", providerUserId: "7", login: "OctoCat" }))).toBe(true);
+    expect(list.allows(who({ provider: "github", providerUserId: "42", login: "renamed" }))).toBe(true);
+    expect(list.allows(who({ provider: "github", providerUserId: "7", login: "someone" }))).toBe(false);
+    // A GitHub account's email never matches a google: entry.
+    expect(list.allows(who({ provider: "github", providerUserId: "7", email: "maya@example.com", login: "someone" }))).toBe(false);
+  });
+
+  it("refuses sign-in without creating an account, and ends the sessions of removed accounts", async () => {
+    const { ctx } = await makeCtx({ allowlist: Allowlist.parse("google:maya@example.com github:octocat") });
+    const app = buildApp(ctx, new Scheduler(ctx), null);
+    const signIn = (payload: object) => app.inject({ method: "POST", url: "/api/auth/dev", headers: { "x-gitilizer": "1" }, payload });
+    const users = async () => (await ctx.db.one(`select count(*)::int as n from users`)).n;
+
+    const maya = await signIn({ name: "Maya", email: "maya@example.com" });
+    expect(maya.statusCode).toBe(200);
+    const octo = await signIn({ provider: "github", name: "Octo", email: "octo@example.com", login: "OctoCat" });
+    expect(octo.statusCode).toBe(200);
+    expect(await ctx.db.one(`select sign_in_login from users where provider = 'github'`)).toEqual({ sign_in_login: "OctoCat" });
+    expect(await users()).toBe(2);
+
+    const sam = await signIn({ name: "Sam", email: "sam@example.com" });
+    expect(sam.statusCode).toBe(403);
+    expect(sam.json()).toEqual({ error: "not_allowed" });
+    expect(sam.headers["set-cookie"]).toBeUndefined();
+    expect(await users()).toBe(2);
+
+    // Removing Maya from the list (a new revision in Cloud Run) ends her sessions at her next request.
+    const cookie = String(maya.headers["set-cookie"]).split(";")[0];
+    const me = () => app.inject({ method: "GET", url: "/api/me", headers: { cookie } });
+    expect((await me()).statusCode).toBe(200);
+    ctx.config.allowlist = Allowlist.parse("github:octocat");
+    const after = await me();
+    expect(after.statusCode).toBe(401);
+    expect(after.json()).toEqual({ error: "not_allowed" });
+    expect(await ctx.db.one(`select count(*)::int as n from sessions s join users u on u.id = s.user_id where u.email = 'maya@example.com'`)).toEqual({ n: 0 });
+    expect((await signIn({ name: "Maya", email: "maya@example.com" })).statusCode).toBe(403);
+    // Her account and settings stay, so adding her back restores everything.
+    expect(await users()).toBe(2);
+    await app.close();
   });
 });

@@ -263,8 +263,8 @@ export type ListEvent = z.infer<typeof ListEvent>;
 export const SyncEvent = z.object({ running: z.boolean(), lastFinishedAt: z.string().nullable() });
 export type SyncEvent = z.infer<typeof SyncEvent>;
 
-/** Sign-in failure categories in /sign-in?error= (AUTH-10). */
-export const SignInError = z.enum(["cancelled", "provider_unavailable", "expired", "gitilizer_error"]);
+/** Sign-in failure categories in /sign-in?error= (AUTH-10). `not_allowed` happens only in the development environment (NFR-12). */
+export const SignInError = z.enum(["cancelled", "provider_unavailable", "expired", "not_allowed", "gitilizer_error"]);
 export type SignInError = z.infer<typeof SignInError>;
 
 /** Header every state-changing browser request must send (design: Security). */

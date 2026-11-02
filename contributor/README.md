@@ -7,6 +7,7 @@ This folder is for people building Gitilizer. If you want to *use* Gitilizer, re
 | [PRD.md](PRD.md) | What Gitilizer must do: every requirement, with an ID such as `LIST-4`, and the product owner's open questions. |
 | [DESIGN.md](DESIGN.md) | How it is built: architecture, data model, API, ranking, hosting, logging, deployment, and the design's open questions. |
 | [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md) | Running the whole application on your own computer with one command. |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | The development and production environments, releasing with a `release-*` tag, rolling back, and who can sign in to development. |
 
 Open questions in both documents are marked **TODO:**, so searching for that finds everything waiting for an answer.
 

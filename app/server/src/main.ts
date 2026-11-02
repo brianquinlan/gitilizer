@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { CheckResult } from "@gitilizer/shared";
 import { CredentialCipher } from "./crypto.ts";
 import { openDb } from "./db.ts";
+import { loadAllowlist } from "./allowlist.ts";
 import { buildApp, buildInternalApp } from "./app.ts";
 import { Hub, type Config, type Ctx } from "./context.ts";
 import { FixtureGitHub, FixtureStore } from "./github/fixtures.ts";
@@ -53,6 +54,7 @@ export function loadConfig(): Config {
     schedulerTickMs: num(env.SCHEDULER_TICK_MS, 5000),
     localMode: LOCAL_FLAG,
     autoScan: env.AUTO_SCAN ? env.AUTO_SCAN !== "off" : true,
+    allowlist: loadAllowlist(env),
   };
 }
 
@@ -88,6 +90,8 @@ async function main() {
   const db = await openDb(env.DATABASE_URL, env.PGLITE_DIR ?? join(ROOT, "app", "server", ".data"));
   const cipher = new CredentialCipher(env.CREDENTIAL_KEY ?? Buffer.alloc(32, 7).toString("base64"));
   if (!env.CREDENTIAL_KEY) log.warn("startup", "CREDENTIAL_KEY not set: using an insecure development key");
+  if (config.allowlist && config.localMode) log.warn("startup", "SIGN_IN_ALLOWLIST is ignored in local mode");
+  else if (config.allowlist) log.info("startup", `Sign-in limited to SIGN_IN_ALLOWLIST (${config.allowlist.size} ${config.allowlist.size === 1 ? "entry" : "entries"})`);
 
   let fixtures: FixtureStore | null = null;
   if (config.githubMode === "fixtures") {
@@ -133,4 +137,9 @@ async function main() {
   process.on("SIGTERM", stop);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  main().catch((e) => {
+    log.error("startup", e instanceof Error ? e.message : String(e));
+    process.exit(1);
+  });
+}

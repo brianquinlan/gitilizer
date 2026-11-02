@@ -3,7 +3,7 @@
 import { log } from "./log.ts";
 import cookie from "@fastify/cookie";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import {
   CSRF_HEADER, CredentialKind, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, MAX_COLLABORATORS, MAX_PROMPT_LENGTH,
@@ -17,6 +17,7 @@ import { pushSync, queueFullRerank, queueRankJobs, syncState } from "./jobs.ts";
 import { currentVersion, listRows, publish } from "./list.ts";
 import { clear, clearForCredential, markSeen, raise, shownNotifications } from "./notify.ts";
 import { localUserId } from "./local.ts";
+import { accountAllowed, completeSignIn } from "./signin.ts";
 import type { Scheduler } from "./scheduler.ts";
 
 const SESSION_COOKIE = "gitilizer_session";
@@ -44,13 +45,25 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     if (req.method !== "GET" && req.headers[CSRF_HEADER] !== "1") return bad(reply, 403, "missing CSRF header");
     if (req.url.startsWith("/api/auth/dev")) return;
     const sid = req.cookies[SESSION_COOKIE];
-    const s = sid ? await db.one(`select user_id from sessions where id = $1 and expires_at > now()`, [sid]) : undefined;
+    const s = sid
+      ? await db.one(
+          `select s.user_id, u.provider, u.provider_user_id, u.email, u.sign_in_login
+             from sessions s join users u on u.id = s.user_id where s.id = $1 and s.expires_at > now()`,
+          [sid],
+        )
+      : undefined;
     if (!s && ctx.config.localMode && !req.url.startsWith("/api/auth/logout")) {
       // Local mode: there is only one developer, so sign them in without asking.
       req.userId = await startSession(reply, await localUserId(ctx));
       return;
     }
     if (!s) return bad(reply, 401, "not signed in");
+    if (!accountAllowed(ctx, s)) {
+      // Taken off the allowlist since signing in: the session ends at once (contributor/DEPLOYMENT.md).
+      await db.query(`delete from sessions where user_id = $1`, [s.user_id]);
+      reply.clearCookie(SESSION_COOKIE, { path: "/" });
+      return bad(reply, 401, "not_allowed");
+    }
     req.userId = s.user_id;
     // Sliding 30-day sessions, extended at most once a day (AUTH-8, design: Sign-in and sessions).
     await db.query(
@@ -74,17 +87,22 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       await startSession(reply, await localUserId(ctx));
       return { ok: true };
     }
-    const body = z.object({ name: z.string().min(1), email: z.string().email() }).parse(req.body);
-    let user = await db.one(`select id from users where provider = 'dev' and provider_user_id = $1`, [body.email]);
-    if (!user) {
-      user = { id: randomUUID() };
-      await db.query(
-        `insert into users (id, provider, provider_user_id, name, email) values ($1, 'dev', $2, $3, $2)`,
-        [user.id, body.email, body.name],
-      );
-      await db.query(`insert into settings (user_id) values ($1)`, [user.id]);
-    }
-    await startSession(reply, user.id);
+    // The stub stands in for both providers. "Continue with GitHub" also sends a username;
+    // `id` (tests only) stands in for GitHub's numeric user ID.
+    const body = z.object({
+      name: z.string().min(1), email: z.string().email(),
+      provider: z.enum(["dev", "github"]).default("dev"),
+      login: z.string().min(1).optional(), id: z.string().regex(/^[0-9]+$/).optional(),
+    }).parse(req.body);
+    const github = body.provider === "github";
+    if (github && !body.login) return bad(reply, 400, "GitHub sign-in needs a username");
+    const userId = await completeSignIn(ctx, {
+      provider: body.provider,
+      providerUserId: github ? (body.id ?? body.login!.toLowerCase()) : body.email,
+      name: body.name, email: body.email, emailVerified: true, login: github ? body.login! : null,
+    });
+    if (!userId) return bad(reply, 403, "not_allowed");
+    await startSession(reply, userId);
     return { ok: true };
   });
 

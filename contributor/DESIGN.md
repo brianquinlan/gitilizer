@@ -220,10 +220,16 @@ GitHub sign-in uses an OAuth app with only the `user:email` scope, decided in [D
 
 - **Sessions (`AUTH-8`).** A random 32-byte session ID in a `__Host-gitilizer_session` cookie (`HttpOnly`, `Secure`, `SameSite=Lax`, no `Domain`). `sessions.expires_at` is 30 days after the last use; to avoid a write on every request, it is pushed forward only when less than 29 days remain, so at most once a day.
 - **Sign out (`ACCT-3`, `AUTH-9`).** Deletes the current session row only. Deleting the account deletes every session.
-- **Failed sign-in (`AUTH-10` to `AUTH-14`).** The callback sorts every failure into one of four categories and redirects to `/sign-in?error={cancelled|provider_unavailable|expired|gitilizer_error}`:
+- **Allowlist (development only, `NFR-12`, [Q-80](PRD.md#q-80)).** `SIGN_IN_ALLOWLIST` lists who may sign in, as `google:<email>`, `github:<username>` or `github-id:<number>` entries separated by spaces ([DEPLOYMENT.md](DEPLOYMENT.md#who-can-sign-in-to-development) explains how to change it). It is a setting on the Cloud Run service, not a file in the repository, so testers' addresses stay out of Git and changing the list needs no release.
+  - **Matching.** Google accounts match by email, ignoring case, and only when the ID token's `email_verified` is true. GitHub accounts match by username, ignoring case, or by numeric ID. Anyone can claim a username after its owner renames, so the ID is the safer entry. Both come from `GET /user` with the sign-in token, which needs no scope.
+  - **At sign-in.** `completeSignIn()` (`app/server/src/signin.ts`) checks the list before it creates or updates anything. A refused sign-in creates no account, settings or session; it redirects to `/sign-in?error=not_allowed` and logs `sign-in refused` with the provider only, because the logs name people only by account ID ([Logging](#logging)).
+  - **On every request.** The session lookup already joins `users`, and the list is in memory, so checking the account again costs nothing. A changed setting starts a new revision, so someone removed from the list is signed out at their next request: their sessions are deleted and the API answers 401 `not_allowed`, which the web app turns into the same notice. Their account and data stay. The check needs the GitHub username from sign-in, which `users.sign_in_login` keeps (`github_login` is the PAT's account, which may differ).
+  - **Failing closed.** With `GITILIZER_ENV=development` the server refuses to start without a list, and any entry it can't read stops it too, naming the entry. A lost or mistyped setting therefore leaves the previous revision serving rather than opening development to everyone. Without `GITILIZER_ENV=development` and without a list, everyone can sign in. Local mode ignores the list.
+- **Failed sign-in (`AUTH-10` to `AUTH-14`).** The callback sorts every failure into one of five categories and redirects to `/sign-in?error={cancelled|provider_unavailable|expired|not_allowed|gitilizer_error}`:
   - `cancelled`: the provider returned `error=access_denied`;
   - `provider_unavailable`: the provider returned `server_error` or `temporarily_unavailable`, or the code exchange or profile request timed out or returned 5xx;
   - `expired`: the `state` value is missing, unknown or older than 10 minutes, or the PKCE verifier cookie is missing (often blocked cookies);
+  - `not_allowed`: only in development, the account isn't on the allowlist (below);
   - `gitilizer_error`: anything else, including other provider error codes and Gitilizer's own failures.
 
   The provider's `error`, `error_description` and `error_uri`, and any exception, are logged with the category; none of them reach the page. The sign-in page reads `error`, shows the matching message in the notice above the buttons (grey for `cancelled`, red for the others, `AUTH-15`), and removes the parameter with `history.replaceState`, so a reload shows the plain page (`AUTH-13`). An unknown value is treated as `gitilizer_error`.
@@ -259,7 +265,7 @@ Postgres. Times are `timestamptz`. IDs are text UUIDs unless stated.
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `users` | `id`, `provider`, `provider_user_id`, `name`, `email`, `avatar_url`, `github_login`, `created_at`, `last_seen_at`, `setup_completed_at`, `ranking_paused_until` | Unique on `(provider, provider_user_id)` (`AUTH-7`). `github_login` comes from the PAT (`GET /user`), not from sign-in (`AUTH-5`). `last_seen_at` drives [Q-47](PRD.md#q-47). `setup_completed_at` decides Warm Welcome ([Q-8](PRD.md#q-8)); see the note below. |
+| `users` | `id`, `provider`, `provider_user_id`, `name`, `email`, `avatar_url`, `github_login`, `sign_in_login`, `created_at`, `last_seen_at`, `setup_completed_at`, `ranking_paused_until` | Unique on `(provider, provider_user_id)` (`AUTH-7`). `github_login` comes from the PAT (`GET /user`), not from sign-in (`AUTH-5`); `sign_in_login` is the GitHub username at sign-in, kept for the development allowlist. `last_seen_at` drives [Q-47](PRD.md#q-47). `setup_completed_at` decides Warm Welcome ([Q-8](PRD.md#q-8)); see the note below. |
 | `user_activity` | `user_id`, `day` | One row per developer per day with a visit, for `METRIC-1`; see the note below. Rows older than 13 months are deleted by the daily clean-up. |
 | `sessions` | `id` (random 32 bytes, base64url), `user_id`, `expires_at` | Sliding 30-day expiry ([Sign-in and sessions](#sign-in-and-sessions)). |
 | `credentials` | `user_id`, `kind` (`github_pat`, `gemini_key`), `ciphertext`, `nonce`, `expires_at`, `token_login`, `token_type` | AES-256-GCM ([Security](#security)). Saved without being checked (`SET-29`). `expires_at` from GitHub's `GitHub-Authentication-Token-Expiration` header (`SET-6`). The scanner fills in `token_login` (the PAT's account) and `token_type` (`classic` or `fine-grained`, from the token's prefix). The status chip (`SET-30`) isn't stored: it comes from the shown notifications. |
@@ -525,16 +531,17 @@ Cloud Logging keeps logs for 30 days by default, which is enough to look into a 
 
 ## Deployment
 
-`NFR-12` asks for a development environment that every change runs in before it reaches gitilizer.com.
+`NFR-12` asks for a development environment that every change runs in before it reaches gitilizer.com. [DEPLOYMENT.md](DEPLOYMENT.md) is the how-to: releasing, rolling back and managing who can sign in to development.
 
 | | Development | Production |
 |---|---|---|
 | Address | `dev.gitilizer.com` | `gitilizer.com` |
 | Deployed | Automatically, after every merge to `main` whose checks pass | Deliberately: a release deploys a build that is already running in development |
-| Cloud Run | One service running everything (API, scheduler, scanner, worker), scaling to zero when unused | The services in [Hosting on Google Cloud](#hosting-on-google-cloud) |
+| Cloud Run | `gitilizer-dev`: one service running everything (API, scheduler, scanner, worker), scaling to zero when unused | `gitilizer-api` and `gitilizer-worker`, as in [Hosting on Google Cloud](#hosting-on-google-cloud) |
 | Database | Its own database, `gitilizer_dev`, on the same Cloud SQL instance | `gitilizer` |
 | Credential key, OAuth apps | Its own (a separate KMS key; OAuth apps whose redirect URLs are on `dev.gitilizer.com`) | Its own |
-| Who can sign in | An allowlist (PRD [Q-80](PRD.md#q-80)) | Everyone |
+| Who can sign in | The accounts on `SIGN_IN_ALLOWLIST` ([Sign-in and sessions](#sign-in-and-sessions), PRD [Q-80](PRD.md#q-80)) | Everyone |
+| `GITILIZER_ENV` | `development` | `production` |
 
 **The pipeline.**
 
@@ -549,9 +556,16 @@ GitHub Actions reaches Google Cloud with Workload Identity Federation, so no lon
 
 **Cost.** Development adds little: the service scales to zero, its database shares the Cloud SQL instance, and `dev.gitilizer.com` shares the load balancer (one more host rule and a free certificate), so it adds no forwarding-rule charge. Scaling to zero means development scans only while someone has it open.
 
-> **TODO: [D-8](#d-8)** Development and production share the `gitilizer` Google Cloud project, as separate services, databases and keys. Separate projects would isolate permissions and quotas completely, but double the setup (load balancer, Cloud SQL instance, monitoring) and much of the fixed cost. Suggestion: one project.
+**One Google Cloud project** ([D-8](#d-8)). Development and production share the `gitilizer` project, as separate services, databases and keys. Separate projects would make the boundary structural, but would double the setup (load balancer, Cloud SQL instance, monitoring) and add roughly US$25–30 a month. In one project the boundary comes from permissions, so they are granted on individual resources, never project-wide:
 
-> **TODO: [D-9](#d-9)** How is a release started? Suggestion: a `release-*` git tag on a commit that development is already running, approved by the owner in GitHub. The alternative is a "Deploy to production" button (a manually started workflow), which is just as safe but leaves no tag to show what was released.
+- Each environment's Cloud Run services run as their own service account. The development account can't use the production credential key and can't sign in to the production database; the production account likewise can't reach development's.
+- The identity that Cloud Build uses after a merge to `main` can deploy only the development service.
+- Only the release workflow can deploy to production, and it runs only after the owner approves it in GitHub.
+- No person or automation holds a broad project-wide role such as Editor or Owner; the owner's own access is the exception.
+
+What remains shared is the Cloud SQL instance: an upgrade, restart or flag change affects both environments, and a runaway query in development can slow production. That is acceptable at this scale, and maintenance runs in a window the owner chooses. Move development to its own project when someone besides the owner can deploy or administer, when production has enough users that a development mistake reaching it would be costly, or when infrastructure changes need trying in development first. The move is small, because the pipeline already deploys one image to each environment by name.
+
+**Releases are tags** ([D-9](#d-9)). A release starts when the owner pushes a tag `release-YYYY-MM-DD` (`.2`, `.3` for another release that day) on a commit development has already run. A manually started "Deploy to production" workflow would be just as safe, but a tag leaves a record in Git of what was released and when, and its message is the release note. [DEPLOYMENT.md](DEPLOYMENT.md) is the step-by-step guide.
 
 ---
 
@@ -561,7 +575,7 @@ The prototype implements the slice end to end, following the PRD as revised on 2
 
 | Area | Status |
 |---|---|
-| Sign-in | Development stub only ("Continue with Google/GitHub" both open it). No OAuth. The sign-in page shows the four failure notices for `/sign-in?error=…` (grey for `cancelled`, red otherwise) and removes the parameter. |
+| Sign-in | Development stub only: "Continue with Google" asks for a name and email, "Continue with GitHub" also for a username. No OAuth. The sign-in page shows the five failure notices for `/sign-in?error=…` (grey for `cancelled`, red otherwise) and removes the parameter. The development allowlist is done: the stub and, later, the OAuth callbacks finish in `completeSignIn()`, which applies it. |
 | Warm Welcome, screen selection | Done. |
 | App bar, account menu, footer | Done: "Sign out" in red with icons, real Documentation and GitHub URLs, and the Gitilizer symbol as the favicon (`BAR-3`). |
 | Notifications | The whole catalogue (28 codes) with its severities; short-lived problems become warnings after 15 minutes; the backup-model warning and the all-models error; `seen_at`, so the bell swings only for unseen errors and stops on every device once the popover opens; amber, still bell for warnings; links that open Settings and focus the control (`github-pat`, `gemini-key`, `repo-{owner}-{name}`, `ranking-prompt`, `add-repository`); focus moves into the popover and back to the bell. |
@@ -576,11 +590,11 @@ The prototype implements the slice end to end, following the PRD as revised on 2
 | Logging | `log.ts`: structured JSON in production, levels, one line per scan, a worker summary a minute, secrets redacted. |
 | Account deletion | Simple confirmation; `{ confirm: true }`; the account's ID kept in `deleted_users`. |
 | Metrics | `user_activity`, `GET /internal/metrics` (including deleted accounts), and `POST /api/telemetry`, which logs the time to a usable list. **Not done:** the dashboard and alerts (`METRIC-3`, `METRIC-4`). |
-| Deployment | **Not done:** the container image, the two environments and the pipeline ([Deployment](#deployment)). |
+| Deployment | The sign-in allowlist and `GITILIZER_ENV`. **Not done:** the container image, the two environments and the pipeline ([Deployment](#deployment), [DEPLOYMENT.md](DEPLOYMENT.md)). |
 | Documentation | [docs/user-guide.md](../docs/user-guide.md): getting started, GitHub tokens (the "Learn more" page), Gemini keys and the free tier's limits, every notification, and the privacy section (`FOOT-3`, `FOOT-4`). |
 | Upgrades | A database made by an earlier prototype (for example in `.local/`) is upgraded in place when the server starts: `interested_repos` becomes `additional_repos`, and new columns are added. |
 
-**Tests.** 14 web tests (the live-update state machine, including bulk events, waiting and failed items, over-limit removals and the Icebox return), 33 server tests (error classification, snapshot limits, discovery, the Settings rules, quota resets, local mode, a full scan → rank → change → close → Icebox → over-limit → bulk re-rank → quota fallback → key-failure cycle on in-memory Postgres, the in-process worker, and the HTTP API for Settings, Validate, Sync now, notifications and deletion) and 48 agent tests (the original Python tests and the worker's, ported, plus the comparison with the Python agent's output). A browser run in fixture mode covered the list, the first-sync state, notifications and their Settings links, the Settings rules and errors, Validate, saving, Delete account's dialog, the account menu and the sign-in notices.
+**Tests.** 14 web tests (the live-update state machine, including bulk events, waiting and failed items, over-limit removals and the Icebox return), 37 server tests (error classification, snapshot limits, discovery, the Settings rules, quota resets, local mode, a full scan → rank → change → close → Icebox → over-limit → bulk re-rank → quota fallback → key-failure cycle on in-memory Postgres, the in-process worker, and the HTTP API for Settings, Validate, Sync now, notifications and deletion, and the development allowlist) and 48 agent tests (the original Python tests and the worker's, ported, plus the comparison with the Python agent's output). A browser run in fixture mode covered the list, the first-sync state, notifications and their Settings links, the Settings rules and errors, Validate, saving, Delete account's dialog, the account menu and the sign-in notices, and a second run with an allowlist covered a refused GitHub sign-in, its notice and an allowed one.
 
 ---
 
@@ -677,12 +691,7 @@ Nothing changes outside local mode: production never sets `LOCAL_MODE`, and `AUT
 
 ## Open questions
 
-Questions about the design itself; each is marked **TODO:** where it comes up. The PRD's own open question is [Q-80](PRD.md#q-80), about who can use the development environment.
-
-| ID | Area | Question | Suggested answer |
-|---|---|---|---|
-| <a id="d-8"></a>D-8 | Deployment | One Google Cloud project for development and production, or two? | One project, with separate services, databases and keys. |
-| <a id="d-9"></a>D-9 | Deployment | How is a release to production started? | A `release-*` tag on a commit development is already running, approved by the owner in GitHub. |
+Questions about the design itself; each is marked **TODO:** where it comes up. There are none open at the moment, and the PRD has none either.
 
 ### Answered design questions
 
@@ -695,3 +704,5 @@ Questions about the design itself; each is marked **TODO:** where it comes up. T
 | <a id="d-5"></a>D-5 | How often does a full scan run? | At most once an hour, plus Sync now and saving Settings. |
 | <a id="d-6"></a>D-6 | Look up a repository or collaborator as soon as it is added, before saving? | Yes, with two check endpoints that use the saved PAT and store nothing. |
 | <a id="d-7"></a>D-7 | How does an organization named only by ID in `X-GitHub-SSO: partial-results` get its name? | `GET /organizations/{id}`, cached. |
+| <a id="d-8"></a>D-8 | One Google Cloud project for development and production, or two? | One project, with permissions granted per service, key and database ([Deployment](#deployment)). |
+| <a id="d-9"></a>D-9 | How is a release to production started? | A `release-YYYY-MM-DD` tag on a commit development has already run, approved by the owner in GitHub ([DEPLOYMENT.md](DEPLOYMENT.md#releasing-to-production)). |

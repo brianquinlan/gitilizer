@@ -25,6 +25,7 @@ function signInMessage(error: string, provider: string | null): string {
     case "cancelled": return "Sign-in was cancelled. Choose an option below to try again.";
     case "provider_unavailable": return `${provider === "github" ? "GitHub" : "Google"} isn't responding right now. Try again in a few minutes.`;
     case "expired": return "Sign-in didn't finish. Try again, and make sure your browser allows cookies for gitilizer.com.";
+    case "not_allowed": return "This is Gitilizer's development site, and only invited accounts can sign in. Ask the owner for access.";
     default: return "Something went wrong on our side. Try again. If it keeps happening, report it using the GitHub link below.";
   }
 }
@@ -47,20 +48,24 @@ function useSignInError(): { error: string; message: string } | null {
 }
 
 export function SignInPage() {
-  const [dev, setDev] = useState(false);
+  const [dev, setDev] = useState<"dev" | "github" | null>(null);
   const [name, setName] = useState("Brian Quinlan");
   const [email, setEmail] = useState("brian@sweetapp.com");
+  const [login, setLogin] = useState("brianquinlan");
   const [error, setError] = useState<string | null>(null);
   const failed = useSignInError();
   const [notice, setNotice] = useState(failed);
-  const start = () => { setNotice(null); setDev(true); }; // AUTH-13: starting another sign-in clears the notice
+  // AUTH-13: starting another sign-in clears the notice.
+  const start = (provider: "dev" | "github") => { setNotice(null); setError(null); setDev(provider); };
   const signIn = async () => {
     try {
-      await api.post("/api/auth/dev", { name, email });
+      await api.post("/api/auth/dev", dev === "github" ? { provider: "github", name, email, login } : { name, email });
       const back = new URLSearchParams(location.search).get("next");
       location.href = back && back.startsWith("/") ? back : "/";
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Couldn't sign in");
+      // The real callbacks redirect to /sign-in?error=not_allowed; the stub shows the same notice.
+      if (e instanceof ApiError && e.message === "not_allowed") setNotice({ error: "not_allowed", message: signInMessage("not_allowed", dev) });
+      else setError(e instanceof ApiError ? e.message : "Couldn't sign in");
     }
   };
   return (
@@ -87,13 +92,14 @@ export function SignInPage() {
           <h2>Welcome to Gitilizer</h2>
           {/* Prototype: OAuth isn't configured, so both buttons open a development sign-in (design: HTTP API). */}
           {notice && <div className={`signin-notice ${notice.error === "cancelled" ? "" : "error"}`} role="alert">{notice.message}</div>}
-          <button className="btn provider" onClick={start}><span style={{ color: "#4285F4", fontWeight: 700 }}>G</span> Continue with Google</button>
-          <button className="btn provider dark" onClick={start}>Continue with GitHub</button>
+          <button className="btn provider" onClick={() => start("dev")}><span style={{ color: "#4285F4", fontWeight: 700 }}>G</span> Continue with Google</button>
+          <button className="btn provider dark" onClick={() => start("github")}>Continue with GitHub</button>
           {dev && (
             <form className="panel card" onSubmit={(e) => { e.preventDefault(); void signIn(); }}>
               <strong>Development sign-in</strong>
               <label>Name<input type="text" value={name} onChange={(e) => setName(e.target.value)} /></label>
               <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+              {dev === "github" && <label>GitHub username<input type="text" value={login} onChange={(e) => setLogin(e.target.value)} /></label>}
               {error && <span className="error-text">{error}</span>}
               <button className="btn primary" type="submit">Sign in</button>
             </form>

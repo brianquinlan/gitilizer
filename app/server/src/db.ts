@@ -39,6 +39,7 @@ create table if not exists users (
   email text not null,
   avatar_url text,
   github_login text,
+  sign_in_login text,
   created_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
   next_scan_at timestamptz,
@@ -193,6 +194,7 @@ create table if not exists deleted_users (
 // Columns added after the first prototype, for databases made before them.
 const AFTER_SCHEMA = `
 alter table users add column if not exists last_full_scan_at timestamptz;
+alter table users add column if not exists sign_in_login text;
 alter table credentials add column if not exists token_login text;
 alter table credentials add column if not exists token_type text;
 alter table credentials drop column if exists validated_at;

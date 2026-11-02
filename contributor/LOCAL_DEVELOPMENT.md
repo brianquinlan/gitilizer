@@ -122,6 +122,7 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 | `LOG_LEVEL` | How much the server logs: `debug` (the default in local mode: every ranked item), `info`, `warn` or `error`. |
 | `CREDENTIAL_KEY` | Overrides the saved encryption key. If you change it, credentials saved with the old key can no longer be read; use `--reset`. |
 | `DATABASE_URL` | Uses a real Postgres server instead of PGlite, for example `postgres://localhost/gitilizer`. |
+| `SIGN_IN_ALLOWLIST`, `GITILIZER_ENV` | For the hosted development environment ([DEPLOYMENT.md](DEPLOYMENT.md#who-can-sign-in-to-development)). Local mode ignores the allowlist. |
 
 ## Troubleshooting
 
