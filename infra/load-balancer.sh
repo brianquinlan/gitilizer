@@ -26,10 +26,10 @@ done
 step "Routing"
 # url-map.yaml with only the hosts whose backend exists (www goes with prod).
 tmp=$(mktemp)
-python3 - "$dir/url-map.yaml" "$tmp" "${have[@]}" <<'PY'
+python3 - "$dir/url-map.yaml" "$tmp" "$DOMAIN" "$PROJECT" "${have[@]}" <<'PY'
 import sys, re
-src, out, have = sys.argv[1], sys.argv[2], set(sys.argv[3:])
-text = open(src).read()
+src, out, domain, project, have = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], set(sys.argv[5:])
+text = open(src).read().replace("${DOMAIN}", domain).replace("${PROJECT}", project)
 keep = lambda name: name in have or (name == "www" and "prod" in have)
 lines, skip = [], False
 for line in text.splitlines():

@@ -2,7 +2,7 @@
 
 Gitilizer runs in two places: a development environment at `dev.gitilizer.com` and production at `gitilizer.com`. This page explains how they differ, how a change reaches each of them, how to release to production and roll back, how to change a setting or a secret, who can sign in to development, and what watches production.
 
-[DESIGN.md](DESIGN.md#deployment) explains why it works this way. Setting it all up the first time is [LAUNCH_PLAN.md](LAUNCH_PLAN.md), with the scripts in [`infra/`](#the-infra-scripts).
+[DESIGN.md](DESIGN.md#deployment) explains why it works this way. Setting it all up the first time is [LAUNCH_PLAN.md](LAUNCH_PLAN.md), with the scripts in [`infra/`](#the-infra-scripts). To run your own copy in your own Google Cloud project, see [Setting up your own copy](#setting-up-your-own-copy).
 
 ## Development and production
 
@@ -237,15 +237,77 @@ Nothing in the code needs to change. Several processes can already share the wor
 
 ## The infra scripts
 
-Everything in Google Cloud is created by the scripts in `infra/`, run from the repository root in Cloud Shell. Each creates only what is missing, so running one again is safe, and each prints what it did.
+Everything in Google Cloud is created by the scripts in `infra/`, run from the repository root in Cloud Shell. Each creates only what is missing, so running one again is safe (including after it stops part-way), and each prints what it did. The project, region, domain and GitHub repository come from `infra/config.sh`, Gitilizer's own unless you change them ([Setting up your own copy](#setting-up-your-own-copy)).
 
 | Script | What it does |
 |---|---|
 | `inventory.sh` | Lists everything in the project into `gcp-inventory.txt`. Changes nothing. |
-| `foundation.sh` | APIs, Artifact Registry, service accounts and their permissions, Cloud SQL and its databases and users, the generated secrets and who can read them. Removes Editor from the default service accounts. |
+| `foundation.sh` | APIs, Artifact Registry, service accounts and their permissions, Cloud SQL and its databases, the generated secrets and who can read them. Removes Editor from the default service accounts. It sets up the database users itself, with SQL sent over HTTPS (`gcloud sql instances execute-sql`) as `postgres`, whose generated password is kept in the regional secret `sql-admin-password`: each user owns its own database, can't connect to the other's, and isn't a member of `cloudsqlsuperuser`. |
 | `oauth-secrets.sh` | Asks for the four OAuth client secrets and stores them, without showing them. |
 | `certificate.sh` | The load balancer's addresses and certificate; prints the GoDaddy records and the certificate's state. |
 | `services.sh dev\|prod [sha\|placeholder]` | Creates or reconfigures `gitilizer-dev` or `gitilizer-api` with all its settings, and lets its deployer deploy it. |
 | `load-balancer.sh` | Backends, routing (`url-map.yaml`, `url-map-http.yaml`), proxies and forwarding rules, for whichever services exist. |
 | `pipeline.sh` | The Cloud Build trigger, and Workload Identity Federation for the Release workflow. |
 | `monitoring.sh` | Log-based metrics, the uptime check, alert policies and the dashboard. |
+
+To run SQL on the instance yourself, for example to look at a table:
+
+```sh
+gcloud sql instances execute-sql gitilizer-pg --database=gitilizer --user=postgres \
+  --password-secret-version=projects/gitilizer/locations/us-east4/secrets/sql-admin-password/versions/latest \
+  --sql="select count(*) from users"
+```
+
+The `postgres` user can read everything, so use it only for looking and for fixing; the server never uses it.
+
+## Setting up your own copy
+
+Everything above can be reproduced in another Google Cloud project, with another domain and a fork of the repository: for a second Gitilizer, a staging copy, or after losing the project. It takes about an hour of your time, plus waiting for Cloud SQL and the certificate. [LAUNCH_PLAN.md](LAUNCH_PLAN.md) is the same procedure as it was done for `gitilizer.com`, with every console step spelled out.
+
+**You need:**
+
+- a Google Cloud project with billing turned on, where you are Owner (a new, empty one is simplest);
+- a domain whose DNS you can change;
+- the repository on GitHub (a fork works), where you can change settings;
+- Cloud Shell, or a computer with `gcloud`, `jq` and `openssl`, signed in as the project's Owner.
+
+**1. Say where it goes.** In your clone, create `infra/settings.local.sh` (Git ignores it):
+
+```sh
+export PROJECT=my-gitilizer      # the Google Cloud project ID
+export REGION=us-east4           # where everything runs
+export DOMAIN=example.com        # production; development is dev.example.com
+export REPO=me/gitilizer         # the GitHub repository
+```
+
+Every `infra/` script reads it. The names of the services, the database, the secrets and so on stay as in [The infra scripts](#the-infra-scripts); they only have to be unique within the project.
+
+**2. Foundation.** `bash infra/foundation.sh`. It enables the APIs and creates Artifact Registry, the service accounts, Cloud SQL (5 to 10 minutes; if the script stops while it waits, run it again) and the secrets.
+
+**3. Certificate.** `bash infra/certificate.sh`. Add the `_acme-challenge` CNAME it prints at your DNS provider, and run it again until the certificate is `ACTIVE`.
+
+**4. Sign-in apps.** Create a Google OAuth client and a GitHub OAuth app for each environment, as in [Sign-in apps](#sign-in-apps), with your domain in the callback URLs (`https://example.com/api/auth/google/callback` and so on). For Google, set up the consent screen first (Google Auth Platform: branding, audience published, the `openid`, `email` and `profile` scopes), and verify your domain in Search Console. Then run `bash infra/oauth-secrets.sh` to store the four client secrets, and `bash infra/foundation.sh` again so each environment can read its own.
+
+**5. Development.**
+
+1. In the Cloud console, connect Cloud Build to GitHub: Cloud Build → Repositories → 2nd gen → Create host connection, GitHub, your region, name `github`; then Link repository, name `gitilizer`.
+2. `GOOGLE_CLIENT_ID=<dev client> GITHUB_CLIENT_ID=<dev app> SIGN_IN_ALLOWLIST="google:you@example.com" bash infra/services.sh dev placeholder` creates the service with all its settings, running a sample container for now.
+3. `bash infra/pipeline.sh` creates the build trigger and the GitHub Actions identity, and prints five variables for step 6.
+4. `gcloud builds triggers run deploy-dev --region=$REGION --branch=main` builds `main` and deploys it.
+5. `bash infra/load-balancer.sh`, then add A and AAAA records for `dev` pointing at the two addresses `certificate.sh` printed.
+
+Sign in at `https://dev.example.com`.
+
+**6. Production.**
+
+1. `GOOGLE_CLIENT_ID=<prod client> GITHUB_CLIENT_ID=<prod app> bash infra/services.sh prod <sha>`, with the commit development runs.
+2. `bash infra/load-balancer.sh` again.
+3. In GitHub, create the `production` environment (yourself as required reviewer, tags `release-*`) with the five variables `pipeline.sh` printed: `WIF_PROVIDER`, `DEPLOY_SA`, `GCP_PROJECT`, `GCP_REGION`, `PUBLIC_URL`. Add the rulesets for `main` and `release-*` tags (LAUNCH_PLAN.md, 6.5).
+4. Point your domain's A and AAAA records (`@`) at the two addresses, and `www` at `@`.
+
+From then on, [releases](#releasing-to-production) work as described above.
+
+**7. Monitoring.** `ALERT_EMAIL=you@example.com bash infra/monitoring.sh`, and a budget under Billing → Budgets & alerts.
+
+What doesn't change between copies: the code, the container image, `cloudbuild.yaml` (the trigger passes your region) and the workflows (they read the GitHub variables, defaulting to Gitilizer's own values). To take a copy down, delete what the scripts made, roughly in reverse order; [LAUNCH_PLAN.md](LAUNCH_PLAN.md), Phase 1, has the order that works.
+

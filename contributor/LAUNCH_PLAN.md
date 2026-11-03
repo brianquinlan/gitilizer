@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2026-11-02. Decisions made; the code changes (Phase 2) are done. Phase 1 (inventory and clean-up) is next. |
+| **Status** | 2026-11-02. Decisions made; the old configuration is removed (Phase 1), the code changes are done (Phase 2), and the foundation exists (Phase 3). Phase 4 (certificate) is next. |
 | **Goal** | `dev.gitilizer.com` and `gitilizer.com` running on Google Cloud as [DESIGN.md](DESIGN.md#hosting-on-google-cloud) and [DEPLOYMENT.md](DEPLOYMENT.md) describe, with the old configuration in the `gitilizer` project removed first. |
 | **Region** | `us-east4` ([D-3](DESIGN.md#d-3)) |
 
@@ -37,7 +37,7 @@ This is the one-time setup, step by step. [DEPLOYMENT.md](DEPLOYMENT.md) describ
 
 ### The Google Cloud project
 
-**Not checked yet.** Checked again on 2026-11-02, but Claude's session still had no Google Cloud credentials, and the computer it can reach has no `gcloud`. `bash infra/inventory.sh` in Cloud Shell lists everything (Phase 1). You've confirmed that billing is on, and that there is a Firebase project for `gitilizer`.
+**Cleared on 2026-11-02** ([Phase 1](#phase-1-inventory-and-remove-the-old-configuration)). Billing is on, and you are the only Owner (`brian.k.quinlan@gmail.com`). Firebase stays turned on for the project, with nothing left in it.
 
 ### The domain
 
@@ -137,6 +137,19 @@ If the inventory finds any of these names in use, or recently deleted (Cloud SQL
 
 ## Phase 1: inventory and remove the old configuration
 
+**Done** (Claude, with your token, 2026-11-02). The project held an earlier, Firebase-based Gitilizer, all in `us-central1` and Firestore's `nam5`, and nothing else: no Cloud SQL, load balancer, Compute Engine or Secret Manager, and no App Engine application. Removed:
+
+| What | Removed |
+|---|---|
+| Running | 8 Cloud Functions (2nd gen) and their Cloud Run services; the Cloud Scheduler job (every 20 minutes); 3 Cloud Tasks queues; 2 Eventarc triggers and their Pub/Sub topics and subscriptions |
+| Data | The Firestore `(default)` database (2 users, 1,090 tasks); Firebase Authentication's accounts and its Google and GitHub sign-in settings |
+| Firebase | `gitilizer.web.app` disabled (now 404; a project's default site can't be deleted); the `gitilizer-web` web app; the API key Firebase made for it |
+| Build leftovers | The `gcf-artifacts` repository; the functions' two source buckets |
+| Permissions | Editor and the deploy roles (Cloud Functions, Run, Firebase, Scheduler, Tasks, Eventarc, service account user) from the default Compute Engine, App Engine and Cloud Build service accounts. Kept: Cloud Build's own builder role, Firebase's `firebase-adminsdk` account and its roles, and Google's service agents. |
+| APIs | 18 the old app used, from Cloud Functions to Firestore. Still on, because Firebase depends on them: `firebaseinstallations`, `firebaserules` and `datastore`, with nothing in them. |
+
+The rest of this section is how it was done, kept for reference.
+
 **Don't delete the project.** A deleted project's ID can never be used again, and the design names the project `gitilizer`. Clean it out instead.
 
 | # | Who | Task |
@@ -203,10 +216,15 @@ Not done, and not needed for launch: the Playwright run in fixture mode as a CI 
 
 ## Phase 3: foundation
 
-| # | Who | Task |
-|---|---|---|
-| 3.1 | You | In Cloud Shell, from the repository: `bash infra/foundation.sh`. It enables the APIs, creates Artifact Registry, the four service accounts and their permissions, Cloud SQL (a few minutes), both databases and their users, and the generated secrets (database URLs, credential keys, worker tokens), and removes Editor from the default service accounts. It prints each thing it creates, and a ✓ for each that already exists. |
-| 3.2 | You | Run the SQL the script prints at the end, once, so each database user owns its own database and can't connect to the other's. Check: connecting as `gitilizer_dev` to `gitilizer` fails with "permission denied". |
+**Done** (Claude, with your token, 2026-11-02): `bash infra/foundation.sh`. It enabled the APIs and created:
+
+- the Artifact Registry repository `gitilizer`;
+- the service accounts `run-prod`, `run-dev`, `deploy-dev` and `deploy-prod`, each with only the permissions it needs (listed in `infra/foundation.sh`);
+- the Cloud SQL instance `gitilizer-pg` (PostgreSQL 17, `db-g1-small`, 180 daily backups, point-in-time recovery, deletion protection) and the databases `gitilizer` and `gitilizer_dev`;
+- the users `gitilizer_prod` and `gitilizer_dev`, made with SQL so that neither belongs to `cloudsqlsuperuser`. Checked afterwards from the database: each owns its own database, and can't connect to the other's;
+- the secrets `{prod,dev}-database-url`, `{prod,dev}-credential-key` and `{prod,dev}-worker-token`, each readable only by its environment's service account, and the regional secret `sql-admin-password` for `postgres`.
+
+The manual SQL step the first version of this plan had is gone: the script sends the SQL itself (`gcloud sql instances execute-sql`). Run `foundation.sh` once more after 5.5, so each environment can read its OAuth client secrets.
 
 **Never destroy a version of `*-credential-key`.** Without it, every stored GitHub token and Gemini key is unreadable.
 
@@ -304,11 +322,11 @@ Before telling anyone about `gitilizer.com`:
 
 1. Run the inventory; check the Firebase console (1.1, 1.2).
 2. Approve the delete list and run the deletions (1.3, 1.4).
-3. `infra/foundation.sh` and the SQL it prints (3.1, 3.2).
+3. ~~`infra/foundation.sh`~~ Done. Run it again after 5.5.
 4. `infra/certificate.sh`; the `_acme-challenge` CNAME at GoDaddy (4.1 to 4.3).
 5. Search Console verification, with a `TXT` record at GoDaddy (5.1).
 6. Google Auth Platform: branding, audience (publish), scopes, two clients (5.2, 5.3).
-7. Two GitHub OAuth apps (5.4); `infra/oauth-secrets.sh` (5.5).
+7. Two GitHub OAuth apps (5.4); `infra/oauth-secrets.sh`, then `infra/foundation.sh` again (5.5).
 8. Cloud Build's GitHub connection (6.1); `services.sh dev placeholder`, `pipeline.sh` and the first build, `load-balancer.sh` (6.2 to 6.4).
 9. GitHub rulesets (6.5); the `dev` records at GoDaddy (6.6).
 10. Try development with your real data (6.7).

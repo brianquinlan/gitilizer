@@ -36,20 +36,21 @@ else
 fi
 
 step "Uptime check"
-if gcloud monitoring uptime list-configs --filter='displayName="gitilizer.com health"' --format='value(name)' | grep -q .; then
-  echo "  ✓ gitilizer.com health"
+if gcloud monitoring uptime list-configs --filter="displayName=\"$DOMAIN health\"" --format='value(name)' | grep -q .; then
+  echo "  ✓ $DOMAIN health"
 else
-  gcloud monitoring uptime create "gitilizer.com health" --resource-type=uptime-url \
+  gcloud monitoring uptime create "$DOMAIN health" --resource-type=uptime-url \
     --resource-labels=host="$DOMAIN",project_id="$PROJECT" --protocol=https --path=/api/health \
     --period=5 --timeout=10 --matcher-type=contains-string --matcher-content='"ok":true' >/dev/null
-  echo "  + gitilizer.com health (every 5 minutes)"
+  echo "  + $DOMAIN health (every 5 minutes)"
 fi
 
 step "Alert policies"
 for f in "$dir"/policy-*.json; do
-  title=$(jq -r .displayName "$f")
   tmp=$(mktemp)
-  jq --arg c "$channel" '.notificationChannels = [$c]' "$f" > "$tmp"
+  # The definitions name Gitilizer's own domain; another copy gets its own.
+  sed "s/gitilizer\.com/$DOMAIN/g" "$f" | jq --arg c "$channel" '.notificationChannels = [$c]' > "$tmp"
+  title=$(jq -r .displayName "$tmp")
   existing=$(mon policies list --filter="displayName=\"$title\"" --format='value(name)' | head -1)
   if [[ -n $existing ]]; then
     mon policies update "$existing" --policy-from-file="$tmp" >/dev/null && echo "  ✓ $title (updated)"

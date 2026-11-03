@@ -1,16 +1,17 @@
 # The HTTPS load balancer's routing (DEPLOYMENT.md, "How requests reach Gitilizer"). infra/load-balancer.sh
-# imports it, leaving out the hosts whose Cloud Run service doesn't exist yet.
+# fills in ${DOMAIN} and ${PROJECT} and imports it, leaving out the hosts whose Cloud Run service doesn't
+# exist yet.
 name: gitilizer-https
 # Any other host, including the bare IP address, goes to gitilizer.com.
-defaultUrlRedirect: { hostRedirect: gitilizer.com, httpsRedirect: true, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT }
+defaultUrlRedirect: { hostRedirect: ${DOMAIN}, httpsRedirect: true, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT }
 hostRules:
-  - { hosts: [gitilizer.com], pathMatcher: prod }
-  - { hosts: [www.gitilizer.com], pathMatcher: www }
-  - { hosts: [dev.gitilizer.com], pathMatcher: dev }
+  - { hosts: ["${DOMAIN}"], pathMatcher: prod }
+  - { hosts: ["www.${DOMAIN}"], pathMatcher: www }
+  - { hosts: ["dev.${DOMAIN}"], pathMatcher: dev }
 pathMatchers:
   - name: prod
-    defaultService: https://www.googleapis.com/compute/v1/projects/gitilizer/global/backendServices/be-prod
+    defaultService: https://www.googleapis.com/compute/v1/projects/${PROJECT}/global/backendServices/be-prod
   - name: www
-    defaultUrlRedirect: { hostRedirect: gitilizer.com, httpsRedirect: true, stripQuery: false, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT }
+    defaultUrlRedirect: { hostRedirect: ${DOMAIN}, httpsRedirect: true, stripQuery: false, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT }
   - name: dev
-    defaultService: https://www.googleapis.com/compute/v1/projects/gitilizer/global/backendServices/be-dev
+    defaultService: https://www.googleapis.com/compute/v1/projects/${PROJECT}/global/backendServices/be-dev

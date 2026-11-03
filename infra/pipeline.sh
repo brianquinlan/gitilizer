@@ -17,6 +17,7 @@ gcloud builds repositories describe gitilizer --connection=github --region="$REG
 ensure "trigger deploy-dev" gcloud builds triggers describe deploy-dev --region="$REGION" -- \
   gcloud builds triggers create github --name=deploy-dev --region="$REGION" \
     --repository="$repository" --branch-pattern='^main$' --build-config=cloudbuild.yaml \
+    --substitutions=_REGION="$REGION" \
     --service-account="projects/$PROJECT/serviceAccounts/$(sa deploy-dev)" \
     --description="Every commit on main: build the image, deploy it to gitilizer-dev"
 
@@ -42,4 +43,7 @@ cat <<VARS
 In GitHub → Settings → Environments → production → Environment variables:
   WIF_PROVIDER = projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/gitilizer-repo
   DEPLOY_SA    = $(sa deploy-prod)
+  GCP_PROJECT  = $PROJECT
+  GCP_REGION   = $REGION
+  PUBLIC_URL   = https://$DOMAIN
 VARS
