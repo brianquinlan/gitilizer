@@ -16,8 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     env:
-      REGION: us-east4
-      IMAGE: us-east4-docker.pkg.dev/gitilizer/gitilizer/gitilizer:${{ github.sha }}
+      # Set as environment variables in GitHub (infra/pipeline.sh prints them); the defaults are Gitilizer's own.
+      CLOUDSDK_CORE_PROJECT: ${{ vars.GCP_PROJECT || 'gitilizer' }}
+      REGION: ${{ vars.GCP_REGION || 'us-east4' }}
+      IMAGE: ${{ vars.GCP_REGION || 'us-east4' }}-docker.pkg.dev/${{ vars.GCP_PROJECT || 'gitilizer' }}/gitilizer/gitilizer:${{ github.sha }}
+      PUBLIC_URL: ${{ vars.PUBLIC_URL || 'https://gitilizer.com' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,16 +54,16 @@ jobs:
       - name: Check it
         run: |
           for i in 1 2 3 4 5 6; do
-            if curl -fsS https://gitilizer.com/api/health; then echo; exit 0; fi
+            if curl -fsS "$PUBLIC_URL/api/health"; then echo; exit 0; fi
             sleep 10
           done
-          echo "::error::https://gitilizer.com/api/health isn't answering. Roll back: DEPLOYMENT.md, \"Rolling back\"."
+          echo "::error::$PUBLIC_URL/api/health isn't answering. Roll back: DEPLOYMENT.md, \"Rolling back\"."
           exit 1
       - name: Summary
         run: |
           {
             echo "### Released $GITHUB_REF_NAME"
-            echo "Commit \`$GITHUB_SHA\` is live on https://gitilizer.com."
+            echo "Commit \`$GITHUB_SHA\` is live on $PUBLIC_URL."
             echo
             git tag -l --format='%(contents)' "$GITHUB_REF_NAME"
           } >> "$GITHUB_STEP_SUMMARY"
