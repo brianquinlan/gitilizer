@@ -1,23 +1,25 @@
 # Deploying Gitilizer
 
-Gitilizer runs in two places: a development environment at `dev.gitilizer.com` and production at `gitilizer.com`. This page explains how they differ, how a change reaches each of them, how to release to production, and who can sign in to development.
+Gitilizer runs in two places: a development environment at `dev.gitilizer.com` and production at `gitilizer.com`. This page explains how they differ, how a change reaches each of them, how to release to production and roll back, how to change a setting or a secret, who can sign in to development, and what watches production.
 
-[DESIGN.md](DESIGN.md#deployment) explains why it works this way. The pipeline described here is designed but not built yet; [DESIGN.md](DESIGN.md#prototype-status) tracks what's done.
+[DESIGN.md](DESIGN.md#deployment) explains why it works this way. Setting it all up the first time is [LAUNCH_PLAN.md](LAUNCH_PLAN.md), with the scripts in [`infra/`](#the-infra-scripts).
 
 ## Development and production
 
 | | Development | Production |
 |---|---|---|
-| Address | `https://dev.gitilizer.com` | `https://gitilizer.com` |
+| Address | `https://dev.gitilizer.com` | `https://gitilizer.com` (`www.gitilizer.com` redirects to it) |
 | What runs there | Whatever is on `main`, minutes after it merges | The last release |
-| How it gets there | Automatically, after every merge to `main` whose checks pass | A `release-*` tag, approved by the owner |
-| Cloud Run | `gitilizer-dev`: one service running everything, scaling to zero when no one is using it | `gitilizer-api` (the API and web app) and `gitilizer-worker` (scheduler, scanner and ranking worker) |
-| Database | `gitilizer_dev` | `gitilizer` (same Cloud SQL instance, separate databases) |
-| Credential key and sign-in apps | Its own | Its own |
+| How it gets there | Automatically, after every merge to `main` | A `release-*` tag, approved by the owner |
+| Cloud Run | `gitilizer-dev`: one service running everything, scaling to zero when no one is using it | `gitilizer-api`: one service running everything, exactly one instance, always on ([Splitting production](#splitting-production) explains the next step) |
+| Database | `gitilizer_dev` | `gitilizer` (same Cloud SQL instance, `gitilizer-pg`, separate databases and users) |
+| Runs as | `run-dev` | `run-prod` |
+| Secrets | `dev-*` in Secret Manager | `prod-*` in Secret Manager |
+| Sign-in apps | Their own Google client and GitHub OAuth app | Their own |
 | Who can sign in | Only accounts on the [allowlist](#who-can-sign-in-to-development) | Everyone |
 | GitHub and Gemini | Real, with each person's own GitHub token and Gemini key | The same |
 
-Both environments are in the `gitilizer` Google Cloud project ([D-8](DESIGN.md#d-8)), but neither can reach the other's database or credential key.
+Both environments are in the `gitilizer` Google Cloud project ([D-8](DESIGN.md#d-8)), in `us-east4`. Neither can read the other's secrets, so neither can reach the other's database or decrypt the other's credentials.
 
 Things to know about development:
 
@@ -25,10 +27,48 @@ Things to know about development:
 - **Its data is separate.** An account on development is a different account from your production one. You enter your credentials again, and your list starts empty.
 - **It scans only while someone has it open.** The service scales to zero when idle, so background scans pause and the list catches up when you return.
 
+## How requests reach Gitilizer
+
+```
+browser ──https──▶ load balancer (static IPv4 + IPv6, certificate for gitilizer.com and *.gitilizer.com)
+                     ├─ gitilizer.com      ──▶ Cloud Run gitilizer-api ──▶ Cloud SQL gitilizer-pg / gitilizer
+                     ├─ dev.gitilizer.com  ──▶ Cloud Run gitilizer-dev ──▶ Cloud SQL gitilizer-pg / gitilizer_dev
+                     ├─ www.gitilizer.com  ──▶ redirect to https://gitilizer.com
+                     └─ anything else      ──▶ redirect to https://gitilizer.com
+         ──http───▶ redirect to https
+```
+
+- **DNS is at GoDaddy.** `@` and `dev` have A and AAAA records pointing at the load balancer's addresses (`gitilizer-ipv4`, `gitilizer-ipv6`), `www` is a CNAME to `@`, and the CNAME `_acme-challenge` lets Google renew the certificate. Never delete that one.
+- **The certificate** is Google-managed (Certificate Manager), renews itself, and covers every subdomain, so a new environment needs no new certificate.
+- **The Cloud Run services accept only the load balancer** (`--ingress=internal-and-cloud-load-balancing`). Their `*.run.app` addresses refuse requests.
+- **Each service serves the web app and the API** from one container image: the built web app at `/`, the API under `/api/`, and the health check at `/api/health`.
+- **Security headers.** The deployed server sends `Strict-Transport-Security`, a Content Security Policy that allows only Gitilizer's own scripts, Google Fonts, and avatars from GitHub and Google, and `X-Frame-Options: DENY`. A new external resource in the web app needs adding to the policy in `app/server/src/app.ts`.
+
+## Settings
+
+A service's settings are environment variables on its Cloud Run service. Secrets come from Secret Manager, so they never appear in the service's description or in Git. `infra/services.sh` sets them all; see [Changing a setting or a secret](#changing-a-setting-or-a-secret).
+
+| Setting | Development | Production | Notes |
+|---|---|---|---|
+| `GITILIZER_ENV` | `development` | `production` | Turns on the checks below. |
+| `NODE_ENV` | `production` | `production` | Both: it makes the session cookie `Secure`. |
+| `PUBLIC_URL` | `https://dev.gitilizer.com` | `https://gitilizer.com` | The sign-in redirect URLs are built from it. |
+| `GOOGLE_CLIENT_ID`, `GITHUB_CLIENT_ID` | Development's | Production's | Not secret. |
+| `SIGN_IN_ALLOWLIST` | The testers | Not set | [Who can sign in to development](#who-can-sign-in-to-development) |
+| `DATABASE_POOL_MAX` | `5` | `10` | Connections per instance. Cloud SQL's limit (about 50 on `db-g1-small`) is shared by everything. |
+| `HOST`, `LOG_FORMAT`, `LOG_LEVEL` | `0.0.0.0`, `json`, `info` | The same | Also the image's defaults. |
+| `DATABASE_URL` | Secret `dev-database-url` | Secret `prod-database-url` | Through the Cloud SQL connector's socket. |
+| `CREDENTIAL_KEY` | Secret `dev-credential-key` | Secret `prod-credential-key` | Encrypts stored GitHub tokens and Gemini keys. **Never destroy a version**: without it every stored credential is unreadable. |
+| `WORKER_TOKEN` | Secret `dev-worker-token` | Secret `prod-worker-token` | Protects `/internal/metrics`, which listens only inside the container. |
+| `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_SECRET` | Secrets `dev-*-client-secret` | Secrets `prod-*-client-secret` | |
+| `SCHEDULER`, `WORKER` | Not set (on) | Not set (on) | `off` leaves that part to another service ([Splitting production](#splitting-production)). |
+
+**A deployed server refuses to start rather than run unsafely.** With `GITILIZER_ENV` set, a missing `DATABASE_URL`, `CREDENTIAL_KEY`, `WORKER_TOKEN`, `PUBLIC_URL` (or one that isn't `https://`), a missing Google or GitHub client, `NODE_ENV` other than `production`, or local mode, fixtures or the development sign-in form stops it, and the log names every problem. On a computer, the same gaps fall back to PGlite, a built-in key and the development sign-in form; deployed, they never do. A revision that fails to start never gets traffic: Cloud Run keeps serving the previous one.
+
 ## How a change reaches development
 
-1. **Open a pull request.** GitHub Actions runs `npm run typecheck`, `npm test` and the browser checks in fixture mode. Merging needs them to pass.
-2. **Merge it to `main`.** Cloud Build builds one container image, tags it with the commit's SHA, stores it in Artifact Registry and deploys it to `gitilizer-dev`.
+1. **Open a pull request.** GitHub Actions (`.github/workflows/ci.yml`) runs `npm run typecheck`, `npm test` (including the tests that need a real Postgres), builds the web app and builds the container image. Merging to `main` needs it to pass.
+2. **Merge it to `main`.** The Cloud Build trigger `deploy-dev` (`cloudbuild.yaml`) builds one container image, tags it with the commit's SHA, stores it in Artifact Registry and deploys it to `gitilizer-dev`. It runs as `deploy-dev`, which can deploy `gitilizer-dev` and nothing else.
 3. **Try it on `dev.gitilizer.com`.** The build's status is on the commit in GitHub. To see which commit development is running:
 
    ```sh
@@ -52,11 +92,11 @@ A release deploys an image that development has already run. Nothing is rebuilt,
    ```
 
    The tag message is the release note, so say what changed.
-3. **Approve the deployment.** Pushing the tag starts the **Release** workflow in GitHub Actions. It waits for approval on the `production` environment: open the run and choose **Review deployments**, then **Approve and deploy**.
-4. **Let it deploy.** The workflow checks that Artifact Registry has an image for the tagged commit. It stops if there isn't one, for example because the commit never reached development. Otherwise it deploys that image to `gitilizer-worker` and then `gitilizer-api`, and sends all traffic to the new revisions.
-5. **Check it.** Open `gitilizer.com`, sign in and check that the list loads. The Cloud Monitoring dashboard should show no new errors.
+3. **Approve the deployment.** Pushing the tag starts the **Release** workflow (`.github/workflows/release.yml`). It waits for approval on the `production` environment: open the run and choose **Review deployments**, then **Approve and deploy**.
+4. **Let it deploy.** The workflow stops unless the tagged commit is on `main` and Artifact Registry has its image (so development built it). Otherwise it deploys that image to `gitilizer-worker`, if that service exists, and then to `gitilizer-api`, sends all traffic to the new revision, and waits for `https://gitilizer.com/api/health` to answer. It reaches Google Cloud through Workload Identity Federation as `deploy-prod`; no key is stored in GitHub, and only jobs in the `production` environment can get a token.
+5. **Check it.** Open `gitilizer.com`, sign in and check that the list loads. The [dashboard](#monitoring-and-alerts) should show no new errors.
 
-Tags are the record of what was released, so never move, reuse or delete one. To list past releases:
+Tags are the record of what was released, so never move, reuse or delete one (a tag ruleset on `release-*` blocks it). To list past releases:
 
 ```sh
 git tag --list 'release-*' -n1
@@ -64,18 +104,38 @@ git tag --list 'release-*' -n1
 
 ### Database changes
 
-The server upgrades the database schema when it starts. During a release the old and new revisions run side by side for a short time, so every schema change must work with both. Add a column in one release, and stop using an old one in a later release. Never rename or drop a column in a single release.
+The server upgrades the database schema when it starts. Processes that start together (two revisions during a release) take turns, holding a Postgres advisory lock. During a release the old and new revisions run side by side for a short time, so every schema change must work with both. Add a column in one release, and stop using an old one in a later release. Never rename or drop a column in a single release.
 
 ### Rolling back
 
-Cloud Run keeps earlier revisions, so rolling back takes seconds and doesn't rebuild anything. Roll back both production services:
+Cloud Run keeps earlier revisions, so rolling back takes seconds and doesn't rebuild anything:
 
 ```sh
 gcloud run revisions list --service gitilizer-api --region us-east4
 gcloud run services update-traffic gitilizer-api --region us-east4 --to-revisions <previous-revision>=100
 ```
 
-Then do the same for `gitilizer-worker`. A rollback doesn't undo schema changes, which is why changes must work with the previous release. The next release's workflow sends traffic to its new revisions again. Fix the problem on `main`, check it on development and release again.
+If `gitilizer-worker` exists, do the same for it. A rollback doesn't undo schema changes, which is why changes must work with the previous release. The next release's workflow sends traffic to its new revisions again. Fix the problem on `main`, check it on development and release again.
+
+## Changing a setting or a secret
+
+**A setting.** `infra/services.sh` sets every setting a service needs, keeping its current image and allowlist unless you give new ones:
+
+```sh
+GOOGLE_CLIENT_ID=... GITHUB_CLIENT_ID=... bash infra/services.sh prod
+```
+
+For a single value, `gcloud run services update gitilizer-api --region us-east4 --update-env-vars NAME=value` works too. Either way, it starts a new revision within seconds.
+
+**A secret.** Add a new version, then deploy, because a service reads `latest` only when a revision starts:
+
+```sh
+read -rs S && printf %s "$S" | gcloud secrets versions add prod-github-client-secret --data-file=- ; unset S
+gcloud run services update gitilizer-api --region us-east4 \
+  --update-secrets=GITHUB_CLIENT_SECRET=prod-github-client-secret:latest
+```
+
+Keep the old version until the new revision is serving, then disable it (`gcloud secrets versions disable`). `infra/oauth-secrets.sh` asks for all four OAuth client secrets at once. Never rotate `*-credential-key` this way: stored credentials are encrypted with it, so a new key makes them unreadable.
 
 ## Who can sign in to development
 
@@ -83,7 +143,7 @@ Development lets in only the accounts on its allowlist. It runs code that no one
 
 ### The setting
 
-The allowlist is the `SIGN_IN_ALLOWLIST` setting (an environment variable) on the `gitilizer-dev` service. It isn't in the repository, so the testers' email addresses stay out of Git. Entries are separated by spaces:
+The allowlist is the `SIGN_IN_ALLOWLIST` setting on the `gitilizer-dev` service. It isn't in the repository, so the testers' email addresses stay out of Git. Entries are separated by spaces:
 
 | Entry | Lets in | Example |
 |---|---|---|
@@ -128,15 +188,64 @@ What happens next:
 
 ### Safety checks
 
-- **Missing allowlist:** development sets `GITILIZER_ENV=development`, and in that environment the server refuses to start without an allowlist. A lost setting therefore can't open the development site to everyone.
+- **Missing allowlist:** with `GITILIZER_ENV=development` the server refuses to start without an allowlist. A lost setting therefore can't open the development site to everyone.
 - **Malformed entry:** an entry the server can't read, such as `maya@gmail.com` without `google:`, also stops it from starting. The log names the entry.
 - **What a failed start means:** in both cases the new revision fails to start, and Cloud Run keeps sending traffic to the previous one. Correct the setting and run the command again.
+- **No way around it:** the development sign-in form, which signs anyone in as anyone, doesn't exist on a deployed server, so Google or GitHub always vouches for who is signing in.
 - **Local mode** (`npm run local`) ignores the allowlist, because only you can sign in.
 
-The server tests (`app/server/test/server.test.ts`, "sign-in allowlist") cover these cases:
+The server tests (`app/server/test/server.test.ts`, "sign-in allowlist", and `production.test.ts`) cover reading the setting, refusing to start without it, matching each kind of entry, refusing a sign-in without creating an account, and signing out an account that was removed.
 
-- reading the setting;
-- refusing to start without it in development;
-- matching each kind of entry;
-- refusing a sign-in without creating an account;
-- signing out an account that was removed.
+## Sign-in apps
+
+Each environment has its own Google client and GitHub OAuth app, because each redirects to its own address. Gitilizer asks Google for `openid email profile` and GitHub for `user:email` only, uses the provider's token once to read the profile, and keeps no Google or GitHub token ([Sign-in and sessions](DESIGN.md#sign-in-and-sessions)).
+
+| | Google (Cloud console → Google Auth Platform → Clients) | GitHub (Settings → Developer settings → OAuth Apps) |
+|---|---|---|
+| Production | "Gitilizer production", redirect URI `https://gitilizer.com/api/auth/google/callback` | "Gitilizer", callback `https://gitilizer.com/api/auth/github/callback` |
+| Development | "Gitilizer development", redirect URI `https://dev.gitilizer.com/api/auth/google/callback` | "Gitilizer (development)", callback `https://dev.gitilizer.com/api/auth/github/callback` |
+
+When sign-in fails, the log line `sign-in failed` (component `auth`) has the provider, the category the page showed (`cancelled`, `provider_unavailable`, `expired`, `not_allowed` or `gitilizer_error`) and the provider's own error. A `redirect_uri_mismatch` from Google, or "The redirect_uri is not associated with this application" from GitHub, means the app's callback URL doesn't match `PUBLIC_URL`.
+
+## Monitoring and alerts
+
+`infra/monitoring.sh` sets these up and can be run again after changing them (the definitions are in `infra/monitoring/`).
+
+- **Dashboard** "Gitilizer" in Cloud Monitoring: requests by status, latency, open requests (about one per open tab), CPU, scans by outcome and duration, ranking time and failures, the browser's time to a usable list, errors logged, and Cloud SQL CPU and connections.
+- **Alerts, by email to the owner** (`METRIC-4`):
+
+  | Alert | When |
+  |---|---|
+  | gitilizer.com is down | The uptime check on `/api/health` fails from several regions. |
+  | More than 5% of requests failing | 5xx above 5% of `gitilizer-api`'s requests for 10 minutes. |
+  | No scans finishing | No scan finished for 3 hours. Background scans run every 2 hours, so at today's scale a shorter window would raise false alarms; tighten it to the design's 30 minutes once someone always has the app open. |
+  | gitilizer-api is busy | CPU above 60% for an hour: [time to split production](#splitting-production). |
+
+- **Logs.** Each line is JSON with `severity`, `component` and `message` ([Logging](DESIGN.md#logging)). In Logs Explorer, `resource.labels.service_name="gitilizer-api" AND severity>=WARNING` is the place to start; `jsonPayload.user="<account ID>"` follows one developer.
+- **Budget.** A US$200 monthly budget on the project emails the owner at 50%, 90% and 100% (Billing → Budgets & alerts).
+
+## Splitting production
+
+Production starts as one instance that does everything, which is the cheapest arrangement and enough for the first users ([LAUNCH_PLAN.md](LAUNCH_PLAN.md), L-1). It has two limits: one instance holds at most 1,000 open event streams (about 1,000 open tabs), and one CPU does all the scanning and ranking. The "busy" alert and the dashboard's open-requests chart say when it's time to split.
+
+Nothing in the code needs to change. Several processes can already share the work: live updates reach a tab through Postgres `LISTEN/NOTIFY` whichever instance it's connected to, presence and scan requests are in the database, scanners claim scans with `SKIP LOCKED`, and one process at a time runs the scheduler's periodic pass, holding a lease that another takes over within 30 seconds if it stops ([Hosting on Google Cloud](DESIGN.md#hosting-on-google-cloud)). To split:
+
+1. **Create `gitilizer-worker`** from the image production runs, with production's settings and secrets, plus `--min-instances=1 --no-cpu-throttling --ingress=internal --no-allow-unauthenticated`. It runs the scheduler, scanner and ranking worker, and gets no traffic from the load balancer.
+2. **Let `gitilizer-api` scale and stop scanning:** `--update-env-vars SCHEDULER=off,WORKER=off --max-instances=4`. Keep `--min-instances=1` so the first visitor doesn't wait for a cold start.
+3. **Grant `deploy-prod`** `roles/run.developer` on `gitilizer-worker`. The Release workflow already deploys it first when it exists.
+4. **Raise Cloud SQL's connections** if needed: each instance opens up to `DATABASE_POOL_MAX` connections plus one for `LISTEN`.
+
+## The infra scripts
+
+Everything in Google Cloud is created by the scripts in `infra/`, run from the repository root in Cloud Shell. Each creates only what is missing, so running one again is safe, and each prints what it did.
+
+| Script | What it does |
+|---|---|
+| `inventory.sh` | Lists everything in the project into `gcp-inventory.txt`. Changes nothing. |
+| `foundation.sh` | APIs, Artifact Registry, service accounts and their permissions, Cloud SQL and its databases and users, the generated secrets and who can read them. Removes Editor from the default service accounts. |
+| `oauth-secrets.sh` | Asks for the four OAuth client secrets and stores them, without showing them. |
+| `certificate.sh` | The load balancer's addresses and certificate; prints the GoDaddy records and the certificate's state. |
+| `services.sh dev\|prod [sha\|placeholder]` | Creates or reconfigures `gitilizer-dev` or `gitilizer-api` with all its settings, and lets its deployer deploy it. |
+| `load-balancer.sh` | Backends, routing (`url-map.yaml`, `url-map-http.yaml`), proxies and forwarding rules, for whichever services exist. |
+| `pipeline.sh` | The Cloud Build trigger, and Workload Identity Federation for the Release workflow. |
+| `monitoring.sh` | Log-based metrics, the uptime check, alert policies and the dashboard. |

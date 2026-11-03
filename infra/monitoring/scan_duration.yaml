@@ -1,0 +1,6 @@
+description: 'Scan durations in milliseconds, from the scanner''s "scan finished" log lines (NFR-6)'
+filter: 'resource.type="cloud_run_revision" AND jsonPayload.component="scan" AND jsonPayload.message="scan finished"'
+metricDescriptor: { metricKind: DELTA, valueType: DISTRIBUTION, unit: ms, labels: [{ key: kind }] }
+valueExtractor: EXTRACT(jsonPayload.ms)
+labelExtractors: { kind: EXTRACT(jsonPayload.kind) }
+bucketOptions: { exponentialBuckets: { numFiniteBuckets: 40, growthFactor: 1.4, scale: 10 } }

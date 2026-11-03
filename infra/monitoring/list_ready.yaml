@@ -1,0 +1,5 @@
+description: 'Time from navigation to a usable list in the browser, in milliseconds (METRIC-3, NFR-2: 2 s)'
+filter: 'resource.type="cloud_run_revision" AND jsonPayload.component="telemetry" AND jsonPayload.message="list_ready_ms"'
+metricDescriptor: { metricKind: DELTA, valueType: DISTRIBUTION, unit: ms }
+valueExtractor: EXTRACT(jsonPayload.value)
+bucketOptions: { exponentialBuckets: { numFiniteBuckets: 30, growthFactor: 1.3, scale: 50 } }

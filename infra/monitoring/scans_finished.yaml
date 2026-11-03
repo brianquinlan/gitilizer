@@ -1,0 +1,5 @@
+# One per scan, by outcome (ok, error, skipped) and kind (full, incremental). The "no scans" alert watches it.
+description: 'Scans finished, from the scanner''s "scan finished" log lines (NFR-6, METRIC-3)'
+filter: 'resource.type="cloud_run_revision" AND jsonPayload.component="scan" AND jsonPayload.message="scan finished"'
+metricDescriptor: { metricKind: DELTA, valueType: INT64, labels: [{ key: outcome }, { key: kind }] }
+labelExtractors: { outcome: EXTRACT(jsonPayload.outcome), kind: EXTRACT(jsonPayload.kind) }

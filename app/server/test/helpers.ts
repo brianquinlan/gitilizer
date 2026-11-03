@@ -17,6 +17,8 @@ export function testConfig(over: Partial<Config> = {}): Config {
     defaultPrompt: "default prompt", shortLivedSeconds: 0, staleAfterSeconds: 3600,
     intervals: { visible: 300, open: 1800, background: 7200 }, inactiveDays: 7, maxItems: 1000, fullScanSeconds: 3600,
     perDeveloperConcurrency: 4, schedulerTickMs: 1000, localMode: false, autoScan: true, allowlist: null,
+    publicUrl: "http://localhost:8787", oauth: { google: null, github: null }, devSignIn: true, secure: false,
+    scheduler: true, webDir: null,
     ...over,
   };
 }

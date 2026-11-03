@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "dev": "tsx watch src/main.ts --dev-sign-in",
     "start": "tsx src/main.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -13,6 +13,8 @@
   "dependencies": {
     "@electric-sql/pglite": "^0.5.14",
     "@fastify/cookie": "^11.1.0",
+    "@fastify/static": "^8.3.0",
+    "@gitilizer/ranker": "0.1.0",
     "@gitilizer/shared": "0.1.0",
     "@google/genai": "^2.0.0",
     "@octokit/core": "^7.0.0",
@@ -22,8 +24,7 @@
     "fastify": "^5.6.0",
     "pg": "^8.16.0",
     "tsx": "^4.20.0",
-    "zod": "^3.25.0",
-    "@gitilizer/ranker": "0.1.0"
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

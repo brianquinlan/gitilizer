@@ -1,0 +1,26 @@
+# Every commit on main (DEPLOYMENT.md, "How a change reaches development"): build the one image, tag it with
+# the commit's SHA, store it in Artifact Registry, and deploy it to development. A release later deploys this
+# same image to production, so nothing is rebuilt.
+#
+# Runs as the deploy-dev service account (infra/pipeline.sh), which can deploy gitilizer-dev and nothing else.
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args: [build, -t, "us-east4-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA", .]
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: [push, "us-east4-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA"]
+  # Only the image changes, so the service keeps its settings, including the allowlist.
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - gitilizer-dev
+      - --region=us-east4
+      - --image=us-east4-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA
+images: ["us-east4-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA"]
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1200s

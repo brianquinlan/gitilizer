@@ -1,7 +1,8 @@
-// HTTP routes (design: HTTP API). Browser routes on the public port; worker
+// HTTP routes (design: HTTP API). Browser routes and the built web app on the public port; operator
 // routes on a separate internal port.
 import { log } from "./log.ts";
 import cookie from "@fastify/cookie";
+import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
@@ -17,11 +18,31 @@ import { pushSync, queueFullRerank, queueRankJobs, syncState } from "./jobs.ts";
 import { currentVersion, listRows, publish } from "./list.ts";
 import { clear, clearForCredential, markSeen, raise, shownNotifications } from "./notify.ts";
 import { localUserId } from "./local.ts";
+import { registerSignIn } from "./auth.ts";
 import { accountAllowed, completeSignIn } from "./signin.ts";
 import type { Scheduler } from "./scheduler.ts";
 
-const SESSION_COOKIE = "gitilizer_session";
 const SESSION_DAYS = 30; // AUTH-8
+
+/** Routes that work without a session: the health check and signing in. */
+const PUBLIC_API = /^\/api\/(health$|auth\/(config|dev|google\/|github\/))/;
+
+/**
+ * The deployed site's Content Security Policy: scripts and styles from Gitilizer itself, fonts from Google
+ * Fonts, and avatars from GitHub and Google.
+ */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: https://avatars.githubusercontent.com https://github.com https://*.googleusercontent.com",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join("; ");
 
 declare module "fastify" {
   interface FastifyRequest { userId?: string }
@@ -38,12 +59,43 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   });
   app.register(cookie);
   const db = ctx.db;
+  const secure = ctx.config.secure;
+  // In the deployed environments the session cookie is `__Host-`: HTTPS only, this host only, path / (AUTH-8).
+  const cookieName = (base: string) => (secure ? `__Host-${base}` : base);
+  const cookieOptions = (maxAgeSeconds?: number) => ({
+    path: "/", httpOnly: true, sameSite: "lax" as const, secure: secure || process.env.NODE_ENV === "production",
+    ...(maxAgeSeconds !== undefined ? { maxAge: maxAgeSeconds } : {}),
+  });
+  const SESSION_COOKIE = cookieName("gitilizer_session");
+
+  // --- Security headers (design: Security) ----------------------------------
+  app.addHook("onSend", async (req, reply) => {
+    reply.header("x-content-type-options", "nosniff");
+    reply.header("referrer-policy", "strict-origin-when-cross-origin");
+    reply.header("x-frame-options", "DENY");
+    if (secure) {
+      reply.header("strict-transport-security", "max-age=31536000; includeSubDomains");
+      reply.header("content-security-policy", CSP);
+    }
+    if (req.url.startsWith("/api/")) reply.header("cache-control", "no-store");
+  });
+
+  // --- Health (the uptime check, design: Hosting) -----------------------------
+  app.get("/api/health", async (_req, reply) => {
+    try {
+      await db.one(`select 1 as ok`);
+      return { ok: true };
+    } catch (e) {
+      log.error("api", "health check failed", { error: String(e) });
+      return reply.code(503).send({ ok: false });
+    }
+  });
 
   // --- Sessions and CSRF (design: Security) ---------------------------------
   app.addHook("preHandler", async (req, reply) => {
     if (!req.url.startsWith("/api/")) return;
     if (req.method !== "GET" && req.headers[CSRF_HEADER] !== "1") return bad(reply, 403, "missing CSRF header");
-    if (req.url.startsWith("/api/auth/dev")) return;
+    if (PUBLIC_API.test(req.url.split("?")[0])) return;
     const sid = req.cookies[SESSION_COOKIE];
     const s = sid
       ? await db.one(
@@ -61,7 +113,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     if (!accountAllowed(ctx, s)) {
       // Taken off the allowlist since signing in: the session ends at once (contributor/DEPLOYMENT.md).
       await db.query(`delete from sessions where user_id = $1`, [s.user_id]);
-      reply.clearCookie(SESSION_COOKIE, { path: "/" });
+      reply.clearCookie(SESSION_COOKIE, cookieOptions());
       return bad(reply, 401, "not_allowed");
     }
     req.userId = s.user_id;
@@ -76,12 +128,16 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   async function startSession(reply: any, userId: string): Promise<string> {
     const sid = randomBytes(32).toString("base64url");
     await db.query(`insert into sessions (id, user_id, expires_at) values ($1, $2, now() + interval '${SESSION_DAYS} days')`, [sid, userId]);
-    reply.setCookie(SESSION_COOKIE, sid, { path: "/", httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: SESSION_DAYS * 86400 });
+    reply.setCookie(SESSION_COOKIE, sid, cookieOptions(SESSION_DAYS * 86400));
     return userId;
   }
 
-  // --- Sign-in (prototype stub; real OAuth replaces it) ----------------------
-  app.post("/api/auth/dev", async (req, reply) => {
+  // --- Sign-in (design: Sign-in and sessions) ---------------------------------
+  registerSignIn(app, ctx, { startSession, cookieName, cookieOptions });
+
+  // The development stub signs anyone in as anyone. It exists only in local mode, fixture mode and tests
+  // (config.devSignIn); a deployed environment refuses to start with it (contributor/DEPLOYMENT.md).
+  if (ctx.config.devSignIn) app.post("/api/auth/dev", async (req, reply) => {
     if (ctx.config.localMode) {
       // Local mode: any sign-in is the local developer.
       await startSession(reply, await localUserId(ctx));
@@ -108,7 +164,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
 
   app.post("/api/auth/logout", async (req, reply) => {
     await db.query(`delete from sessions where id = $1`, [req.cookies[SESSION_COOKIE]]);
-    reply.clearCookie(SESSION_COOKIE, { path: "/" });
+    reply.clearCookie(SESSION_COOKIE, cookieOptions());
     return { ok: true };
   });
 
@@ -135,7 +191,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       await t.query(`insert into deleted_users (id) values ($1) on conflict do nothing`, [uid(req)]);
       await t.query(`delete from users where id = $1`, [uid(req)]); // cascades to everything the user owns (PRIV-3)
     });
-    reply.clearCookie(SESSION_COOKIE, { path: "/" });
+    reply.clearCookie(SESSION_COOKIE, cookieOptions());
     return { ok: true };
   });
 
@@ -178,7 +234,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
 
   app.post("/api/presence", async (req) => {
     const { tabId, visible } = z.object({ tabId: z.string().max(64), visible: z.boolean() }).parse(req.body);
-    scheduler.report(uid(req), tabId, visible);
+    await scheduler.report(uid(req), tabId, visible);
     return { ok: true };
   });
 
@@ -368,6 +424,28 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       return { ok: true };
     });
   }
+
+  // --- The web app (design: Hosting) -----------------------------------------
+  // The built app is served from the same origin as the API. Vite's hashed files never change, so browsers
+  // keep them; index.html is checked every time, so a release reaches open tabs on their next load.
+  const webDir = ctx.config.webDir;
+  if (webDir) {
+    app.register(fastifyStatic, {
+      root: webDir,
+      wildcard: false,
+      cacheControl: false, // set below instead
+      setHeaders: (res, path) => {
+        res.setHeader("cache-control", /[\\/]assets[\\/]/.test(path) ? "public, max-age=31536000, immutable" : "no-cache");
+      },
+    });
+  }
+  app.setNotFoundHandler((req, reply) => {
+    // Any other page is a route in the app (PRD NAV-3), so it gets index.html; unknown API routes are 404s.
+    if (webDir && req.method === "GET" && !req.url.startsWith("/api/") && !/\.[a-z0-9]+$/i.test(req.url.split("?")[0])) {
+      return reply.header("cache-control", "no-cache").type("text/html").sendFile("index.html", webDir);
+    }
+    return reply.code(404).send({ error: "not found" });
+  });
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof z.ZodError) return reply.code(400).send({ error: err.issues.map((i) => i.message).join("; ") });

@@ -1,0 +1,14 @@
+{
+  "displayName": "Gitilizer: no scans finishing",
+  "documentation": { "content": "No scan has finished in production for 3 hours. Background scans run every 2 hours for anyone seen in the last week, so at least one should have. Check the scheduler's ERROR lines and that gitilizer-api (or gitilizer-worker) is running. The design's 30 minutes applies once there are always developers with the app open; tighten this then.", "mimeType": "text/markdown" },
+  "combiner": "OR",
+  "conditions": [{
+    "displayName": "No scans finished for 3 hours",
+    "conditionAbsent": {
+      "filter": "metric.type=\"logging.googleapis.com/user/scans_finished\" AND resource.type=\"cloud_run_revision\" AND resource.label.service_name=monitoring.regex.full_match(\"gitilizer-(api|worker)\")",
+      "aggregations": [{ "alignmentPeriod": "600s", "perSeriesAligner": "ALIGN_SUM", "crossSeriesReducer": "REDUCE_SUM" }],
+      "duration": "10800s"
+    }
+  }],
+  "notificationChannels": ["CHANNEL"]
+}

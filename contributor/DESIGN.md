@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype follows the 2026-11-01 PRD except where [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) says otherwise. |
 | **Author** | brian@sweetapp.com (drafted with Claude) |
-| **Last updated** | 2026-11-02 (the ranker is TypeScript; logging and deployment; answers to D-5 to D-7) |
+| **Last updated** | 2026-11-02 (production: Google and GitHub sign-in, several processes on one database, the container image, pipeline and infrastructure scripts; D-10 and D-11) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Google Cloud project** | `gitilizer` |
 | **Source** | [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer) |
@@ -47,7 +47,7 @@ Questions about the design itself are marked the same way as in the PRD: **TODO:
 
 ## Scope
 
-The design covers the whole product in the PRD. The prototype implements an end-to-end slice of it (see [Prototype status](#prototype-status)): sign-in through a development stub, credentials and settings, scanning, ranking with the existing agent, the Prioritized list and Icebox with live updates, and notifications.
+The design covers the whole product in the PRD. The prototype implements an end-to-end slice of it (see [Prototype status](#prototype-status)): Google and GitHub sign-in (with a development form on a developer's own computer), credentials and settings, scanning, ranking with the existing agent, the Prioritized list and Icebox with live updates, and notifications.
 
 Not designed here: a full cost estimate for the hosting. The domain's cost is estimated in [Hosting on Google Cloud](#hosting-on-google-cloud); the live-update streams are the main cost risk, with polling as the fallback.
 
@@ -133,7 +133,7 @@ flowchart LR
 
 **Why snapshots are fetched by the scanner.** All GitHub access (and so all GitHub error handling and notifications) stays in one place, and the agent never sees the developer's PAT. The scanner produces snapshots in the same JSON format as `eval/fixtures/`, so the evaluation harness and the production worker read identical input.
 
-In production the API server and the scheduler/scanner can run as separate deployments of the same package, so scanning load doesn't affect request latency ([Hosting on Google Cloud](#hosting-on-google-cloud)). The prototype runs everything in one process.
+Any number of processes can share one database: the API server and the scheduler/scanner can run as separate deployments of the same image, so scanning load doesn't affect request latency, and each can have several instances ([Hosting on Google Cloud](#hosting-on-google-cloud), "Several processes"). Production starts with everything in one process ([D-10](#d-10)).
 
 ---
 
@@ -171,12 +171,21 @@ Everything runs in the Google Cloud project `gitilizer`.
 | Component | Google Cloud service | Notes |
 |---|---|---|
 | API server and web app | Cloud Run service | Serves the built web app as static files and the API at `https://gitilizer.com`. Server-sent events are ordinary long requests; Cloud Run ends a request after at most 60 minutes, and the browser's `EventSource` reconnects and replays from `Last-Event-ID`. |
-| Scheduler, scanner and ranking worker | Cloud Run service with minimum 1 instance and always-allocated CPU | The same container image as the API, so a release deploys one build. Its instances scale with the scan and ranking load; the API service runs with `WORKER=off` and no scheduler, so request latency doesn't depend on that load. (The prototype runs all of this in one process.) |
+| Scheduler, scanner and ranking worker | Cloud Run service with minimum 1 instance and always-allocated CPU | The same container image as the API, so a release deploys one build. Its instances scale with the scan and ranking load; the API service runs with `SCHEDULER=off` and `WORKER=off`, so request latency doesn't depend on that load. At launch, production runs all of this in the API service's one instance ([D-10](#d-10)); splitting is a change of settings ([DEPLOYMENT.md](DEPLOYMENT.md#splitting-production)). |
 | Database | Cloud SQL for PostgreSQL | Smallest shared-core tier to start. Automated daily backups kept for 180 days (`PRIV-4`); Cloud SQL allows up to 365. |
-| Secrets | Secret Manager for `WORKER_TOKEN` (which protects the operator endpoints) and the OAuth client secrets; Cloud KMS for the credential key | |
+| Secrets | Secret Manager for the database URL, the credential key, `WORKER_TOKEN` (which protects the operator endpoints) and the OAuth client secrets, one set per environment, each readable only by its environment's service account | Cloud KMS for the credential key is a later option ([D-11](#d-11)). |
 | Metrics (`METRIC-1`, `METRIC-2`) | Looker Studio dashboard on Cloud SQL, plus Cloud Monitoring for operations | User counts come from `users`, the `user_activity` table (one row per developer per day with a visit), so daily, weekly and monthly actives are available for past days, and `deleted_users` (accounts deleted, in total and per month). The internal `GET /internal/metrics` endpoint returns the same numbers. |
 
 **Monitoring (`METRIC-3`, `NFR-6`).** Cloud Run already records request latency and response codes for every request, so API latency by endpoint and status codes for page loads and API calls come from Cloud Monitoring without extra code. Browser-side load time can't be seen from the server: the web app measures the time from navigation to a usable list (and the standard web vitals) and sends it to `POST /api/telemetry`, which writes it as a structured log line that a log-based metric turns into a distribution. Scan and ranking durations, and error and notification counts, are log-based metrics on the scanner's and worker's structured log lines ([Logging](#logging)), so they need no metrics client in the code. One Cloud Monitoring dashboard shows them all. Alerting policies email the owner (`METRIC-4`) when an uptime check on `https://gitilizer.com` fails, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for 30 minutes.
+
+**Several processes.** Nothing that one process must see from another is kept in memory, so instances can be added and removed freely, and two revisions run side by side during a deployment:
+
+- **Live updates** go through Postgres `LISTEN/NOTIFY` on the channel `gitilizer_events` (`app/server/src/pubsub.ts`). Every process listens, and passes events for developers with a tab open on it to its own tabs. An event over NOTIFY's 8,000-byte limit (a bulk re-rank) is stored in `relay_events` and the notification carries its ID. Events from one process go out in order. If a process's `LISTEN` connection drops, it reconnects and tells its open tabs to reload, since they may have missed something ([Live updates](#live-updates)).
+- **Presence and scan requests** are tables (`presence`, `scan_requests`), so an API process that receives a presence report or a Sync now can hand the scan to any scanner ([Scheduler](#scheduler)).
+- **The scheduler's periodic pass** runs in one process at a time: the holder of the `scheduler` row in `leases`, renewed every tick and given up when the process stops.
+- **Schema upgrades** at startup hold a Postgres advisory lock, so two processes starting together take turns.
+
+With PGlite (a developer's computer) there is only ever one process, and events go straight to its tabs. `app/server/test/postgres.test.ts` runs two processes against a real Postgres.
 
 **Region.** `us-east4` (Northern Virginia), decided in [D-3](#d-3). One region in the eastern United States is the best single choice for North America and Western Europe together (`PLAT-3`). A second region in Europe would double the fixed cost.
 
@@ -212,6 +221,8 @@ Internet egress to browsers is charged the same with or without the load balance
 | Account key | `sub` | Numeric user `id` |
 
 GitHub sign-in uses an OAuth app with only the `user:email` scope, decided in [D-4](#d-4). GitHub now recommends GitHub Apps for new integrations, and a GitHub App can also sign people in, but its user tokens expire after 8 hours and it adds an app installation concept that sign-in doesn't need. Since Gitilizer discards the token right after sign-in and never uses it to read items (`AUTH-5`), the simpler OAuth app is enough.
+
+**How a sign-in runs** (`app/server/src/auth.ts`). `start` makes a random `state`, PKCE verifier and (for Google) nonce, stores them in `oauth_states`, puts the state in a `__Host-gitilizer_oauth` cookie for 10 minutes, and redirects to the provider. The callback accepts the state only if it is in the table, under 10 minutes old, for this provider and the same as the cookie (so a sign-in finishes only in the browser that started it), and deletes it. Google's ID token comes straight from its token endpoint over TLS, so its issuer, audience, expiry and nonce are checked without verifying its signature, as OpenID Connect allows. GitHub's profile comes from `GET /user`, and a private email from `GET /user/emails` (the primary, verified address; GitHub's no-reply address if there is none). After that, `next` (a path on this site only) is where the browser goes. Each failure becomes one of the categories below.
 
 - **Accounts (`AUTH-3`, `AUTH-7`).** `users` has a unique index on `(provider, provider_user_id)`. Email is stored for display only and is never used to merge accounts, so the same person signing in with both providers gets two accounts. `METRIC-1` counts them as two users.
 - **Provider tokens.** The callback reads the profile (name, email, avatar) and then discards the provider's tokens. Gitilizer keeps no Google or GitHub sign-in token, which is why revoking access at the provider doesn't sign the developer out ([Q-11](PRD.md#q-11)).
@@ -280,6 +291,11 @@ Postgres. Times are `timestamptz`. IDs are text UUIDs unless stated.
 | `notifications` | `user_id`, `code`, `subject` (org, repo or empty), `params` (jsonb), `first_detected_at`, `shown`, `seen_at` | Severity comes from `code`. For short-lived codes, `first_detected_at` is when the problem started and `shown` flips after 15 minutes (`NOTIF-21`). `seen_at` is set when the developer opens the popover (`NOTIF-17`). |
 | `list_versions` | `user_id`, `version` (bigint) | Incremented on every change to the developer's list; carried in every live-update event. |
 | `gemini_quota` | `user_id`, `model`, `exhausted_until` | Set when Gemini reports a per-day quota for that model (`RANK-13`): `exhausted_until` is the next midnight Pacific time, or the time the error gives. The model used for a job is the first in `GITILIZER_MODELS` that isn't exhausted. Quotas belong to the key's Google Cloud project, so the rows are cleared when a new key is saved. |
+| `presence` | `user_id`, `tab_id`, `visible`, `at` | One row per open tab ([Scheduler](#scheduler)); rows older than 3 minutes are deleted. |
+| `scan_requests` | `user_id`, `trigger`, `requested_at`, `not_before` | Scans asked for and not yet started, one per developer; claimed by any scanner ([Scheduler](#scheduler)). |
+| `leases` | `name`, `holder`, `expires_at` | Work one process does at a time: the scheduler's periodic pass. |
+| `relay_events` | `id`, `payload`, `created_at` | Live-update events too large for a NOTIFY payload; kept 10 minutes. |
+| `oauth_states` | `state`, `provider`, `verifier`, `nonce`, `next`, `created_at` | Sign-ins in progress, used once, valid for 10 minutes ([Sign-in and sessions](#sign-in-and-sessions)). |
 | `deleted_users` | `id`, `deleted_at` | Only the IDs of deleted accounts. After a backup is restored, every account in this table deleted after the backup was taken is deleted again (`PRIV-4`). The table itself must be copied out before the restore and put back afterwards. |
 
 Notes on three tables:
@@ -296,8 +312,10 @@ JSON over HTTPS. Every request and response body is defined by a zod schema in `
 
 | Method and path | Purpose |
 |---|---|
-| `GET /api/auth/{google,github}/start`, `GET /api/auth/{google,github}/callback` | Sign-in ([Sign-in and sessions](#sign-in-and-sessions)). |
-| `POST /api/auth/dev` | Development and preview deployments only: sign in as a named test user. |
+| `GET /api/auth/config` | Which sign-in methods this server offers, for the sign-in page. No session needed. |
+| `GET /api/auth/{google,github}/start?next=`, `GET /api/auth/{google,github}/callback` | Sign-in ([Sign-in and sessions](#sign-in-and-sessions)). No session needed. |
+| `POST /api/auth/dev` | A developer's own computer only (local mode, fixture mode, `--dev-sign-in`): sign in as a named test user. A deployed server doesn't have it. |
+| `GET /api/health` | The uptime check: answers `{ ok: true }` when the database does. No session needed. |
 | `POST /api/auth/logout` | "Sign out" (`ACCT-3`). Ends the current session. |
 | `GET /api/me` | Account, which screen to show (`NAV-1`), whether the first sync has finished. |
 | `GET /api/list` | Every active, iceboxed and recently gone item for the developer, plus `version`. The web app sorts and pages locally. |
@@ -330,7 +348,7 @@ The server pushes changes; the web app decides when to show them.
 | `notifications` | The full list of shown notifications. |
 | `sync` | `{ running: boolean, lastFinishedAt }`, for the Sync now button (`LIST-17`). |
 
-The browser sends `Last-Event-ID` on reconnect. If the server can't replay from that version (the gap is too old, or the server restarted), it sends `{ resync: true }` and the web app fetches `GET /api/list` again. With one API process the event fan-out is in memory; with several, the API servers subscribe to Postgres `LISTEN/NOTIFY` on channel `list_<user_id>`. A ranked change is published as soon as its result is stored, which keeps within the 5-second target (`LIVE-23`).
+The browser sends `Last-Event-ID` on reconnect. If the process it reconnects to can't replay from that version (the gap is too old, the tab was connected to another instance, or the server restarted), it sends `{ resync: true }` and the web app fetches `GET /api/list` again. Each process keeps the last 200 events of the developers with a tab open on it, for 10 minutes after their last tab closes. Events reach every process through Postgres `LISTEN/NOTIFY` ([Hosting on Google Cloud](#hosting-on-google-cloud), "Several processes"). A ranked change is published as soon as its result is stored, which keeps within the 5-second target (`LIVE-23`).
 
 **Bulk re-ranks (`LIVE-24`).** The first sync, "Save and re-rank" and the daily ageing pass queue their jobs with one `batch_id`. Results with a `batch_id` are stored but not published one by one. When the batch's last job is done or failed, the server sends one `list` event with `bulk: true` and every changed row. Changes caused by GitHub activity during the batch still publish normally. The first sync is the exception: its rows are published as they are ranked, so the table fills in (`LIST-15`), but with `bulk: true`, so they appear without indicators.
 
@@ -422,7 +440,7 @@ A scan for one developer:
 
 ## Scheduler
 
-Each web app tab reports presence (`POST /api/presence`) on load, on every `visibilitychange` and every 60 s. A developer is **visible** if any tab reported `visible: true` within the last 90 s, and **open** if any tab reported anything within that time.
+Each web app tab reports presence (`POST /api/presence`) on load, on every `visibilitychange` and every 60 s, into the `presence` table (one row per tab). A developer is **visible** if any tab reported `visible: true` within the last 90 s, and **open** if any tab reported anything within that time.
 
 | State | Interval (`SCAN-5`) |
 |---|---|
@@ -434,7 +452,11 @@ A scan is **full** if it is the developer's first, if Sync now or saving Setting
 
 Sync now is disabled while a sync runs (`LIST-28`). Saving Settings while an incremental scan is running joins it (`SCAN-4`), and a full scan follows as soon as it finishes.
 
-A presence report that changes the developer to visible starts a scan at once if the last one finished more than 5 minutes ago (`SCAN-6`). The scheduler loop runs every 10 s: `SELECT … WHERE next_scan_at <= now() … FOR UPDATE SKIP LOCKED LIMIT n`, so several scanner processes can share the work. A daily pass queues an `ageing` batch for every active item not ranked in the last 24 hours (`RANK-9`).
+A presence report that changes the developer to visible starts a scan at once if the last one finished more than 5 minutes ago (`SCAN-6`).
+
+**Asking for a scan and running it are separate**, so they can happen in different processes. Sync now, saving Settings, becoming visible and the periodic pass all add a row to `scan_requests` (one per developer: a request that needs a full scan replaces a waiting scheduled one), and wake the scanners: at once in the same process, through `NOTIFY gitilizer_scan` in another. Each scanner process claims waiting requests with `DELETE … WHERE user_id IN (SELECT … FOR UPDATE SKIP LOCKED LIMIT n)`, up to 200 running scans of its own. A request for a developer whose scan is already running joins it (`SCAN-4`); if it needs a full scan and the running one is incremental, it waits 10 s and tries again, so Sync now always sees "No longer yours" removals.
+
+**The periodic pass** runs every 5 s in the process holding the `scheduler` lease: it requests the scans that are due, closes interrupted scans and expired ranking leases, shows short-lived notifications that have lasted 15 minutes, raises the stale-list notification, and deletes old presence rows, relay events and sign-in states. Hourly, it queues an `ageing` batch for every active item not ranked in the last 24 hours (`RANK-9`) and deletes item data no one has had for 30 days (`PRIV-5`).
 
 ---
 
@@ -485,11 +507,13 @@ Changes are pushed to the browser as `notifications` events.
 
 ## Security
 
-- **Credentials.** AES-256-GCM, with a random 96-bit nonce per value and the user ID as associated data, so a ciphertext can't be moved to another user. The key-encryption key comes from `CREDENTIAL_KEY` (32 bytes, base64) in the prototype and from a cloud KMS in production. Values are decrypted only in the scanner (PAT) and when the worker claims a job (Gemini key), and never leave the process (`PRIV-1`).
+- **Credentials.** AES-256-GCM, with a random 96-bit nonce per value and the user ID as associated data, so a ciphertext can't be moved to another user. The key comes from `CREDENTIAL_KEY` (32 bytes, base64), which the deployed environments read from Secret Manager, each its own ([D-11](#d-11)). Values are decrypted only in the scanner (PAT) and when the worker claims a job (Gemini key), and never leave the process (`PRIV-1`).
 - **Tokens that can write.** A classic PAT with the `repo` scope can write to every repository the developer can reach ([Q-40](PRD.md#q-40)). Gitilizer only ever sends `GET` requests and searches with it, and the Octokit wrapper rejects any other method, so a bug can't turn into a write.
 - **Operator endpoint.** `GET /internal/metrics` is on a separate port that isn't exposed to the internet and needs a bearer token.
 - **Sessions.** See [Sign-in and sessions](#sign-in-and-sessions). State-changing requests also need an `X-Gitilizer: 1` header, which a cross-site form can't send.
 - **Logging.** Log fields whose names look like secrets are replaced with `[redacted]`, and request bodies aren't logged ([Logging](#logging)).
+- **Deployed servers fail closed.** With `GITILIZER_ENV` set, the server refuses to start without its database, credential key, worker token, `https://` address and both sign-in apps, and refuses local mode, fixtures and the development sign-in form, which signs anyone in as anyone ([DEPLOYMENT.md](DEPLOYMENT.md#settings)).
+- **Headers.** The deployed server sends `Strict-Transport-Security`, a Content Security Policy (scripts from Gitilizer only; styles also from Google Fonts; images also from GitHub and Google avatars; no framing) and `X-Frame-Options: DENY`; every response sends `X-Content-Type-Options: nosniff`, and API responses `Cache-Control: no-store`.
 
 ---
 
@@ -546,17 +570,17 @@ Cloud Logging keeps logs for 30 days by default, which is enough to look into a 
 |---|---|---|
 | Address | `dev.gitilizer.com` | `gitilizer.com` |
 | Deployed | Automatically, after every merge to `main` whose checks pass | Deliberately: a release deploys a build that is already running in development |
-| Cloud Run | `gitilizer-dev`: one service running everything (API, scheduler, scanner, worker), scaling to zero when unused | `gitilizer-api` and `gitilizer-worker`, as in [Hosting on Google Cloud](#hosting-on-google-cloud) |
+| Cloud Run | `gitilizer-dev`: one service running everything (API, scheduler, scanner, worker), scaling to zero when unused | `gitilizer-api`, one always-on instance running everything at launch ([D-10](#d-10)); later `gitilizer-api` and `gitilizer-worker`, as in [Hosting on Google Cloud](#hosting-on-google-cloud) |
 | Database | Its own database, `gitilizer_dev`, on the same Cloud SQL instance | `gitilizer` |
-| Credential key, OAuth apps | Its own (a separate KMS key; OAuth apps whose redirect URLs are on `dev.gitilizer.com`) | Its own |
+| Credential key, OAuth apps | Its own (a separate secret; OAuth apps whose redirect URLs are on `dev.gitilizer.com`) | Its own |
 | Who can sign in | The accounts on `SIGN_IN_ALLOWLIST` ([Sign-in and sessions](#sign-in-and-sessions), PRD [Q-80](PRD.md#q-80)) | Everyone |
 | `GITILIZER_ENV` | `development` | `production` |
 
 **The pipeline.**
 
-1. **Every pull request:** GitHub Actions runs `npm run typecheck`, `npm test` and the Playwright run in fixture mode. Merging needs them to pass.
-2. **Every merge to `main`:** a Cloud Build trigger builds one container image, tagged with the commit, pushes it to Artifact Registry and deploys it to development.
-3. **A release:** pushing a tag `release-YYYY-MM-DD` runs a GitHub Actions workflow that deploys the image already built for that commit to production. Because it is the same image, what was tested in development is exactly what ships. GitHub's environment protection makes the owner approve the run.
+1. **Every pull request:** GitHub Actions (`.github/workflows/ci.yml`) runs `npm run typecheck`, `npm test` (with a real Postgres for the tests of several processes), the web app build and the image build. Merging needs them to pass. The Playwright run in fixture mode joins it once it exists as a script.
+2. **Every merge to `main`:** a Cloud Build trigger (`cloudbuild.yaml`) builds one container image (`Dockerfile`), tagged with the commit, pushes it to Artifact Registry and deploys it to development.
+3. **A release:** pushing a tag `release-YYYY-MM-DD` runs a GitHub Actions workflow (`.github/workflows/release.yml`) that deploys the image already built for that commit to production. Because it is the same image, what was tested in development is exactly what ships. GitHub's environment protection makes the owner approve the run.
 4. **Rolling back:** Cloud Run keeps earlier revisions, so moving traffic back to the previous one takes seconds.
 
 GitHub Actions reaches Google Cloud with Workload Identity Federation, so no long-lived service-account key is stored in GitHub.
@@ -584,7 +608,7 @@ The prototype implements the slice end to end, following the PRD as revised on 2
 
 | Area | Status |
 |---|---|
-| Sign-in | Development stub only: "Continue with Google" asks for a name and email, "Continue with GitHub" also for a username. No OAuth. The sign-in page shows the five failure notices for `/sign-in?error=…` (grey for `cancelled`, red otherwise) and removes the parameter. The development allowlist is done: the stub and, later, the OAuth callbacks finish in `completeSignIn()`, which applies it. |
+| Sign-in | Google (OpenID Connect) and GitHub (OAuth app) with PKCE, `state` and a nonce; the five failure categories; the development allowlist; `__Host-` cookies when deployed. Tested against stand-ins for Google and GitHub; not yet against the real ones, which need the OAuth apps ([LAUNCH_PLAN.md](LAUNCH_PLAN.md), Phase 5). On a developer's computer without OAuth apps, both buttons open the development form (name, email, and a username for GitHub), which a deployed server doesn't have. |
 | Warm Welcome, screen selection | Done. |
 | App bar, account menu, footer | Done: "Sign out" in red with icons, real Documentation and GitHub URLs, and the Gitilizer symbol as the favicon (`BAR-3`). |
 | Notifications | The whole catalogue (28 codes) with its severities; short-lived problems become warnings after 15 minutes; the backup-model warning and the all-models error; `seen_at`, so the bell swings only for unseen errors and stops on every device once the popover opens; amber, still bell for warnings; links that open Settings and focus the control (`github-pat`, `gemini-key`, `repo-{owner}-{name}`, `ranking-prompt`, `add-repository`); focus moves into the popover and back to the bell. |
@@ -593,17 +617,17 @@ The prototype implements the slice end to end, following the PRD as revised on 2
 | Icebox | View, Restore (keeps the score unless the item changed), the Icebox check job and prompt (`prompts/icebox_check_v1.md`), automatic return with the leave animation, removal of ineligible items. **Not done:** the labelled examples in `eval/icebox/` (`ICE-13`). |
 | Settings | Rebuilt from Figma: sections 01–04, the account panel and Delete account panel in the left column, credential cards with chips, Validate (typed values only) with the `SET-28` messages, repositories by name or URL with prioritization prompts and the four access states, collaborators with avatars and the not-found icon, the 20,000-character prompt with its count, inline errors (in the browser, and from the server's 422 response), the three save buttons, and a confirmation before leaving with unsaved changes. |
 | Scanner | Full and incremental scans; the five personal searches plus one per repository, newest first, up to 1,000 results each; the 1,000-item limit with `over_limit`; closed, merged and no-longer-matching removals; repository access states and renames; collaborator lookups; linked-item re-ranks; Icebox checks; the GitHub error classification for the whole catalogue. `X-GitHub-SSO: partial-results` on searches, with the organizations' names looked up ([D-7](#d-7)). |
-| Scheduler | Presence, intervals, scan on becoming visible, the 7-day background cut-off, full scans at most hourly (and for Sync now and saving Settings, including after a running incremental scan), the stale-list check, the daily re-rank as one bulk batch per developer, quota resets, and the 30-day clean-up (`PRIV-5`). Simplified to one loop over all developers. |
+| Scheduler | Presence, intervals, scan on becoming visible, the 7-day background cut-off, full scans at most hourly (and for Sync now and saving Settings, including after a running incremental scan), the stale-list check, the daily re-rank as one bulk batch per developer, quota resets, and the 30-day clean-up (`PRIV-5`). Presence and scan requests in the database, scans claimed by any scanner process, and the periodic pass in one process at a time (a lease). The periodic pass still loops over every developer with a token, which is fine at launch and worth replacing with a `next_scan_at` index at the scale in `NFR-1`. |
 | Ranking worker and agent | In TypeScript, in the server process. One item per call at the "low" thinking level; claims in queue order with at most 4 jobs per developer; model fallback (`gemini_quota`, `ranked_model`); key-level pauses; retries and failure after 3 attempts; Icebox checks. The agent's prompts are identical to the Python agent's. Not yet run against real Gemini. |
 | Evaluation harness | In TypeScript: `npm run evaluate`, `npm run snapshot`, `npm run ranking-sheet`, `npm run check`. The recency baseline gives the same Kendall tau (0.114) as before the port, and `eval/ranking.json` rebuilds identically. |
 | Logging | `log.ts`: structured JSON in production, levels, one line per scan, a worker summary a minute, secrets redacted. |
 | Account deletion | Simple confirmation; `{ confirm: true }`; the account's ID kept in `deleted_users`. |
-| Metrics | `user_activity`, `GET /internal/metrics` (including deleted accounts), and `POST /api/telemetry`, which logs the time to a usable list. **Not done:** the dashboard and alerts (`METRIC-3`, `METRIC-4`). |
-| Deployment | The sign-in allowlist and `GITILIZER_ENV`. **Not done:** the container image, the two environments and the pipeline ([Deployment](#deployment), [DEPLOYMENT.md](DEPLOYMENT.md)). |
+| Metrics | `user_activity`, `GET /internal/metrics` (including deleted accounts), and `POST /api/telemetry`, which logs the time to a usable list. The log-based metrics, uptime check, alert policies and dashboard are written (`infra/monitoring/`, `infra/monitoring.sh`) and are created with the hosting. **Not done:** the Looker Studio usage dashboard (`METRIC-1`). |
+| Deployment | The container image (`Dockerfile`, which serves the built web app), the startup checks for deployed environments, `/api/health`, several processes on one database, the CI and Release workflows, the Cloud Build config, and `gcloud` scripts for every Google Cloud resource (`infra/`). **Not done:** creating them in the `gitilizer` project ([LAUNCH_PLAN.md](LAUNCH_PLAN.md)). |
 | Documentation | [docs/user-guide.md](../docs/user-guide.md): getting started, GitHub tokens (the "Learn more" page), Gemini keys and the free tier's limits, every notification, and the privacy section (`FOOT-3`, `FOOT-4`). |
 | Upgrades | A database made by an earlier prototype (for example in `.local/`) is upgraded in place when the server starts: `interested_repos` becomes `additional_repos`, and new columns are added. |
 
-**Tests.** 14 web tests (the live-update state machine, including bulk events, waiting and failed items, over-limit removals and the Icebox return), 42 server tests (error classification, storing text Postgres can't hold, the separate issue and PR searches, the per-scan repository lookup, snapshot limits, discovery, ranking while a first sync is still downloading, the Settings rules, quota resets, local mode, a full scan → rank → change → close → Icebox → over-limit → bulk re-rank → quota fallback → key-failure cycle on in-memory Postgres, the in-process worker, and the HTTP API for Settings, Validate, Sync now, notifications and deletion, the development allowlist, and closing interrupted scans) and 48 agent tests (the original Python tests and the worker's, ported, plus the comparison with the Python agent's output). A browser run in fixture mode covered the list, the first-sync state, notifications and their Settings links, the Settings rules and errors, Validate, saving, Delete account's dialog, the account menu and the sign-in notices, and a second run with an allowlist covered a refused GitHub sign-in, its notice and an allowed one.
+**Tests.** 14 web tests, 17 production tests (the startup checks; Google and GitHub sign-in against stand-ins, including every failure category; the web app's files and headers; presence, scan requests and the lease shared between schedulers), 6 tests of two processes on a real Postgres (live updates between processes, large events, Sync now handed from an API process to a scanner, a dropped `LISTEN` connection, the lease; they run when `TEST_DATABASE_URL` is set, as in CI), (the live-update state machine, including bulk events, waiting and failed items, over-limit removals and the Icebox return), 42 server tests (error classification, storing text Postgres can't hold, the separate issue and PR searches, the per-scan repository lookup, snapshot limits, discovery, ranking while a first sync is still downloading, the Settings rules, quota resets, local mode, a full scan → rank → change → close → Icebox → over-limit → bulk re-rank → quota fallback → key-failure cycle on in-memory Postgres, the in-process worker, and the HTTP API for Settings, Validate, Sync now, notifications and deletion, the development allowlist, and closing interrupted scans) and 48 agent tests (the original Python tests and the worker's, ported, plus the comparison with the Python agent's output). A browser run in fixture mode covered the list, the first-sync state, notifications and their Settings links, the Settings rules and errors, Validate, saving, Delete account's dialog, the account menu and the sign-in notices, and a second run with an allowlist covered a refused GitHub sign-in, its notice and an allowed one.
 
 ---
 
@@ -626,14 +650,14 @@ What the prototype had to change to match the third PRD revision, and where each
 | First sync | Pulsing skeleton rows and the message; items hidden until ranked. | `LIST-15`, `LIST-30` | Done |
 | Ranking | Linked-item re-ranks; queue order; at most 4 at a time per developer. | `RANK-10` to `RANK-13` | Done |
 | Scheduler | Background scans only for developers seen in the last 7 days. | `SCAN-5` | Done |
-| Monitoring | Telemetry endpoint, dashboard and email alerts. | `METRIC-3`, `METRIC-4` | Endpoint done; dashboard and alerts need the hosting |
+| Monitoring | Telemetry endpoint, dashboard and email alerts. | `METRIC-3`, `METRIC-4` | Endpoint done; dashboard and alerts written as scripts (`infra/monitoring.sh`), created with the hosting |
 | Live updates | No hold after a tap. | `LIVE-5` | Done |
 | Ranking model | Low thinking; model fallback with `gemini_quota` and `ranked_model`. | `RANK-11`, `RANK-13` to `RANK-16` | Done |
 | Deletion | `deleted_users`; 180-day backups. | `PRIV-4` | Table done; backups need the hosting |
-| Sign-in | Real Google and GitHub OAuth; sliding 30-day sessions; the four failed-sign-in messages. | `AUTH-7` to `AUTH-15` | Sessions and messages done; OAuth needs the OAuth apps and the domain |
+| Sign-in | Real Google and GitHub OAuth; sliding 30-day sessions; the four failed-sign-in messages. | `AUTH-7` to `AUTH-15` | Done; needs the OAuth apps and the domain to try for real |
 | Footer | Real URLs; the user documentation with its privacy section. | `FOOT-2` to `FOOT-4` | Done |
 | Prompt | "Keep an eye on" wording for additional repositories; lower scores for drafts. | `SET-31`, `RANK-8` | Not done: both need measuring with the evaluation harness against real Gemini first (`RANK-7`) |
-| Hosting | The `gitilizer.com` domain (through a load balancer, [D-2](#d-2)) and the OAuth redirect URLs. | `PLAT-5` | Not done |
+| Hosting | The `gitilizer.com` domain (through a load balancer, [D-2](#d-2)) and the OAuth redirect URLs. | `PLAT-5` | Scripts and pipeline done; the setup in [LAUNCH_PLAN.md](LAUNCH_PLAN.md) is next |
 
 ---
 
@@ -719,3 +743,5 @@ Questions about the design itself; each is marked **TODO:** where it comes up. T
 | <a id="d-7"></a>D-7 | How does an organization named only by ID in `X-GitHub-SSO: partial-results` get its name? | `GET /organizations/{id}`, cached. |
 | <a id="d-8"></a>D-8 | One Google Cloud project for development and production, or two? | One project, with permissions granted per service, key and database ([Deployment](#deployment)). |
 | <a id="d-9"></a>D-9 | How is a release to production started? | A `release-YYYY-MM-DD` tag on a commit development has already run, approved by the owner in GitHub ([DEPLOYMENT.md](DEPLOYMENT.md#releasing-to-production)). |
+| <a id="d-10"></a>D-10 | How does production start: `gitilizer-api` and `gitilizer-worker`, or one service? | One service, `gitilizer-api`, with exactly one always-on instance running everything; split when it gets busy, which is now a change of settings ([LAUNCH_PLAN.md](LAUNCH_PLAN.md) L-1, [DEPLOYMENT.md](DEPLOYMENT.md#splitting-production)). |
+| <a id="d-11"></a>D-11 | Where does the credential key live? | Secret Manager, one secret per environment, readable only by that environment's service account. Cloud KMS envelope encryption is a later option ([LAUNCH_PLAN.md](LAUNCH_PLAN.md) L-2). |
