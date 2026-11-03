@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2026-11-02. Decisions made; the old configuration is removed (Phase 1), the code changes are done (Phase 2), and the foundation exists (Phase 3). Phase 4 (certificate) is next. |
+| **Status** | 2026-11-02. Phases 1 to 5 done; development's service and the load balancer exist (6.2, 6.4). Next: connect Cloud Build to GitHub (6.1) and add the `dev` records at GoDaddy (6.6). |
 | **Goal** | `dev.gitilizer.com` and `gitilizer.com` running on Google Cloud as [DESIGN.md](DESIGN.md#hosting-on-google-cloud) and [DEPLOYMENT.md](DEPLOYMENT.md) describe, with the old configuration in the `gitilizer` project removed first. |
 | **Region** | `us-east4` ([D-3](DESIGN.md#d-3)) |
 
@@ -37,7 +37,7 @@ This is the one-time setup, step by step. [DEPLOYMENT.md](DEPLOYMENT.md) describ
 
 ### The Google Cloud project
 
-**Cleared on 2026-11-02** ([Phase 1](#phase-1-inventory-and-remove-the-old-configuration)). Billing is on, and you are the only Owner (`brian.k.quinlan@gmail.com`). Firebase stays turned on for the project, with nothing left in it.
+**Cleared on 2026-11-02** ([Phase 1](#phase-1-inventory-and-remove-the-old-configuration)). Billing is on, and you are the only Owner. Firebase stays turned on for the project, with nothing left in it.
 
 ### The domain
 
@@ -234,6 +234,8 @@ The manual SQL step the first version of this plan had is gone: the script sends
 
 Start this early: the certificate needs a DNS record at GoDaddy, and issuing it can take a while.
 
+**Done** (2026-11-02). The certificate is `ACTIVE` for `gitilizer.com` and `*.gitilizer.com`. The addresses are `34.110.243.136` (`gitilizer-ipv4`) and `2600:1901:0:8d89::` (`gitilizer-ipv6`). The record for 4.2 is `CNAME` `_acme-challenge` → `c0b9cde8-0668-412e-b7ae-4eb0420448e9.16.authorize.certificatemanager.goog.` The certificate is `PROVISIONING` until GoDaddy serves it.
+
 | # | Who | Task |
 |---|---|---|
 | 4.1 | You | `bash infra/certificate.sh`. It reserves the two addresses, creates the certificate, and prints the records for GoDaddy. |
@@ -244,26 +246,38 @@ Start this early: the certificate needs a DNS record at GoDaddy, and issuing it 
 
 ## Phase 5: sign-in apps
 
-All **You**: consoles and client secrets. Development and production have separate apps ([DEPLOYMENT.md](DEPLOYMENT.md#sign-in-apps)).
+**Done** (you, 2026-11-02), except the logo. The client secrets are in Secret Manager, each readable only by its environment's service account; they were briefly in this file and never committed. The client IDs aren't secret:
+
+| | Google client ID | GitHub OAuth app client ID | Secrets |
+|---|---|---|---|
+| Production | `414241858841-f5lds4k46l1mp7p8fcj1m1rldujp2bhh.apps.googleusercontent.com` | `Ov23liIiw0R6mUml6Xih` | `prod-google-client-secret`, `prod-github-client-secret` |
+| Development | `414241858841-cdlbk8ut6f4acf5ff8gt0r0vt8jng230.apps.googleusercontent.com` | `Ov23li4RXtmFzE7VGfjD` | `dev-google-client-secret`, `dev-github-client-secret` |
+
+- **Privacy policy URL:** `https://gitilizer.com/docs/privacy`, which the server redirects to the Privacy section of the user guide on GitHub (`/docs` goes to the guide itself). It works once `gitilizer.com` points at Google (7.4); until then the link on Google's consent screen goes to GoDaddy's page.
+- **Logo, later:** upload `app/web/public/brand/gitilizer-logo-120.png` (120 × 120 PNG, the Gitilizer symbol) under Google Auth Platform → Branding → App logo. Google then reviews the branding, which can take a few days; sign-in keeps working meanwhile.
+
+The steps, for reference:
 
 | # | Task |
 |---|---|
-| 5.1 | **Verify the domain with Google.** [Google Search Console](https://search.google.com/search-console) → add a **Domain** property for `gitilizer.com` → add its `TXT` record at GoDaddy (name `@`) → **Verify**. Google needs this before it shows `gitilizer.com` as the app's domain on the sign-in screen. |
-| 5.2 | **Decide where the privacy policy lives.** The privacy section is in `docs/user-guide.md`. Its page on GitHub works as the URL. |
-| 5.3 | **Google sign-in.** Cloud console for `gitilizer` → **Google Auth Platform**. **Branding:** app name "Gitilizer", your support email, home page `https://gitilizer.com`, the privacy policy URL, authorized domain `gitilizer.com` (a logo is optional, and adding one means Google reviews the branding first). **Audience:** External, then **Publish** (while it is "Testing", only listed test users can sign in). **Data access:** `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile`; none are sensitive, so no security review. **Clients → Create client → Web application**, twice: "Gitilizer production" with redirect URI `https://gitilizer.com/api/auth/google/callback`, and "Gitilizer development" with `https://dev.gitilizer.com/api/auth/google/callback`. Note both client IDs. If Firebase Authentication already made a consent screen in this project, edit it rather than starting again. |
-| 5.4 | **GitHub sign-in.** GitHub → **Settings → Developer settings → OAuth Apps → New OAuth App**, twice (a GitHub OAuth app has one callback URL): "Gitilizer", homepage `https://gitilizer.com`, callback `https://gitilizer.com/api/auth/github/callback`; and "Gitilizer (development)", homepage `https://dev.gitilizer.com`, callback `https://dev.gitilizer.com/api/auth/github/callback`. Leave **Enable Device Flow** off. Generate a client secret for each and note the client IDs. |
-| 5.5 | **Store the four secrets:** `bash infra/oauth-secrets.sh`. It asks for each without showing it, and lets only the matching environment read it. |
+| 5.1 | Verify `gitilizer.com` in [Google Search Console](https://search.google.com/search-console) (a `TXT` record at GoDaddy). |
+| 5.2 | Choose the privacy policy URL. |
+| 5.3 | Google Auth Platform: **Branding** (name, support email, home page, privacy policy URL, authorized domain `gitilizer.com`); **Audience** External and published; **Data access** `openid`, `userinfo.email`, `userinfo.profile`; two **Web application** clients, with redirect URIs `https://gitilizer.com/api/auth/google/callback` and `https://dev.gitilizer.com/api/auth/google/callback`. |
+| 5.4 | Two GitHub OAuth apps (one callback URL each): `https://gitilizer.com/api/auth/github/callback` and `https://dev.gitilizer.com/api/auth/github/callback`; Device Flow off. |
+| 5.5 | `bash infra/oauth-secrets.sh`, then `bash infra/foundation.sh` again for access. |
 
 ---
 
 ## Phase 6: development environment
 
+6.2 used the development client IDs above. Its allowlist lets in you: both your Google addresses, and your GitHub account by its numeric ID. The list is only on the service, not in Git; see or change it as in [DEPLOYMENT.md](DEPLOYMENT.md#who-can-sign-in-to-development).
+
 | # | Who | Task |
 |---|---|---|
 | 6.1 | You | **Connect Cloud Build to GitHub.** Cloud console → **Cloud Build → Repositories** → **2nd gen** → **Create host connection**: GitHub, region `us-east4`, name `github`. Install the Cloud Build GitHub App on **only** `brianquinlan/gitilizer`. Then **Link repository** → `brianquinlan/gitilizer`, name `gitilizer`. |
-| 6.2 | You | **Create the service** with all its settings, running Google's sample container for now: `GOOGLE_CLIENT_ID=<dev> GITHUB_CLIENT_ID=<dev> SIGN_IN_ALLOWLIST="google:<you> github-id:<your id>" bash infra/services.sh dev placeholder`. The allowlist stays out of Git. |
-| 6.3 | You | **The trigger and Workload Identity:** `bash infra/pipeline.sh` (note the two values it prints, for 7.3). Then build and deploy `main` for the first time: `gcloud builds triggers run deploy-dev --region=us-east4 --branch=main`, and watch it under Cloud Build → History. |
-| 6.4 | You | **Load balancer:** `bash infra/load-balancer.sh`. |
+| 6.2 | Done | **Create the service** with all its settings, running Google's sample container for now: `GOOGLE_CLIENT_ID=<dev> GITHUB_CLIENT_ID=<dev> SIGN_IN_ALLOWLIST="google:<you> github-id:<your id>" bash infra/services.sh dev placeholder`. The allowlist stays out of Git. |
+| 6.3 | Either, after 6.1 | **The trigger and Workload Identity:** `bash infra/pipeline.sh` (note the two values it prints, for 7.3). Then build and deploy `main` for the first time: `gcloud builds triggers run deploy-dev --region=us-east4 --branch=main`, and watch it under Cloud Build → History. |
+| 6.4 | Done | **Load balancer:** `bash infra/load-balancer.sh`. Checked through the load balancer before DNS: `https://dev.gitilizer.com` answers with the certificate, `http://` redirects to `https://`, and the `*.run.app` address is refused. |
 | 6.5 | You | **GitHub rulesets** (Settings → Rules → Rulesets): for `main`, require a pull request and the `ci` check, and block force pushes; for tags `release-*`, block updates and deletion. |
 | 6.6 | You | **Point `dev` at Google** at GoDaddy: `A` `dev` → the IPv4 address and `AAAA` `dev` → the IPv6 address that `certificate.sh` printed. |
 | 6.7 | You and Claude | **Try development** at `https://dev.gitilizer.com`, with your real data: the checklist below. |

@@ -269,6 +269,17 @@ describe("serving the web app", () => {
     await app.close();
   });
 
+  it("sends /docs and /docs/privacy to the user guide, without a session (FOOT-3, FOOT-4)", async () => {
+    const { ctx } = await makeCtx();
+    const app = buildApp(ctx, new Scheduler(ctx), null);
+    const guide = "https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md";
+    expect((await app.inject({ method: "GET", url: "/docs" })).headers.location).toBe(guide);
+    const privacy = await app.inject({ method: "GET", url: "/docs/privacy" });
+    expect(privacy.statusCode).toBe(302);
+    expect(privacy.headers.location).toBe(`${guide}#privacy`);
+    await app.close();
+  });
+
   it("answers the health check without a session", async () => {
     const { ctx } = await makeCtx();
     const app = buildApp(ctx, new Scheduler(ctx), null);

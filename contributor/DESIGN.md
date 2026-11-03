@@ -316,6 +316,7 @@ JSON over HTTPS. Every request and response body is defined by a zod schema in `
 | `GET /api/auth/{google,github}/start?next=`, `GET /api/auth/{google,github}/callback` | Sign-in ([Sign-in and sessions](#sign-in-and-sessions)). No session needed. |
 | `POST /api/auth/dev` | A developer's own computer only (local mode, fixture mode, `--dev-sign-in`): sign in as a named test user. A deployed server doesn't have it. |
 | `GET /api/health` | The uptime check: answers `{ ok: true }` when the database does. No session needed. |
+| `GET /docs`, `GET /docs/privacy` | Redirect to the user guide on GitHub, and to its Privacy section (`FOOT-3`, `FOOT-4`), so gitilizer.com has stable addresses for them; the Google consent screen links to `/docs/privacy`. |
 | `POST /api/auth/logout` | "Sign out" (`ACCT-3`). Ends the current session. |
 | `GET /api/me` | Account, which screen to show (`NAV-1`), whether the first sync has finished. |
 | `GET /api/list` | Every active, iceboxed and recently gone item for the developer, plus `version`. The web app sorts and pages locally. |

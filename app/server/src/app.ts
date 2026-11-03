@@ -425,6 +425,13 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     });
   }
 
+  // --- Documentation (FOOT-3, FOOT-4) ---------------------------------------
+  // Stable addresses on gitilizer.com for the user guide and its privacy section, which live on GitHub for
+  // now. The Google sign-in consent screen links to /docs/privacy.
+  const USER_GUIDE = "https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md";
+  app.get("/docs", async (_req, reply) => reply.redirect(USER_GUIDE, 302));
+  app.get("/docs/privacy", async (_req, reply) => reply.redirect(`${USER_GUIDE}#privacy`, 302));
+
   // --- The web app (design: Hosting) -----------------------------------------
   // The built app is served from the same origin as the API. Vite's hashed files never change, so browsers
   // keep them; index.html is checked every time, so a release reaches open tabs on their next load.

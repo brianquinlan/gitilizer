@@ -205,6 +205,8 @@ Each environment has its own Google client and GitHub OAuth app, because each re
 | Production | "Gitilizer production", redirect URI `https://gitilizer.com/api/auth/google/callback` | "Gitilizer", callback `https://gitilizer.com/api/auth/github/callback` |
 | Development | "Gitilizer development", redirect URI `https://dev.gitilizer.com/api/auth/google/callback` | "Gitilizer (development)", callback `https://dev.gitilizer.com/api/auth/github/callback` |
 
+The Google consent screen (Google Auth Platform → Branding) names the home page `https://gitilizer.com` and the privacy policy `https://gitilizer.com/docs/privacy`, which the server redirects to the user guide's Privacy section on GitHub. Its logo is `app/web/public/brand/gitilizer-logo-120.png`; changing the logo makes Google review the branding again.
+
 When sign-in fails, the log line `sign-in failed` (component `auth`) has the provider, the category the page showed (`cancelled`, `provider_unavailable`, `expired`, `not_allowed` or `gitilizer_error`) and the provider's own error. A `redirect_uri_mismatch` from Google, or "The redirect_uri is not associated with this application" from GitHub, means the app's callback URL doesn't match `PUBLIC_URL`.
 
 ## Monitoring and alerts
