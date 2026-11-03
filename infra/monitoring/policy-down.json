@@ -1,0 +1,14 @@
+{
+  "displayName": "gitilizer.com is down",
+  "documentation": { "content": "The uptime check on https://gitilizer.com/api/health is failing from several regions. Check Cloud Run (gitilizer-api), Cloud SQL and the load balancer. DEPLOYMENT.md, \"Rolling back\".", "mimeType": "text/markdown" },
+  "combiner": "OR",
+  "conditions": [{
+    "displayName": "Uptime check failing",
+    "conditionThreshold": {
+      "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND resource.type=\"uptime_url\" AND resource.label.host=\"gitilizer.com\"",
+      "aggregations": [{ "alignmentPeriod": "1200s", "perSeriesAligner": "ALIGN_NEXT_OLDER", "crossSeriesReducer": "REDUCE_COUNT_FALSE", "groupByFields": ["resource.label.*"] }],
+      "comparison": "COMPARISON_GT", "thresholdValue": 1, "duration": "60s", "trigger": { "count": 1 }
+    }
+  }],
+  "notificationChannels": ["CHANNEL"]
+}

@@ -1,0 +1,4 @@
+description: 'Errors Gitilizer logged (something Gitilizer must fix, design Logging), by component'
+filter: 'resource.type="cloud_run_revision" AND severity>=ERROR AND jsonPayload.component:*'
+metricDescriptor: { metricKind: DELTA, valueType: INT64, labels: [{ key: component }] }
+labelExtractors: { component: EXTRACT(jsonPayload.component) }

@@ -1,0 +1,5 @@
+description: 'Each worker''s 95th-percentile ranking time per minute, from its "ranking summary" log line (NFR-6)'
+filter: 'resource.type="cloud_run_revision" AND jsonPayload.component="worker" AND jsonPayload.message="ranking summary" AND jsonPayload.done>0'
+metricDescriptor: { metricKind: DELTA, valueType: DISTRIBUTION, unit: ms }
+valueExtractor: EXTRACT(jsonPayload.p95Ms)
+bucketOptions: { exponentialBuckets: { numFiniteBuckets: 40, growthFactor: 1.4, scale: 10 } }

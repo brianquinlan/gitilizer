@@ -1,0 +1,4 @@
+description: 'Ranking jobs that failed unexpectedly, by error code (expected, short-lived failures are logged at debug and not counted)'
+filter: 'resource.type="cloud_run_revision" AND jsonPayload.component="worker" AND jsonPayload.message="job failed"'
+metricDescriptor: { metricKind: DELTA, valueType: INT64, labels: [{ key: code }] }
+labelExtractors: { code: EXTRACT(jsonPayload.code) }

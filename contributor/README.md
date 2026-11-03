@@ -7,7 +7,8 @@ This folder is for people building Gitilizer. If you want to *use* Gitilizer, re
 | [PRD.md](PRD.md) | What Gitilizer must do: every requirement, with an ID such as `LIST-4`, and the product owner's open questions. |
 | [DESIGN.md](DESIGN.md) | How it is built: architecture, data model, API, ranking, hosting, logging, deployment, and the design's open questions. |
 | [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md) | Running the whole application on your own computer with one command. |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | The development and production environments, releasing with a `release-*` tag, rolling back, and who can sign in to development. |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | The development and production environments: how requests reach them, their settings, releasing with a `release-*` tag, rolling back, changing a setting or a secret, who can sign in to development, monitoring, and splitting production. |
+| [LAUNCH_PLAN.md](LAUNCH_PLAN.md) | Setting up Google Cloud, GoDaddy and GitHub for the first time, step by step, with who does each step. |
 
 Open questions in both documents are marked **TODO:**, so searching for that finds everything waiting for an answer.
 
@@ -24,6 +25,8 @@ Everything is TypeScript, in npm workspaces:
 | `prompts/` | The ranking prompts (`v4.md` is the default) and the Icebox check's prompt. |
 | `eval/` | The hand-ranked eval set, its frozen GitHub snapshots (`fixtures/`) and past evaluation runs (`runs/`). |
 | `scripts/local.mjs` | `npm run local`. |
+| `Dockerfile`, `cloudbuild.yaml`, `.github/workflows/` | The container image, the build that deploys `main` to development, and the CI and Release workflows ([DEPLOYMENT.md](DEPLOYMENT.md)). |
+| `infra/` | `gcloud` scripts that create everything in Google Cloud ([DEPLOYMENT.md](DEPLOYMENT.md#the-infra-scripts)). |
 | `docs/` | The user documentation, linked from the app's footer. |
 
 ```powershell

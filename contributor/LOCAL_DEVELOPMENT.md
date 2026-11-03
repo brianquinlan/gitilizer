@@ -122,7 +122,8 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 | `LOG_LEVEL` | How much the server logs: `debug` (the default in local mode: every ranked item), `info`, `warn` or `error`. |
 | `CREDENTIAL_KEY` | Overrides the saved encryption key. If you change it, credentials saved with the old key can no longer be read; use `--reset`. |
 | `DATABASE_URL` | Uses a real Postgres server instead of PGlite, for example `postgres://localhost/gitilizer`. |
-| `SIGN_IN_ALLOWLIST`, `GITILIZER_ENV` | For the hosted development environment ([DEPLOYMENT.md](DEPLOYMENT.md#who-can-sign-in-to-development)). Local mode ignores the allowlist. |
+| `SIGN_IN_ALLOWLIST`, `GITILIZER_ENV` | For the hosted environments ([DEPLOYMENT.md](DEPLOYMENT.md#settings)). Local mode ignores the allowlist. Don't set `GITILIZER_ENV` on your computer: it turns on the deployed environments' startup checks, which refuse local mode. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `PUBLIC_URL` | Real Google and GitHub sign-in, if you have OAuth apps whose redirect URLs point at your computer (for example `http://localhost:8787/api/auth/github/callback`, with `PUBLIC_URL=http://localhost:8787`). Without them the sign-in buttons open the development form. |
 
 ## Troubleshooting
 
@@ -145,6 +146,12 @@ npm test                     # ranking agent, server and web tests
 npm run typecheck
 ```
 
+The tests of several server processes sharing one database (`app/server/test/postgres.test.ts`) need a real Postgres, so they are skipped unless `TEST_DATABASE_URL` names one whose user can create databases (CI always runs them):
+
+```powershell
+$env:TEST_DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/postgres"; npm test -w app/server
+```
+
 ## Running the parts by hand
 
 `npm run local` replaces running the parts in two terminals, which still works if you need to restart one part on its own:
@@ -154,4 +161,15 @@ npm run dev:fixtures     # terminal 1: the server (:8787, metrics on :8788), wit
 npm run dev:web          # terminal 2: http://localhost:5173
 ```
 
-Started this way, the server isn't in local mode: you sign in with the development form, enter credentials in Settings, and the scheduler runs. For real GitHub and Gemini, use `npm run dev:server` instead of `npm run dev:fixtures`.
+Started this way, the server isn't in local mode: you sign in with the development form, enter credentials in Settings, and the scheduler runs. For real GitHub and Gemini, use `npm run dev:server` instead of `npm run dev:fixtures` (it passes `--dev-sign-in`, which turns the form on).
+
+## Running the production image
+
+The container image that development and production run (`Dockerfile`) serves the built web app itself, on one port. To try it with Docker and a Postgres of your own, in fixture mode so it needs no credentials:
+
+```powershell
+docker build -t gitilizer .
+docker run --rm -p 8080:8080 -e NODE_ENV=development -e DATABASE_URL=postgres://host.docker.internal/gitilizer gitilizer node --import tsx app/server/src/main.ts --fixtures
+```
+
+Then open http://localhost:8080. With `GITILIZER_ENV` set, the image checks its settings and refuses to start without the ones the deployed environments need ([DEPLOYMENT.md](DEPLOYMENT.md#settings)).

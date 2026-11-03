@@ -1,0 +1,341 @@
+{
+ "displayName": "Gitilizer",
+ "mosaicLayout": {
+  "columns": 48,
+  "tiles": [
+   {
+    "xPos": 0,
+    "yPos": 0,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Requests by status class (per second)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"run.googleapis.com/request_count\" AND resource.type=\"cloud_run_revision\" AND resource.label.service_name=monitoring.regex.full_match(\"gitilizer-(api|worker)\")",
+          "aggregation": {
+           "alignmentPeriod": "60s",
+           "perSeriesAligner": "ALIGN_RATE",
+           "crossSeriesReducer": "REDUCE_SUM",
+           "groupByFields": [
+            "metric.label.response_code_class"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 24,
+    "yPos": 0,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Request latency, 95th percentile (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"run.googleapis.com/request_latencies\" AND resource.type=\"cloud_run_revision\" AND resource.label.service_name=monitoring.regex.full_match(\"gitilizer-(api|worker)\")",
+          "aggregation": {
+           "alignmentPeriod": "60s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_95",
+           "crossSeriesReducer": "REDUCE_MAX"
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 0,
+    "yPos": 16,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Open requests: event streams, about one per open tab",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"run.googleapis.com/container/max_request_concurrencies\" AND resource.type=\"cloud_run_revision\" AND resource.label.service_name=monitoring.regex.full_match(\"gitilizer-(api|worker)\")",
+          "aggregation": {
+           "alignmentPeriod": "60s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_99",
+           "crossSeriesReducer": "REDUCE_SUM"
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 24,
+    "yPos": 16,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "CPU, median across instances (split at 60%: DEPLOYMENT.md)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"run.googleapis.com/container/cpu/utilizations\" AND resource.type=\"cloud_run_revision\" AND resource.label.service_name=monitoring.regex.full_match(\"gitilizer-(api|worker)\")",
+          "aggregation": {
+           "alignmentPeriod": "60s",
+           "perSeriesAligner": "ALIGN_PERCENTILE_50",
+           "crossSeriesReducer": "REDUCE_MAX",
+           "groupByFields": [
+            "resource.label.service_name"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 0,
+    "yPos": 32,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Scans finished by outcome (per 5 minutes)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/scans_finished\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_SUM",
+           "crossSeriesReducer": "REDUCE_SUM",
+           "groupByFields": [
+            "metric.label.outcome"
+           ]
+          }
+         }
+        },
+        "plotType": "STACKED_BAR"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 24,
+    "yPos": 32,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Scan duration, 95th percentile (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/scan_duration\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_DELTA",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+           "groupByFields": [
+            "metric.label.kind"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 0,
+    "yPos": 48,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Ranking time per item, 95th percentile (ms)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/ranking_p95\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_DELTA",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_95"
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 24,
+    "yPos": 48,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Ranking failures by code (unexpected only)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/ranking_failures\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_SUM",
+           "crossSeriesReducer": "REDUCE_SUM",
+           "groupByFields": [
+            "metric.label.code"
+           ]
+          }
+         }
+        },
+        "plotType": "STACKED_BAR"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 0,
+    "yPos": 64,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Time to a usable list in the browser, 75th percentile (ms; target 2,000)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/list_ready\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "900s",
+           "perSeriesAligner": "ALIGN_DELTA",
+           "crossSeriesReducer": "REDUCE_PERCENTILE_75"
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 24,
+    "yPos": 64,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Errors logged, by component",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"logging.googleapis.com/user/errors\" AND resource.type=\"cloud_run_revision\"",
+          "aggregation": {
+           "alignmentPeriod": "300s",
+           "perSeriesAligner": "ALIGN_SUM",
+           "crossSeriesReducer": "REDUCE_SUM",
+           "groupByFields": [
+            "metric.label.component"
+           ]
+          }
+         }
+        },
+        "plotType": "STACKED_BAR"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 0,
+    "yPos": 80,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Cloud SQL CPU",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"cloudsql.googleapis.com/database/cpu/utilization\" AND resource.type=\"cloudsql_database\"",
+          "aggregation": {
+           "alignmentPeriod": "60s",
+           "perSeriesAligner": "ALIGN_MEAN",
+           "crossSeriesReducer": "REDUCE_MAX"
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 24,
+    "yPos": 80,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Cloud SQL connections, by database",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "timeSeriesFilter": {
+          "filter": "metric.type=\"cloudsql.googleapis.com/database/postgresql/num_backends\" AND resource.type=\"cloudsql_database\"",
+          "aggregation": {
+           "alignmentPeriod": "60s",
+           "perSeriesAligner": "ALIGN_MEAN",
+           "crossSeriesReducer": "REDUCE_SUM",
+           "groupByFields": [
+            "metric.label.database"
+           ]
+          }
+         }
+        },
+        "plotType": "LINE"
+       }
+      ]
+     }
+    }
+   }
+  ]
+ }
+}

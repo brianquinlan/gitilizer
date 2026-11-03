@@ -2,6 +2,7 @@
 // (Postgres compiled to WebAssembly) so the prototype runs with no install.
 import type { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
+import { log } from "./log.ts";
 
 export interface Db {
   query<T = any>(sql: string, params?: unknown[]): Promise<T[]>;
@@ -190,6 +191,43 @@ create table if not exists deleted_users (
   id text primary key,
   deleted_at timestamptz not null default now()
 );
+-- Open tabs, reported by the web app every minute (design: Scheduler). In the database, so every
+-- process sees them: the API process that receives a report isn't necessarily the one that scans.
+create table if not exists presence (
+  user_id text not null references users(id) on delete cascade,
+  tab_id text not null,
+  visible boolean not null,
+  at timestamptz not null default now(),
+  primary key (user_id, tab_id)
+);
+-- Scans asked for and not yet started: one row per developer. Any scanner process claims them.
+create table if not exists scan_requests (
+  user_id text primary key references users(id) on delete cascade,
+  trigger text not null,
+  requested_at timestamptz not null default now(),
+  not_before timestamptz not null default now()
+);
+-- Work that only one process does at a time (the scheduler's periodic pass), held by renewing.
+create table if not exists leases (
+  name text primary key,
+  holder text not null,
+  expires_at timestamptz not null
+);
+-- Live-update events too large for a NOTIFY payload; kept a few minutes (design: Live updates).
+create table if not exists relay_events (
+  id bigserial primary key,
+  payload text not null,
+  created_at timestamptz not null default now()
+);
+-- Sign-ins in progress: the OAuth state, PKCE verifier and nonce, for 10 minutes (design: Sign-in and sessions).
+create table if not exists oauth_states (
+  state text primary key,
+  provider text not null,
+  verifier text not null,
+  nonce text not null,
+  next text not null default '/',
+  created_at timestamptz not null default now()
+);
 `;
 
 // Columns added after the first prototype, for databases made before them.
@@ -290,14 +328,31 @@ export function pgJson(value: unknown): string {
   return JSON.stringify(value, (_key, v) => (typeof v === "string" ? pgText(v) : v));
 }
 
-export async function openDb(url: string | undefined, dataDir: string | undefined): Promise<Db> {
-  let db: Db;
+/** Any number, the same in every process: serialises schema upgrades between processes that start together. */
+const SCHEMA_LOCK = 4_242_001;
+
+/**
+ * Opens the database and brings its schema up to date. With Postgres, `poolMax` is the most connections this
+ * process opens (DATABASE_POOL_MAX); Cloud SQL's limit is shared by every process and both environments.
+ */
+export async function openDb(url: string | undefined, dataDir: string | undefined, poolMax = 20): Promise<Db> {
   if (url) {
-    db = wrapPg(new pg.Pool({ connectionString: url, max: 20 }));
-  } else {
-    const { PGlite } = await import("@electric-sql/pglite");
-    db = wrapPglite(new PGlite(dataDir));
+    const pool = new pg.Pool({ connectionString: url, max: poolMax });
+    // An idle client that loses its connection (a Cloud SQL restart) mustn't crash the process.
+    pool.on("error", (e) => log.warn("db", "an idle database connection failed", { error: String(e) }));
+    const db = wrapPg(pool);
+    // During a deployment the old and new revisions start side by side; upgrading in a transaction that holds
+    // a lock means one finishes before the other begins (contributor/DEPLOYMENT.md, "Database changes").
+    await db.tx(async (t) => {
+      await t.query(`select pg_advisory_xact_lock($1)`, [SCHEMA_LOCK]);
+      await t.exec(BEFORE_SCHEMA);
+      await t.exec(SCHEMA);
+      await t.exec(AFTER_SCHEMA);
+    });
+    return db;
   }
+  const { PGlite } = await import("@electric-sql/pglite");
+  const db = wrapPglite(new PGlite(dataDir));
   await db.exec(BEFORE_SCHEMA);
   await db.exec(SCHEMA);
   await db.exec(AFTER_SCHEMA);

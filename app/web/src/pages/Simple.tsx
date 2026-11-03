@@ -1,5 +1,5 @@
 // Sign-in and Warm Welcome (PRD "Sign-in", "Warm Welcome").
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ApiError } from "../api.ts";
 import { InboxIcon, IssueIcon, PrIcon, SettingsIcon } from "../icons.tsx";
 import { Link } from "../router.tsx";
@@ -47,7 +47,19 @@ function useSignInError(): { error: string; message: string } | null {
   return signInError;
 }
 
+type AuthConfig = { providers: { google: boolean; github: boolean }; devSignIn: boolean };
+
+/** Where to return after signing in: the page the developer asked for, on this site only. */
+function nextPath(): string {
+  const back = new URLSearchParams(location.search).get("next");
+  return back && /^\/(?![/\\])/.test(back) ? back : "/";
+}
+
 export function SignInPage() {
+  const [auth, setAuth] = useState<AuthConfig | null>(null);
+  useEffect(() => {
+    api.get<AuthConfig>("/api/auth/config").then(setAuth).catch(() => setAuth({ providers: { google: false, github: false }, devSignIn: false }));
+  }, []);
   const [dev, setDev] = useState<"dev" | "github" | null>(null);
   const [name, setName] = useState("Brian Quinlan");
   const [email, setEmail] = useState("brian@sweetapp.com");
@@ -55,13 +67,19 @@ export function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const failed = useSignInError();
   const [notice, setNotice] = useState(failed);
-  // AUTH-13: starting another sign-in clears the notice.
-  const start = (provider: "dev" | "github") => { setNotice(null); setError(null); setDev(provider); };
+  // AUTH-13: starting another sign-in clears the notice. A configured provider goes to Google or GitHub;
+  // on a developer's computer without OAuth apps, the development sign-in stands in for both.
+  const start = (provider: "google" | "github") => {
+    setNotice(null);
+    setError(null);
+    if (auth?.providers[provider]) location.href = `/api/auth/${provider}/start?next=${encodeURIComponent(nextPath())}`;
+    else if (auth?.devSignIn) setDev(provider === "google" ? "dev" : "github");
+  };
+  const unavailable = (provider: "google" | "github") => auth !== null && !auth.providers[provider] && !auth.devSignIn;
   const signIn = async () => {
     try {
       await api.post("/api/auth/dev", dev === "github" ? { provider: "github", name, email, login } : { name, email });
-      const back = new URLSearchParams(location.search).get("next");
-      location.href = back && back.startsWith("/") ? back : "/";
+      location.href = nextPath();
     } catch (e) {
       // The real callbacks redirect to /sign-in?error=not_allowed; the stub shows the same notice.
       if (e instanceof ApiError && e.message === "not_allowed") setNotice({ error: "not_allowed", message: signInMessage("not_allowed", dev) });
@@ -90,13 +108,13 @@ export function SignInPage() {
       <section className="signin-right">
         <div className="signin-box">
           <h2>Welcome to Gitilizer</h2>
-          {/* Prototype: OAuth isn't configured, so both buttons open a development sign-in (design: HTTP API). */}
           {notice && <div className={`signin-notice ${notice.error === "cancelled" ? "" : "error"}`} role="alert">{notice.message}</div>}
-          <button className="btn provider" onClick={() => start("dev")}><span style={{ color: "#4285F4", fontWeight: 700 }}>G</span> Continue with Google</button>
-          <button className="btn provider dark" onClick={() => start("github")}>Continue with GitHub</button>
+          <button className="btn provider" disabled={!auth || unavailable("google")} onClick={() => start("google")}><span style={{ color: "#4285F4", fontWeight: 700 }}>G</span> Continue with Google</button>
+          <button className="btn provider dark" disabled={!auth || unavailable("github")} onClick={() => start("github")}>Continue with GitHub</button>
           {dev && (
             <form className="panel card" onSubmit={(e) => { e.preventDefault(); void signIn(); }}>
               <strong>Development sign-in</strong>
+              <span style={{ color: "var(--muted)", fontSize: 13 }}>Only on your own computer: Google and GitHub sign-in aren't set up here.</span>
               <label>Name<input type="text" value={name} onChange={(e) => setName(e.target.value)} /></label>
               <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
               {dev === "github" && <label>GitHub username<input type="text" value={login} onChange={(e) => setLogin(e.target.value)} /></label>}
