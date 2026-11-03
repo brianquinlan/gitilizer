@@ -6,10 +6,10 @@
 steps:
   - id: build
     name: gcr.io/cloud-builders/docker
-    args: [build, -t, "us-east4-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA", .]
+    args: [build, -t, "${_REGION}-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA", .]
   - id: push
     name: gcr.io/cloud-builders/docker
-    args: [push, "us-east4-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA"]
+    args: [push, "${_REGION}-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA"]
   # Only the image changes, so the service keeps its settings, including the allowlist.
   - id: deploy
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -18,9 +18,12 @@ steps:
       - run
       - deploy
       - gitilizer-dev
-      - --region=us-east4
-      - --image=us-east4-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA
-images: ["us-east4-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA"]
+      - --region=${_REGION}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA
+images: ["${_REGION}-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA"]
+substitutions:
+  _REGION: us-east4 # infra/pipeline.sh sets it to the region in infra/config.sh
 options:
   logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE
 timeout: 1200s

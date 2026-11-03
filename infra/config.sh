@@ -1,7 +1,15 @@
+# shellcheck shell=bash
 # Shared settings for the infra/ scripts. Each script sources this file.
 # Run the scripts from the repository root in Cloud Shell, signed in as the project owner:
 #   bash infra/foundation.sh
+#
+# The defaults are Gitilizer's own. To set up your own copy, export your values first (DEPLOYMENT.md,
+# "Setting up your own copy"), or put them in infra/settings.local.sh, which Git ignores:
+#   export PROJECT=my-gitilizer DOMAIN=example.com REPO=me/gitilizer
 set -euo pipefail
+here=$(dirname "${BASH_SOURCE[0]}")
+# shellcheck source=/dev/null
+[[ -f $here/settings.local.sh ]] && source "$here/settings.local.sh"
 
 export PROJECT=${PROJECT:-gitilizer}
 export REGION=${REGION:-us-east4}

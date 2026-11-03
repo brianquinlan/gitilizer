@@ -50,15 +50,25 @@ for m in "serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com" 
   fi
 done
 
-step "Cloud SQL (a few minutes the first time)"
+step "Cloud SQL (5 to 10 minutes the first time; safe to stop and run again while it waits)"
+# ALLOW_DATA_API lets this script run SQL over HTTPS (gcloud sql instances execute-sql) with the administrator
+# password kept in Secret Manager, so no one needs a direct database connection. It needs both IAM permission
+# on the instance and a database password, so it opens nothing to the internet.
 ensure "instance $SQL_INSTANCE" gcloud sql instances describe "$SQL_INSTANCE" -- \
-  gcloud sql instances create "$SQL_INSTANCE" \
+  gcloud sql instances create "$SQL_INSTANCE" --async \
     --database-version=POSTGRES_17 --edition=ENTERPRISE --tier=db-g1-small \
     --region="$REGION" --storage-type=SSD --storage-size=10 --storage-auto-increase \
     --backup-start-time=09:00 --retained-backups-count=180 \
     --enable-point-in-time-recovery --retained-transaction-log-days=7 \
     --maintenance-window-day=SUN --maintenance-window-hour=10 \
-    --deletion-protection
+    --data-api-access=ALLOW_DATA_API --deletion-protection
+until [[ $(gcloud sql instances describe "$SQL_INSTANCE" --format='value(state)') == RUNNABLE ]]; do
+  echo "  … waiting for $SQL_INSTANCE ($(gcloud sql instances describe "$SQL_INSTANCE" --format='value(state)'))"; sleep 20
+done
+if [[ $(gcloud sql instances describe "$SQL_INSTANCE" --format='value(settings.dataApiAccess)') != ALLOW_DATA_API ]]; then
+  gcloud sql instances patch "$SQL_INSTANCE" --data-api-access=ALLOW_DATA_API --quiet >/dev/null
+fi
+echo "  ✓ $SQL_INSTANCE is running"
 for db in gitilizer gitilizer_dev; do
   ensure "database $db" gcloud sql databases describe "$db" --instance="$SQL_INSTANCE" -- \
     gcloud sql databases create "$db" --instance="$SQL_INSTANCE"
@@ -68,7 +78,27 @@ new_secret() { # name, value on stdin
   gcloud secrets create "$1" --replication-policy=user-managed --locations="$REGION" --data-file=- >/dev/null
 }
 
-step "Database users and their connection strings (generated; no one needs to see them)"
+step "Database administrator password (a regional secret, which execute-sql reads)"
+# Regional secrets live behind Secret Manager's regional endpoint.
+regional() { CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER="https://secretmanager.$REGION.rep.googleapis.com/" gcloud "$@"; }
+if regional secrets describe sql-admin-password --location="$REGION" >/dev/null 2>&1; then
+  echo "  ✓ sql-admin-password"
+else
+  pw=$(openssl rand -hex 24)
+  gcloud sql users set-password postgres --instance="$SQL_INSTANCE" --password="$pw" >/dev/null
+  printf %s "$pw" | regional secrets create sql-admin-password --location="$REGION" --data-file=- >/dev/null
+  unset pw
+  echo "  + sql-admin-password (the postgres user's new password)"
+fi
+admin_password=projects/$PROJECT/locations/$REGION/secrets/sql-admin-password/versions/latest
+sql() { # database, statement
+  gcloud sql instances execute-sql "$SQL_INSTANCE" --database="$1" --user=postgres \
+    --password-secret-version="$admin_password" --sql="$2" --quiet >/dev/null
+}
+
+step "Database users: each owns its own database and can't connect to the other's"
+# Made with SQL rather than `gcloud sql users create`, whose users join cloudsqlsuperuser and could reach both
+# databases. The passwords are generated here and go only into each environment's database-url secret.
 for env in prod dev; do
   user=gitilizer_$env
   db=$([ "$env" = prod ] && echo gitilizer || echo gitilizer_dev)
@@ -77,13 +107,15 @@ for env in prod dev; do
     continue
   fi
   pw=$(openssl rand -hex 24)
-  if gcloud sql users list --instance="$SQL_INSTANCE" --format='value(name)' | grep -qx "$user"; then
-    gcloud sql users set-password "$user" --instance="$SQL_INSTANCE" --password="$pw" >/dev/null
-  else
-    gcloud sql users create "$user" --instance="$SQL_INSTANCE" --password="$pw" >/dev/null
-  fi
+  sql postgres "DO \$\$ BEGIN
+      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$user') THEN ALTER ROLE $user WITH LOGIN PASSWORD '$pw';
+      ELSE CREATE ROLE $user WITH LOGIN PASSWORD '$pw'; END IF; END \$\$;"
+  sql postgres "GRANT $user TO postgres"
+  sql postgres "ALTER DATABASE $db OWNER TO $user"
+  sql postgres "REVOKE ALL ON DATABASE $db FROM PUBLIC"
   printf 'postgresql://%s:%s@/%s?host=/cloudsql/%s' "$user" "$pw" "$db" "$SQL" | new_secret "$env-database-url"
-  echo "  + $user and $env-database-url"
+  unset pw
+  echo "  + $user owns $db; $env-database-url"
 done
 
 step "Credential keys and worker tokens"
@@ -106,17 +138,3 @@ for env in prod dev; do
     fi
   done
 done
-
-cat <<SQLNOTE
-
-Last step, once: give each database user its own database and nothing else.
-  gcloud sql users set-password postgres --instance=$SQL_INSTANCE --prompt-for-password
-  gcloud sql connect $SQL_INSTANCE --user=postgres
-then paste:
-  GRANT gitilizer_prod TO postgres;
-  GRANT gitilizer_dev TO postgres;
-  ALTER DATABASE gitilizer OWNER TO gitilizer_prod;
-  ALTER DATABASE gitilizer_dev OWNER TO gitilizer_dev;
-  REVOKE ALL ON DATABASE gitilizer FROM PUBLIC;
-  REVOKE ALL ON DATABASE gitilizer_dev FROM PUBLIC;
-SQLNOTE
