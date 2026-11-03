@@ -8,19 +8,6 @@
 #   bash infra/pipeline.sh
 source "$(dirname "$0")/config.sh"
 
-step "Cloud Build trigger"
-repository=projects/$PROJECT/locations/$REGION/connections/github/repositories/gitilizer
-gcloud builds repositories describe gitilizer --connection=github --region="$REGION" >/dev/null 2>&1 || {
-  echo "  The repository isn't linked yet: Cloud Build → Repositories → 2nd gen → Link repository (connection github)."
-  exit 1
-}
-ensure "trigger deploy-dev" gcloud builds triggers describe deploy-dev --region="$REGION" -- \
-  gcloud builds triggers create github --name=deploy-dev --region="$REGION" \
-    --repository="$repository" --branch-pattern='^main$' --build-config=cloudbuild.yaml \
-    --substitutions=_REGION="$REGION" \
-    --service-account="projects/$PROJECT/serviceAccounts/$(sa deploy-dev)" \
-    --description="Every commit on main: build the image, deploy it to gitilizer-dev"
-
 step "Workload Identity Federation for the Release workflow"
 repo_id=$(curl -fsS "https://api.github.com/repos/$REPO" | jq -r .id)
 ensure "pool github" gcloud iam workload-identity-pools describe github --location=global -- \
@@ -47,3 +34,18 @@ In GitHub → Settings → Environments → production → Environment variables
   GCP_REGION   = $REGION
   PUBLIC_URL   = https://$DOMAIN
 VARS
+
+step "Cloud Build trigger"
+repository=projects/$PROJECT/locations/$REGION/connections/github/repositories/gitilizer
+if ! gcloud builds repositories describe gitilizer --connection=github --region="$REGION" >/dev/null 2>&1; then
+  echo "  The repository isn't linked yet: Cloud Build → Repositories → 2nd gen → Link repository"
+  echo "  (connection github, repository name gitilizer). Then run this script again."
+  exit 1
+fi
+ensure "trigger deploy-dev" gcloud builds triggers describe deploy-dev --region="$REGION" -- \
+  gcloud builds triggers create github --name=deploy-dev --region="$REGION" \
+    --repository="$repository" --branch-pattern='^main$' --build-config=cloudbuild.yaml \
+    --substitutions=_REGION="$REGION" \
+    --service-account="projects/$PROJECT/serviceAccounts/$(sa deploy-dev)" \
+    --description="Every commit on main: build the image, deploy it to gitilizer-dev"
+
