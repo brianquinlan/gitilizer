@@ -72,14 +72,14 @@ export function WelcomePage() {
         <div className="symbol"><InboxIcon /></div>
         <div>
           <h1>Welcome to your prioritized inbox</h1>
-          <p className="intro">Add your GitHub scanning token and Gemini API key so Gitilizer can scan and rank your issues and PRs.</p>
+          <p className="intro">Add your GitHub personal access token and Gemini API key so Gitilizer can scan and rank your issues and PRs.</p>
         </div>
         <div className="welcome-fields">
           <div className="credential-field">
-            <CredentialField {...field("github_pat")} label="GitHub scanning token"
+            <CredentialField {...field("github_pat")} label="GitHub personal access token"
               setup={{ text: "Create a token", href: "https://github.com/settings/personal-access-tokens/new" }}
               guidance="Gitilizer only needs read access to Issues, Pull Requests and Metadata for the repositories you want to scan."
-              learnMore={`${DOCS_URL}#github-tokens`} />
+              learnMore={`${DOCS_URL}#github-personal-access-tokens`} />
           </div>
           <div className="credential-field">
             <CredentialField {...field("gemini_key")} label="Gemini API key"

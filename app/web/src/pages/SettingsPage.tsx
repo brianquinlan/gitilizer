@@ -129,11 +129,11 @@ export function SettingsPage() {
             <SectionHead n="01" title="Connections" badge="Required" />
             <p>Both credentials are required before Gitilizer can scan and rank your inbox.</p>
             <div className="stack">
-              <CredentialCard kind="github_pat" icon={<GitHubIcon />} title="GitHub scanning token" label="Personal access token"
+              <CredentialCard kind="github_pat" icon={<GitHubIcon />} title="GitHub personal access token" label="Personal access token"
                 purpose="A personal access token to read your issues, pull requests and comment activity."
                 setup={{ text: "Create a token", href: "https://github.com/settings/personal-access-tokens/new" }}
                 guidance={<>Grant read access to Issues, Pull Requests and Metadata for the repositories you want to scan.</>}
-                learnMore={`${DOCS_URL}#github-tokens`}
+                learnMore={`${DOCS_URL}#github-personal-access-tokens`}
                 status={me.credentials.github_pat} value={secrets.github_pat} onChange={(v) => setSecrets({ ...secrets, github_pat: v })} />
               <CredentialCard kind="gemini_key" icon={<SparklesIcon />} title="Gemini API key" label="Gemini API key"
                 purpose="Gemini scores each issue and PR to decide its rank."
@@ -261,7 +261,7 @@ function accessView(r: AdditionalRepo): { className: string; text: string; title
     case "checking": return { className: "", text: "Checking…" };
     case "archived": return { className: "", text: "Archived", title: `${r.fullName} is archived, so its issues and PRs aren't shown.` };
     case "not_found": return { className: "bad", text: "Can't access", title: `GitHub says ${r.fullName} doesn't exist, or your token can't read it. Check the name, and that your token includes this repository.` };
-    case "sso_required": return { className: "bad", text: "Can't access", title: `${org} uses single sign-on. Authorize your token for ${org} in your GitHub token settings.` };
+    case "sso_required": return { className: "bad", text: "Can't access", title: `${org} uses single sign-on. Authorize your token for ${org} in your GitHub personal access token settings.` };
     case "token_type_blocked": return {
       className: "bad", text: "Can't access",
       title: `${org} doesn't allow ${r.tokenType ?? "this kind of"} tokens. Create the other kind of token, or ask an owner of ${org} to allow this one.`,

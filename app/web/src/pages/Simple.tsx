@@ -123,7 +123,7 @@ export function SignInPage() {
           )}
           <div className="callout">
             <strong>Sign in first. Connect your tools next.</strong>
-            You'll add a Gemini API key and a GitHub personal access token (don't worry, Gitilizer only needs read access) so that Gitilizer can scan and rank your issues and PRs.
+            You'll add a GitHub personal access token (don't worry, Gitilizer only needs read access) and a Gemini API key so that Gitilizer can scan and rank your issues and PRs.
           </div>
         </div>
       </section>

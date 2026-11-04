@@ -103,17 +103,17 @@ const repoControl = (repo: string) => `repo-${repo.replace("/", "-")}`;
 export const CATALOGUE: Record<NotificationCode, Entry> = {
   github_missing: {
     severity: "error", summary: "GitHub connection", clearedBy: "github_pat",
-    heading: () => "No GitHub token is set",
+    heading: () => "No GitHub personal access token is set",
     body: () => [T("Gitilizer can't scan your issues. Add a personal access token in "), S("Settings", PAT), T(".")],
   },
   github_expired: {
     severity: "error", summary: "GitHub connection", clearedBy: "github_pat",
-    heading: () => "Your GitHub token has expired",
+    heading: () => "Your GitHub personal access token has expired",
     body: () => [T("Issue scanning is paused. Replace your personal access token in "), S("Settings", PAT), T(".")],
   },
   github_invalid: {
     severity: "error", summary: "GitHub connection", clearedBy: "github_pat",
-    heading: () => "Your GitHub token isn't valid",
+    heading: () => "Your GitHub personal access token isn't valid",
     body: () => [
       T("Issue scanning is paused. The token may have been revoked, deleted or mistyped. Replace your personal access token in "),
       S("Settings", PAT), T("."),
@@ -130,7 +130,7 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
   },
   github_permission_missing: {
     severity: "error", summary: "GitHub connection", clearedBy: "github_pat",
-    heading: (p) => `Your GitHub token can't read ${p.permission}`,
+    heading: (p) => `Your GitHub personal access token can't read ${p.permission}`,
     body: (p) => [
       T(`Some of your issues and PRs can't be read, so your list may be incomplete. Give the token read access to ${p.permission}, or create a new token and add it in `),
       S("Settings", PAT), T(". The documentation lists the permissions Gitilizer needs."),
@@ -141,7 +141,7 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
     heading: (p) => `Your token isn't authorized for ${p.org}`,
     body: (p) => [
       T(`Issues and PRs from ${p.org} are missing from your list. ${p.org} uses single sign-on, so the token must be authorized for it. Authorize it in your `),
-      { text: "GitHub token settings", href: "https://github.com/settings/tokens" }, T(", then choose Sync now."),
+      { text: "GitHub personal access token settings", href: "https://github.com/settings/tokens" }, T(", then choose Sync now."),
     ],
   },
   github_unexpected: {
@@ -167,7 +167,7 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
   },
   github_expiring: {
     severity: "warning", summary: "GitHub connection", clearedBy: "github_pat",
-    heading: () => "Your GitHub token will expire soon",
+    heading: () => "Your GitHub personal access token will expire soon",
     body: (p) => [
       T(`Your GitHub personal access token will expire in ${p.days} day${p.days === "1" ? "" : "s"}. Create a new one and add it to `),
       S("Settings", PAT), T("."),
