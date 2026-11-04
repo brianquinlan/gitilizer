@@ -8,8 +8,8 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import {
   CSRF_HEADER, CredentialKind, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, MAX_COLLABORATORS, MAX_PROMPT_LENGTH,
-  MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, SettingsUpdate, Sort, parseLogin, parseRepo, repoControlId,
-  type FieldError, type Me, type SettingsResponse,
+  MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, SettingsUpdate, SetupRequest, Sort, parseLogin, parseRepo, repoControlId,
+  type CheckResult, type FieldError, type Me, type SettingsResponse, type SetupResponse,
 } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 import { checkValue, credentialStatus, getCredential, saveCredential } from "./credentials.ts";
@@ -299,6 +299,13 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     };
   });
 
+  /** After credentials are saved: clear their notifications (NOTIF-13, SET-5); the save that leaves both saved completes setup (NAV-8). */
+  const credentialsSaved = async (userId: string, kinds: CredentialKind[]) => {
+    for (const kind of kinds) await clearForCredential(ctx, userId, kind);
+    const both = (await credentialStatus(ctx, userId, "github_pat")).set && (await credentialStatus(ctx, userId, "gemini_key")).set;
+    if (both) await db.query(`update users set setup_completed_at = now() where id = $1 and setup_completed_at is null`, [userId]);
+  };
+
   // "Save changes" and "Save and re-rank" (SET-14, SET-15). Credentials are saved without being validated (SET-29).
   app.put("/api/settings", async (req, reply) => {
     const userId = uid(req);
@@ -345,11 +352,8 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     for (const name of prevRepos) {
       if (!repos.some((r) => r.name.toLowerCase() === name.toLowerCase())) await clear(ctx, userId, ["repo_inaccessible"], name);
     }
-    for (const [kind] of creds) await clearForCredential(ctx, userId, kind); // NOTIF-13, SET-5
+    await credentialsSaved(userId, creds.map(([kind]) => kind));
     if ((prev?.custom_prompt ?? null) !== prompt) await clear(ctx, userId, ["prompt_failing"]);
-    // The save that enters the second credential completes setup (NAV-8).
-    const both = (await credentialStatus(ctx, userId, "github_pat")).set && (await credentialStatus(ctx, userId, "gemini_key")).set;
-    if (both) await db.query(`update users set setup_completed_at = now() where id = $1 and setup_completed_at is null`, [userId]);
     if (next.rerank) await queueFullRerank(ctx, userId, "rerank"); // SET-15, LIVE-24
     scheduler.trigger(userId, "settings"); // SCAN-5: saving settings starts a sync
     await pushSync(ctx, userId, { now: true }); // "Save and re-rank" is a sync from the start (LIST-16)
@@ -369,6 +373,35 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     const kind = CredentialKind.parse((req.params as any).kind);
     const { value } = z.object({ value: z.string().trim().min(1).max(500) }).parse(req.body);
     return checkValue(ctx, kind, value);
+  });
+
+  // Warm Welcome's Save (WEL-4, design D-12). Every typed value is checked here, even one the developer has
+  // already validated, and nothing is saved unless every check passes.
+  app.post("/api/setup", async (req, reply) => {
+    const userId = uid(req);
+    const { credentials } = SetupRequest.parse(req.body);
+    const u = await db.one(`select setup_completed_at from users where id = $1`, [userId]);
+    if (u.setup_completed_at) return bad(reply, 409, "Setup is already complete."); // NAV-2
+    const typed = (Object.entries(credentials) as [CredentialKind, string | undefined][])
+      .map(([kind, v]) => [kind, v?.trim() ?? ""] as const)
+      .filter(([, v]) => v.length > 0);
+    for (const kind of CredentialKind.options) {
+      if (!typed.some(([k]) => k === kind) && !(await credentialStatus(ctx, userId, kind)).set) {
+        return bad(reply, 422, "Both credentials are needed.");
+      }
+    }
+    const checked = await Promise.all(typed.map(async ([kind, value]) => [kind, await checkValue(ctx, kind, value)] as const));
+    const results: SetupResponse["results"] = {};
+    for (const [kind, r] of checked) results[kind] = r as CheckResult;
+    if (!checked.every(([, r]) => r.ok)) return { ok: false, results } satisfies SetupResponse;
+
+    await db.tx(async (t) => {
+      for (const [kind, value] of typed) await saveCredential(ctx, userId, kind, value, t);
+    });
+    await credentialsSaved(userId, typed.map(([kind]) => kind));
+    scheduler.trigger(userId, "credentials"); // SET-5: saving a credential starts a sync
+    await pushSync(ctx, userId, { now: true });
+    return { ok: true, results } satisfies SetupResponse;
   });
 
   // --- Immediate feedback in Settings (SET-8, SET-19) -------------------------

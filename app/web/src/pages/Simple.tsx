@@ -1,8 +1,7 @@
-// Sign-in and Warm Welcome (PRD "Sign-in", "Warm Welcome").
+// Sign-in (PRD "Sign-in"). Warm Welcome is in WelcomePage.tsx.
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api.ts";
-import { InboxIcon, IssueIcon, PrIcon, SettingsIcon } from "../icons.tsx";
-import { Link } from "../router.tsx";
+import { IssueIcon, PrIcon } from "../icons.tsx";
 import { BrandSymbol } from "../icons.tsx";
 
 // The static preview on the sign-in page, as in Figma: unpadded ranks, repository names as reasons (LIST-3).
@@ -129,18 +128,5 @@ export function SignInPage() {
         </div>
       </section>
     </main>
-  );
-}
-
-export function WelcomePage() {
-  return (
-    <div className="panel welcome">
-      <div>
-        <div className="symbol"><InboxIcon /></div>
-        <h1>Welcome to your prioritized inbox</h1>
-        <p>No prioritized issues yet. Add a Gemini API key and a GitHub personal access token (don't worry, Gitilizer only needs read access) in Settings so Gitilizer can scan and rank your issues and PRs.</p>
-        <Link to="/settings#connections" className="btn primary" style={{ textDecoration: "none" }}><SettingsIcon /> Go to Settings →</Link>
-      </div>
-    </div>
   );
 }

@@ -166,10 +166,20 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 
 /* --- Panels: Warm Welcome, sign-in ----------------------------------------- */
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
-.welcome { min-height: 684px; display: grid; place-items: center; text-align: center; padding: 40px; }
-.welcome .symbol { width: 56px; height: 56px; border-radius: 12px; border: 1px solid #c9d4f5; background: var(--accent-tint); color: var(--accent); display: grid; place-items: center; margin: 0 auto 20px; }
-.welcome h1 { font-size: 28px; margin: 0 0 12px; letter-spacing: -0.01em; }
-.welcome p { color: var(--muted); max-width: 500px; margin: 0 auto 24px; line-height: 1.6; }
+/* Warm Welcome, as in Figma "Warm Welcome" (WEL-2): one 510 px column, credential fields left-aligned. */
+.welcome { min-height: 684px; display: grid; place-items: center; padding: 40px; }
+.welcome-body { width: 510px; max-width: 100%; display: grid; gap: 24px; justify-items: center; text-align: center; }
+.welcome .symbol { width: 56px; height: 56px; border-radius: 12px; border: 1px solid #c9d4f5; background: var(--accent-tint); color: var(--accent); display: grid; place-items: center; }
+.welcome h1 { font-size: 28px; margin: 0; letter-spacing: -0.025em; }
+.welcome .intro { color: var(--muted); margin: 12px 0 0; font-size: 14px; line-height: 1.7; }
+.welcome-fields { width: 100%; display: grid; gap: 20px; text-align: left; }
+.credential-field { display: grid; gap: 8px; }
+.welcome .field-label label { font-weight: 600; color: var(--ink); }
+.welcome .field-label a { font-size: 11px; }
+.welcome .fine { font-size: 11px; line-height: 1.6; }
+.welcome-save { width: 100%; display: grid; gap: 12px; justify-items: center; }
+.welcome-save .btn.primary { height: 40px; min-width: 88px; padding: 0 20px; justify-content: center; font-weight: 600; }
+.welcome-save .save-note { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.5; }
 .signin { flex: 1; display: grid; grid-template-columns: 688px 1fr; }
 .signin-left { padding: 56px 64px; border-right: 1px solid var(--line); background: var(--surface); }
 .signin-left h1 { font-size: 64px; line-height: 1.08; font-weight: 400; letter-spacing: -0.02em; margin: 24px 0 18px; }
@@ -259,8 +269,7 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .secret .eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--muted); cursor: pointer; display: grid; padding: 4px; }
 input.invalid, textarea.invalid, .secret.invalid input { border-color: var(--error); background: var(--surface); }
 .result.muted { color: var(--muted); }
-.fine-row { display: flex; gap: 16px; align-items: baseline; justify-content: space-between; }
-.fine-link { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.fine-link { text-decoration: none; white-space: nowrap; }
 .field-error { color: var(--error); font-size: 12.5px; margin-top: 6px; }
 .list-rows .lr.repo-row, .list-rows .lr.collab-row { display: block; padding: 12px 16px; scroll-margin-top: 120px; }
 .list-rows .lr.collab-row { display: flex; gap: 12px; align-items: center; }
