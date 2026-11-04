@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-04 (sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding") |
+| **Last updated** | 2026-11-04 (rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding") |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -72,7 +72,7 @@ These are out of scope for the first release.
 - Gitilizer-provided GitHub or Gemini credentials.
 - Ranking with models other than Gemini. The design should still allow other model providers to be added later.
 - Review requests made to a GitHub team the developer belongs to, and the ranking agent's "review teams" setting. Only review requests made to the developer personally count. **Revisit after the first release** (see [Q-43](#q-43)).
-- Showing the agent's next action or reasoning for an item ([Q-31](#q-31)).
+- Showing the agent's next action for an item ([Q-31](#q-31)).
 - Mentions of a GitHub team the developer belongs to (`@org/team`). Only mentions of the developer by name count ([Q-65](#q-65)).
 - More than one GitHub token per developer, for example one per organization ([Q-40](#q-40)). Revisit if developers ask for it.
 - Layouts for screens narrower than 1024 px, including phones, and touch input ([Q-54](#q-54)).
@@ -142,6 +142,7 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Prioritized list, empty | [Issue inbox · No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-897) | [Empty, loading and first-sync states](#empty-loading-and-first-sync-states) |
 | Prioritized list, first sync | [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689), using [Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433) on the Animations page (present it to see the pulse) | [Empty, loading and first-sync states](#empty-loading-and-first-sync-states) |
 | List layout component | [Shared / Inbox layout](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-1000) | [Prioritized list](#prioritized-list) |
+| Rank reasoning popup | [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443) | [Columns](#columns) |
 | Sync now button | [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369) on the Animations page (Idle and Syncing; present it to see the icon turn) | [Sync now](#sync-now) |
 | Icebox | [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947) | [Icebox](#icebox) |
 | Icebox, empty | [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593) | [Icebox](#icebox) |
@@ -415,7 +416,15 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 - **LIST-5** Relative times must update while the page is open, at least once a minute.
 - **LIST-22** Relative times must follow these thresholds: under 1 minute "just now"; then minutes ("12m ago"), hours ("3h ago") and days ("2d ago"). After 30 days: the month and day ("Mar 4") for a date in the current calendar year; "last year" for a date in the previous calendar year, until a full year (365.25 days) has passed; after that, the whole years passed ("1y ago", "2y ago"). For example, on November 3, 2026, November 25, 2025 is "last year" and November 1, 2025 is "1y ago". Hovering over any relative time (the Modified column, the Icebox line in `ICE-3`, and notifications in `NOTIF-8`) must show the full date and time.
 - **LIST-23** Titles and repository names must stay on one line. A title that doesn't fit is cut off at the end with "…". A repository name that doesn't fit is cut off at the **start** ("…le-cloud-dart"), because the owner, at the start, is usually the least useful part. Hovering must show the full text.
-- **LIST-24** The agent's next action and reasoning (`RANK-2`) must not be shown.
+- **LIST-24** Clicking a rank must open a popup that explains it, as in
+  [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443):
+  an info icon and "Why rank #{n}?", a close button, the agent's reasoning
+  (`RANK-2`) as text that can be selected and copied, and below it the
+  repository and the type and number ("northstar/api · Issue #1842"). The
+  popup points at the rank. It opens below the rank, or above it near the end
+  of the list so it isn't cut off. It closes with the close button, Esc or a
+  click elsewhere. Only ranked items with stored reasoning have a clickable
+  rank. The agent's next action must not be shown.
 
 ### Sorting the list
 
@@ -667,7 +676,11 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 ### Ranking
 
 - **RANK-1** Ranking must use the existing ranking agent, with the developer's ranking prompt (or the default), their settings and the item's context, and the developer's Gemini API key. Each item is scored on its own, so a change to one item re-scores only that item. (The design doc has the details.)
-- **RANK-2** For each item the agent returns a score (named `priority` in its output, 0.0 to 1.0), whether the item is actionable, a one-line next action and its reasoning. All four must be stored, although only the score is used in the interface (`LIST-24`).
+- **RANK-2** For each item the agent returns a score (named `priority` in its
+  output, 0.0 to 1.0), whether the item is actionable, a one-line next action
+  and its reasoning. All four must be stored. The interface uses the score and
+  the reasoning, not the next action or whether the item is actionable
+  (`LIST-24`).
 - **RANK-3** Ranks must come from sorting items by score, highest first. Two items must never share a rank.
 - **RANK-4** The agent should try to give items distinct scores, but because each item is scored on its own, ties can't always be avoided. Ties must be broken by most recent activity, then by repository and number, so the order is always the same for the same data.
 - **RANK-5** An item must be ranked again when it is new or has changed on GitHub (its `updated_at` is later than when it was last ranked), and all items must be ranked again when the developer chooses "Save and re-rank" (`SET-15`).
@@ -798,7 +811,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 | <a id="q-28"></a>Q-28 | First sync; unranked and failed items | Skeleton rows that pulse (drawn in Figma); items hidden until ranked; failed items at the end with "–" and a warning. | `LIST-15`, `LIST-30` |
 | <a id="q-29"></a>Q-29 | Sync now | Spins for any sync, and is disabled while it does (corrected on 2026-11-02: the earlier record said "never disabled"); no other throttle; finished when the scan is done and every item is ranked, has failed or is waiting for quota. Spinning state drawn in Figma. | `LIST-17`, `LIST-28`, `LIST-32` |
 | <a id="q-30"></a>Q-30 | Labels on leaving rows; undo | As suggested; no undo. | `LIVE-25`, `LIST-31` |
-| <a id="q-31"></a>Q-31 | Showing the agent's next action and reasoning | Not shown. | `LIST-24` |
+| <a id="q-31"></a>Q-31 | Showing the agent's next action and reasoning | Not shown (changed on 2026-11-04: the reasoning is shown in a popup when the rank is clicked; the next action is still not shown). | `LIST-24` |
 | <a id="q-32"></a>Q-32 | Update latency | Within 5 seconds of ranking finishing. | `LIVE-23` |
 | <a id="q-33"></a>Q-33 | How the Icebox updates | The leave animation, without holding rules. | `ICE-9` |
 | <a id="q-34"></a>Q-34 | Where a restored item goes | It keeps its last score. | `ICE-10` |
@@ -964,3 +977,10 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
   of letting the item fail. Slow answers from Gemini had left items unranked
   (GitHub issue #3). The catalogue row's condition now also names timeouts and
   connection failures, which were already treated this way.
+
+### Twentieth revision (2026-11-04, third round)
+
+- `LIST-24`: clicking a rank now opens a popup with the agent's reasoning,
+  drawn in [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443).
+  The next action is still not shown. Q-31's answer, `RANK-2` and the
+  Non-goals are updated to match.
