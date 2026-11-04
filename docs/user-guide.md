@@ -12,8 +12,10 @@ Gitilizer collects your open GitHub issues and pull requests into one list and u
 ## Getting started
 
 1. Sign in with Google or GitHub. Each is a separate Gitilizer account, even if both use the same email address, so always sign in the same way.
-2. On the Settings page, add a [GitHub personal access token](#github-tokens) and a [Gemini API key](#gemini-api-keys). Both are free. Signing in with GitHub doesn't give Gitilizer access to your issues: it reads GitHub only with the token you add.
-3. Choose **Save changes**. Gitilizer scans your issues and PRs and ranks each one. The list fills in as items are ranked.
+2. On the welcome page, add a [GitHub personal access token](#github-tokens) and a [Gemini API key](#gemini-api-keys). Both are free. Signing in with GitHub doesn't give Gitilizer access to your issues: it reads GitHub only with the token you add.
+3. Choose **Save**. Gitilizer checks both first and saves them only if both work; otherwise it says what's wrong under the field. It then scans your issues and PRs and ranks each one. The list fills in as items are ranked.
+
+You can change either credential later in Settings.
 
 Optionally, in Settings:
 

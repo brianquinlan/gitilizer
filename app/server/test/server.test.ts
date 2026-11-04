@@ -420,6 +420,55 @@ describe("HTTP API", () => {
   });
 });
 
+describe("Warm Welcome's Save (WEL-4, POST /api/setup)", () => {
+  let ctx: Ctx;
+  let app: ReturnType<typeof buildApp>;
+  let cookie = "";
+  const call = (method: string, url: string, payload?: unknown) =>
+    app.inject({ method: method as any, url, headers: { "x-gitilizer": "1", cookie }, payload: payload as any });
+  const saved = async () => (await ctx.db.query(`select kind from credentials order by kind`)).map((r) => r.kind);
+
+  beforeAll(async () => {
+    ({ ctx } = await makeCtx());
+    app = buildApp(ctx, new Scheduler(ctx), null);
+    const r = await app.inject({ method: "POST", url: "/api/auth/dev", headers: { "x-gitilizer": "1" }, payload: { name: "Sam", email: "sam@example.com" } });
+    cookie = String(r.headers["set-cookie"]).split(";")[0];
+  });
+
+  it("needs both credentials", async () => {
+    expect((await call("POST", "/api/setup", { credentials: { github_pat: "ghp_x", gemini_key: "  " } })).statusCode).toBe(422);
+    expect(await saved()).toEqual([]);
+  });
+
+  it("saves nothing when one credential fails, and says which (Q-82)", async () => {
+    const r = await call("POST", "/api/setup", { credentials: { github_pat: "ghp_x", gemini_key: "bad-key" } });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({
+      ok: false,
+      results: { github_pat: { ok: true, code: "ok", login: "brianquinlan" }, gemini_key: { ok: false, code: "not_accepted" } },
+    });
+    expect(await saved()).toEqual([]);
+    expect((await call("GET", "/api/me")).json().screen).toBe("welcome");
+  });
+
+  it("checks a value saved from Settings no more, and completes setup when both pass (NAV-8)", async () => {
+    const check = vi.spyOn(ctx, "validateGemini");
+    await call("PUT", "/api/settings", { additionalRepos: [], collaborators: [], customPrompt: null, rerank: false, credentials: { gemini_key: "AIza-saved" } });
+    expect((await call("GET", "/api/me")).json().screen).toBe("welcome");
+    const r = await call("POST", "/api/setup", { credentials: { github_pat: " ghp_x " } });
+    expect(r.json()).toEqual({ ok: true, results: { github_pat: { ok: true, code: "ok", login: "brianquinlan" } } });
+    expect(check).not.toHaveBeenCalled();
+    expect(await saved()).toEqual(["gemini_key", "github_pat"]);
+    const me = (await call("GET", "/api/me")).json();
+    expect(me.screen).toBe("app");
+    expect(me.credentials.github_pat).toMatchObject({ set: true, chip: "connected" });
+  });
+
+  it("is refused once setup is complete (NAV-2)", async () => {
+    expect((await call("POST", "/api/setup", { credentials: { github_pat: "ghp_y", gemini_key: "AIza-y" } })).statusCode).toBe(409);
+  });
+});
+
 // --- The ranking worker, in-process (design: Ranking worker) ---
 
 describe("ranking worker", () => {

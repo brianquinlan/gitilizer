@@ -245,6 +245,19 @@ export const CheckResult = z.object({
 });
 export type CheckResult = z.infer<typeof CheckResult>;
 
+/** POST /api/setup: Warm Welcome's Save, with the values typed there (WEL-4). */
+export const SetupRequest = z.object({
+  credentials: z.object({ github_pat: z.string().max(500).optional(), gemini_key: z.string().max(500).optional() }),
+});
+export type SetupRequest = z.infer<typeof SetupRequest>;
+
+/** A check result for each typed value; with ok: false nothing was saved (WEL-4). */
+export const SetupResponse = z.object({
+  ok: z.boolean(),
+  results: z.object({ github_pat: CheckResult.optional(), gemini_key: CheckResult.optional() }),
+});
+export type SetupResponse = z.infer<typeof SetupResponse>;
+
 /** The text shown under a credential field after Validate (SET-28). */
 export function checkMessage(kind: CredentialKind, r: CheckResult): string {
   const gh = kind === "github_pat";

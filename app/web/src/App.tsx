@@ -2,7 +2,8 @@
 import { AppBar, Footer } from "./components/Chrome.tsx";
 import { ListPage } from "./pages/ListPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
-import { SignInPage, WelcomePage } from "./pages/Simple.tsx";
+import { SignInPage } from "./pages/Simple.tsx";
+import { WelcomePage } from "./pages/WelcomePage.tsx";
 import { useRoute } from "./router.tsx";
 import { useStore } from "./store.tsx";
 

@@ -1,15 +1,15 @@
 // Settings (PRD "Settings", SET-1..31). Figma: "Settings" and "Settings · Errors".
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  checkMessage, MAX_COLLABORATORS, MAX_PROMPT_LENGTH, MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, PROMPT_COUNT_FROM,
+  MAX_COLLABORATORS, MAX_PROMPT_LENGTH, MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, PROMPT_COUNT_FROM,
   parseLogin, parseRepo, repoControlId,
-  type AdditionalRepo, type CheckResult, type Collaborator, type CredentialKind, type CredentialStatus, type FieldError, type SettingsResponse,
+  type AdditionalRepo, type Collaborator, type CredentialKind, type CredentialStatus, type FieldError, type SettingsResponse,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
 import { DOCS_URL } from "../components/Chrome.tsx";
+import { CredentialField, type Check } from "../components/CredentialField.tsx";
 import {
-  AlertIcon, CheckCircleIcon, ExternalIcon, EyeIcon, EyeOffIcon, FolderGitIcon, GitHubIcon, ListIcon, PlugIcon, PlusIcon,
-  RefreshIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
+  AlertIcon, FolderGitIcon, GitHubIcon, ListIcon, PlugIcon, PlusIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
 } from "../icons.tsx";
 import { focusTarget, navigate, setNavigationGuard } from "../router.tsx";
 import { useStore } from "../store.tsx";
@@ -132,13 +132,13 @@ export function SettingsPage() {
               <CredentialCard kind="github_pat" icon={<GitHubIcon />} title="GitHub scanning token" label="Personal access token"
                 purpose="A personal access token to read your issues, pull requests and comment activity."
                 setup={{ text: "Create a token (it's free!)", href: "https://github.com/settings/personal-access-tokens/new" }}
-                guidance={<>Grant read access to Issues, Pull requests and Metadata for the repositories you want to scan. App sign-in does not replace this token.</>}
+                guidance={<>Grant read access to Issues, Pull Requests and Metadata for the repositories you want to scan.</>}
                 learnMore={`${DOCS_URL}#github-tokens`}
                 status={me.credentials.github_pat} value={secrets.github_pat} onChange={(v) => setSecrets({ ...secrets, github_pat: v })} />
               <CredentialCard kind="gemini_key" icon={<SparklesIcon />} title="Gemini API key" label="Gemini API key"
                 purpose="Gemini scores each issue and PR to decide its rank."
                 setup={{ text: "Get an API key (it's free!)", href: "https://aistudio.google.com/apikey" }}
-                guidance={<>Used to rank your issues.</>}
+                guidance={<>Used by Gemini to score and prioritize your issues and PRs.</>}
                 status={me.credentials.gemini_key} value={secrets.gemini_key} onChange={(v) => setSecrets({ ...secrets, gemini_key: v })} />
             </div>
           </section>
@@ -233,53 +233,16 @@ function CredentialCard(props: {
   kind: CredentialKind; icon: ReactNode; title: string; label: string; purpose: string; guidance: ReactNode; learnMore?: string;
   setup: { text: string; href: string }; status: CredentialStatus; value: string; onChange: (v: string) => void;
 }) {
-  const { status, kind } = props;
-  const id = kind === "github_pat" ? "github-pat" : "gemini-key";
-  const [show, setShow] = useState(false);
-  const [check, setCheck] = useState<"checking" | CheckResult | null>(null);
-  useEffect(() => { setCheck(null); if (!props.value) setShow(false); }, [props.value]);
-  const [chipClass, chipText] = CHIPS[status.chip];
-
-  // Validate checks the typed value without saving it; a saved credential can't be checked again (SET-2, SET-21).
-  const validate = async () => {
-    setCheck("checking");
-    try {
-      setCheck(await api.post<CheckResult>(`/api/credentials/${kind}/check`, { value: props.value }));
-    } catch {
-      setCheck({ ok: false, code: "error" });
-    }
-  };
+  const [check, setCheck] = useState<Check>(null);
+  useEffect(() => setCheck(null), [props.value]);
+  const [chipClass, chipText] = CHIPS[props.status.chip];
 
   return (
     <div className="panel card">
       <div className="card-head">{props.icon}<h3>{props.title}</h3><span className={`badge ${chipClass}`}>{chipText}</span></div>
       <p className="purpose">{props.purpose}</p>
-      <div className="field-label">
-        <label htmlFor={id}>{props.label}</label>
-        <a href={props.setup.href} target="_blank" rel="noreferrer">{props.setup.text} <ExternalIcon /></a>
-      </div>
-      <div className="field-row">
-        <div className={`secret ${check && check !== "checking" && !check.ok ? "invalid" : ""}`}>
-          {/* PRIV-1: a saved value is never sent back, so it shows as dots and can only be replaced. */}
-          <input id={id} type={show ? "text" : "password"} autoComplete="off" spellCheck={false}
-                 placeholder={status.set ? "•••• •••• •••• •••• ••••" : "Paste it here"}
-                 value={props.value} onChange={(e) => props.onChange(e.target.value)} />
-          {props.value && (
-            <button className="eye" onClick={() => setShow(!show)} aria-pressed={show} aria-label={show ? "Hide" : "Show"}>
-              {show ? <EyeIcon /> : <EyeOffIcon />}
-            </button>
-          )}
-        </div>
-        <button className="btn" onClick={validate} disabled={!props.value.trim() || check === "checking"}>Validate</button>
-      </div>
-      {check === "checking" ? <span className="result muted"><RefreshIcon className="spin" size={14} /> Checking…</span>
-        : check && <span className={`result ${check.ok ? "" : "bad"}`} role="status">
-            {check.ok ? <CheckCircleIcon /> : <XCircleIcon />} {checkMessage(kind, check)}
-          </span>}
-      <div className="fine-row">
-        <p className="fine">{props.guidance}</p>
-        {props.learnMore && <a className="fine-link" href={props.learnMore} target="_blank" rel="noreferrer">Learn more <ExternalIcon /></a>}
-      </div>
+      <CredentialField kind={props.kind} label={props.label} setup={props.setup} guidance={props.guidance} learnMore={props.learnMore}
+        saved={props.status.set} value={props.value} onChange={props.onChange} check={check} onCheck={setCheck} />
     </div>
   );
 }

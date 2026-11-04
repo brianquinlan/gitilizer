@@ -134,7 +134,7 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 | "Port 8787 is already in use" (or 8788, 5173) | Gitilizer is probably already running in another window. Stop it with Ctrl+C there. |
 | Your list looks wrong after updating Gitilizer | The database in `.local` is upgraded automatically when the server starts. If something still looks wrong, start again with `--reset`. |
 | The bell shows "Gitilizer is using a backup Gemini model" | Your free-tier key's daily quota for the main model is used up, so ranking uses a smaller model until midnight Pacific time. This is expected on the free tier, especially after a first sync or **Save and re-rank**. |
-| The app opens on "Welcome to your prioritized inbox" | A credential is missing: `.env` didn't have it on the first run. Go to Settings and enter it, or fill in `.env` and restart with `--reset`. |
+| The app opens on "Welcome to your prioritized inbox" | A credential is missing: `.env` didn't have it on the first run. Enter both on that page and choose **Save**, or fill in `.env` and restart with `--reset`. |
 | The bell shows "Your GitHub token isn't valid" or a Gemini error | Fix the credential in Settings. Changing `.env` alone doesn't replace a credential that is already saved. |
 | "Your Gemini daily quota is used up" | Every model's daily quota is used up. Ranking resumes at midnight Pacific time; until then new items wait at the end of the list with "–". |
 | You want a completely fresh start | `npm run local -- --reset` (or `npm run local:fixtures -- --reset`). |
