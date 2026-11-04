@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-04 (credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding") |
+| **Last updated** | 2026-11-04 (credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -443,7 +443,10 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
   popup points at the rank. It opens below the rank, or above it near the end
   of the list so it isn't cut off. It closes with the close button, Esc or a
   click elsewhere. Only ranked items with stored reasoning have a clickable
-  rank. The agent's next action must not be shown.
+  rank. The agent's next action must not be shown. When the popup closes with
+  the close button or Esc, keyboard focus returns to the rank; a click
+  elsewhere leaves focus where the click puts it. The popup closes if its item
+  leaves the page.
 
 ### Sorting the list
 
@@ -508,6 +511,9 @@ Items change on GitHub all the time, so ranks change while the developer is look
 
 - **LIVE-4** While the pointer is over the table, updates must be held until the pointer has been outside the table for 1 second.
 - **LIVE-5** Updates must also be held while keyboard focus is inside the table.
+- **LIVE-27** Updates must also be held while a rank reasoning popup
+  (`LIST-24`) is open, wherever the pointer and focus are, until it has been
+  closed for 1 second, so rows don't move while the developer reads it.
 - **LIVE-6** Updates must be held while the browser tab is hidden or the Icebox is shown. They play when the developer returns to the list.
 - **LIVE-7** The developer's own actions (Move to icebox, sorting, changing pages) must apply immediately and are never held.
 
@@ -1029,3 +1035,12 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
   about Gemini keys and the free tier (`SET-32`). Both "Learn more" links sit
   inline at the end of the guidance text, in Settings as on Warm Welcome
   (`SET-20`, `WEL-3`, `FOOT-3`).
+
+### Twenty-third revision (2026-11-04, sixth round)
+
+- Updates are held while the rank reasoning popup is open, and until it has
+  been closed for 1 second, even when the pointer and focus are outside the
+  table, so rows don't move under it (`LIVE-27`).
+- Closing the popup with its close button or Esc returns keyboard focus to the
+  rank, as closing the notification popover returns it to the bell (`LIST-24`,
+  `NFR-2`, `NOTIF-20`). The popup closes if its item leaves the page.
