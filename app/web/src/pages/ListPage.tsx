@@ -16,7 +16,7 @@ const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)"
 
 export function ListPage({ view }: { view: View }) {
   const { me, sorts, setSort, sync } = useStore();
-  const { live, indicators, collapsing, announcement, step, tableProps, moveToIcebox, restore } = useLive(view);
+  const { live, indicators, collapsing, announcement, step, tableProps, holdForPopup, moveToIcebox, restore } = useLive(view);
   const { query } = useRoute();
   const sort = (view === "prioritized" ? sorts?.prioritized : sorts?.icebox) ?? (view === "prioritized" ? DEFAULT_SORT_PRIORITIZED : DEFAULT_SORT_ICEBOX);
   useNow(60_000); // LIST-5: relative times update every minute
@@ -75,7 +75,7 @@ export function ListPage({ view }: { view: View }) {
             visible.length === 0 && firstSyncRunning ? <FirstSync /> :
             visible.length === 0 ? <Empty view={view} /> :
             <Rows rows={visible} rank={rank} view={view} indicators={indicators} collapsing={collapsing} step={step}
-                  onIcebox={moveToIcebox} onRestore={restore} />}
+                  onIcebox={moveToIcebox} onRestore={restore} onPopup={holdForPopup} />}
         </div>
         <Pager page={page} total={live ? settled : null} />
       </div>
@@ -97,22 +97,40 @@ function SortHeader({ label, column, sort, onSort }: { label: string; column: So
 
 function Rows(props: {
   rows: Row[]; rank: Record<string, number>; view: View; indicators: Record<string, string>; collapsing: Set<string>; step: number;
-  onIcebox: (r: Row) => void; onRestore: (r: Row) => void;
+  onIcebox: (r: Row) => void; onRestore: (r: Row) => void; onPopup: (open: boolean) => void;
 }) {
-  const { rows, rank, view, indicators, collapsing, step } = props;
+  const { rows, rank, view, indicators, collapsing, step, onPopup } = props;
   const els = useRef(new Map<string, HTMLDivElement>());
   const tops = useRef(new Map<string, number>());
   const lastStep = useRef(step);
   // POC: the rank reasoning popup (Figma "Issue inbox · Rank reasoning"). Opens on click; closes on ×, Escape or a click elsewhere.
   const [why, setWhy] = useState<string | null>(null);
+  const rankBtns = useRef(new Map<string, HTMLButtonElement>());
+  // × and Escape return focus to the row's rank button, as for the notification popover (LIST-24, NFR-2, NOTIF-20).
+  // A click elsewhere leaves focus where that click puts it.
+  const closeWhy = () => {
+    if (why) rankBtns.current.get(why)?.focus();
+    setWhy(null);
+  };
   useEffect(() => {
     if (!why) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setWhy(null); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      rankBtns.current.get(why)?.focus();
+      setWhy(null);
+    };
     const onDown = (e: MouseEvent) => { if (!(e.target as Element).closest?.(".rank-cell-open")) setWhy(null); };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown);
     return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("mousedown", onDown); };
   }, [why]);
+
+  // Live updates hold while the popup is showing, so rows don't shift mid-read (LIVE-27).
+  // If its row is no longer on screen (paged away, left the list), the popup is closed rather than left holding.
+  const whyShown = why !== null && rows.some((r) => r.key === why && r.reasoning && !r.leaving && rank[r.key] !== undefined);
+  useEffect(() => { if (why !== null && !whyShown) setWhy(null); }, [why, whyShown]);
+  useEffect(() => { onPopup(whyShown); }, [whyShown, onPopup]);
+  useEffect(() => () => onPopup(false), [onPopup]);
 
   // FLIP: rows that moved slide to their new place; rows that arrived expand (LIVE-11, LIVE-14, LIVE-16).
   useLayoutEffect(() => {
@@ -144,6 +162,7 @@ function Rows(props: {
                 {/* Ranks are never zero-padded; unranked items show "–" (Columns, LIST-30). */}
                 {r.leaving ? "" : n === undefined ? "–" : r.reasoning
                   ? <button type="button" className="rank-btn" aria-expanded={why === r.key} aria-label={`Why rank ${n}?`}
+                            ref={(el) => { if (el) rankBtns.current.set(r.key, el); else rankBtns.current.delete(r.key); }}
                             onClick={() => setWhy(why === r.key ? null : r.key)}>{n}</button>
                   : n}
                 {indicators[r.key] && <span className="indicator">{indicators[r.key]}</span>}
@@ -152,7 +171,7 @@ function Rows(props: {
                     <div className="rank-why-body">
                       <div className="rank-why-head">
                         <span className="rank-why-title"><InfoIcon /> Why rank #{n}?</span>
-                        <button type="button" className="rank-why-close" aria-label="Close" onClick={() => setWhy(null)}><XIcon size={14} /></button>
+                        <button type="button" className="rank-why-close" aria-label="Close" onClick={closeWhy}><XIcon size={14} /></button>
                       </div>
                       <p>{r.reasoning}</p>
                     </div>

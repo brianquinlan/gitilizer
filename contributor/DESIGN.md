@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype follows the 2026-11-01 PRD except where [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) says otherwise. |
 | **Author** | brian@sweetapp.com (drafted with Claude) |
-| **Last updated** | 2026-11-04 (credentials entered and checked on Warm Welcome, `WEL-2` to `WEL-4`, `POST /api/setup`, D-12; rank reasoning popup, `LIST-24`, not clipped on short pages; sync progress, `LIST-33`; "Save and re-rank" is a sync; a Gemini request can't outlive its ranking lease, and expired leases are logged, GitHub issue #3); 2026-11-03 (relative times, `LIST-22`); 2026-11-02 (production: Google and GitHub sign-in, several processes on one database, the container image, pipeline and infrastructure scripts; D-10 and D-11) |
+| **Last updated** | 2026-11-04 (rank reasoning popup holds updates and returns focus, `LIVE-27`, `LIST-24`; credentials entered and checked on Warm Welcome, `WEL-2` to `WEL-4`, `POST /api/setup`, D-12; rank reasoning popup, `LIST-24`, not clipped on short pages; sync progress, `LIST-33`; "Save and re-rank" is a sync; a Gemini request can't outlive its ranking lease, and expired leases are logged, GitHub issue #3); 2026-11-03 (relative times, `LIST-22`); 2026-11-02 (production: Google and GitHub sign-in, several processes on one database, the container image, pipeline and infrastructure scripts; D-10 and D-11) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Google Cloud project** | `gitilizer` |
 | **Source** | [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer) |
@@ -357,7 +357,7 @@ The browser sends `Last-Event-ID` on reconnect. If the process it reconnects to 
 
 **Applying updates in the browser.** `app/web/src/live/` holds a pure, unit-tested state machine with two lists: `shown` (what is on screen) and `latest` (the server's current state). Incoming events update `latest` and append to a queue. A separate controller drains the queue under the PRD's rules:
 
-- hold while the pointer is over the table, until it has been outside for 1 s (`LIVE-4`); while focus is in the table (`LIVE-5`); while the tab is hidden or the Icebox is shown (`LIVE-6`);
+- hold while the pointer is over the table, until it has been outside for 1 s (`LIVE-4`); while focus is in the table (`LIVE-5`); while the rank reasoning popup is open, until it has been closed for 1 s (`LIVE-27`, reported by `Rows` through `holdForPopup()` in `useLive.ts`); while the tab is hidden or the Icebox is shown (`LIVE-6`);
 - the developer's own actions skip the queue and apply to both lists at once (`LIVE-7`);
 - play one queued change at a time, 0.4 s each (`LIVE-8`); more than 5 waiting play as one step (`LIVE-9`); a `bulk` event always plays as one step, without indicators (`LIVE-24`);
 - after each step, compute the rows on the current page from `shown`, which keeps every page except the last full (`LIVE-3`), and move to the last page if the current one no longer exists (`LIVE-2`);
@@ -395,7 +395,10 @@ Details that need more than markup:
   are above it (`.tr:nth-child(n+4):nth-last-child(-n+3)`), so it stays near
   the rows. The table has no `overflow: hidden`, so the popup is never clipped,
   even on a page of one to three rows; its header and pager round their own
-  corners instead. `next_action` is never sent.
+  corners instead. The close button and Esc move focus back to the rank
+  button; a `mousedown` outside doesn't move it. If the popup's row is no
+  longer among the visible rows, `Rows` clears the open key, so the hold in
+  `LIVE-27` can't outlast the popup. `next_action` is never sent.
 - **Relative times** (`LIST-5`, `LIST-22`). `relativeTime()` in `app/web/src/time.ts` formats every relative time: the Modified column, the Icebox line (`ICE-3`) and notifications (`NOTIF-8`). Past 30 days it gives the month and day in the current year, then "{n}y ago" once at least one whole 365.25-day year has passed, and "last year" for an earlier calendar year less than that ago. Each one's `title` is `fullDate()`, the full date and time in the viewer's locale. `useNow(60_000)` re-renders the list every minute. `time.test.ts` covers the thresholds.
 - **Repository names cut off at the start** (`LIST-23`). The cell uses `direction: rtl; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis`, with a left-to-right mark appended to the name so trailing punctuation stays in place, and `title` holds the full name. Titles are cut off at the end in the usual way.
 - **Settings links** (`NOTIF-9`, `LIST-14`). Every control that can fix a problem has a stable `id` (`github-pat`, `gemini-key`, `add-repository`, `repo-{owner}-{name}`, `ranking-prompt`, and so on). Each notification carries its target `id`, its Settings link goes to `/settings#{id}`, and Settings scrolls to that element and focuses it. The section fragments (`#connections` and the rest) work the same way.

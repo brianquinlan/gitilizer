@@ -1,4 +1,4 @@
-// Applies queued live updates under the PRD's holding rules (LIVE-4..10).
+// Applies queued live updates under the PRD's holding rules (LIVE-4..10, LIVE-27).
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ItemRow, ListResponse } from "@gitilizer/shared";
 import { api } from "../api.ts";
@@ -16,7 +16,7 @@ export function useLive(view: View) {
   const ref = useRef<Live | null>(null);
   const viewRef = useRef(view);
   viewRef.current = view;
-  const holds = useRef({ pointerInside: false, pointerLeftAt: 0, focusInside: false });
+  const holds = useRef({ pointerInside: false, pointerLeftAt: 0, focusInside: false, popupOpen: false, popupClosedAt: 0 });
   const busyUntil = useRef(0);
   const [indicators, setIndicators] = useState<Record<string, string>>({});
   const [collapsing, setCollapsing] = useState<Set<string>>(new Set());
@@ -61,6 +61,8 @@ export function useLive(view: View) {
       } else {
         if (h.pointerInside || now - h.pointerLeftAt < HOLD_AFTER_MS) return; // LIVE-4
         if (h.focusInside) return; // LIVE-5
+        // Rows don't move under an open rank reasoning popup, wherever the pointer or focus is, nor for a second after it closes (LIVE-27).
+        if (h.popupOpen || now - h.popupClosedAt < HOLD_AFTER_MS) return;
         batch = nextBatch(s); // LIVE-8, LIVE-9
       }
       const r = apply(s, batch);
@@ -87,6 +89,13 @@ export function useLive(view: View) {
     onBlur: (e: React.FocusEvent) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) holds.current.focusInside = false; },
   };
 
+  /** Holds updates while the rank reasoning popup is open, and for 1 s after it closes (LIVE-27). */
+  const holdForPopup = useCallback((open: boolean) => {
+    const h = holds.current;
+    if (h.popupOpen && !open) h.popupClosedAt = Date.now();
+    h.popupOpen = open;
+  }, []);
+
   /** The developer's own actions apply immediately (LIVE-7). */
   const moveToIcebox = useCallback(async (row: ItemRow) => {
     if (!ref.current) return;
@@ -102,7 +111,7 @@ export function useLive(view: View) {
     await api.post("/api/items/restore", { key: row.key });
   }, [commit, leave]);
 
-  return { live, indicators, collapsing, announcement, step, tableProps, moveToIcebox, restore, pending: live?.queue.length ?? 0 };
+  return { live, indicators, collapsing, announcement, step, tableProps, holdForPopup, moveToIcebox, restore, pending: live?.queue.length ?? 0 };
 }
 
 let reported = false;
