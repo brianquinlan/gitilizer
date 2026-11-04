@@ -106,7 +106,11 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .toggle a { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 7px; color: var(--muted); text-decoration: none; font-weight: 500; }
 .toggle a[aria-current="page"] { background: var(--accent); color: #fff; font-weight: 600; }
 
-.table { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+/* No overflow: hidden, so the rank reasoning popup (LIST-24) isn't clipped. The first and last children (header, pager,
+   or the sign-in preview's last row) round their own corners instead: 11px, the table's 12px less its 1px border. */
+.table { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.table > :first-child { border-top-left-radius: 11px; border-top-right-radius: 11px; }
+.table > :last-child { border-bottom-left-radius: 11px; border-bottom-right-radius: 11px; }
 .tr { display: grid; grid-template-columns: 96px minmax(0, 1fr) 210px 140px 170px; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--line); min-height: 59px; background: var(--surface); position: relative; }
 .table.icebox .tr { grid-template-columns: minmax(0, 1fr) 210px 140px 170px; }
 .thead { min-height: 43px; background: var(--surface-2); font-size: 12px; font-weight: 500; color: var(--muted); }
@@ -296,7 +300,8 @@ input.invalid, textarea.invalid, .secret.invalid input { border-color: var(--err
 /* LIST-17: while syncing, the button is disabled but the turning icon stays in the accent color. */
 .btn.sync.syncing:disabled { opacity: 1; color: var(--muted); cursor: default; }
 
-/* POC: rank reasoning popup (Figma "Issue inbox · Rank reasoning"). Opens below the rank, or above it near the table's end. */
+/* POC: rank reasoning popup (Figma "Issue inbox · Rank reasoning"). Opens below the rank, or above it
+   in the last three rows when at least three rows are above it, so it stays near the rows on a long page. */
 .rank { position: relative; }
 .tr:has(.rank-cell-open) { z-index: 3; }
 .rank-btn { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; border-radius: 4px; }
@@ -317,6 +322,6 @@ input.invalid, textarea.invalid, .secret.invalid input { border-color: var(--err
 .rank-why-close:hover { color: var(--ink); background: var(--surface-2); }
 .rank-why p { margin: 0; font-size: 14px; line-height: 20px; user-select: text; }
 .rank-why-foot { padding: 12px 16px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 12px; color: var(--muted); }
-.tr:nth-last-child(-n+3) .rank-why { top: auto; bottom: calc(100% + 12px); }
-.tr:nth-last-child(-n+3) .rank-why::before { top: auto; bottom: -8px; border-bottom: 0; border-top: 8px solid var(--line); }
-.tr:nth-last-child(-n+3) .rank-why::after { top: auto; bottom: -6px; border-bottom: 0; border-top: 7px solid var(--surface); }
+.tr:nth-child(n+4):nth-last-child(-n+3) .rank-why { top: auto; bottom: calc(100% + 12px); }
+.tr:nth-child(n+4):nth-last-child(-n+3) .rank-why::before { top: auto; bottom: -8px; border-bottom: 0; border-top: 8px solid var(--line); }
+.tr:nth-child(n+4):nth-last-child(-n+3) .rank-why::after { top: auto; bottom: -6px; border-bottom: 0; border-top: 7px solid var(--surface); }
