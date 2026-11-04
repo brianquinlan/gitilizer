@@ -36,12 +36,16 @@ In GitHub → Settings → Environments → production → Environment variables
 VARS
 
 step "Cloud Build trigger"
-repository=projects/$PROJECT/locations/$REGION/connections/github/repositories/gitilizer
-if ! gcloud builds repositories describe gitilizer --connection=github --region="$REGION" >/dev/null 2>&1; then
-  echo "  The repository isn't linked yet: Cloud Build → Repositories → 2nd gen → Link repository"
-  echo "  (connection github, repository name gitilizer). Then run this script again."
+# Found by its GitHub address, whatever name it was linked under.
+linked=$(gcloud builds repositories list --connection=github --region="$REGION" \
+  --filter="remoteUri=https://github.com/$REPO.git" --format='value(name)' | head -1)
+if [[ -z $linked ]]; then
+  echo "  $REPO isn't linked yet: Cloud Build → Repositories → 2nd gen → Link repository (connection github)."
+  echo "  Then run this script again."
   exit 1
 fi
+repository=projects/$PROJECT/locations/$REGION/connections/github/repositories/${linked##*/}
+echo "  ✓ $REPO is linked as ${linked##*/}"
 ensure "trigger deploy-dev" gcloud builds triggers describe deploy-dev --region="$REGION" -- \
   gcloud builds triggers create github --name=deploy-dev --region="$REGION" \
     --repository="$repository" --branch-pattern='^main$' --build-config=cloudbuild.yaml \

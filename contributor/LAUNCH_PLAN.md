@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2026-11-02. Phases 1 to 5 done; development's service and the load balancer exist (6.2, 6.4). Next: connect Cloud Build to GitHub (6.1) and add the `dev` records at GoDaddy (6.6). |
+| **Status** | 2026-11-02. Phases 1 to 5 done. Development is live at `https://dev.gitilizer.com`, built and deployed from `main` by Cloud Build (6.1 to 6.4, 6.6). Next: the GitHub rulesets (6.5) and trying development with your real data (6.7). |
 | **Goal** | `dev.gitilizer.com` and `gitilizer.com` running on Google Cloud as [DESIGN.md](DESIGN.md#hosting-on-google-cloud) and [DEPLOYMENT.md](DEPLOYMENT.md) describe, with the old configuration in the `gitilizer` project removed first. |
 | **Region** | `us-east4` ([D-3](DESIGN.md#d-3)) |
 
@@ -270,16 +270,16 @@ The steps, for reference:
 
 ## Phase 6: development environment
 
-6.2 used the development client IDs above. Its allowlist lets in you: both your Google addresses, and your GitHub account by its numeric ID. The list is only on the service, not in Git; see or change it as in [DEPLOYMENT.md](DEPLOYMENT.md#who-can-sign-in-to-development).
+The repository is linked as `brianquinlan-gitilizer` (the console's default name; `pipeline.sh` finds it by its GitHub address). The first build (`23603985`, commit `f5aee20`) passed, and the server started as `development` with its allowlist of 3 entries, both sign-in apps, and no development form. 6.2 used the development client IDs above. Its allowlist lets in you: both your Google addresses, and your GitHub account by its numeric ID. The list is only on the service, not in Git; see or change it as in [DEPLOYMENT.md](DEPLOYMENT.md#who-can-sign-in-to-development).
 
 | # | Who | Task |
 |---|---|---|
-| 6.1 | You | **Connect Cloud Build to GitHub.** Cloud console → **Cloud Build → Repositories** → **2nd gen** → **Create host connection**: GitHub, region `us-east4`, name `github`. Install the Cloud Build GitHub App on **only** `brianquinlan/gitilizer`. Then **Link repository** → `brianquinlan/gitilizer`, name `gitilizer`. |
+| 6.1 | Done | **Connect Cloud Build to GitHub.** Cloud console → **Cloud Build → Repositories** → **2nd gen** → **Create host connection**: GitHub, region `us-east4`, name `github`. Install the Cloud Build GitHub App on **only** `brianquinlan/gitilizer`. Then **Link repository** → `brianquinlan/gitilizer`, name `gitilizer`. |
 | 6.2 | Done | **Create the service** with all its settings, running Google's sample container for now: `GOOGLE_CLIENT_ID=<dev> GITHUB_CLIENT_ID=<dev> SIGN_IN_ALLOWLIST="google:<you> github-id:<your id>" bash infra/services.sh dev placeholder`. The allowlist stays out of Git. |
-| 6.3 | Workload Identity done; trigger after linking | **The trigger and Workload Identity:** `bash infra/pipeline.sh` (note the two values it prints, for 7.3). Then build and deploy `main` for the first time: `gcloud builds triggers run deploy-dev --region=us-east4 --branch=main`, and watch it under Cloud Build → History. |
+| 6.3 | Done | **The trigger and Workload Identity:** `bash infra/pipeline.sh` (note the two values it prints, for 7.3). Then build and deploy `main` for the first time: `gcloud builds triggers run deploy-dev --region=us-east4 --branch=main`, and watch it under Cloud Build → History. |
 | 6.4 | Done | **Load balancer:** `bash infra/load-balancer.sh`. Checked through the load balancer before DNS: `https://dev.gitilizer.com` answers with the certificate, `http://` redirects to `https://`, and the `*.run.app` address is refused. |
 | 6.5 | You | **GitHub rulesets** (Settings → Rules → Rulesets): for `main`, require a pull request and the `ci` check, and block force pushes; for tags `release-*`, block updates and deletion. |
-| 6.6 | You | **Point `dev` at Google** at GoDaddy: `A` `dev` → the IPv4 address and `AAAA` `dev` → the IPv6 address that `certificate.sh` printed. |
+| 6.6 | Done | **Point `dev` at Google** at GoDaddy: `A` `dev` → the IPv4 address and `AAAA` `dev` → the IPv6 address that `certificate.sh` printed. |
 | 6.7 | You and Claude | **Try development** at `https://dev.gitilizer.com`, with your real data: the checklist below. |
 
 **6.7 checklist:**
