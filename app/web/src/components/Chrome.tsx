@@ -5,7 +5,7 @@ import { api } from "../api.ts";
 import { AlertIcon, BellGlyph, BrandSymbol, CheckIcon, ExternalIcon, SettingsIcon, SignOutIcon } from "../icons.tsx";
 import { Link, navigate } from "../router.tsx";
 import { useStore } from "../store.tsx";
-import { relativeTime } from "../time.ts";
+import { fullDate, relativeTime } from "../time.ts";
 
 /** Closes a popup on a click outside or on Esc (NOTIF-20, ACCT-4). */
 function useDismiss(open: boolean, close: () => void) {
@@ -90,7 +90,7 @@ function Popover({ notifications, close }: { notifications: Notification[]; clos
               <span className="note-symbol"><AlertIcon /></span>
               <span>
                 <div className="note-source">{c.summary}</div>
-                <div className="note-time">{relativeTime(n.firstDetectedAt)}</div>
+                <div className="note-time" title={fullDate(n.firstDetectedAt)}>{relativeTime(n.firstDetectedAt)}</div>
               </span>
               <span className="note-sev">{c.severity.toUpperCase()}</span>
             </div>

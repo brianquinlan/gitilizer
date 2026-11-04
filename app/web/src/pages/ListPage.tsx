@@ -9,7 +9,7 @@ import { clampPage, PAGE_SIZE, pageCount, ranks, rowsFor, sortRows, type Row, ty
 import { useLive } from "../live/useLive.ts";
 import { Link, navigate, useRoute } from "../router.tsx";
 import { useStore } from "../store.tsx";
-import { relativeTime, useNow } from "../time.ts";
+import { fullDate, relativeTime, useNow } from "../time.ts";
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -142,7 +142,9 @@ function Rows(props: {
                 <span className="issue-meta">
                   <span className="num">{r.kind === "pr" ? "PR" : "Issue"} #{r.number}</span>
                   <span className="dot" />
-                  <span>{view === "icebox" ? `Moved to Icebox by you · ${relativeTime(r.iceboxedAt)}` : reasonLabel(r)}</span>
+                  {view === "icebox"
+                    ? <span>Moved to Icebox by you · <span title={fullDate(r.iceboxedAt)}>{relativeTime(r.iceboxedAt)}</span></span>
+                    : <span>{reasonLabel(r)}</span>}
                 </span>
               </span>
             </span>
@@ -252,9 +254,4 @@ function Skeleton() {
       ))}
     </>
   );
-}
-
-/** Full date and time for hovering over a relative time (LIST-22). */
-function fullDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
