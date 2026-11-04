@@ -29,7 +29,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [signedOut, setSignedOut] = useState(false);
   const [serverNotes, setServerNotes] = useState<Notification[]>([]);
   const [cannotConnect, setCannotConnect] = useState<string | null>(null);
-  const [sync, setSync] = useState<SyncEvent>({ running: false, lastFinishedAt: null });
+  const [sync, setSync] = useState<SyncEvent>({ running: false, lastFinishedAt: null, progress: null });
   const [sorts, setSorts] = useState<Store["sorts"]>(null);
   const [connected, setConnected] = useState(true);
   const listeners = useRef(new Set<Listener>());

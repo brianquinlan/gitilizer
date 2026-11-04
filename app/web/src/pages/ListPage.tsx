@@ -1,12 +1,13 @@
 // Prioritized list and Icebox (PRD "Prioritized list", "Live updates", "Icebox").
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, reasonLabel, type Sort, type SortColumn,
+  DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, reasonLabel, type Sort, type SortColumn, type SyncEvent,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
 import { BoxIcon, ChevronLeft, ChevronRight, DownToLineIcon, IssueIcon, PrIcon, RefreshIcon, SortIcon } from "../icons.tsx";
 import { clampPage, PAGE_SIZE, pageCount, ranks, rowsFor, sortRows, type Row, type View } from "../live/engine.ts";
 import { useLive } from "../live/useLive.ts";
+import { useSyncProgress } from "../live/useSyncProgress.ts";
 import { Link, navigate, useRoute } from "../router.tsx";
 import { useStore } from "../store.tsx";
 import { fullDate, relativeTime, useNow } from "../time.ts";
@@ -58,7 +59,7 @@ export function ListPage({ view }: { view: View }) {
           <Link to="/icebox" aria-current={view === "icebox" ? "page" : undefined}><BoxIcon /> Icebox</Link>
         </nav>
         <span className="spacer" />
-        <SyncButton running={sync.running} />
+        <SyncButton sync={sync} />
       </div>
 
       <div className={`table ${view === "icebox" ? "icebox" : ""} ${reducedMotion() ? "reduced" : ""}`} role="table" aria-label={view === "prioritized" ? "Prioritized issues" : "Icebox"}>
@@ -163,8 +164,13 @@ function Rows(props: {
   );
 }
 
-/** Disabled while any sync runs, however it started, with the icon turning (LIST-17, LIST-28). */
-function SyncButton({ running }: { running: boolean }) {
+/**
+ * Disabled while any sync runs, however it started, with the icon turning (LIST-17, LIST-28),
+ * and how far the sync has got to its left (LIST-33).
+ */
+function SyncButton({ sync }: { sync: SyncEvent }) {
+  const running = sync.running;
+  const progress = useSyncProgress(sync);
   const [error, setError] = useState<string | null>(null);
   const start = async () => {
     setError(null);
@@ -173,7 +179,10 @@ function SyncButton({ running }: { running: boolean }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
       {error && <span className="hint">{error}</span>}
-      <button className={`btn sync ${running ? "syncing" : ""}`} onClick={start} disabled={running} aria-busy={running}>
+      {/* Not a live region: it would be read out every 2 seconds. The button points at it instead. */}
+      {progress && <span id="sync-progress" className="sync-progress">{progress}</span>}
+      <button className={`btn sync ${running ? "syncing" : ""}`} onClick={start} disabled={running} aria-busy={running}
+              aria-describedby={progress ? "sync-progress" : undefined}>
         <RefreshIcon className={running ? "spin" : ""} /> Sync now
       </button>
     </span>

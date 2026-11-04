@@ -112,6 +112,22 @@ export const CredentialStatus = z.object({
 });
 export type CredentialStatus = z.infer<typeof CredentialStatus>;
 
+/**
+ * How far a running sync has got, for the text next to Sync now (PRD LIST-33):
+ * the items found so far while a full scan searches (null until the first
+ * search returns), then the items left to rank. `waiting` is true when
+ * everything left is waiting out a Gemini per-minute limit or a retry.
+ */
+export const SyncProgress = z.discriminatedUnion("phase", [
+  z.object({ phase: z.literal("finding"), found: z.number().int().nullable() }),
+  z.object({ phase: z.literal("ranking"), left: z.number().int(), waiting: z.boolean() }),
+]);
+export type SyncProgress = z.infer<typeof SyncProgress>;
+
+/** `progress` is null when no sync is running. */
+export const SyncEvent = z.object({ running: z.boolean(), lastFinishedAt: z.string().nullable(), progress: SyncProgress.nullable() });
+export type SyncEvent = z.infer<typeof SyncEvent>;
+
 export const Me = z.object({
   user: z.object({
     id: z.string(),
@@ -125,7 +141,7 @@ export const Me = z.object({
   screen: z.enum(["welcome", "app"]),
   credentials: z.object({ github_pat: CredentialStatus, gemini_key: CredentialStatus }),
   firstSyncDone: z.boolean(),
-  sync: z.object({ running: z.boolean(), lastFinishedAt: z.string().nullable() }),
+  sync: SyncEvent,
 });
 export type Me = z.infer<typeof Me>;
 
@@ -260,8 +276,6 @@ export const ListEvent = z.object({
 });
 export type ListEvent = z.infer<typeof ListEvent>;
 
-export const SyncEvent = z.object({ running: z.boolean(), lastFinishedAt: z.string().nullable() });
-export type SyncEvent = z.infer<typeof SyncEvent>;
 
 /** Sign-in failure categories in /sign-in?error= (AUTH-10). `not_allowed` happens only in the development environment (NFR-12). */
 export const SignInError = z.enum(["cancelled", "provider_unavailable", "expired", "not_allowed", "gitilizer_error"]);

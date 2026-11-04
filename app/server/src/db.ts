@@ -138,7 +138,9 @@ create table if not exists scans (
   finished_at timestamptz,
   outcome text,
   error_code text,
-  heartbeat_at timestamptz
+  heartbeat_at timestamptz,
+  found int,
+  to_queue int
 );
 create unique index if not exists scans_one_running on scans(user_id) where finished_at is null;
 create table if not exists rank_batches (
@@ -235,6 +237,8 @@ const AFTER_SCHEMA = `
 alter table users add column if not exists last_full_scan_at timestamptz;
 alter table users add column if not exists sign_in_login text;
 alter table scans add column if not exists heartbeat_at timestamptz;
+alter table scans add column if not exists found int;
+alter table scans add column if not exists to_queue int;
 alter table credentials add column if not exists token_login text;
 alter table credentials add column if not exists token_type text;
 alter table credentials drop column if exists validated_at;
