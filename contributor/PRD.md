@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-02 (first sync fills in as items are ranked) |
+| **Last updated** | 2026-11-03 (relative times for earlier years; full date on hover everywhere) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Replaces** | [Gitilizer PRD (Google Doc)](https://docs.google.com/document/d/1iN4HGqn5_Nz4g8oweqg0PK-iLlKQ8dza7ruqxADpu6U/edit) |
@@ -308,7 +308,7 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 - **NOTIF-7** With no active notifications, the popover must show "No notifications" and "No active errors need your attention."
 - **NOTIF-8** Each notification must show:
   - the **summary**, which names the source, for example "GitHub connection";
-  - when the problem was **first detected**, as a relative time, for example "2 min ago";
+  - when the problem was **first detected**, as a relative time (`LIST-22`), for example "2m ago";
   - the **severity** label, "ERROR" or "WARNING";
   - the **heading**, which names the problem, for example "Your GitHub token has expired";
   - the **body**, which describes the consequence and how to fix it.
@@ -414,7 +414,7 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 - **LIST-21** An item can match several reasons; only one is shown. The order of precedence is: Review requested, Assigned to you, @{handle}, Created by you, Commented on by you, repository name. (The repository name repeats the Repository column on the same row, which is intended.)
 - **LIST-4** The title link must open the item on GitHub, in a new tab, so the list keeps its place.
 - **LIST-5** Relative times must update while the page is open, at least once a minute.
-- **LIST-22** Relative times must follow these thresholds: under 1 minute "just now"; then minutes ("12m ago"), hours ("3h ago") and days ("2d ago"); after 30 days, the date ("Mar 4"). Hovering over a time must show the full date and time.
+- **LIST-22** Relative times must follow these thresholds: under 1 minute "just now"; then minutes ("12m ago"), hours ("3h ago") and days ("2d ago"). After 30 days: the month and day ("Mar 4") for a date in the current calendar year; "last year" for a date in the previous calendar year, until a full year (365.25 days) has passed; after that, the whole years passed ("1y ago", "2y ago"). For example, on November 3, 2026, November 25, 2025 is "last year" and November 1, 2025 is "1y ago". Hovering over any relative time (the Modified column, the Icebox line in `ICE-3`, and notifications in `NOTIF-8`) must show the full date and time.
 - **LIST-23** Titles and repository names must stay on one line. A title that doesn't fit is cut off at the end with "…". A repository name that doesn't fit is cut off at the **start** ("…le-cloud-dart"), because the owner, at the start, is usually the least useful part. Hovering must show the full text.
 - **LIST-24** The agent's next action and reasoning (`RANK-2`) must not be shown.
 
@@ -532,7 +532,7 @@ The Icebox holds items the developer has decided to set aside. It works like the
 
 - **ICE-1** The Icebox must show only items the developer moved there.
 - **ICE-2** It must not have a Priority column.
-- **ICE-3** The line under each title must show the type and number, then "Moved to Icebox by you · {relative time}".
+- **ICE-3** The line under each title must show the type and number, then "Moved to Icebox by you · {relative time}" (`LIST-22`).
 - **ICE-4** The default sort must be Issue ascending: PRs first, then issues, each by number ascending.
 - **ICE-5** The Actions column must have a "Restore" button that returns the item to the Prioritized list.
 - **ICE-6** When an item in the Icebox changes on GitHub, Gitilizer must run the **Icebox check**: a short question to the agent, with its own prompt, about whether the change should bring the item back. If the answer is yes, the item returns to the Prioritized list automatically and is ranked again.
@@ -786,7 +786,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 | <a id="q-21"></a>Q-21 | Which items appear | Personal review requests, assigned, mentioned, created, commented on, additional repositories; drafts and bot items included; archived repositories excluded; no team reviews. | `LIST-1`, `LIST-20`, `LIST-29` |
 | <a id="q-22"></a>Q-22 | Which inclusion reason is shown | Review requested, @handle, Created by you, Commented on by you, repository name. "Interested repository" is now "additional repository", and its label is the repository's name. ("Assigned to you" is [Q-67](#q-67).) | `LIST-3`, `LIST-21` |
 | <a id="q-23"></a>Q-23 | Title link; ranks of 100 or more | New tab. Ranks are never zero-padded; Figma updated. The Priority column already fits four digits. | `LIST-4`, [Columns](#columns) |
-| <a id="q-24"></a>Q-24 | Relative times | Short, as suggested, with the full date and time on hover. | `LIST-22` |
+| <a id="q-24"></a>Q-24 | Relative times | Short, as suggested, with the full date and time on hover. After 30 days: the month and day in the current year, "last year" for the previous year until a full year has passed, then "{n}y ago" (GitHub issue #7). | `LIST-22` |
 | <a id="q-25"></a>Q-25 | Sorting | Click toggles; first directions as suggested; stored on the account per view; sorting returns to page 1. | `LIST-9`, `LIST-25`, `LIST-26` |
 | <a id="q-26"></a>Q-26 | Many pages; item count | First, last, current ±1 with "…"; the count is always shown. Figma updated. | `LIST-12`, `LIST-27` |
 | <a id="q-27"></a>Q-27 | Maximum list size | The 1,000 most recently updated items, kept up to date as items are updated. (Details in [Q-66](#q-66).) | `LIST-19`, `SCAN-1` |
@@ -939,3 +939,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 ### Sixteenth revision (2026-11-02, third round)
 
 - `LIVE-24` no longer lists the first sync as a bulk re-rank applied at the end: its items appear as they are ranked, as `LIST-15` already said, still without row indicators. The two requirements had contradicted each other. Q-60's answer notes the exception.
+
+### Seventeenth revision (2026-11-03)
+
+- `LIST-22`: dates older than 30 days that aren't in the current year now read "last year" or "{n}y ago" instead of a bare month and day, and every relative time (including the Icebox line and notifications) shows the full date and time on hover. From GitHub issue #7; Q-24's answer is updated to match.
