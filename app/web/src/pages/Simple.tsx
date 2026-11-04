@@ -96,7 +96,7 @@ export function SignInPage() {
           <div className="tr thead" style={{ gridTemplateColumns: "72px 1fr" }}><span className="th active">Priority ↑</span><span className="th">Issue</span></div>
           {PREVIEW.map(([kind, title, meta], i) => (
             <div className={`tr ${i === 0 ? "top" : ""}`} key={title} style={{ gridTemplateColumns: "72px 1fr" }}>
-              <span className={`rank ${i === 0 ? "first" : ""}`}>{i + 1}</span>
+              <span className="rank">{i + 1}</span>
               <span className="issue">
                 <span className={`kind ${kind}`}>{kind === "pr" ? <PrIcon /> : <IssueIcon />}</span>
                 <span className="issue-text"><span className="issue-title">{title}</span><span className="issue-meta">{meta}</span></span>
