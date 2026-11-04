@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-04 (rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding") |
+| **Last updated** | 2026-11-04 (credentials entered and validated on Warm Welcome; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding") |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -137,7 +137,7 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Popover with several errors | [Notifications · Multiple active errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=223-1808) | [Popover](#popover) |
 | Popover with a warning | [Notifications · Warning being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=227-1824) | [Popover](#popover) |
 | Popover with no notifications | [Notifications · Resolved and empty](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=200-2743) | [Popover](#popover) |
-| Warm Welcome | [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=70-475) | [Warm Welcome](#warm-welcome) |
+| Warm Welcome | [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832) | [Warm Welcome](#warm-welcome) |
 | Prioritized list | [Issue inbox - Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2562) | [Prioritized list](#prioritized-list) |
 | Prioritized list, empty | [Issue inbox · No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-897) | [Empty, loading and first-sync states](#empty-loading-and-first-sync-states) |
 | Prioritized list, first sync | [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689), using [Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433) on the Animations page (present it to see the pulse) | [Empty, loading and first-sync states](#empty-loading-and-first-sync-states) |
@@ -181,10 +181,10 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 | # | Condition | Screen |
 |---|---|---|
 | 1 | Not signed in | [Sign-in](#sign-in), for every URL. After signing in, the developer returns to the URL they asked for. |
-| 2 | Signed in, and the developer hasn't yet completed setup, meaning they haven't yet entered both a GitHub PAT and a Gemini API key | [Warm Welcome](#warm-welcome) |
+| 2 | Signed in, and the developer hasn't yet completed setup, meaning they haven't yet saved both a GitHub PAT and a Gemini API key | [Warm Welcome](#warm-welcome) |
 | 3 | Signed in, anything else | The screen the developer navigated to. The default is the [Prioritized list](#prioritized-list). |
 
-- **NAV-1** The rules above must be evaluated on every page load and whenever the condition changes, for example when the developer saves both credentials on the Settings page.
+- **NAV-1** The rules above must be evaluated on every page load and whenever the condition changes, for example when the developer saves both credentials on Warm Welcome or the Settings page.
 - **NAV-2** Once setup is complete, Warm Welcome is never shown again. If ranking or scanning can't work later (for example because a key is invalid or has expired), the developer sees the Prioritized list with an error notification.
 
 ### Routes
@@ -194,10 +194,10 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 
 ### Moving between screens
 
-- **NAV-5** The developer reaches Settings from the [account menu](#account-menu), from links in notifications, from the "Go to Settings" button on Warm Welcome and from the "settings" link in the empty Prioritized list.
+- **NAV-5** The developer reaches Settings from the [account menu](#account-menu), from links in notifications and from the "settings" link in the empty Prioritized list.
 - **NAV-6** The developer switches between the Prioritized list and the Icebox with the "Prioritized" / "Icebox" toggle above the table.
 - **NAV-7** The Gitilizer symbol and wordmark in the app bar must link to the Prioritized list.
-- **NAV-8** After a successful "Save changes" or "Save and re-rank", the developer must be taken to the Prioritized list. If something can't be saved (for example a prompt that's too long), they stay on Settings with the problems shown next to the fields (`SET-27`). Saving doesn't validate credentials (`SET-29`). The save that completes setup also goes to the list, which then shows the [first-sync state](#empty-loading-and-first-sync-states).
+- **NAV-8** After a successful "Save changes" or "Save and re-rank", the developer must be taken to the Prioritized list. If something can't be saved (for example a prompt that's too long), they stay on Settings with the problems shown next to the fields (`SET-27`). Saving in Settings doesn't validate credentials (`SET-29`); saving on Warm Welcome does (`WEL-4`). The save that completes setup also goes to the list, which then shows the [first-sync state](#empty-loading-and-first-sync-states).
 - **NAV-9** "Cancel" in Settings must discard unsaved changes and take the developer back to the Prioritized list. Under the rules in [Which screen is shown](#which-screen-is-shown), a developer who hasn't yet entered both credentials sees Warm Welcome instead, and the same applies after saving (`NAV-8`).
 
 ---
@@ -210,7 +210,7 @@ Figma: [Sign in](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?n
 - **AUTH-2** The developer must be able to sign in with Google or with GitHub ("Continue with Google", "Continue with GitHub"). The design must allow more providers to be added later.
 - **AUTH-3** The first successful sign-in must create a Gitilizer account.
 - **AUTH-4** The sign-in page must show the product introduction (headline, description and a static preview of the list), the sign-in buttons, the "Sign in first. Connect your tools next." explanation and the [footer](#footer). It has no app bar.
-- **AUTH-5** Signing in with GitHub must not give Gitilizer access to the developer's items. Scanning always uses the PAT from Settings. (Settings says: "App sign-in does not replace this token.")
+- **AUTH-5** Signing in with GitHub must not give Gitilizer access to the developer's items. Scanning always uses the PAT the developer enters on Warm Welcome or in Settings.
 - **AUTH-6** The account's display name, email and avatar must come from the sign-in provider.
 - **AUTH-7** Each sign-in provider account is a separate Gitilizer account. A person who signs in with Google one day and GitHub the next has two accounts, each with its own credentials, settings and list, even if both providers report the same email address.
 - **AUTH-8** A session must last 30 days and be extended each time it is used, so a developer who visits at least once every 30 days stays signed in.
@@ -371,12 +371,31 @@ Not in the catalogue, by decision:
 
 ## Warm Welcome
 
-Figma: [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=70-475)
+Figma: [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832)
+
+Setup happens on Warm Welcome itself, so a new developer can start with two
+fields instead of the whole Settings page.
 
 - **WEL-1** Warm Welcome must be shown under the conditions in [Which screen is shown](#which-screen-is-shown). It is therefore always the first screen after a developer's first sign-in.
-- **WEL-2** It must show the app bar, the footer and a panel with the title "Welcome to your prioritized inbox", a short explanation that a Gemini API key and a GitHub personal access token are needed, and a "Go to Settings" button.
-- **WEL-3** "Go to Settings" must open the Connections section of [Settings](#settings).
-- **WEL-4** As soon as both credentials are saved, the developer must see the [first-sync state](#empty-loading-and-first-sync-states) of the Prioritized list the next time they open it.
+- **WEL-2** It must show the app bar, the footer and a panel with the title
+  "Welcome to your prioritized inbox", the text "Add your GitHub scanning token
+  and Gemini API key so Gitilizer can scan and rank your issues and PRs.", a
+  field for each credential, a "Save" button and the note "You can update both
+  credentials later in Settings."
+- **WEL-3** The two fields, "GitHub scanning token" and "Gemini API key", must
+  work as in Settings: masked, with the eye icon, a "Validate" button and its
+  results (`SET-1`, `SET-2`, `SET-21`, `SET-28`), and the guidance text and
+  "Learn more ↗" shown in Figma (`SET-20`). Their links read "Create a token ↗"
+  and "Get an API key ↗" and open the same pages as in Settings (`SET-4`). A
+  credential already saved from Settings appears as dots, as it does there.
+- **WEL-4** "Save" must be disabled until both fields have a value, typed or
+  already saved. Choosing it validates each typed value that hasn't passed
+  Validate as typed, showing progress and results under its field as Validate
+  does (`SET-28`). If every typed value passes, both credentials are saved,
+  setup is complete, and the developer goes to the
+  [first-sync state](#empty-loading-and-first-sync-states) of the Prioritized
+  list (`SET-5`). If any fails, nothing is saved and the developer stays on
+  Warm Welcome with the failure under its field ([Q-82](#q-82)).
 
 ---
 
@@ -602,7 +621,7 @@ Both credentials are required.
 
 GitHub answers an expired token the same way as a mistyped one, and sends the expiry date only with successful responses, so Validate can tell an expired typed token apart only if GitHub's answer changes. Until then it shows "GitHub didn't accept this token…" ([Q-78](#q-78)). The "Your GitHub token has expired" notification is unaffected, because by then Gitilizer has seen the expiry date.
 
-- **SET-29** Saving doesn't validate credentials. A saved credential that doesn't work shows up as a [notification](#catalogue) when Gitilizer first uses it.
+- **SET-29** Saving in Settings doesn't validate credentials (Warm Welcome does, `WEL-4`). A saved credential that doesn't work shows up as a [notification](#catalogue) when Gitilizer first uses it.
 - **SET-30** The status chip on each credential card must show one of: "Not set" (grey) when no credential is saved; "Connected" (green) when one is saved and no error notification about it is active; "Not working" (red) while an error notification about it is active; "Expires soon" (amber) while the GitHub token's expiry warning is active.
 
 ### Additional repositories
@@ -788,7 +807,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 | <a id="q-5"></a>Q-5 | Footer URLs | "Documentation" opens the user documentation in the GitHub repository; "GitHub" opens the repository, which is the project's landing page. | `FOOT-2`, `FOOT-3` |
 | <a id="q-6"></a>Q-6 | Routes | As suggested; moving between screens doesn't reload the page. | `NAV-3`, `NAV-4` |
 | <a id="q-7"></a>Q-7 | Getting back to the list | The Gitilizer logo links to the Prioritized list. (Whether saving Settings also goes back is [Q-64](#q-64).) | `NAV-7` |
-| <a id="q-8"></a>Q-8 | When Warm Welcome is shown | Until the developer has entered both credentials. After that, problems appear as error notifications on the Prioritized list. | `NAV-2` |
+| <a id="q-8"></a>Q-8 | When Warm Welcome is shown | Until the developer has saved both credentials, usually on Warm Welcome itself. After that, problems appear as error notifications on the Prioritized list. | `NAV-2`, `WEL-4` |
 | <a id="q-9"></a>Q-9 | Google and GitHub sign-in for one person | Two separate accounts. | `AUTH-7` |
 | <a id="q-10"></a>Q-10 | Failed sign-in | A notice above the buttons with four messages; "Cancelled" is grey, the errors are red. | `AUTH-10` to `AUTH-15` |
 | <a id="q-11"></a>Q-11 | Sessions | 30 days, extended while used. Signing out ends only the current browser's session. | `AUTH-8`, `AUTH-9` |
@@ -862,6 +881,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 | <a id="q-79"></a>Q-79 | Sync now while items wait for quota | The sync counts as finished; the quota error explains the wait. | `LIST-32` |
 | <a id="q-80"></a>Q-80 | Who can sign in to the development environment | `dev.gitilizer.com`, with real GitHub and Gemini and each developer's own credentials. Only accounts on an allowlist can sign in: Google accounts by email, GitHub accounts by username or ID, kept in a setting the owner can change without a release. | `NFR-12`, `AUTH-10` |
 | <a id="q-81"></a>Q-81 | Progress during a sync, and whether bulk re-ranks are syncs | Show progress next to Sync now: the items found so far while searching, then the items left to rank. "Save and re-rank" is a sync, because the developer asked for it and otherwise sees nothing happen for minutes; the daily re-rank isn't, so it never disables Sync now. GitHub issue #5. | `LIST-16`, `LIST-32`, `LIST-33`, `SET-15`, `RANK-9` |
+| <a id="q-82"></a>Q-82 | Entering credentials on Warm Welcome, and what Save does when one fails | Warm Welcome has both fields itself, instead of a "Go to Settings" button, so setup is less overwhelming. Save validates any value not yet validated and saves nothing unless both pass. Saving in Settings still doesn't validate. | `WEL-2` to `WEL-4`, `SET-29` |
 
 ---
 
@@ -984,3 +1004,17 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
   drawn in [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443).
   The next action is still not shown. Q-31's answer, `RANK-2` and the
   Non-goals are updated to match.
+
+### Twenty-first revision (2026-11-04, fourth round)
+
+- Warm Welcome now has the two credential fields and a "Save" button instead
+  of "Go to Settings", drawn in
+  [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832),
+  so a new developer doesn't face the whole Settings page first (`WEL-2` to
+  `WEL-4`). Save validates each value not yet validated and saves nothing
+  unless both pass ([Q-82](#q-82)); saving in Settings still doesn't validate
+  (`SET-29`). `NAV-1`, `NAV-5`, `NAV-8` and Q-8's answer are updated to match.
+- The GitHub token's guidance text in Settings no longer says "App sign-in does
+  not replace this token.", so `AUTH-5` no longer quotes it. The Gemini key's
+  guidance now reads "Used by Gemini to score and prioritize your issues and
+  PRs.", as on Warm Welcome.
