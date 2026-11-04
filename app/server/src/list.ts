@@ -5,7 +5,7 @@ import type { Db } from "./db.ts";
 
 // waiting_for_quota: a ranking job is queued while every model's daily quota is used up (LIST-30, RANK-15).
 const ROW_SQL = `
-  select ui.item_key, ui.reasons, ui.mention_handle, ui.status, ui.iceboxed_at, ui.score, ui.rank_failed,
+  select ui.item_key, ui.reasons, ui.mention_handle, ui.status, ui.iceboxed_at, ui.score, ui.reasoning, ui.rank_failed,
          i.kind, i.title, i.html_url, i.updated_at,
          (u.ranking_paused_code = 'daily_quota' and u.ranking_paused_until > now()
           and exists (select 1 from rank_jobs j where j.user_id = ui.user_id and j.item_key = ui.item_key
@@ -27,6 +27,7 @@ function toRow(r: any): ItemRow {
     mentionHandle: r.mention_handle,
     status: r.status,
     iceboxedAt: r.iceboxed_at ? new Date(r.iceboxed_at).toISOString() : null,
+    reasoning: r.reasoning ?? null,
     score: r.score === null || r.score === undefined ? null : Number(r.score),
     rankFailed: Boolean(r.rank_failed),
     waitingForQuota: Boolean(r.waiting_for_quota),

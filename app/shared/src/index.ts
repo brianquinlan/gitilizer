@@ -37,6 +37,8 @@ export const ItemRow = z.object({
   iceboxedAt: z.string().nullable(),
   /** Agent score 0..1. null = not ranked yet. */
   score: z.number().nullable(),
+  /** Model's explanation of the score (POC: shown on rank hover). */
+  reasoning: z.string().nullable().optional(),
   /** True when ranking failed after retries (shown with "–", LIST-30). */
   rankFailed: z.boolean(),
   /** True when the item is waiting because every model's daily quota is used up (shown with "–", LIST-30, RANK-15). */

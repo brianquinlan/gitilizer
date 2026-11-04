@@ -4,7 +4,7 @@ import {
   DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, reasonLabel, type Sort, type SortColumn, type SyncEvent,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
-import { BoxIcon, ChevronLeft, ChevronRight, DownToLineIcon, IssueIcon, PrIcon, RefreshIcon, SortIcon } from "../icons.tsx";
+import { BoxIcon, ChevronLeft, ChevronRight, DownToLineIcon, InfoIcon, IssueIcon, PrIcon, RefreshIcon, SortIcon, XIcon } from "../icons.tsx";
 import { clampPage, PAGE_SIZE, pageCount, ranks, rowsFor, sortRows, type Row, type View } from "../live/engine.ts";
 import { useLive } from "../live/useLive.ts";
 import { useSyncProgress } from "../live/useSyncProgress.ts";
@@ -103,6 +103,16 @@ function Rows(props: {
   const els = useRef(new Map<string, HTMLDivElement>());
   const tops = useRef(new Map<string, number>());
   const lastStep = useRef(step);
+  // POC: the rank reasoning popup (Figma "Issue inbox · Rank reasoning"). Opens on click; closes on ×, Escape or a click elsewhere.
+  const [why, setWhy] = useState<string | null>(null);
+  useEffect(() => {
+    if (!why) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setWhy(null); };
+    const onDown = (e: MouseEvent) => { if (!(e.target as Element).closest?.(".rank-cell-open")) setWhy(null); };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("mousedown", onDown); };
+  }, [why]);
 
   // FLIP: rows that moved slide to their new place; rows that arrived expand (LIVE-11, LIVE-14, LIVE-16).
   useLayoutEffect(() => {
@@ -130,10 +140,25 @@ function Rows(props: {
                ref={(el) => { if (el) els.current.set(r.key, el); else els.current.delete(r.key); }}
                className={`tr ${indicators[r.key] ? "highlight" : ""} ${r.leaving ? "leaving" : ""} ${collapsing.has(r.key) ? "collapse" : ""} ${n === 1 && view === "prioritized" ? "top" : ""}`}>
             {view === "prioritized" && (
-              <span role="cell" className="rank">
+              <span role="cell" className={`rank ${why === r.key ? "rank-cell-open" : ""}`}>
                 {/* Ranks are never zero-padded; unranked items show "–" (Columns, LIST-30). */}
-                {r.leaving ? "" : n !== undefined ? n : "–"}
+                {r.leaving ? "" : n === undefined ? "–" : r.reasoning
+                  ? <button type="button" className="rank-btn" aria-expanded={why === r.key} aria-label={`Why rank ${n}?`}
+                            onClick={() => setWhy(why === r.key ? null : r.key)}>{n}</button>
+                  : n}
                 {indicators[r.key] && <span className="indicator">{indicators[r.key]}</span>}
+                {why === r.key && r.reasoning && !r.leaving && (
+                  <div className="rank-why" role="dialog" aria-label={`Why rank ${n}?`}>
+                    <div className="rank-why-body">
+                      <div className="rank-why-head">
+                        <span className="rank-why-title"><InfoIcon /> Why rank #{n}?</span>
+                        <button type="button" className="rank-why-close" aria-label="Close" onClick={() => setWhy(null)}><XIcon size={14} /></button>
+                      </div>
+                      <p>{r.reasoning}</p>
+                    </div>
+                    <div className="rank-why-foot">{r.repo} · {r.kind === "pr" ? "PR" : "Issue"} #{r.number}</div>
+                  </div>
+                )}
               </span>
             )}
             <span role="cell" className="issue">
