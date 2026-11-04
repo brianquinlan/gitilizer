@@ -3,7 +3,7 @@
 Gitilizer collects your open GitHub issues and pull requests into one list and uses Google's Gemini to put them in priority order. This guide explains how to set it up, what the notifications mean, and what Gitilizer does with your data.
 
 - [Getting started](#getting-started)
-- [GitHub tokens](#github-tokens)
+- [GitHub personal access tokens](#github-personal-access-tokens)
 - [Gemini API keys](#gemini-api-keys)
 - [Your list](#your-list)
 - [Notifications](#notifications)
@@ -12,7 +12,7 @@ Gitilizer collects your open GitHub issues and pull requests into one list and u
 ## Getting started
 
 1. Sign in with Google or GitHub. Each is a separate Gitilizer account, even if both use the same email address, so always sign in the same way.
-2. On the welcome page, add a [GitHub personal access token](#github-tokens) and a [Gemini API key](#gemini-api-keys). A GitHub token is free. A Gemini key is free to create and works on Google's free tier, within a small daily quota ([Free-tier limits](#free-tier-limits)). Signing in with GitHub doesn't give Gitilizer access to your issues: it reads GitHub only with the token you add.
+2. On the welcome page, add a [GitHub personal access token](#github-personal-access-tokens) and a [Gemini API key](#gemini-api-keys). A personal access token is free. A Gemini key is free to create and works on Google's free tier, within a small daily quota ([Free-tier limits](#free-tier-limits)). Signing in with GitHub doesn't give Gitilizer access to your issues: it reads GitHub only with the token you add.
 3. Choose **Save**. Gitilizer checks both first and saves them only if both work; otherwise it says what's wrong under the field. It then scans your issues and PRs and ranks each one. The list fills in as items are ranked.
 
 You can change either credential later in Settings.
@@ -25,7 +25,7 @@ Optionally, in Settings:
 
 **Save changes** keeps the existing ranks until items change. **Save and re-rank** ranks every item again, which uses more of your Gemini quota.
 
-## GitHub tokens
+## GitHub personal access tokens
 
 Gitilizer reads your issues and PRs with a personal access token that you create. It only ever reads; it never writes to GitHub. GitHub has two kinds of token, and Gitilizer accepts both.
 
@@ -48,7 +48,7 @@ A classic token with the `repo` scope reads every repository you can access, in 
 
 ### One token per account
 
-Gitilizer takes one token per account. If an organization blocks one kind of token, create the other kind, or ask an owner of the organization to allow yours. If an organization uses single sign-on, authorize the token for it in your [GitHub token settings](https://github.com/settings/tokens) ("Configure SSO").
+Gitilizer takes one token per account. If an organization blocks one kind of token, create the other kind, or ask an owner of the organization to allow yours. If an organization uses single sign-on, authorize the token for it in your [GitHub personal access token settings](https://github.com/settings/tokens) ("Configure SSO").
 
 Validate, next to the token field, checks a token before you save it and shows which GitHub account it belongs to.
 
@@ -86,15 +86,15 @@ The bell shows problems that stop Gitilizer from working fully. Red means an err
 
 | Notification | What it means and what to do |
 |---|---|
-| Your GitHub token has expired | Create a new token and add it in Settings. |
-| Your GitHub token isn't valid | The token was revoked, deleted or mistyped. Add a new one. |
+| Your GitHub personal access token has expired | Create a new token and add it in Settings. |
+| Your GitHub personal access token isn't valid | The token was revoked, deleted or mistyped. Add a new one. |
 | {org} doesn't allow this type of token | The organization blocks classic or fine-grained tokens. Use the other kind, or ask an owner to allow yours. |
-| Your GitHub token can't read {permission} | Give the token read access to Issues, Pull requests and Metadata. |
+| Your GitHub personal access token can't read {permission} | Give the token read access to Issues, Pull requests and Metadata. |
 | Your token isn't authorized for {org} | The organization uses single sign-on. Authorize the token for it, then choose Sync now. |
 | GitHub sent an unexpected response | Gitilizer keeps retrying. Report it on GitHub if it continues. |
 | GitHub's rate limit has been reached | GitHub limits each token's requests. Other tools using the same token share the limit. Scanning resumes when it resets. |
 | GitHub isn't responding | Check [githubstatus.com](https://www.githubstatus.com). Gitilizer keeps retrying. |
-| Your GitHub token will expire soon | Create a new token before the date and add it in Settings. |
+| Your GitHub personal access token will expire soon | Create a new token before the date and add it in Settings. |
 | Gitilizer can't access {repo} | The repository doesn't exist, was misspelled, or your token can't read it. |
 | Your Gemini API key isn't valid / Google has disabled your Gemini API key | Create a new key in Google AI Studio and add it in Settings. Google disables keys that were published, for example in a public repository. |
 | Your Gemini API key can't use the Gemini API | The key is restricted to other Google APIs. Create a new key in Google AI Studio. |
@@ -118,7 +118,7 @@ Report problems at [github.com/brianquinlan/gitilizer/issues](https://github.com
 ### What Gitilizer stores
 
 - **Your account:** your name, email address and picture from Google or GitHub, and which one you signed in with.
-- **Your credentials:** your GitHub token (with its expiry date) and your Gemini API key. They're encrypted, never shown again after you save them, never written to logs and never sent to Gemini.
+- **Your credentials:** your GitHub personal access token (with its expiry date) and your Gemini API key. They're encrypted, never shown again after you save them, never written to logs and never sent to Gemini.
 - **Your settings:** additional repositories and their prioritization prompts, collaborators, your ranking prompt and your sort order.
 - **Your items:** the GitHub data needed to rank and show each item (its text, comments, reviews and linked items), and for each item its score, the agent's reasoning, and whether you moved it to the Icebox.
 - **Notifications** that are currently active.

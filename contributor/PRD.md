@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-04 (credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus) |
+| **Last updated** | 2026-11-04 (credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus; the GitHub credential is called a "GitHub personal access token" everywhere) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -114,7 +114,7 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
 | Full re-rank | Ranking every item again, started by "Save and re-rank" in Settings, and once a day (`RANK-9`). |
 | Icebox check | A short question to the agent, with its own prompt, asking whether a change to an item in the Icebox should bring it back (`ICE-6`). |
 | Notification | An error or warning shown in the bell's popover. |
-| PAT | A GitHub personal access token. |
+| PAT | A GitHub personal access token. The interface calls it a "GitHub personal access token", as GitHub does, or a "personal access token" where GitHub is already clear, and never a "GitHub token" or "scanning token". Where the interface mentions both credentials, the GitHub one comes first. |
 
 ---
 
@@ -310,7 +310,7 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
   - the **summary**, which names the source, for example "GitHub connection";
   - when the problem was **first detected**, as a relative time (`LIST-22`), for example "2m ago";
   - the **severity** label, "ERROR" or "WARNING";
-  - the **heading**, which names the problem, for example "Your GitHub token has expired";
+  - the **heading**, which names the problem, for example "Your GitHub personal access token has expired";
   - the **body**, which describes the consequence and how to fix it.
 - **NOTIF-9** A mention of the Settings page in a body must be a link that opens Settings in the same tab, scrolled to the control that fixes the problem, with keyboard focus on it. For example, a GitHub token error focuses the personal access token field, and "Gitilizer can't access {repo}" focuses that repository's row. A mention of an external resource (for example githubstatus.com or the Google AI Studio status page) must be a link that opens in a new tab.
 - **NOTIF-10** The developer can't dismiss notifications. A notification stays until its condition is resolved.
@@ -324,7 +324,7 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 - **NOTIF-13** A notification must be removed as soon as the developer has plausibly fixed the problem. For example, saving a new PAT must clear every PAT-related notification at once. If the problem comes back with the new PAT, the notification is shown again with a new first-detected time.
 - **NOTIF-14** A notification whose condition clears without the developer doing anything (a rate limit resets, GitHub recovers) must be removed when the backend next observes that the condition is gone.
 - **NOTIF-15** The web app must update the bell and the popover without a page reload when notifications are added or removed.
-- **NOTIF-16** Before setup is complete, no notification is shown for a missing PAT or Gemini API key, because Warm Welcome covers that case. After setup, a missing credential is an error ("No GitHub token is set" or "No Gemini API key is set"). Settings has no way to remove a saved credential, only to replace it, so today this can happen only through a fault.
+- **NOTIF-16** Before setup is complete, no notification is shown for a missing PAT or Gemini API key, because Warm Welcome covers that case. After setup, a missing credential is an error ("No GitHub personal access token is set" or "No Gemini API key is set"). Settings has no way to remove a saved credential, only to replace it, so today this can happen only through a fault.
 - **NOTIF-21** Short-lived problems (rows marked "short-lived" in the catalogue: rate limits, "isn't responding", "limiting requests") often fix themselves after a retry. Gitilizer must retry them without telling the developer for 15 minutes, and then show them as **warnings**. The first-detected time is when the problem started, not when the warning appeared. If one lasts long enough to stop the list updating, "Your issues haven't updated since {time}" (an error, after 3 hours) covers it.
 - **NOTIF-22** The PAT expiry warning must first appear 7 days before the PAT expires. Its body counts down the days ("will expire in 3 days", as in Figma's example).
 
@@ -334,11 +334,11 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 
 | Severity | Summary | Heading | Consequence and fix | Detected when | Clears when |
 |---|---|---|---|---|---|
-| Error | GitHub connection | Your GitHub token has expired | Issue scanning is paused. Replace your personal access token in Settings. | GitHub returns 401 after the expiry date that GitHub sent in the `GitHub-Authentication-Token-Expiration` header of earlier responses. | A new PAT is saved. |
-| Error | GitHub connection | Your GitHub token isn't valid | Issue scanning is paused. The token may have been revoked, deleted or mistyped. Replace your personal access token in Settings. | Any other 401, or GitHub's temporary 403 after repeated failed authentication. | A new PAT is saved. |
+| Error | GitHub connection | Your GitHub personal access token has expired | Issue scanning is paused. Replace your personal access token in Settings. | GitHub returns 401 after the expiry date that GitHub sent in the `GitHub-Authentication-Token-Expiration` header of earlier responses. | A new PAT is saved. |
+| Error | GitHub connection | Your GitHub personal access token isn't valid | Issue scanning is paused. The token may have been revoked, deleted or mistyped. Replace your personal access token in Settings. | Any other 401, or GitHub's temporary 403 after repeated failed authentication. | A new PAT is saved. |
 | Error | GitHub connection | {org} doesn't allow this type of token | Issues and PRs from {org} are missing from your list. {org} blocks {classic / fine-grained} personal access tokens. Create the other type of token, or ask an owner of {org} to allow this one. | 403 whose message says the organization "forbids access via a personal access token (classic)" or "…with fine-grained permissions". | A new PAT is saved, or a request to {org} succeeds. |
-| Error | GitHub connection | Your GitHub token can't read {permission} | Some of your issues and PRs can't be read, so your list may be incomplete. Give the token read access to {permission}, or create a new token and add it in Settings. The documentation lists the permissions Gitilizer needs. | 403 "Resource not accessible by personal access token"; the `X-Accepted-GitHub-Permissions` header names the permission. | A new PAT is saved, or a request that needs {permission} succeeds. |
-| Error | GitHub connection | Your token isn't authorized for {org} | Issues and PRs from {org} are missing from your list. {org} uses single sign-on, so the token must be authorized for it. Authorize it in your GitHub token settings, then choose Sync now. | 403 with an `X-GitHub-SSO` header, or `X-GitHub-SSO: partial-results` on a search. | A new PAT is saved, or a request to {org} succeeds. |
+| Error | GitHub connection | Your GitHub personal access token can't read {permission} | Some of your issues and PRs can't be read, so your list may be incomplete. Give the token read access to {permission}, or create a new token and add it in Settings. The documentation lists the permissions Gitilizer needs. | 403 "Resource not accessible by personal access token"; the `X-Accepted-GitHub-Permissions` header names the permission. | A new PAT is saved, or a request that needs {permission} succeeds. |
+| Error | GitHub connection | Your token isn't authorized for {org} | Issues and PRs from {org} are missing from your list. {org} uses single sign-on, so the token must be authorized for it. Authorize it in your GitHub personal access token settings, then choose Sync now. | 403 with an `X-GitHub-SSO` header, or `X-GitHub-SSO: partial-results` on a search. | A new PAT is saved, or a request to {org} succeeds. |
 | Error | GitHub connection | GitHub sent an unexpected response | Your list may be missing recent changes. Gitilizer keeps retrying automatically. If this continues, report it using the GitHub link at the bottom of the page. | Any other 4xx, a GraphQL `errors` array, or a response that can't be parsed, after retries. | A scan succeeds. |
 | Warning (short-lived) | GitHub connection | GitHub's rate limit has been reached | Issue scanning is paused until {time}, when GitHub resets the limit, and then resumes automatically. Other tools that use the same token count toward the same limit. | 403 or 429 with `x-ratelimit-remaining: 0`, or a secondary rate limit message, for more than 15 minutes (`NOTIF-21`). | A GitHub request succeeds. |
 | Warning (short-lived) | GitHub connection | GitHub isn't responding | Issue scanning is paused. Gitilizer keeps retrying automatically. If this continues, check [githubstatus.com](https://www.githubstatus.com). | 5xx responses, timeouts or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | A scan succeeds. |
@@ -359,13 +359,13 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 | Error | Gitilizer | Can't connect to Gitilizer | Your list won't update until the connection comes back. Check your internet connection. | The web app's requests to the Gitilizer API fail. Detected in the browser. | A request succeeds. |
 | Error | Gitilizer | Gitilizer couldn't finish scanning | Your list may be missing recent changes. Gitilizer tries again at the next scan. If this continues, report it using the GitHub link at the bottom of the page. | The backend's own scan job fails for a reason other than GitHub. | A scan succeeds. |
 | Error | Gitilizer | Your issues haven't updated since {time} | No scan has finished in 3 hours, so your list may be missing recent changes. Try Sync now. If this continues, report it using the GitHub link at the bottom of the page. | No scan has succeeded for 3 hours. This catches failures the other rows miss. | A scan succeeds. |
-| Warning | GitHub connection | Your GitHub token will expire soon | Your GitHub personal access token will expire in {n} days. Create a new one and add it to Settings. | The stored expiry date is 7 days away or less (`NOTIF-22`). | A PAT with a later expiry date is saved. |
+| Warning | GitHub connection | Your GitHub personal access token will expire soon | Your GitHub personal access token will expire in {n} days. Create a new one and add it to Settings. | The stored expiry date is 7 days away or less (`NOTIF-22`). | A PAT with a later expiry date is saved. |
 
 Not in the catalogue, by decision:
 
 - "Some of your issues couldn't be loaded" (a search with more than 1,000 results). The list keeps only the 1,000 most recently updated items (`LIST-19`), so no search ever needs more than its first 1,000 results (`SCAN-1`).
 - "There's no GitHub user named @{name}". Settings shows this next to the collaborator instead (`SET-19`).
-- "Your GitHub token belongs to @{login}". The Validate result names the token's account instead (`SET-28`).
+- "Your GitHub personal access token belongs to @{login}". The Validate result names the token's account instead (`SET-28`).
 
 ---
 
@@ -378,16 +378,16 @@ fields instead of the whole Settings page.
 
 - **WEL-1** Warm Welcome must be shown under the conditions in [Which screen is shown](#which-screen-is-shown). It is therefore always the first screen after a developer's first sign-in.
 - **WEL-2** It must show the app bar, the footer and a panel with the title
-  "Welcome to your prioritized inbox", the text "Add your GitHub scanning token
-  and Gemini API key so Gitilizer can scan and rank your issues and PRs.", a
-  field for each credential, a "Save" button and the note "You can update both
+  "Welcome to your prioritized inbox", the text "Add your GitHub personal access
+  token and Gemini API key so Gitilizer can scan and rank your issues and PRs.",
+  a field for each credential, a "Save" button and the note "You can update both
   credentials later in Settings."
-- **WEL-3** The two fields, "GitHub scanning token" and "Gemini API key", must
-  work as in Settings: masked, with the eye icon, a "Validate" button and its
-  results (`SET-1`, `SET-2`, `SET-21`, `SET-28`), the links "Create a token ↗"
-  and "Get an API key ↗" (`SET-4`), and the guidance text shown in Figma with
-  "Learn more ↗" inline at its end (`SET-20`, `SET-32`). A credential already
-  saved from Settings appears as dots, as it does there.
+- **WEL-3** The two fields, "GitHub personal access token" and "Gemini API key",
+  must work as in Settings: masked, with the eye icon, a "Validate" button and
+  its results (`SET-1`, `SET-2`, `SET-21`, `SET-28`), the links "Create a
+  token ↗" and "Get an API key ↗" (`SET-4`), and the guidance text shown in
+  Figma with "Learn more ↗" inline at its end (`SET-20`, `SET-32`). A credential
+  already saved from Settings appears as dots, as it does there.
 - **WEL-4** "Save" must be disabled until both fields have a value, typed or
   already saved. Choosing it validates each typed value that hasn't passed
   Validate as typed, showing progress and results under its field as Validate
@@ -596,7 +596,7 @@ Settings is one page. The left column has links to its sections (Connections, Ad
 
 Both credentials are required.
 
-- **SET-1** The developer must be able to enter a Gemini API key and a GitHub personal access token. Each field is masked.
+- **SET-1** The developer must be able to enter a GitHub personal access token and a Gemini API key, in that order. Each field is masked. The GitHub card is titled "GitHub personal access token" and its field is labeled "Personal access token".
 - **SET-2** Each credential must have a "Validate" button that checks the value typed in the field, without saving it, and shows the result under the field (`SET-28`).
 - **SET-21** "Validate" must be disabled while its field is empty. That includes when the field shows a saved credential: a saved credential appears as dots, can't be shown or edited, and can't be validated again until it is replaced. The eye icon shows only a value typed during this visit. (Figma shows both Validate buttons disabled, because both credentials are saved.)
 - **SET-3** Each credential card must show a status chip (`SET-30`).
@@ -626,7 +626,7 @@ Both credentials are required.
   | Provider can't be reached | ✗ "Couldn't reach GitHub. Check your connection and try again." ("Google" for the Gemini key) |
   | Anything else | ✗ "Something went wrong on our side. Try again." |
 
-GitHub answers an expired token the same way as a mistyped one, and sends the expiry date only with successful responses, so Validate can tell an expired typed token apart only if GitHub's answer changes. Until then it shows "GitHub didn't accept this token…" ([Q-78](#q-78)). The "Your GitHub token has expired" notification is unaffected, because by then Gitilizer has seen the expiry date.
+GitHub answers an expired token the same way as a mistyped one, and sends the expiry date only with successful responses, so Validate can tell an expired typed token apart only if GitHub's answer changes. Until then it shows "GitHub didn't accept this token…" ([Q-78](#q-78)). The "Your GitHub personal access token has expired" notification is unaffected, because by then Gitilizer has seen the expiry date.
 
 - **SET-29** Saving in Settings doesn't validate credentials (Warm Welcome does, `WEL-4`). A saved credential that doesn't work shows up as a [notification](#catalogue) when Gitilizer first uses it.
 - **SET-30** The status chip on each credential card must show one of: "Not set" (grey) when no credential is saved; "Connected" (green) when one is saved and no error notification about it is active; "Not working" (red) while an error notification about it is active; "Expires soon" (amber) while the GitHub token's expiry warning is active.
@@ -639,7 +639,7 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   | What GitHub answered | Hover text |
   |---|---|
   | Not found. The repository doesn't exist, its name is misspelled, or it is private and the token can't read it. GitHub gives the same answer in all three cases, so as not to reveal that a private repository exists. | "GitHub says {repo} doesn't exist, or your token can't read it. Check the name, and that your token includes this repository." |
-  | The organization uses single sign-on and the token isn't authorized for it | "{org} uses single sign-on. Authorize your token for {org} in your GitHub token settings." |
+  | The organization uses single sign-on and the token isn't authorized for it | "{org} uses single sign-on. Authorize your token for {org} in your GitHub personal access token settings." |
   | The organization blocks this kind of token | "{org} doesn't allow {classic / fine-grained} tokens. Create the other kind of token, or ask an owner of {org} to allow this one." |
 
   If GitHub can't be reached, the repository keeps its last known state. A renamed repository keeps working: GitHub forwards the old name, and Gitilizer shows the new one.
@@ -1044,3 +1044,18 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 - Closing the popup with its close button or Esc returns keyboard focus to the
   rank, as closing the notification popover returns it to the bell (`LIST-24`,
   `NFR-2`, `NOTIF-20`). The popup closes if its item leaves the page.
+
+### Twenty-fourth revision (2026-11-04, seventh round)
+
+- The GitHub credential is called a "GitHub personal access token" everywhere,
+  as GitHub calls it, or a "personal access token" where GitHub is already
+  clear, never a "GitHub scanning token" or a "GitHub token"
+  ([Glossary](#glossary)). This changes the Warm Welcome text and field
+  (`WEL-2`, `WEL-3`), the Settings card title (`SET-1`), the notification
+  headings that named a "GitHub token" (`NOTIF-8`, `NOTIF-16`,
+  [Catalogue](#catalogue)) and the single sign-on hover text in Additional
+  repositories (`SET-8`).
+- Where both credentials are mentioned, the GitHub one comes first, including
+  the sign-in page's "Sign in first. Connect your tools next." explanation
+  (`AUTH-4`), as drawn in
+  [Sign in](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2978).
