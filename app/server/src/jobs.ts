@@ -1,6 +1,6 @@
 // The ranking job queue and the worker's side of it (design: Ranking worker).
 import { randomUUID } from "node:crypto";
-import type { NotificationCode } from "@gitilizer/shared";
+import type { NotificationCode, SyncEvent } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 import { getCredential } from "./credentials.ts";
 import { publish } from "./list.ts";
@@ -68,6 +68,17 @@ export async function queueFullRerank(ctx: Ctx, userId: string, reason: "rerank"
   if (!keys.length) return 0;
   const id = randomUUID();
   await ctx.db.query(`insert into rank_batches (id, user_id, reason) values ($1, $2, $3)`, [id, userId, reason]);
+  if (reason === "rerank") {
+    // "Save and re-rank" is a sync (LIST-16) and the daily re-rank isn't, so it takes over the jobs
+    // of a daily re-rank that is still running; that batch publishes what it has finished.
+    const moved = await ctx.db.query(
+      `update rank_jobs j set batch_id = $2, reason = 'rerank' from rank_batches b
+       where b.id = j.batch_id and b.reason = 'ageing' and j.user_id = $1 and j.state in ('queued', 'leased')
+       returning b.id as old`,
+      [userId, id],
+    );
+    for (const old of new Set(moved.map((m) => m.old as string))) await finishBatchIfDone(ctx, old);
+  }
   const n = await queueRankJobs(ctx, userId, keys.map((k) => ({ key: k.item_key, reason })), id);
   await finishBatchIfDone(ctx, id);
   return n;
@@ -317,25 +328,74 @@ export async function updateUnranked(ctx: Ctx, userId: string) {
 }
 
 /**
- * Whether a sync is in progress for the Sync now button (LIST-17, LIST-32): a
- * scan is running, or new and changed items are still being ranked. Bulk
- * re-ranks and items waiting for quota don't count.
+ * The sync state for Sync now and the progress text next to it (LIST-17,
+ * LIST-28, LIST-32, LIST-33). A sync is in progress while a scan is running,
+ * or while jobs that belong to a sync are open: jobs without a batch (GitHub
+ * activity), the first sync's and "Save and re-rank"'s. The daily re-rank
+ * (`ageing`, RANK-9) isn't a sync, and nothing counts while the developer's
+ * queue is paused (a key error, or every model's daily quota used up).
  */
-export async function syncState(ctx: Ctx, userId: string): Promise<{ running: boolean; lastFinishedAt: string | null }> {
+export async function syncState(ctx: Ctx, userId: string): Promise<SyncEvent> {
   const r = await ctx.db.one(
-    `select exists (select 1 from scans where user_id = $1 and finished_at is null) as scanning,
-            exists (select 1 from rank_jobs j left join rank_batches b on b.id = j.batch_id
-                    where j.user_id = $1 and j.state in ('queued', 'leased') and (b.reason is null or b.reason = 'first_sync')
-                      and not (u.ranking_paused_until is not null and u.ranking_paused_until > now())) as ranking,
+    `with s as (select kind, found, to_queue from scans where user_id = $1 and finished_at is null),
+          j as (select j.state, j.not_before from rank_jobs j left join rank_batches b on b.id = j.batch_id
+                where j.user_id = $1 and j.state in ('queued', 'leased') and (b.reason is null or b.reason in ('first_sync', 'rerank')))
+     select (select count(*) from s)::int as scanning,
+            (select kind from s) as kind, (select found from s) as found, (select to_queue from s) as to_queue,
+            (select count(*) from j)::int as open,
+            (select count(*) from j where state = 'leased')::int as leased,
+            (select min(not_before) > now() from j where state = 'queued') as delayed,
+            (u.ranking_paused_until is not null and u.ranking_paused_until > now()) as paused,
             (select max(finished_at) from scans where user_id = $1 and outcome = 'ok') as last
      from users u where u.id = $1`,
     [userId],
   );
-  return { running: Boolean(r?.scanning || r?.ranking), lastFinishedAt: r?.last ? new Date(r.last).toISOString() : null };
+  const lastFinishedAt = r?.last ? new Date(r.last).toISOString() : null;
+  const scanning = Boolean(r?.scanning);
+  const open = r && !r.paused ? Number(r.open) : 0;
+  if (!scanning && !open) return { running: false, lastFinishedAt, progress: null };
+  if (scanning && r.kind === "full" && r.to_queue === null) {
+    return { running: true, lastFinishedAt, progress: { phase: "finding", found: r.found === null ? null : Number(r.found) } };
+  }
+  // Items waiting for quota aren't left to rank (LIST-33): they wait until midnight Pacific time.
+  const left = r.paused ? 0 : Number(r.to_queue ?? 0) + open;
+  const waiting = open > 0 && Number(r.leased) === 0 && r.delayed === true;
+  return { running: true, lastFinishedAt, progress: { phase: "ranking", left, waiting } };
 }
 
-export async function pushSync(ctx: Ctx, userId: string) {
-  ctx.hub.sync(userId, await syncState(ctx, userId));
+/** Sync events for one developer are sent at most this often by each process (design: Live updates). */
+export const SYNC_PUSH_MS = 2000;
+const pushes = new WeakMap<Ctx, Map<string, { last: number; timer: NodeJS.Timeout | null }>>();
+
+/**
+ * Sends the developer's sync state to their tabs: at once if none was sent in
+ * the last 2 s, otherwise once at the end of that window, with the state at
+ * that moment. `now` skips the limit, for a scan starting or finishing.
+ */
+export async function pushSync(ctx: Ctx, userId: string, opts: { now?: boolean } = {}) {
+  let byUser = pushes.get(ctx);
+  if (!byUser) pushes.set(ctx, (byUser = new Map()));
+  const p = byUser.get(userId) ?? { last: 0, timer: null };
+  byUser.set(userId, p);
+  const wait = p.last + SYNC_PUSH_MS - Date.now();
+  if (opts.now || wait <= 0) {
+    if (p.timer) clearTimeout(p.timer);
+    p.timer = null;
+    p.last = Date.now();
+    ctx.hub.sync(userId, await syncState(ctx, userId));
+    return;
+  }
+  if (p.timer) return; // already due at the end of the window
+  p.timer = setTimeout(() => {
+    p.timer = null;
+    p.last = Date.now();
+    syncState(ctx, userId).then((e) => ctx.hub.sync(userId, e)).catch(() => {});
+  }, wait);
+  p.timer.unref?.();
+  // Forget developers who haven't had an event for a while, so the map stays small.
+  if (byUser.size > 1000) {
+    for (const [u, q] of byUser) if (!q.timer && Date.now() - q.last > SYNC_PUSH_MS) byUser.delete(u);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -397,11 +457,13 @@ export async function failJob(ctx: Ctx, jobId: number, e: { code: string; messag
   if (e.code in TRANSIENT) {
     await requeue(Math.max(5, e.retryAfterSeconds ?? 60));
     await raise(ctx, userId, TRANSIENT[e.code]);
+    await pushSync(ctx, userId); // may be "waiting for Gemini" now (LIST-33)
     return true;
   }
   // Item-level failure (blocked, invalid output, unknown): retry, then give up (RANK-6).
   if (job.attempts < MAX_ATTEMPTS) {
     await db.query(`update rank_jobs set state = 'queued', lease_expires_at = null, not_before = now() + interval '10 seconds' where id = $1`, [jobId]);
+    await pushSync(ctx, userId);
     return true;
   }
   await db.query(`update rank_jobs set state = 'failed', error_code = $2, finished_at = now() where id = $1`, [jobId, e.code]);

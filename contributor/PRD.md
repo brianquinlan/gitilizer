@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-03 (relative times for earlier years; full date on hover everywhere) |
+| **Last updated** | 2026-11-04 (sync progress text; "Save and re-rank" counts as a sync) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -444,10 +444,16 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 
 Figma: [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369)
 
-- **LIST-16** A "Sync now" button must start a sync: a scan for new, changed and removed items, followed by ranking of only the new and changed items.
+- **LIST-16** A "Sync now" button must start a sync: a scan for new, changed and removed items, followed by ranking of only the new and changed items. "Save and re-rank" (`SET-15`) also starts a sync, one that ranks every item again. The daily re-rank (`RANK-9`) isn't a sync: it doesn't turn the icon, disable the button or show progress (`LIST-33`), and only its result is shown (`LIVE-24`).
 - **LIST-17** While any sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), the button must show the **Syncing** state: its icon, in the accent color, turns clockwise once per second. With reduced motion, the icon is still and in the accent color.
 - **LIST-28** The button must be disabled while a sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), and enabled again as soon as the sync finishes (`LIST-32`). There is no other minimum interval between manual syncs.
-- **LIST-32** A sync counts as finished, and the icon stops turning, when the scan has finished and every new and changed item has been ranked, has failed, or is waiting because the daily quota is used up for every model (`RANK-15`). Waiting items are shown with "–" (`LIST-30`), and the "Your Gemini daily quota is used up" error explains the wait, so the icon doesn't turn until midnight Pacific time.
+- **LIST-32** A sync counts as finished, and the icon stops turning, when the scan has finished and every new and changed item (after "Save and re-rank", every item) has been ranked, has failed, or is waiting because the daily quota is used up for every model (`RANK-15`). Waiting items are shown with "–" (`LIST-30`), and the "Your Gemini daily quota is used up" error explains the wait, so the icon doesn't turn until midnight Pacific time.
+- **LIST-33** While a sync is in progress, text next to the button must show how far it has got (GitHub issue #5), as in [Inbox controls · Sync Progress](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=325-6832).
+  - While a full scan is finding items: "Finding issues and PRs… {n} so far", where {n} is the number of distinct open items found so far that aren't in the Icebox, at most 1,000 (`LIST-19`). It goes up as each search finishes. Until the first search finishes, the text is "Finding issues and PRs…".
+  - Once every search has finished, and for the whole of an incremental scan: "{n} left to rank", where {n} counts the items the sync will rank that haven't been ranked yet, including any still being downloaded, plus the Icebox checks it hasn't made yet (`ICE-6`). An item whose ranking failed (`LIST-30`) is done. {n} may go up during a sync as linked items are found (`RANK-10`).
+  - While ranking is held up by Gemini's per-minute limits or a retry: "{n} left to rank · waiting for Gemini".
+  - No text when {n} is 0, or when every remaining item is waiting because every model's daily quota is used up (`RANK-15`, `LIST-32`).
+  - The text changes at most once every 2 seconds, so it doesn't flicker, except that it disappears as soon as the sync finishes. "· waiting for Gemini" appears only after 5 seconds without progress, and goes as soon as {n} changes.
 
 ### Moving an item to the Icebox
 
@@ -623,7 +629,7 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 ### Saving
 
 - **SET-14** Changes must take effect only when the developer chooses "Save changes" or "Save and re-rank". Both save everything on the page, credentials included. "Cancel" discards unsaved changes (`NAV-9`).
-- **SET-15** "Save changes" must save without re-ranking: items already ranked keep their scores until they change on GitHub. New items, such as those from a newly added repository, are ranked as usual. "Save and re-rank" must save and then re-rank every item (a full re-rank, shown as in `LIVE-24`). Each button has the explanatory note shown in Figma next to it, without an estimate of how many items will be re-ranked.
+- **SET-15** "Save changes" must save without re-ranking: items already ranked keep their scores until they change on GitHub. New items, such as those from a newly added repository, are ranked as usual. "Save and re-rank" must save and then re-rank every item (a full re-rank, shown as in `LIVE-24`). It counts as a sync: Sync now turns and is disabled until every item has been ranked, and the progress text shows how many are left (`LIST-16`, `LIST-33`). Each button has the explanatory note shown in Figma next to it, without an estimate of how many items will be re-ranked.
 - **SET-26** Leaving Settings with unsaved changes (through a link, the browser's Back button or closing the tab) must ask the developer to confirm.
 
 - **SET-27** Settings must show problems next to the field they belong to, as in [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237):
@@ -668,7 +674,7 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 - **RANK-6** Short-lived Gemini failures must be retried automatically. An item that still can't be ranked is shown as in `LIST-30`.
 - **RANK-7** Changes to the default prompt or model should be measured with the evaluation harness before they ship.
 - **RANK-8** The default prompt should score a draft PR lower than the same PR ready for review. (`prompts/v4.md` already scores the developer's own drafts low; extend that to other people's drafts, and measure it as in `RANK-7`.)
-- **RANK-9** Every item must be ranked again at least once every 24 hours, so scores that depend on age stay current. This is a bulk re-rank (`LIVE-24`).
+- **RANK-9** Every item must be ranked again at least once every 24 hours, so scores that depend on age stay current. This is a bulk re-rank (`LIVE-24`). It happens out of sight: it isn't a sync, so Sync now doesn't turn and stays enabled while it runs (`LIST-16`).
 - **RANK-10** When a scan sees a change to an item, Gitilizer must also rank again the items in the developer's list that it links to. For example, an issue drops when a PR that fixes it is opened, although the issue itself hasn't changed.
 - **RANK-11** At most 4 Gemini requests may run at once for one developer. Ranking uses `gemini-3.8-flash` with thinking turned down as far as the model allows, to keep cost down. (The [model comparison](../eval/model-comparison-2026-11-01.md) measured this, "low" thinking, at Kendall tau 0.69, against 0.77 at the default level. The decision can be revisited.)
 - **RANK-12** Gitilizer must work with a Gemini API key on Google's free tier.
@@ -842,6 +848,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 | <a id="q-78"></a>Q-78 | What Validate shows for an expired typed token | GitHub answers it like a mistyped one, so: "GitHub didn't accept this token. Check that you copied it correctly." | `SET-28` |
 | <a id="q-79"></a>Q-79 | Sync now while items wait for quota | The sync counts as finished; the quota error explains the wait. | `LIST-32` |
 | <a id="q-80"></a>Q-80 | Who can sign in to the development environment | `dev.gitilizer.com`, with real GitHub and Gemini and each developer's own credentials. Only accounts on an allowlist can sign in: Google accounts by email, GitHub accounts by username or ID, kept in a setting the owner can change without a release. | `NFR-12`, `AUTH-10` |
+| <a id="q-81"></a>Q-81 | Progress during a sync, and whether bulk re-ranks are syncs | Show progress next to Sync now: the items found so far while searching, then the items left to rank. "Save and re-rank" is a sync, because the developer asked for it and otherwise sees nothing happen for minutes; the daily re-rank isn't, so it never disables Sync now. GitHub issue #5. | `LIST-16`, `LIST-32`, `LIST-33`, `SET-15`, `RANK-9` |
 
 ---
 
@@ -944,3 +951,8 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 ### Seventeenth revision (2026-11-03)
 
 - `LIST-22`: dates older than 30 days that aren't in the current year now read "last year" or "{n}y ago" instead of a bare month and day, and every relative time (including the Icebox line and notifications) shows the full date and time on hover. From GitHub issue #7; Q-24's answer is updated to match.
+
+### Eighteenth revision (2026-11-04)
+
+- Added `LIST-33`: text next to Sync now shows how far a sync has got, first the items found so far, then the items left to rank, changing at most once every 2 seconds (GitHub issue #5, Q-81), drawn in [Inbox controls · Sync Progress](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=325-6832).
+- "Save and re-rank" now counts as a sync, so Sync now turns and is disabled until it finishes (`LIST-16`, `LIST-32`, `SET-15`). The daily re-rank still doesn't (`RANK-9`): no decision had been recorded either way; it had followed from `LIST-32` mentioning only new and changed items.

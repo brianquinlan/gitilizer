@@ -56,7 +56,7 @@ export async function reapScans(ctx: Ctx, all = false): Promise<number> {
   );
   for (const r of rows) {
     log.warn("scan", "closed a scan that stopped without finishing", { user: r.user_id, scan: Number(r.id) });
-    await pushSync(ctx, r.user_id);
+    await pushSync(ctx, r.user_id, { now: true });
   }
   return rows.length;
 }
@@ -81,7 +81,7 @@ export async function scan(
   } catch {
     return { outcome: "skipped" }; // a scan is already running (SCAN-4)
   }
-  await pushSync(ctx, userId);
+  await pushSync(ctx, userId, { now: true });
   const started = Date.now();
   const beat = setInterval(() => {
     db.query(`update scans set heartbeat_at = now() where id = $1`, [scanId]).catch(() => {});
@@ -93,7 +93,7 @@ export async function scan(
     // One line per scan: its duration and outcome feed the scan metrics (NFR-6).
     log[outcome === "error" ? "warn" : "info"]("scan", "scan finished", { user: userId, trigger, kind, outcome, errorCode, queued, ms: Date.now() - started });
     if (outcome === "ok" && full) await db.query(`update users set last_full_scan_at = now() where id = $1`, [userId]);
-    await pushSync(ctx, userId);
+    await pushSync(ctx, userId, { now: true });
   };
 
   const pat = await getCredential(ctx, userId, "github_pat");
@@ -106,7 +106,7 @@ export async function scan(
   try {
     // Incremental scans overlap the last one by 2 minutes (design: Scanner, step 2).
     const since = full ? null : new Date(Date.parse(lastOk.t) - 120_000).toISOString().replace(/\.\d+Z$/, "Z");
-    const queued = await scanWith(ctx, gh, userId, since);
+    const queued = await scanWith(ctx, gh, userId, scanId, since);
     await clear(ctx, userId, SCAN_CLEARS);
     await finish("ok", null, queued);
     await markFirstSyncIfDone(ctx, userId);
@@ -148,7 +148,7 @@ export async function reportGitHubProblem(ctx: Ctx, userId: string, p: GitHubPro
 /** Problems that affect only part of the list; the scan carries on (catalogue). */
 const PARTIAL = new Set(["permission", "sso", "org_blocks_token"]);
 
-async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string | null): Promise<number> {
+async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, scanId: number, since: string | null): Promise<number> {
   const db = ctx.db;
   const full = since === null;
   const viewer = await gh.viewer();
@@ -166,8 +166,22 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
   await checkCollaborators(ctx, gh, userId);
   const repos = await checkRepos(ctx, gh, userId);
 
+  // What the developer has now. Read before discovery, so it can count what it finds (LIST-33).
+  const existing = new Map<string, any>();
+  for (const r of await db.query(
+    `select ui.item_key, ui.status, ui.ranked_updated_at, ui.reasons, ui.mention_handle, i.snapshot_updated_at, i.title, i.updated_at
+     from user_items ui join items i on i.key = ui.item_key where ui.user_id = $1`, [userId],
+  )) existing.set(r.item_key, r);
+
   // 1. Discover.
   const found = new Map<string, Found>();
+  // "Finding issues and PRs… {n} so far" (LIST-33): open items found so far that aren't in the Icebox.
+  const reportFound = async () => {
+    let n = 0;
+    for (const [key, f] of found) if (f.hit.state === "open" && existing.get(key)?.status !== "iceboxed") n++;
+    await db.query(`update scans set found = $2 where id = $1`, [scanId, Math.min(n, ctx.config.maxItems)]);
+    await pushSync(ctx, userId);
+  };
   const partial = new Set<string>();
   for (const q of discoveryQueries(viewer.login, repos, since)) {
     let hits: SearchHit[];
@@ -195,15 +209,9 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
       if (q.reason === "mentioned" && q.handle && !f.handle) f.handle = q.handle;
       found.set(h.key, f);
     }
+    await reportFound();
   }
   if (full && !partial.size) await clear(ctx, userId, ["github_permission_missing", "github_sso_required", "github_org_blocks_token"]);
-
-  // 2. What the developer has now.
-  const existing = new Map<string, any>();
-  for (const r of await db.query(
-    `select ui.item_key, ui.status, ui.ranked_updated_at, ui.reasons, ui.mention_handle, i.snapshot_updated_at, i.title, i.updated_at
-     from user_items ui join items i on i.key = ui.item_key where ui.user_id = $1`, [userId],
-  )) existing.set(r.item_key, r);
 
   // 3. Closed and merged items seen by an incremental scan leave at once (SCAN-2).
   const removals: { key: string; reason: RemovalReason }[] = [];
@@ -244,6 +252,33 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
   log.debug("scan", "discovery finished", { user: userId, found: found.size, kept: kept.size });
   let snapshots = 0;
 
+  // "{n} left to rank" (LIST-33): count the jobs step 5 will queue before downloading anything.
+  // The search results are enough to tell (`isChange` below). Items that already have an open
+  // job of the same kind in a sync are left out: that job is counted already, and the new one
+  // takes it over. Linked items can't be known yet; they are counted as they are queued.
+  const openSyncJobs = new Set((await db.query(
+    `select j.item_key, j.kind from rank_jobs j left join rank_batches b on b.id = j.batch_id
+     where j.user_id = $1 and j.state in ('queued', 'leased') and (b.reason is null or b.reason in ('first_sync', 'rerank'))`, [userId],
+  )).map((r) => `${r.item_key} ${r.kind}`));
+  const counted = new Map<string, string>(); // item key -> job kind
+  for (const [key, f] of found) {
+    const prev = existing.get(key);
+    const iceboxed = prev?.status === "iceboxed";
+    if (!iceboxed && !kept.has(key)) continue;
+    if (!isChangeFor(prev, f.hit.updatedAt)) continue;
+    const kind = iceboxed ? "icebox_check" : "rank";
+    if (!openSyncJobs.has(`${key} ${kind}`)) counted.set(key, kind);
+  }
+  const setToQueue = () => db.query(`update scans set to_queue = $2 where id = $1`, [scanId, counted.size]);
+  await setToQueue();
+  await pushSync(ctx, userId);
+  /** An item counted above has been queued or skipped: it leaves `to_queue`. */
+  const uncount = async (key: string, kind = counted.get(key)) => {
+    if (kind === undefined || counted.get(key) !== kind) return;
+    counted.delete(key);
+    await setToQueue();
+  };
+
   // 5. Store what was found; queue ranking and Icebox checks.
   // Each item is queued as soon as it's stored, so ranking runs alongside the
   // downloads and a first sync's list starts filling in at once (LIST-15).
@@ -255,9 +290,18 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
     // New items during the first sync belong to its batch (LIVE-24).
     const inBatch = j.reason === "new" && j.kind !== "icebox_check";
     queued += await queueRankJobs(ctx, userId, [j], inBatch ? batchId : null);
+    await uncount(j.key, j.kind ?? "rank");
+  };
+  // Linked items (RANK-10): rank again the items in the list that a changed item links to.
+  // Queued as each snapshot is stored, so the count left to rank doesn't jump at the end (LIST-33).
+  const active = new Set([...existing].filter(([, p]) => p.status === "active").map(([k]) => k));
+  const queueLinked = async (key: string, snap: any) => {
+    for (const linked of linkedKeys(snap)) {
+      if (linked === key || queuedKeys.has(linked) || !active.has(linked) || removals.some((r) => r.key === linked)) continue;
+      await queue({ key: linked, reason: "linked" });
+    }
   };
   const upserts: string[] = [];
-  const changed: { key: string; snap: any }[] = [];
   for (const [key, f] of found) {
     const prev = existing.get(key);
     const iceboxed = prev?.status === "iceboxed";
@@ -269,7 +313,7 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
        on conflict (key) do update set kind = $2, title = $3, html_url = $4, state = $5, updated_at = $6`,
       [h.key, h.kind, pgText(h.title), h.htmlUrl, h.state, h.updatedAt],
     );
-    const isChange = !prev || prev.status === "gone" || !prev.ranked_updated_at || Date.parse(prev.ranked_updated_at) < Date.parse(h.updatedAt);
+    const isChange = isChangeFor(prev, h.updatedAt);
     const needsSnapshot = !prev || !prev.snapshot_updated_at || Date.parse(prev.snapshot_updated_at) < Date.parse(h.updatedAt);
     if (needsSnapshot) {
       try {
@@ -278,10 +322,10 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
           `update items set snapshot = $2, snapshot_updated_at = $3, draft = $4 where key = $1`,
           [h.key, pgJson(snap), snap.issue?.updated_at ?? h.updatedAt, Boolean(snap.pull?.draft)],
         );
-        if (isChange) changed.push({ key, snap });
+        if (isChange) await queueLinked(key, snap);
         if (++snapshots % 25 === 0) log.debug("scan", "fetching items", { user: userId, fetched: snapshots, of: kept.size });
       } catch (e) {
-        if (e instanceof GitHubProblem && e.code === "not_found") continue; // deleted or made private since the search
+        if (e instanceof GitHubProblem && e.code === "not_found") { await uncount(key); continue; } // deleted or made private since the search
         if (!(e instanceof GitHubProblem)) log.warn("scan", "couldn't store an item", { user: userId, item: h.key });
         throw e;
       }
@@ -325,22 +369,14 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, since: string |
     }
   }
 
-  // 7. Linked items (RANK-10): rank again the items in the list that a changed item links to.
-  // This needs every change, so it waits for the whole download.
-  const linkedJobs: QueuedJob[] = [];
-  const active = new Set([...existing].filter(([, p]) => p.status === "active").map(([k]) => k));
-  for (const { key, snap } of changed) {
-    for (const linked of linkedKeys(snap)) {
-      if (linked === key || queuedKeys.has(linked) || !active.has(linked) || removals.some((r) => r.key === linked)) continue;
-      queuedKeys.add(linked);
-      linkedJobs.push({ key: linked, reason: "linked" });
-    }
-  }
-
   await publish(ctx, userId, upserts, removals);
   if (removals.length) await updateUnranked(ctx, userId);
-  for (const j of linkedJobs) await queue(j);
   return queued;
+}
+
+/** Whether a found item needs ranking (or an Icebox check): new, back, never ranked, or updated since its ranking. */
+function isChangeFor(prev: any, updatedAt: string): boolean {
+  return !prev || prev.status === "gone" || !prev.ranked_updated_at || Date.parse(prev.ranked_updated_at) < Date.parse(updatedAt);
 }
 
 const REASONS_IN_ORDER: Reason[] = ["review_requested", "assigned", "mentioned", "created", "commented", "additional_repo"];

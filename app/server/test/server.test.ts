@@ -9,7 +9,7 @@ import type { Ctx } from "../src/context.ts";
 import { FixtureGitHub, type FixtureStore } from "../src/github/fixtures.ts";
 import { classify, OctokitGitHub, partialResultOrgIds } from "../src/github/octokit.ts";
 import { limitSnapshot } from "../src/github/types.ts";
-import { claimJobs, completeJob, failJob, nextPacificMidnight, queueFullRerank, refreshQuotas } from "../src/jobs.ts";
+import { claimJobs, completeJob, failJob, nextPacificMidnight, pushSync, queueFullRerank, refreshQuotas, SYNC_PUSH_MS, syncState } from "../src/jobs.ts";
 import { listRows } from "../src/list.ts";
 import { shownNotifications } from "../src/notify.ts";
 import { discoveryQueries, reapScans, scan } from "../src/scanner.ts";
@@ -609,5 +609,104 @@ describe("storing GitHub content", () => {
     expect(await scan(ctx, "n1", "test")).toMatchObject({ outcome: "ok" });
     const row = await ctx.db.one(`select snapshot->'issue'->>'body' as body from items limit 1`);
     expect(row.body).toBe("before\uFFFDafter \uFFFD");
+  });
+});
+
+describe("sync progress (LIST-33)", () => {
+  const items = async (ctx: Ctx, u: string) => (await ctx.db.one(`select count(*)::int as n from user_items where user_id = $1`, [u])).n;
+  const rankAll = async (ctx: Ctx) => {
+    for (;;) {
+      const jobs = await claimJobs(ctx, 50, 60);
+      if (!jobs.length) return;
+      for (const j of jobs) await completeJob(ctx, j.id, { priority: 0.5, actionable: true, next_action: "x", reasoning: "y" });
+    }
+  };
+
+  it("counts what a full scan has found, then counts down what is left to rank", async () => {
+    const { ctx, store } = await makeCtx();
+    await addUser(ctx, "p1");
+    const gh = new FixtureGitHub(store);
+    const whileFinding: unknown[] = [];
+    const whileDownloading: unknown[] = [];
+    const search = gh.search.bind(gh);
+    gh.search = async (q, limit) => { whileFinding.push((await syncState(ctx, "p1")).progress); return search(q, limit); };
+    const snapshot = gh.snapshot.bind(gh);
+    let n = 0;
+    gh.snapshot = async (repo, number) => {
+      whileDownloading.push((await syncState(ctx, "p1")).progress);
+      // Rank some of what is queued, as the worker would while the scan runs.
+      if (n++ % 3 === 2) await rankAll(ctx);
+      return snapshot(repo, number);
+    };
+    ctx.github = () => gh;
+    await scan(ctx, "p1", "test");
+    const total = await items(ctx, "p1");
+
+    expect(whileFinding[0]).toEqual({ phase: "finding", found: null });
+    const counts = whileFinding.slice(1).map((p: any) => p.found);
+    expect(counts.length).toBeGreaterThan(3);
+    expect(counts).toEqual([...counts].sort((a, b) => a - b)); // only goes up
+    expect((await ctx.db.one(`select found from scans where user_id = 'p1'`)).found).toBe(total);
+
+    // Every item is counted once, before and after its download: the count only falls as items are ranked.
+    const ranked = async () => (await ctx.db.one(`select count(*)::int as n from user_items where user_id = 'p1' and score is not null`)).n;
+    expect(whileDownloading[0]).toEqual({ phase: "ranking", left: total, waiting: false });
+    const lefts = whileDownloading.map((p: any) => p.left);
+    expect(lefts).toEqual([...lefts].sort((a, b) => b - a));
+    expect(await syncState(ctx, "p1")).toMatchObject({ running: true, progress: { phase: "ranking", left: total - (await ranked()) } });
+
+    await rankAll(ctx);
+    expect(await syncState(ctx, "p1")).toMatchObject({ running: false, progress: null });
+  });
+
+  it("says ranking is waiting only when every open job is held back by a delay", async () => {
+    const { ctx } = await makeCtx();
+    await addUser(ctx, "p2");
+    await scan(ctx, "p2", "test");
+    const total = await items(ctx, "p2");
+    const [job] = await claimJobs(ctx, 1, 60);
+    await failJob(ctx, job.id, { code: "rate_limited", message: "429", retryAfterSeconds: 60 });
+    expect((await syncState(ctx, "p2")).progress).toMatchObject({ waiting: false }); // others can still run
+    await ctx.db.query(`update rank_jobs set not_before = now() + interval '1 minute' where user_id = 'p2' and state = 'queued'`);
+    expect((await syncState(ctx, "p2")).progress).toMatchObject({ phase: "ranking", left: total, waiting: true });
+    // Out of quota for every model: the sync is finished, and nothing is left to rank (LIST-32).
+    await ctx.db.query(`update users set ranking_paused_until = now() + interval '1 hour', ranking_paused_code = 'daily_quota' where id = 'p2'`);
+    expect(await syncState(ctx, "p2")).toMatchObject({ running: false, progress: null });
+  });
+
+  it("counts 'Save and re-rank' as a sync but not the daily re-rank, which it takes over (LIST-16, RANK-9)", async () => {
+    const { ctx, hub } = await makeCtx();
+    await addUser(ctx, "p3");
+    await scan(ctx, "p3", "test");
+    await rankAll(ctx);
+    const total = await items(ctx, "p3");
+    expect(await queueFullRerank(ctx, "p3", "ageing")).toBe(total);
+    for (const j of await claimJobs(ctx, 2, 60)) await completeJob(ctx, j.id, { priority: 0.1, actionable: true, next_action: "x", reasoning: "y" });
+    expect(await syncState(ctx, "p3")).toMatchObject({ running: false, progress: null });
+
+    hub.lists.length = 0;
+    await queueFullRerank(ctx, "p3", "rerank");
+    // The two the daily re-rank finished are published now; the rest belong to "Save and re-rank".
+    expect(hub.lists).toHaveLength(1);
+    expect(hub.lists[0]).toMatchObject({ bulk: true });
+    expect(hub.lists[0].upserts).toHaveLength(2);
+    expect(await syncState(ctx, "p3")).toMatchObject({ running: true, progress: { phase: "ranking", left: total, waiting: false } });
+    await rankAll(ctx);
+    expect(await syncState(ctx, "p3")).toMatchObject({ running: false });
+    expect(hub.lists.at(-1)!.upserts).toHaveLength(total);
+  });
+
+  it("sends at most one sync event every 2 s, the latest at the end of the window, unless told to send now", async () => {
+    const { ctx, hub } = await makeCtx();
+    await addUser(ctx, "p4");
+    hub.syncs.length = 0;
+    await pushSync(ctx, "p4");
+    await pushSync(ctx, "p4");
+    await pushSync(ctx, "p4");
+    expect(hub.syncs).toHaveLength(1);
+    await new Promise((r) => setTimeout(r, SYNC_PUSH_MS + 300));
+    expect(hub.syncs).toHaveLength(2);
+    await pushSync(ctx, "p4", { now: true });
+    expect(hub.syncs).toHaveLength(3);
   });
 });

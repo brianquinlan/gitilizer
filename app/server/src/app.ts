@@ -352,7 +352,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     if (both) await db.query(`update users set setup_completed_at = now() where id = $1 and setup_completed_at is null`, [userId]);
     if (next.rerank) await queueFullRerank(ctx, userId, "rerank"); // SET-15, LIVE-24
     scheduler.trigger(userId, "settings"); // SCAN-5: saving settings starts a sync
-    await pushSync(ctx, userId);
+    await pushSync(ctx, userId, { now: true }); // "Save and re-rank" is a sync from the start (LIST-16)
     return { ok: true };
   });
 

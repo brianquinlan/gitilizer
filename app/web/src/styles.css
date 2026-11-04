@@ -162,6 +162,8 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 /* LIST-23: repository names are cut off at the start. */
 .mono.repo { direction: rtl; text-align: left; }
 .btn.sync.syncing svg { color: var(--accent); }
+/* LIST-33: how far a sync has got. Tabular digits so the count doesn't jitter. */
+.sync-progress { color: var(--muted); font-size: 12px; line-height: 16px; white-space: nowrap; font-variant-numeric: tabular-nums; margin-right: 6px; }
 
 /* --- Panels: Warm Welcome, sign-in ----------------------------------------- */
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
