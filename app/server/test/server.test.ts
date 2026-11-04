@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { parseLogin, parseRepo, type SettingsUpdate } from "@gitilizer/shared";
 import { Allowlist, loadAllowlist, type SignInIdentity } from "../src/allowlist.ts";
 import { buildApp, settingsErrors } from "../src/app.ts";
@@ -9,12 +9,12 @@ import type { Ctx } from "../src/context.ts";
 import { FixtureGitHub, type FixtureStore } from "../src/github/fixtures.ts";
 import { classify, OctokitGitHub, partialResultOrgIds } from "../src/github/octokit.ts";
 import { limitSnapshot } from "../src/github/types.ts";
-import { claimJobs, completeJob, failJob, nextPacificMidnight, pushSync, queueFullRerank, refreshQuotas, SYNC_PUSH_MS, syncState } from "../src/jobs.ts";
+import { claimJobs, completeJob, failJob, nextPacificMidnight, pushSync, queueFullRerank, reapLeases, refreshQuotas, SYNC_PUSH_MS, syncState } from "../src/jobs.ts";
 import { listRows } from "../src/list.ts";
 import { shownNotifications } from "../src/notify.ts";
 import { discoveryQueries, reapScans, scan } from "../src/scanner.ts";
 import { Scheduler } from "../src/scheduler.ts";
-import { RankingWorker } from "../src/worker.ts";
+import { GEMINI_TIMEOUT_MS, RankingWorker } from "../src/worker.ts";
 import { addUser, FIXTURES, makeCtx, MODELS, type RecordingHub } from "./helpers.ts";
 
 describe("GitHub error classification (PRD catalogue)", () => {
@@ -305,6 +305,41 @@ describe("scan and rank cycle", () => {
     expect(failed).toBe(true);
     const n = (await shownNotifications(ctx, userId)).find((x) => x.code === "items_unranked");
     expect(n?.params).toEqual({ n: "1" });
+  });
+});
+
+describe("expired ranking leases (GitHub issue #3)", () => {
+  it("re-queues a job whose lease expired, fails it after 3, and logs a warning each time", async () => {
+    const { ctx } = await makeCtx();
+    await addUser(ctx, "u1");
+    await scan(ctx, "u1", "test");
+    const written: string[] = [];
+    const spy = vi.spyOn(process.stderr, "write").mockImplementation((s) => { written.push(String(s)); return true; });
+    try {
+      let id: number | null = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const [job] = await claimJobs(ctx, 1, 60);
+        id ??= job.id;
+        expect(job.id).toBe(id);
+        await ctx.db.query(`update rank_jobs set lease_expires_at = now() - interval '1 second' where id = $1`, [id]);
+        await reapLeases(ctx);
+      }
+      const j = await ctx.db.one(`select state, error_code, item_key from rank_jobs where id = $1`, [id]);
+      expect(j).toMatchObject({ state: "failed", error_code: "lease_expired" });
+      expect((await ctx.db.one(`select rank_failed from user_items where item_key = $1`, [j.item_key])).rank_failed).toBe(true);
+      expect((await shownNotifications(ctx, "u1")).map((n) => n.code)).toContain("items_unranked");
+      const warnings = written.filter((l) => l.includes("ranking lease expired"));
+      expect(warnings).toHaveLength(3);
+      expect(warnings[2]).toContain("failed=true");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("the worker's Gemini timeout", () => {
+  it("is well inside the 120 s lease, so a slow answer is retried instead of failing the item", () => {
+    expect(GEMINI_TIMEOUT_MS).toBeLessThanOrEqual(90_000);
   });
 });
 

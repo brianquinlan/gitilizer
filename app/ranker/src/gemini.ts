@@ -54,19 +54,44 @@ export function classifyGemini(e: unknown): Classified {
   return new Classified("unknown", text);
 }
 
-export type GeminiOptions = { model?: string; apiKey?: string; thinkingLevel?: string | null; maxRetries?: number };
+export type GeminiOptions = {
+  model?: string;
+  apiKey?: string;
+  thinkingLevel?: string | null;
+  maxRetries?: number;
+  /**
+   * The longest one generate() may take, retries included. Past it the request
+   * is abandoned and reported as `unavailable`. Unset: no limit.
+   */
+  timeoutMs?: number | null;
+};
+
+/** Settles with `p`, or rejects with the signal's reason as soon as it aborts. */
+function untilAborted<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    if (signal.aborted) return onAbort();
+    signal.addEventListener("abort", onAbort, { once: true });
+    p.then(
+      (v) => { signal.removeEventListener("abort", onAbort); resolve(v); },
+      (e) => { signal.removeEventListener("abort", onAbort); reject(e); },
+    );
+  });
+}
 
 export class GeminiLLM implements LLM {
   private ai: GoogleGenAI;
   model: string;
   private thinkingLevel: string | null;
   private maxRetries: number;
+  private timeoutMs: number | null;
 
   constructor(opts: GeminiOptions = {}) {
     this.ai = new GoogleGenAI({ apiKey: opts.apiKey ?? process.env.GEMINI_API_KEY });
     this.model = opts.model ?? DEFAULT_MODEL;
     this.thinkingLevel = opts.thinkingLevel ?? null;
     this.maxRetries = opts.maxRetries ?? 6;
+    this.timeoutMs = opts.timeoutMs ?? null;
   }
 
   async generate<T>(system: string, user: string, schema: OutputSchema<T>): Promise<{ result: T; usage: Usage }> {
@@ -77,9 +102,17 @@ export class GeminiLLM implements LLM {
     };
     if (this.thinkingLevel) config.thinkingConfig = { thinkingLevel: this.thinkingLevel.toUpperCase() as ThinkingLevel };
     let delay = 2000;
+    // Gemini sometimes takes minutes to answer, or never does. A deadline keeps a
+    // ranking job from outliving its lease (design: Ranking worker, "Leases").
+    const deadline = this.timeoutMs ? Date.now() + this.timeoutMs : Infinity;
+    const timedOut = () => new Classified("unavailable", `Gemini didn't answer within ${Math.round(this.timeoutMs! / 1000)} s`, 30);
     for (let attempt = 0; ; attempt++) {
+      const left = deadline - Date.now();
+      if (left <= 0) throw timedOut();
+      const signal = Number.isFinite(left) ? AbortSignal.timeout(left) : null;
       try {
-        const resp = await this.ai.models.generateContent({ model: this.model, contents: user, config });
+        const request = this.ai.models.generateContent({ model: this.model, contents: user, config: signal ? { ...config, abortSignal: signal } : config });
+        const resp = signal ? await untilAborted(request, signal) : await request;
         const parsed = schema.zod.safeParse(JSON.parse(resp.text ?? ""));
         if (!parsed.success) {
           const reason = resp.candidates?.[0]?.finishReason ?? "";
@@ -91,10 +124,13 @@ export class GeminiLLM implements LLM {
           usage: { prompt_tokens: u?.promptTokenCount ?? null, output_tokens: u?.candidatesTokenCount ?? null, thinking_tokens: u?.thoughtsTokenCount ?? null },
         };
       } catch (e) {
+        if (signal?.aborted) throw timedOut();
         const status = (e as any)?.status;
         if ([429, 500, 502, 503, 504].includes(status) && attempt < this.maxRetries - 1) {
           // A per-day quota won't come back in a few seconds; let the caller switch models.
           if (status === 429 && classifyGemini(e).code === "daily_quota") throw e;
+          // No time left to wait and try again: the server re-queues it instead.
+          if (deadline - Date.now() <= delay) throw e;
           await sleep(delay);
           delay = Math.min(delay * 2, 60_000);
           continue;

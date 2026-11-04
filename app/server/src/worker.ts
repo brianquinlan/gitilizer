@@ -10,6 +10,12 @@ import { log } from "./log.ts";
 /** Ranking uses the lowest thinking level the models allow (PRD RANK-11). */
 export const THINKING_LEVEL = "low";
 const LEASE_SECONDS = 120;
+/**
+ * The most a job may wait for Gemini, retries included: well inside the lease,
+ * so a slow answer comes back as `unavailable` and is retried later, instead
+ * of the lease expiring and the item failing (GitHub issue #3).
+ */
+export const GEMINI_TIMEOUT_MS = (LEASE_SECONDS - 30) * 1000;
 
 export type WorkerOptions = {
   /** Jobs in flight at once, across all developers. Each developer is limited to 4 by the claim (RANK-11). */
@@ -38,7 +44,7 @@ export class RankingWorker {
     this.llm = opts.llm ?? (ctx.config.geminiMode === "fake"
       ? () => fake
       // Few retries: the lease is 120 s, and the server re-queues short-lived failures.
-      : (job) => new GeminiLLM({ model: job.model, apiKey: job.geminiKey, thinkingLevel: THINKING_LEVEL, maxRetries: 2 }));
+      : (job) => new GeminiLLM({ model: job.model, apiKey: job.geminiKey, thinkingLevel: THINKING_LEVEL, maxRetries: 2, timeoutMs: GEMINI_TIMEOUT_MS }));
   }
 
   start() {
