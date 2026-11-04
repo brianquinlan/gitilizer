@@ -7,7 +7,6 @@
 | **Last updated** | 2026-11-03 (relative times for earlier years; full date on hover everywhere) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
-| **Replaces** | [Gitilizer PRD (Google Doc)](https://docs.google.com/document/d/1iN4HGqn5_Nz4g8oweqg0PK-iLlKQ8dza7ruqxADpu6U/edit) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
 
 ## How to read this document
@@ -38,7 +37,7 @@
 16. [Data and privacy](#data-and-privacy)
 17. [Non-functional requirements](#non-functional-requirements)
 18. [Open questions](#open-questions)
-19. [Appendix: changes from the Google Doc version](#appendix-changes-from-the-google-doc-version)
+19. [Appendix: revision history](#appendix-revision-history)
 
 ---
 
@@ -846,11 +845,13 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 
 ---
 
-## Appendix: changes from the Google Doc version
+## Appendix: revision history
+
+### First revision
 
 - Restructured into numbered requirements with IDs, a glossary, Figma links for every screen and an open-questions table.
 - Used one name for each screen: "Prompt for Settings" is now **Warm Welcome**, and "Issue index" / "The Prioritized Issue List" is now **Prioritized list** (the Figma frame is "Issue inbox").
-- Followed Figma where the Google Doc differs, and listed each difference: the issue number is part of the Issue column instead of its own column; relative times are short ("2m ago"); "Issue" sorts by type, with PRs first.
+- Followed Figma where the original draft differed, and listed each difference: the issue number is part of the Issue column instead of its own column; relative times are short ("2m ago"); "Issue" sorts by type, with PRs first.
 - Added from Figma: the account menu contents, the notification anatomy and empty state, the bell's states and swing timing, the Settings layout, the Icebox subtitle and the "full re-ranking" rule.
 - Added from the earlier review: @-mention labels show the handle, or "@-mentioned" when it is unknown.
 - Added "Detected when" and "Clears when" columns to the notification catalogue, a warning row for PAT expiry and a list of detectable errors that aren't yet in it.

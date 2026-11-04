@@ -12,6 +12,17 @@ This folder is for people building Gitilizer. If you want to *use* Gitilizer, re
 
 Open questions in both documents are marked **TODO:**, so searching for that finds everything waiting for an answer.
 
+## How features are developed
+
+A feature moves through three stages, in this order:
+
+1. **Requirements:** [PRD.md](PRD.md) and the
+   [Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1)
+   say what it does and how it looks.
+2. **Design:** [DESIGN.md](DESIGN.md) says how it's built. Skip this stage when
+   the change needs no design decision.
+3. **Code:** the implementation and its tests.
+
 ## Where the code is
 
 Everything is TypeScript, in npm workspaces:
