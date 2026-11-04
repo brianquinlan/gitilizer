@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype follows the 2026-11-01 PRD except where [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) says otherwise. |
 | **Author** | brian@sweetapp.com (drafted with Claude) |
-| **Last updated** | 2026-11-04 (sync progress, `LIST-33`; "Save and re-rank" is a sync); 2026-11-03 (relative times, `LIST-22`); 2026-11-02 (production: Google and GitHub sign-in, several processes on one database, the container image, pipeline and infrastructure scripts; D-10 and D-11) |
+| **Last updated** | 2026-11-04 (sync progress, `LIST-33`; "Save and re-rank" is a sync; a Gemini request can't outlive its ranking lease, and expired leases are logged, GitHub issue #3); 2026-11-03 (relative times, `LIST-22`); 2026-11-02 (production: Google and GitHub sign-in, several processes on one database, the container image, pipeline and infrastructure scripts; D-10 and D-11) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Google Cloud project** | `gitilizer` |
 | **Source** | [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer) |
@@ -484,7 +484,7 @@ A presence report that changes the developer to visible starts a scan at once if
 loop:
   jobs = claimJobs(max: room left, lease: 120 s)      # at most 4 leased per developer (RANK-11)
   for each job, concurrently:
-      llm = GeminiLLM(model: job.model, key: job.geminiKey, thinking: "low", retries: 2)   # FakeLLM in fixture mode
+      llm = GeminiLLM(model: job.model, key: job.geminiKey, thinking: "low", retries: 2, timeout: 90 s)   # FakeLLM in fixture mode
       if job.kind == "icebox_check":  completeJob(job, iceboxCheck(job, llm))
       else:                           completeJob(job, scoreItem(job, llm))   # one item, as of now
       on failure:                     failJob(job, classifyGemini(error))
@@ -501,7 +501,20 @@ A claimed job carries everything needed for one item: the snapshot, the develope
 
 **Error codes.** The worker classifies every Gemini failure, using the status codes in the PRD's catalogue: `key_invalid`, `key_leaked`, `permission_denied`, `credits_exhausted`, `billing_required`, `daily_quota`, `rate_limited`, `unavailable`, `model_not_found`, `blocked` (safety, recitation), `invalid_output`, `unknown`. Key-level codes (`key_*`, `permission_denied`, `credits_exhausted`, `billing_required`, `model_not_found`) make the server pause that developer's other jobs until the key changes or `retry_after` passes, instead of failing every item one by one. `daily_quota` is per model and handled as above.
 
-**Leases.** A claimed job is leased for 120 s. If no result arrives, it returns to the queue; after 3 attempts it is marked failed and the item shows "–" ([Q-28](PRD.md#q-28)).
+**Leases.** A claimed job is leased for 120 s. If no result arrives, it returns
+to the queue; after 3 attempts it is marked failed and the item shows "–"
+([Q-28](PRD.md#q-28)). Each expired lease is logged as a warning, since it means
+a worker stopped or a job overran.
+
+**Timeouts.** Gemini sometimes takes minutes to answer, or never does, so a
+job's Gemini request, retries included, is abandoned after 90 s: inside the
+lease, so the job always reports back before its lease runs out. A timeout is
+`unavailable`, so the job waits 30 s and is tried again without using up an
+attempt, and the item isn't marked failed. A retry that wouldn't fit before the
+deadline isn't attempted; the job is re-queued instead. Without the timeout, a
+slow Gemini let leases expire while requests were still running: the job ran
+again alongside the first request, outside the per-developer limit, and after 3
+expiries the item failed with nothing in the log (GitHub issue #3).
 
 ---
 
@@ -569,7 +582,7 @@ At 10,000 visible developers scanning every 5 minutes there are about **33 scans
 The goal (`NFR-11`) is a log that answers "what went wrong for this developer?" without wading through routine success. `app/server/src/log.ts` writes one line per event, with a component, a message and fields:
 
 - **Format.** In production (`LOG_FORMAT=json`) each line is a JSON object with `severity`, `component`, `message` and the fields, which Cloud Logging reads as a structured entry, so entries can be filtered by severity, component, developer or error code. Locally it is plain text.
-- **Levels.** `error`: something Gitilizer must fix (an unhandled error, a scan that crashed). `warn`: a problem a developer may see (an unexpected GitHub or Gemini response, a ranking job that failed for a reason other than a rate limit). `info`: one line per scan (trigger, full or incremental, outcome, items queued, duration), one summary a minute from each worker (jobs done, failures by code, median and 95th-percentile duration), startup, and browser timings. `debug`: one line per ranked item and per expected, short-lived failure. Production runs at `info`; local mode at `debug`.
+- **Levels.** `error`: something Gitilizer must fix (an unhandled error, a scan that crashed). `warn`: a problem a developer may see (an unexpected GitHub or Gemini response, a ranking job that failed for a reason other than a rate limit, an expired ranking lease). `info`: one line per scan (trigger, full or incremental, outcome, items queued, duration), one summary a minute from each worker (jobs done, failures by code, median and 95th-percentile duration), startup, and browser timings. `debug`: one line per ranked item and per expected, short-lived failure. Production runs at `info`; local mode at `debug`.
 - **What is never logged.** Credentials (fields whose names look like secrets are replaced with `[redacted]`), request bodies and item content. Developers appear by ID, not by email.
 - **Requests.** Cloud Run logs every HTTP request with its status and latency, so the server doesn't log requests itself.
 - **Metrics from logs.** The scan lines and the worker summaries become log-based metrics for scan and ranking durations and error rates (`NFR-6`), and the browser timings a distribution for `METRIC-3`, so the code needs no metrics client.

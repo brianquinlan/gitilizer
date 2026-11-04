@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-04 (sync progress text; "Save and re-rank" counts as a sync) |
+| **Last updated** | 2026-11-04 (sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding") |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -350,7 +350,7 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 | Warning | Gemini connection | Gitilizer is using a backup Gemini model | Your daily quota for {primary model} is used up, so new and changed issues are being ranked with {backup model} until it resets at {time}, in about {duration}. Rankings may be less accurate until then. To avoid this, turn on billing in Google AI Studio. | 429 for a per-day quota on any model except the last one in `RANK-13`. Only one is active at a time; it names the model now in use. | The primary model's quota resets. |
 | Error | Gemini connection | Your Gemini daily quota is used up | Your daily quota is used up for every Gemini model Gitilizer can use, so new and changed issues aren't being ranked. Ranking resumes automatically when the quota resets at {time}, in about {duration}. To avoid this, use an API key with billing turned on. | 429 for a per-day quota on every model in `RANK-13`. Google resets daily quotas at midnight Pacific time. | A Gemini request succeeds. |
 | Warning (short-lived) | Gemini connection | Gemini is limiting requests from your key | Ranking is slower than usual and catches up automatically. Other apps that use this key count toward the same limit. | 429 for a per-minute limit, for more than 15 minutes (`NOTIF-21`). | Gemini requests succeed without 429s for 15 minutes. |
-| Warning (short-lived) | Gemini connection | Gemini isn't responding | New and changed issues aren't being ranked. Gitilizer keeps retrying automatically. If this continues, check the [Google AI Studio status page](https://aistudio.google.com/status). | 500, 503 or 504 that continue after retries for more than 15 minutes (`NOTIF-21`). | A Gemini request succeeds. |
+| Warning (short-lived) | Gemini connection | Gemini isn't responding | New and changed issues aren't being ranked. Gitilizer keeps retrying automatically. If this continues, check the [Google AI Studio status page](https://aistudio.google.com/status). | 500, 503 or 504 responses, no answer within 90 seconds, or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | A Gemini request succeeds. |
 | Error | Gemini connection | The Gemini model Gitilizer uses isn't available | New and changed issues aren't being ranked. This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page. | 404 `model_not_found`. | A Gemini request succeeds. |
 | Error | Gemini connection | Gemini sent an unexpected response | New and changed issues may not be ranked. Gitilizer keeps retrying automatically. If this continues, report it using the GitHub link at the bottom of the page. | Any other Gemini error, after retries. | A Gemini request succeeds. |
 | Error | Issue ranking | Your ranking prompt isn't working | Most new and changed issues couldn't be ranked with your custom prompt. Edit the prompt, or restore the default prompt in Settings. | A custom prompt is set and more than half of the items in a ranking run fail to produce valid output. | The prompt is changed, or a ranking run succeeds. |
@@ -956,3 +956,11 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 
 - Added `LIST-33`: text next to Sync now shows how far a sync has got, first the items found so far, then the items left to rank, changing at most once every 2 seconds (GitHub issue #5, Q-81), drawn in [Inbox controls · Sync Progress](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=325-6832).
 - "Save and re-rank" now counts as a sync, so Sync now turns and is disabled until it finishes (`LIST-16`, `LIST-32`, `SET-15`). The daily re-rank still doesn't (`RANK-9`): no decision had been recorded either way; it had followed from `LIST-32` mentioning only new and changed items.
+
+### Nineteenth revision (2026-11-04, second round)
+
+- A Gemini request that hasn't answered within 90 seconds now counts as "Gemini
+  isn't responding": a short-lived failure that is retried (`RANK-6`), instead
+  of letting the item fail. Slow answers from Gemini had left items unranked
+  (GitHub issue #3). The catalogue row's condition now also names timeouts and
+  connection failures, which were already treated this way.

@@ -4,6 +4,7 @@ import type { NotificationCode, SyncEvent } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 import { getCredential } from "./credentials.ts";
 import { publish } from "./list.ts";
+import { log } from "./log.ts";
 import { clear, raise } from "./notify.ts";
 
 export type JobKind = "rank" | "icebox_check";
@@ -498,8 +499,13 @@ export async function reapLeases(ctx: Ctx) {
     `update rank_jobs set state = case when attempts >= ${MAX_ATTEMPTS} then 'failed' else 'queued' end,
        error_code = case when attempts >= ${MAX_ATTEMPTS} then 'lease_expired' else error_code end,
        finished_at = case when attempts >= ${MAX_ATTEMPTS} then now() else null end, lease_expires_at = null
-     where state = 'leased' and lease_expires_at < now() returning user_id, item_key, kind, state, batch_id`,
+     where state = 'leased' and lease_expires_at < now() returning user_id, item_key, kind, state, batch_id, attempts`,
   );
+  // A lease only expires if a worker stopped or a job ran far longer than it should,
+  // and the last one leaves the item unranked, so each one needs a look.
+  for (const r of expired) {
+    log.warn("worker", "ranking lease expired", { user: r.user_id, item: r.item_key, kind: r.kind, attempts: r.attempts, failed: r.state === "failed" });
+  }
   for (const r of expired.filter((r) => r.state === "failed")) {
     await giveUp(ctx, r.user_id, r.item_key, r.kind, "lease_expired");
     await afterJob(ctx, r.user_id, r.batch_id);

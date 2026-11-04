@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { iceboxCheck, iceboxMessage, scoreItem } from "../src/agent.ts";
 import { UserSettings, buildContext, computeSignals, parseTime } from "../src/context.ts";
 import { evaluate } from "../src/evaluate.ts";
-import { Classified, FakeLLM, InvalidOutput, classifyGemini } from "../src/gemini.ts";
+import { Classified, FakeLLM, GeminiLLM, InvalidOutput, classifyGemini } from "../src/gemini.ts";
 import { IssueRef } from "../src/github.ts";
 import { loadGroundTruth } from "../src/groundTruth.ts";
 import { allMetrics, discordantPairs, kendallTau, ndcg, spearmanRho, topKOverlap } from "../src/metrics.ts";
@@ -410,6 +410,39 @@ describe("Gemini errors", () => {
   it("treats bad output as an item-level failure", () => {
     expect(classifyGemini(new SyntaxError("Unexpected token")).code).toBe("invalid_output");
     expect(classifyGemini(new InvalidOutput("finish_reason SAFETY")).code).toBe("blocked");
+  });
+});
+
+describe("Gemini timeout", () => {
+  /** A GeminiLLM whose requests are answered by `answer` instead of the network. */
+  const withAnswers = (timeoutMs: number | null, answer: (signal?: AbortSignal) => Promise<unknown>) => {
+    const llm = new GeminiLLM({ apiKey: "test", maxRetries: 2, timeoutMs });
+    const calls: (AbortSignal | undefined)[] = [];
+    (llm as any).ai = { models: { generateContent: (req: any) => { calls.push(req.config.abortSignal); return answer(req.config.abortSignal); } } };
+    return { llm, calls };
+  };
+  const ok = { text: JSON.stringify({ bring_back: true, reason: "r" }) };
+
+  it("gives up on a request that doesn't answer in time, as unavailable", async () => {
+    const { llm, calls } = withAnswers(50, () => new Promise(() => {})); // never answers, ignores the signal
+    const started = Date.now();
+    await expect(llm.generate("s", "u", ICEBOX_DECISION)).rejects.toMatchObject({ code: "unavailable", retryAfter: 30 });
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(calls[0]?.aborted).toBe(true); // the request itself is cancelled too
+  });
+  it("doesn't wait to retry when the wait would pass the deadline", async () => {
+    const { llm, calls } = withAnswers(500, async () => { throw new FakeApiError(503, "The model is overloaded."); });
+    const started = Date.now();
+    await expect(llm.generate("s", "u", ICEBOX_DECISION)).rejects.toMatchObject({ status: 503 });
+    expect(Date.now() - started).toBeLessThan(1000); // the first retry would have waited 2 s
+    expect(calls).toHaveLength(1);
+  });
+  it("answers normally inside the deadline, and has no deadline when none is set", async () => {
+    const timed = withAnswers(5000, async () => ok);
+    expect((await timed.llm.generate("s", "u", ICEBOX_DECISION)).result.bring_back).toBe(true);
+    const untimed = withAnswers(null, async () => ok);
+    await untimed.llm.generate("s", "u", ICEBOX_DECISION);
+    expect(untimed.calls[0]).toBeUndefined();
   });
 });
 
