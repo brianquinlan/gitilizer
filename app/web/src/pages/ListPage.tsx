@@ -130,7 +130,7 @@ function Rows(props: {
                ref={(el) => { if (el) els.current.set(r.key, el); else els.current.delete(r.key); }}
                className={`tr ${indicators[r.key] ? "highlight" : ""} ${r.leaving ? "leaving" : ""} ${collapsing.has(r.key) ? "collapse" : ""} ${n === 1 && view === "prioritized" ? "top" : ""}`}>
             {view === "prioritized" && (
-              <span role="cell" className={`rank ${n === 1 ? "first" : ""}`}>
+              <span role="cell" className="rank">
                 {/* Ranks are never zero-padded; unranked items show "–" (Columns, LIST-30). */}
                 {r.leaving ? "" : n !== undefined ? n : "–"}
                 {indicators[r.key] && <span className="indicator">{indicators[r.key]}</span>}
