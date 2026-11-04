@@ -177,7 +177,6 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .welcome .field-label label { font-weight: 600; color: var(--ink); }
 .welcome .field-label a { font-size: 11px; }
 .welcome .fine { font-size: 11px; line-height: 1.6; }
-.welcome .fine a { text-decoration: none; white-space: nowrap; }
 .welcome-save { width: 100%; display: grid; gap: 12px; justify-items: center; }
 .welcome-save .btn.primary { height: 40px; min-width: 88px; padding: 0 20px; justify-content: center; font-weight: 600; }
 .welcome-save .save-note { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.5; }
@@ -270,8 +269,7 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .secret .eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--muted); cursor: pointer; display: grid; padding: 4px; }
 input.invalid, textarea.invalid, .secret.invalid input { border-color: var(--error); background: var(--surface); }
 .result.muted { color: var(--muted); }
-.fine-row { display: flex; gap: 16px; align-items: baseline; justify-content: space-between; }
-.fine-link { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.fine-link { text-decoration: none; white-space: nowrap; }
 .field-error { color: var(--error); font-size: 12.5px; margin-top: 6px; }
 .list-rows .lr.repo-row, .list-rows .lr.collab-row { display: block; padding: 12px 16px; scroll-margin-top: 120px; }
 .list-rows .lr.collab-row { display: flex; gap: 12px; align-items: center; }

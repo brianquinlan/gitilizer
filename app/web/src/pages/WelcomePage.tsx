@@ -5,7 +5,7 @@ import { type CredentialKind, type SetupRequest, type SetupResponse } from "@git
 import { api, ApiError } from "../api.ts";
 import { DOCS_URL } from "../components/Chrome.tsx";
 import { CredentialField, passed, type Check } from "../components/CredentialField.tsx";
-import { ExternalIcon, InboxIcon } from "../icons.tsx";
+import { InboxIcon } from "../icons.tsx";
 import { navigate } from "../router.tsx";
 import { useStore } from "../store.tsx";
 
@@ -78,13 +78,14 @@ export function WelcomePage() {
           <div className="credential-field">
             <CredentialField {...field("github_pat")} label="GitHub scanning token"
               setup={{ text: "Create a token", href: "https://github.com/settings/personal-access-tokens/new" }}
-              guidance={<>Gitilizer only needs read access to Issues, Pull Requests and Metadata for the repositories you want to
-                scan. <a href={`${DOCS_URL}#github-tokens`} target="_blank" rel="noreferrer">Learn more <ExternalIcon /></a></>} />
+              guidance="Gitilizer only needs read access to Issues, Pull Requests and Metadata for the repositories you want to scan."
+              learnMore={`${DOCS_URL}#github-tokens`} />
           </div>
           <div className="credential-field">
             <CredentialField {...field("gemini_key")} label="Gemini API key"
               setup={{ text: "Get an API key", href: "https://aistudio.google.com/apikey" }}
-              guidance={<>Used by Gemini to score and prioritize your issues and PRs.</>} />
+              guidance="Used by Gemini to score and prioritize your issues and PRs."
+              learnMore={`${DOCS_URL}#gemini-api-keys`} />
           </div>
         </div>
         <div className="welcome-save">

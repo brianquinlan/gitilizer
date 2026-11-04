@@ -16,7 +16,9 @@ export function credentialFieldId(kind: CredentialKind) {
 }
 
 export function CredentialField(props: {
-  kind: CredentialKind; label: string; setup: { text: string; href: string }; guidance: ReactNode; learnMore?: string;
+  kind: CredentialKind; label: string; setup: { text: string; href: string };
+  /** The guidance text; "Learn more ↗" follows it inline (SET-20, SET-32). */
+  guidance: ReactNode; learnMore: string;
   /** A credential is saved: it shows as dots and can only be replaced (SET-21). */
   saved: boolean;
   value: string; onChange: (v: string) => void;
@@ -67,10 +69,9 @@ export function CredentialField(props: {
         : check && <span className={`result ${check.ok ? "" : "bad"}`} role="status">
             {check.ok ? <CheckCircleIcon /> : <XCircleIcon />} {checkMessage(kind, check)}
           </span>}
-      <div className="fine-row">
-        <p className="fine">{props.guidance}</p>
-        {props.learnMore && <a className="fine-link" href={props.learnMore} target="_blank" rel="noreferrer">Learn more <ExternalIcon /></a>}
-      </div>
+      <p className="fine">
+        {props.guidance} <a className="fine-link" href={props.learnMore} target="_blank" rel="noreferrer">Learn more <ExternalIcon /></a>
+      </p>
     </>
   );
 }

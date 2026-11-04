@@ -406,13 +406,14 @@ Details that need more than markup:
 - **Warm Welcome** (`WEL-2` to `WEL-4`). The credential field (label and
   link, masked input, eye icon, Validate and its result) is one component,
   `CredentialField`, used by both Warm Welcome and Settings' credential cards,
-  so the two behave alike. Settings adds the card, chip and purpose line; Warm
-  Welcome passes the shorter link labels. Save is disabled while either field
-  is empty (a saved credential counts) or a check is running. It sends the
-  typed values to `POST /api/setup`, showing "Checking…" under each field whose
-  value hasn't passed Validate; the response's results then replace them. On
-  success the store reloads `GET /api/me`, whose `screen` is now `app`, and the
-  app navigates to `/`, which shows the first-sync state.
+  so the two behave alike, down to the inline "Learn more ↗" after the
+  guidance (`SET-20`, `SET-32`). Settings adds the card, chip and purpose line.
+  Save is disabled while either field is empty (a saved credential counts) or
+  a check is running. It sends the typed values to `POST /api/setup`, showing
+  "Checking…" under each field whose value hasn't passed Validate; the
+  response's results then replace them. On success the store reloads
+  `GET /api/me`, whose `screen` is now `app`, and the app navigates to `/`,
+  which shows the first-sync state.
 - **Account menu.** Closes on a click outside, on Esc and when an item is chosen (`ACCT-4`). The action is "Sign out" everywhere (`ACCT-5`).
 - **Delete account.** A simple confirmation dialog, then `DELETE /api/account` and a redirect to `/sign-in` (`SET-17`).
 - **Screens and browsers.** Layouts are for 1024 px and wider; there are no touch handlers (`PLAT-6`). Everything meets WCAG 2.2 AA (`NFR-10`); the Playwright run includes an automated accessibility check.
@@ -673,7 +674,7 @@ The prototype implements the slice end to end, following the PRD as revised on 2
 | Account deletion | Simple confirmation; `{ confirm: true }`; the account's ID kept in `deleted_users`. |
 | Metrics | `user_activity`, `GET /internal/metrics` (including deleted accounts), and `POST /api/telemetry`, which logs the time to a usable list. The log-based metrics, uptime check, alert policies and dashboard are written (`infra/monitoring/`, `infra/monitoring.sh`) and are created with the hosting. **Not done:** the Looker Studio usage dashboard (`METRIC-1`). |
 | Deployment | The container image (`Dockerfile`, which serves the built web app), the startup checks for deployed environments, `/api/health`, several processes on one database, the CI and Release workflows, the Cloud Build config, and `gcloud` scripts for every Google Cloud resource (`infra/`). **Not done:** creating them in the `gitilizer` project ([LAUNCH_PLAN.md](LAUNCH_PLAN.md)). |
-| Documentation | [docs/user-guide.md](../docs/user-guide.md): getting started, GitHub tokens (the "Learn more" page), Gemini keys and the free tier's limits, every notification, and the privacy section (`FOOT-3`, `FOOT-4`). |
+| Documentation | [docs/user-guide.md](../docs/user-guide.md): getting started, GitHub tokens and Gemini keys with the free tier's limits (the two "Learn more" pages), every notification, and the privacy section (`FOOT-3`, `FOOT-4`). |
 | Upgrades | A database made by an earlier prototype (for example in `.local/`) is upgraded in place when the server starts: `interested_repos` becomes `additional_repos`, and new columns are added. |
 
 **Tests.** 14 web tests, 17 production tests (the startup checks; Google and GitHub sign-in against stand-ins, including every failure category; the web app's files and headers; presence, scan requests and the lease shared between schedulers), 6 tests of two processes on a real Postgres (live updates between processes, large events, Sync now handed from an API process to a scanner, a dropped `LISTEN` connection, the lease; they run when `TEST_DATABASE_URL` is set, as in CI), (the live-update state machine, including bulk events, waiting and failed items, over-limit removals and the Icebox return), 46 server tests (error classification, storing text Postgres can't hold, the separate issue and PR searches, the per-scan repository lookup, snapshot limits, discovery, ranking while a first sync is still downloading, the Settings rules, quota resets, local mode, a full scan → rank → change → close → Icebox → over-limit → bulk re-rank → quota fallback → key-failure cycle on in-memory Postgres, the in-process worker, and the HTTP API for Settings, Validate, Warm Welcome's Save, Sync now, notifications and deletion, the development allowlist, and closing interrupted scans) and 48 agent tests (the original Python tests and the worker's, ported, plus the comparison with the Python agent's output). A browser run in fixture mode covered Warm Welcome (Validate, a failed Save that saves nothing, and a Save that opens the first-sync state), the list, the first-sync state, notifications and their Settings links, the Settings rules and errors, Validate, saving, Delete account's dialog, the account menu and the sign-in notices, and a second run with an allowlist covered a refused GitHub sign-in, its notice and an allowed one.

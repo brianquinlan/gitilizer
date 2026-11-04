@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-04 (credentials entered and validated on Warm Welcome; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding") |
+| **Last updated** | 2026-11-04 (credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding") |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -250,7 +250,7 @@ Figma: [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Git
 - **FOOT-2** The footer must show the tagline "Less triage. More shipping." and two links, both opening in a new tab:
   - "Documentation": the user documentation, hosted in the GitHub repository (`https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md`);
   - "GitHub": the project's GitHub page, [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer), which is also the project's landing page.
-- **FOOT-3** The user documentation must exist at launch. At least, it must explain the two kinds of GitHub token and how to create one with the right permissions (the page that "Learn more" in Settings opens, `SET-20`), how to create a Gemini API key, and what each [notification](#catalogue) means. It must also explain the limits of a free-tier Gemini API key: the small daily quota, how Gitilizer then falls back to smaller models and finally pauses ranking (`RANK-13` to `RANK-15`), and how to get a key with billing turned on, with a link to Google's instructions.
+- **FOOT-3** The user documentation must exist at launch. At least, it must explain the two kinds of GitHub token and how to create one with the right permissions (the page that the GitHub token's "Learn more" opens, `SET-20`), how to create a Gemini API key (the page that the Gemini key's "Learn more" opens, `SET-32`), and what each [notification](#catalogue) means. It must also explain the limits of a free-tier Gemini API key: the small daily quota, how Gitilizer then falls back to smaller models and finally pauses ranking (`RANK-13` to `RANK-15`), and how to get a key with billing turned on, with a link to Google's instructions.
 - **FOOT-4** The user documentation must have a privacy section that explains, in plain language:
   - what Gitilizer stores about a developer ([Data and privacy](#data-and-privacy)), and that credentials are encrypted and never shown again (`PRIV-1`);
   - when it is deleted: an item's data 30 days after no developer has it (`PRIV-5`), everything about a developer immediately when they delete their account (`SET-17`), and copies in backups within 6 months (`PRIV-4`);
@@ -384,10 +384,10 @@ fields instead of the whole Settings page.
   credentials later in Settings."
 - **WEL-3** The two fields, "GitHub scanning token" and "Gemini API key", must
   work as in Settings: masked, with the eye icon, a "Validate" button and its
-  results (`SET-1`, `SET-2`, `SET-21`, `SET-28`), and the guidance text and
-  "Learn more ↗" shown in Figma (`SET-20`). Their links read "Create a token ↗"
-  and "Get an API key ↗" and open the same pages as in Settings (`SET-4`). A
-  credential already saved from Settings appears as dots, as it does there.
+  results (`SET-1`, `SET-2`, `SET-21`, `SET-28`), the links "Create a token ↗"
+  and "Get an API key ↗" (`SET-4`), and the guidance text shown in Figma with
+  "Learn more ↗" inline at its end (`SET-20`, `SET-32`). A credential already
+  saved from Settings appears as dots, as it does there.
 - **WEL-4** "Save" must be disabled until both fields have a value, typed or
   already saved. Choosing it validates each typed value that hasn't passed
   Validate as typed, showing progress and results under its field as Validate
@@ -594,14 +594,15 @@ Both credentials are required.
 - **SET-2** Each credential must have a "Validate" button that checks the value typed in the field, without saving it, and shows the result under the field (`SET-28`).
 - **SET-21** "Validate" must be disabled while its field is empty. That includes when the field shows a saved credential: a saved credential appears as dots, can't be shown or edited, and can't be validated again until it is replaced. The eye icon shows only a value typed during this visit. (Figma shows both Validate buttons disabled, because both credentials are saved.)
 - **SET-3** Each credential card must show a status chip (`SET-30`).
-- **SET-4** "Get an API key (it's free!) ↗" must open Google AI Studio's API key page, and "Create a token (it's free!) ↗" must open GitHub's new-token page, both in a new tab.
+- **SET-4** "Get an API key ↗" must open Google AI Studio's API key page, and "Create a token ↗" must open GitHub's new-token page, both in a new tab. The labels don't say the credentials are free: a Gemini key's cost depends on whether its project has billing turned on, which the documentation behind "Learn more" explains (`SET-32`).
 - **SET-5** Saving a credential must clear the related notifications (`NOTIF-13`) and start a sync.
 - **SET-6** For a PAT, the backend must record the expiry date from GitHub's `GitHub-Authentication-Token-Expiration` header, if it sends one, for the expiry warning.
-- **SET-20** "Learn more ↗" in the GitHub token card must open, in a new tab, the documentation page about GitHub tokens (`FOOT-3`). That page explains:
+- **SET-20** "Learn more ↗" at the end of the GitHub token's guidance text, inline with it, must open, in a new tab, the documentation page about GitHub tokens (`FOOT-3`). That page explains:
   - that Gitilizer accepts both kinds of personal access token and recommends a fine-grained one;
   - that a **fine-grained token** can be read-only (Issues, Pull requests and Metadata: read) but reads the private repositories of only one owner, the developer or one organization, and that an organization may have to approve it;
   - that a **classic token** with the `repo` scope reads every repository the developer can access, in every organization, but also allows writing, so it is needed only when the developer's private repositories belong to more than one owner; and that Gitilizer only ever reads;
   - that Gitilizer takes one token per developer ([Non-goals](#non-goals)).
+- **SET-32** The Gemini key's guidance text must end, inline with it, with "Learn more ↗", which opens, in a new tab, the documentation about Gemini API keys (`FOOT-3`): how to create one, the free tier's limits and how to turn billing on.
 - **SET-22** Settings must not show which Gemini model is used. Gitilizer chooses it.
 - **SET-28** Validate must show its progress and result under the field. A success has a green check mark; a failure has a red ✗ and red text, as in [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237).
 
@@ -1018,3 +1019,13 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
   not replace this token.", so `AUTH-5` no longer quotes it. The Gemini key's
   guidance now reads "Used by Gemini to score and prioritize your issues and
   PRs.", as on Warm Welcome.
+
+### Twenty-second revision (2026-11-04, fifth round)
+
+- The credential links read "Create a token ↗" and "Get an API key ↗" in both
+  Settings and Warm Welcome, without "(it's free!)": a Gemini key is free only
+  on Google's free tier (`SET-4`).
+- The Gemini key now has a "Learn more ↗" too, which opens the documentation
+  about Gemini keys and the free tier (`SET-32`). Both "Learn more" links sit
+  inline at the end of the guidance text, in Settings as on Warm Welcome
+  (`SET-20`, `WEL-3`, `FOOT-3`).
