@@ -94,7 +94,7 @@ export function SignInPage() {
         <div className="table preview" style={{ marginTop: 32 }} aria-hidden="true">
           <div className="tr thead" style={{ gridTemplateColumns: "72px 1fr" }}><span className="th active">Priority ↑</span><span className="th">Issue</span></div>
           {PREVIEW.map(([kind, title, meta], i) => (
-            <div className={`tr ${i === 0 ? "top" : ""}`} key={title} style={{ gridTemplateColumns: "72px 1fr" }}>
+            <div className="tr" key={title} style={{ gridTemplateColumns: "72px 1fr" }}>
               <span className="rank">{i + 1}</span>
               <span className="issue">
                 <span className={`kind ${kind}`}>{kind === "pr" ? <PrIcon /> : <IssueIcon />}</span>

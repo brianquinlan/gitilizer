@@ -156,7 +156,7 @@ function Rows(props: {
         return (
           <div key={r.key} role="row"
                ref={(el) => { if (el) els.current.set(r.key, el); else els.current.delete(r.key); }}
-               className={`tr ${indicators[r.key] ? "highlight" : ""} ${r.leaving ? "leaving" : ""} ${collapsing.has(r.key) ? "collapse" : ""} ${n === 1 && view === "prioritized" ? "top" : ""}`}>
+               className={`tr ${indicators[r.key] ? "highlight" : ""} ${r.leaving ? "leaving" : ""} ${collapsing.has(r.key) ? "collapse" : ""}`}>
             {view === "prioritized" && (
               <span role="cell" className={`rank ${why === r.key ? "rank-cell-open" : ""}`}>
                 {/* Ranks are never zero-padded; unranked items show "–" (Columns, LIST-30). */}
