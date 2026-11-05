@@ -397,7 +397,7 @@ function DeleteAccount() {
   return (
     <div className="delete-panel">
       <div className="delete-head"><TrashIcon /> Delete account</div>
-      <p>Deleting your account is permanent and cannot be reversed. But don't worry about it too much, just save your prompt if it's complex.</p>
+      <p>Deleting your account is permanent and cannot be reversed.</p>
       <button className="btn danger-solid" onClick={() => setOpen(true)}>Delete account</button>
       {open && (
         <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="del-title"

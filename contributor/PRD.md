@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-04 (pull requests are called "PRs", and text that covers both issues and PRs says so; credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus; the GitHub credential is called a "GitHub personal access token", or a "personal access token" where GitHub is already clear, as in the Settings field label under the "GitHub" card title; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles; Warm Welcome's credential text and save note in the same type as Settings) |
+| **Last updated** | 2026-11-04 (pull requests are called "PRs", and text that covers both issues and PRs says so; credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus; the GitHub credential is called a "GitHub personal access token", or a "personal access token" where GitHub is already clear, as in the Settings field label under the "GitHub" card title; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles; Warm Welcome's credential text and save note in the same type as Settings; Delete account panel text shortened to "Deleting your account is permanent and cannot be reversed.") |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -680,7 +680,7 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 ### Account
 
 - **SET-16** The account panel must show the developer's name, email, sign-in provider and a "Sign out" link (`ACCT-5`).
-- **SET-17** The developer must be able to delete their Gitilizer account from the Delete account panel in the left column, which explains that deleting is permanent. Choosing "Delete account" must ask for confirmation with a simple dialog: "Delete your Gitilizer account? This can't be undone.", with "Cancel" and "Delete account". Deletion is immediate: it deletes all data about the developer from the live database (see [Data and privacy](#data-and-privacy)), ends all their sessions and shows the sign-in page. Copies remain in database backups for up to 6 months (`PRIV-4`).
+- **SET-17** The developer must be able to delete their Gitilizer account from the Delete account panel in the left column, which says: "Deleting your account is permanent and cannot be reversed." Choosing "Delete account" must ask for confirmation with a simple dialog: "Delete your Gitilizer account? This can't be undone.", with "Cancel" and "Delete account". Deletion is immediate: it deletes all data about the developer from the live database (see [Data and privacy](#data-and-privacy)), ends all their sessions and shows the sign-in page. Copies remain in database backups for up to 6 months (`PRIV-4`).
 
 ---
 
@@ -1145,3 +1145,14 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
   "GitHub personal access token" everywhere: as the [Glossary](#glossary) and
   `SET-1` say, the Settings field under the "GitHub" card title is labeled
   "Personal access token".
+
+### Twenty-eighth revision (2026-11-04, eleventh round)
+
+- The Delete account panel says only "Deleting your account is permanent and
+  cannot be reversed.", without the advice to save a complex prompt first, and
+  `SET-17` now quotes the text.
+- Changed Figma: the Delete account panel text in
+  [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802),
+  [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
+  and
+  [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237).
