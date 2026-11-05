@@ -190,7 +190,7 @@ export function SettingsPage() {
             </div>
             <div className="save-row">
               <button className="btn" onClick={cancel}>Cancel</button>
-              <span>Discard unsaved changes and return to the previous settings.</span>
+              <span>Discard unsaved changes and return to your list.</span>
             </div>
           </div>
         </div>
