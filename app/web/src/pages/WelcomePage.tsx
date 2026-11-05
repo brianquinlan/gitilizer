@@ -78,7 +78,7 @@ export function WelcomePage() {
           <div className="credential-field">
             <CredentialField {...field("github_pat")} label="GitHub personal access token"
               setup={{ text: "Create a token", href: "https://github.com/settings/personal-access-tokens/new" }}
-              guidance="Gitilizer only needs read access to Issues, Pull Requests and Metadata for the repositories you want to scan."
+              guidance="Gitilizer only needs read access to issues, PRs and metadata for the repositories you want to scan."
               learnMore={`${DOCS_URL}#github-personal-access-tokens`} />
           </div>
           <div className="credential-field">

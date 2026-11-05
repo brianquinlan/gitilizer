@@ -29,7 +29,7 @@ export const NotificationCode = z.enum([
   "gemini_unavailable", // warning, short-lived
   "gemini_model_unavailable",
   "gemini_unexpected",
-  // Issue ranking
+  // Ranking
   "prompt_failing",
   "items_unranked", // warning
   // Gitilizer
@@ -73,7 +73,7 @@ const PAT = "github-pat";
 const KEY = "gemini-key";
 const S = (text: string, control: string): Segment => ({ text, settings: control });
 const REPORT = "If this continues, report it using the GitHub link at the bottom of the page.";
-const NOT_RANKED = "New and changed issues aren't being ranked.";
+const NOT_RANKED = "New and changed issues and PRs aren't being ranked.";
 
 export const SHORT_LIVED_MINUTES = 15; // NOTIF-21
 export const STALE_AFTER_HOURS = 3;
@@ -104,18 +104,18 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
   github_missing: {
     severity: "error", summary: "GitHub connection", clearedBy: "github_pat",
     heading: () => "No GitHub personal access token is set",
-    body: () => [T("Gitilizer can't scan your issues. Add a personal access token in "), S("Settings", PAT), T(".")],
+    body: () => [T("Gitilizer can't scan your issues and PRs. Add a personal access token in "), S("Settings", PAT), T(".")],
   },
   github_expired: {
     severity: "error", summary: "GitHub connection", clearedBy: "github_pat",
     heading: () => "Your GitHub personal access token has expired",
-    body: () => [T("Issue scanning is paused. Replace your personal access token in "), S("Settings", PAT), T(".")],
+    body: () => [T("Scanning is paused. Replace your personal access token in "), S("Settings", PAT), T(".")],
   },
   github_invalid: {
     severity: "error", summary: "GitHub connection", clearedBy: "github_pat",
     heading: () => "Your GitHub personal access token isn't valid",
     body: () => [
-      T("Issue scanning is paused. The token may have been revoked, deleted or mistyped. Replace your personal access token in "),
+      T("Scanning is paused. The token may have been revoked, deleted or mistyped. Replace your personal access token in "),
       S("Settings", PAT), T("."),
     ],
   },
@@ -153,7 +153,7 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
     severity: "warning", summary: "GitHub connection", shortLived: true,
     heading: () => "GitHub's rate limit has been reached",
     body: (p, now) => [T(
-      `Issue scanning is paused until ${p.resetAt ? `${formatTime(p.resetAt, now)}, when GitHub resets the limit,` : "GitHub resets the limit"} and then resumes automatically. ` +
+      `Scanning is paused until ${p.resetAt ? `${formatTime(p.resetAt, now)}, when GitHub resets the limit,` : "GitHub resets the limit"} and then resumes automatically. ` +
       "Other tools that use the same token count toward the same limit.",
     )],
   },
@@ -161,7 +161,7 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
     severity: "warning", summary: "GitHub connection", shortLived: true,
     heading: () => "GitHub isn't responding",
     body: () => [
-      T("Issue scanning is paused. Gitilizer keeps retrying automatically. If this continues, check "),
+      T("Scanning is paused. Gitilizer keeps retrying automatically. If this continues, check "),
       { text: "githubstatus.com", href: "https://www.githubstatus.com" }, T("."),
     ],
   },
@@ -224,7 +224,7 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
     severity: "warning", summary: "Gemini connection", clearedBy: "gemini_key",
     heading: () => "Gitilizer is using a backup Gemini model",
     body: (p, now) => [T(
-      `Your daily quota for ${p.primaryModel} is used up, so new and changed issues are being ranked with ${p.model} ` +
+      `Your daily quota for ${p.primaryModel} is used up, so new and changed issues and PRs are being ranked with ${p.model} ` +
       `until it resets at ${formatTime(p.resetAt, now)}, in about ${formatDuration(p.resetAt, now)}. ` +
       "Rankings may be less accurate until then. To avoid this, turn on billing in Google AI Studio.",
     )],
@@ -233,7 +233,7 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
     severity: "error", summary: "Gemini connection", clearedBy: "gemini_key",
     heading: () => "Your Gemini daily quota is used up",
     body: (p, now) => [T(
-      "Your daily quota is used up for every Gemini model Gitilizer can use, so new and changed issues aren't being ranked. " +
+      "Your daily quota is used up for every Gemini model Gitilizer can use, so new and changed issues and PRs aren't being ranked. " +
       `Ranking resumes automatically when the quota resets at ${formatTime(p.resetAt, now)}, in about ${formatDuration(p.resetAt, now)}. ` +
       "To avoid this, use an API key with billing turned on.",
     )],
@@ -259,20 +259,20 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
   gemini_unexpected: {
     severity: "error", summary: "Gemini connection",
     heading: () => "Gemini sent an unexpected response",
-    body: () => [T(`New and changed issues may not be ranked. Gitilizer keeps retrying automatically. ${REPORT}`)],
+    body: () => [T(`New and changed issues and PRs may not be ranked. Gitilizer keeps retrying automatically. ${REPORT}`)],
   },
   prompt_failing: {
-    severity: "error", summary: "Issue ranking",
+    severity: "error", summary: "Ranking",
     heading: () => "Your ranking prompt isn't working",
     body: () => [
-      T("Most new and changed issues couldn't be ranked with your custom prompt. Edit the prompt, or restore the default prompt in "),
+      T("Most new and changed issues and PRs couldn't be ranked with your custom prompt. Edit the prompt, or restore the default prompt in "),
       S("Settings", "ranking-prompt"), T("."),
     ],
   },
   items_unranked: {
-    severity: "warning", summary: "Issue ranking",
-    heading: (p) => `Gitilizer couldn't rank ${p.n} issue${p.n === "1" ? "" : "s"}`,
-    body: (p) => [T(`${p.n === "1" ? "This issue is" : "These issues are"} shown without a rank. Gitilizer tries again when ${p.n === "1" ? "it changes" : "they change"}.`)],
+    severity: "warning", summary: "Ranking",
+    heading: (p) => `Gitilizer couldn't rank ${p.n} ${p.n === "1" ? "issue or PR" : "issues and PRs"}`,
+    body: (p) => [T(`${p.n === "1" ? "This issue or PR is" : "These issues and PRs are"} shown without a rank. Gitilizer tries again when ${p.n === "1" ? "it changes" : "they change"}.`)],
   },
   cannot_connect: {
     severity: "error", summary: "Gitilizer",
@@ -286,7 +286,7 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
   },
   stale: {
     severity: "error", summary: "Gitilizer",
-    heading: (p) => `Your issues haven't updated since ${formatTime(p.since)}`,
+    heading: (p) => `Your issues and PRs haven't updated since ${formatTime(p.since)}`,
     body: () => [T(
       `No scan has finished in ${STALE_AFTER_HOURS} hours, so your list may be missing recent changes. Try Sync now. ${REPORT}`,
     )],

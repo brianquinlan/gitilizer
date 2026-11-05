@@ -265,7 +265,7 @@ export function checkMessage(kind: CredentialKind, r: CheckResult): string {
     case "ok": return gh ? `Validated just now · Reading GitHub as @${r.login}` : "Validated just now · Gemini accepted this key";
     case "not_accepted": return gh ? "GitHub didn't accept this token. Check that you copied it correctly." : "Google didn't accept this API key. Check that you copied all of it.";
     case "expired": return `This token expired on ${r.expiresAt ? new Date(r.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "an earlier date"}. Create a new one.`;
-    case "permission": return `This token can't read ${r.permission ?? "issues"}. Give it read access to Issues, Pull requests and Metadata.`;
+    case "permission": return `This token can't read ${r.permission ?? "issues"}. Give it read access to issues, PRs and metadata.`;
     case "leaked": return "Google has disabled this key because it was reported as leaked. Create a new one.";
     case "permission_denied": return "This key can't use the Gemini API. Create a key in Google AI Studio.";
     case "unreachable": return `Couldn't reach ${gh ? "GitHub" : "Google"}. Check your connection and try again.`;

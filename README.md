@@ -1,6 +1,6 @@
 # Gitilizer
 
-Gitilizer collects a developer's open GitHub issues and pull requests into one list and uses Google's Gemini to put them in priority order, so the most important thing is always at the top.
+Gitilizer collects a developer's open GitHub issues and PRs into one list and uses Google's Gemini to put them in priority order, so the most important thing is always at the top.
 
 - **Using Gitilizer:** [gitilizer.com](https://gitilizer.com), and the [user guide](docs/user-guide.md).
 - **Working on Gitilizer:** [contributor/README.md](contributor/README.md), with the requirements ([PRD](contributor/PRD.md)), the [design](contributor/DESIGN.md) and how to [run it on your own computer](contributor/LOCAL_DEVELOPMENT.md).
