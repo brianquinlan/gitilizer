@@ -131,7 +131,7 @@ export function SettingsPage() {
             <div className="stack">
               <CredentialCard kind="github_pat" icon={<GitHubIcon />} title="GitHub" label="Personal access token"
                 setup={{ text: "Create a token", href: "https://github.com/settings/personal-access-tokens/new" }}
-                guidance={<>Grant read access to Issues, Pull Requests and Metadata for the repositories you want to scan.</>}
+                guidance={<>Grant read access to issues, PRs and metadata for the repositories you want to scan.</>}
                 learnMore={`${DOCS_URL}#github-personal-access-tokens`}
                 status={me.credentials.github_pat} value={secrets.github_pat} onChange={(v) => setSecrets({ ...secrets, github_pat: v })} />
               <CredentialCard kind="gemini_key" icon={<SparklesIcon />} title="Gemini" label="Gemini API key"
@@ -144,14 +144,14 @@ export function SettingsPage() {
 
           <section className="section" id="additional-repositories">
             <SectionHead n="02" title="Additional repositories" badge="Optional" />
-            <p>Follow repositories beyond your assigned, created and @mention issues. Their open issues and PRs join the same list.</p>
+            <p>Follow repositories beyond your assigned, created and @mention issues and PRs. Their open issues and PRs join the same list.</p>
             <RepoList repos={draft.repos} errors={allErrors} setError={setError}
                       onChange={(repos) => setDraft((d) => d && { ...d, repos: typeof repos === "function" ? repos(d.repos) : repos })} />
           </section>
 
           <section className="section" id="ranking-prompt-section">
             <SectionHead n="03" title="Ranking prompt" badge="Optional" />
-            <p>The agent reads each issue's title, description, labels, comments and reviews and gives it a score.</p>
+            <p>The agent reads the title, description, labels, comments and reviews of each issue and PR and gives it a score.</p>
             <div className={`panel editor ${allErrors["ranking-prompt"] ? "invalid" : ""}`}>
               <div className="editor-head">
                 {draft.prompt !== server.defaultPrompt
@@ -172,7 +172,7 @@ export function SettingsPage() {
 
           <section className="section" id="collaborators">
             <SectionHead n="04" title="Collaborators" badge="Optional" />
-            <p>By default, issues, pull requests and comments made by your collaborators have higher priority.</p>
+            <p>By default, issues, PRs and comments made by your collaborators have higher priority.</p>
             <CollaboratorList people={draft.collaborators} errors={allErrors} setError={setError}
                               onChange={(c) => setDraft((d) => d && { ...d, collaborators: typeof c === "function" ? c(d.collaborators) : c })} />
           </section>
@@ -182,11 +182,11 @@ export function SettingsPage() {
             {saveError && <div className="error-text" role="alert">{saveError}</div>}
             <div className="save-row">
               <button className="btn primary" disabled={blocked || saving} onClick={() => save(false)}>Save changes</button>
-              <span>Save changes without re-ranking. Existing issues that are already ranked will not be re-ranked.</span>
+              <span>Save changes without re-ranking. Existing issues and PRs that are already ranked will not be re-ranked.</span>
             </div>
             <div className="save-row">
               <button className="btn" disabled={blocked || saving} onClick={() => save(true)}>Save and re-rank</button>
-              <span>Save changes and re-rank every issue. This can use a lot of Gemini quota.</span>
+              <span>Save changes and re-rank every issue and PR. This can use a lot of Gemini quota.</span>
             </div>
             <div className="save-row">
               <button className="btn" onClick={cancel}>Cancel</button>

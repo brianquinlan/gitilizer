@@ -321,7 +321,7 @@ async function afterJob(ctx: Ctx, userId: string, batchId: string | null) {
   await pushSync(ctx, userId);
 }
 
-/** "Gitilizer couldn't rank {n} issues" (LIST-30): raised, updated or cleared to match the failed items. */
+/** "Gitilizer couldn't rank {n} issues and PRs" (LIST-30): raised, updated or cleared to match the failed items. */
 export async function updateUnranked(ctx: Ctx, userId: string) {
   const r = await ctx.db.one(`select count(*)::int as n from user_items where user_id = $1 and status = 'active' and rank_failed`, [userId]);
   if (r.n > 0) await raise(ctx, userId, "items_unranked", { n: String(r.n) });

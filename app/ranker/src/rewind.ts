@@ -137,7 +137,7 @@ export function rewind(snap: Json, asOf: string): Json {
   iss.updated_at = isoMs(Math.max(...(times as number[])));
   s.issue = iss;
 
-  // ---- pull request bundle
+  // ---- PR bundle
   if (s.pull) {
     const pull = rewindIssueLike(s.pull, T);
     pull.state = iss.state;

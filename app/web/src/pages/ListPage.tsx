@@ -52,8 +52,8 @@ export function ListPage({ view }: { view: View }) {
   return (
     <>
       <div className="controls">
-        <h1>All issues &amp; PRs</h1>
-        <span className="hint">{view === "prioritized" ? "One relative order. No priority buckets." : "Issues you placed in the Icebox."}</span>
+        <h1>All issues and PRs</h1>
+        <span className="hint">{view === "prioritized" ? "One relative order. No priority buckets." : "Issues and PRs you placed in the Icebox."}</span>
         <nav className="toggle" aria-label="View">
           <Link to="/" aria-current={view === "prioritized" ? "page" : undefined}><DownToLineIcon /> Prioritized</Link>
           <Link to="/icebox" aria-current={view === "icebox" ? "page" : undefined}><BoxIcon /> Icebox</Link>
@@ -181,7 +181,7 @@ function Rows(props: {
               </span>
             )}
             <span role="cell" className="issue">
-              <span className={`kind ${r.kind}`} aria-label={r.kind === "pr" ? "Pull request" : "Issue"}>{r.kind === "pr" ? <PrIcon /> : <IssueIcon />}</span>
+              <span className={`kind ${r.kind}`} aria-label={r.kind === "pr" ? "PR" : "Issue"}>{r.kind === "pr" ? <PrIcon /> : <IssueIcon />}</span>
               <span className="issue-text">
                 <a className="issue-title" href={r.htmlUrl} target="_blank" rel="noreferrer" title={r.title}>{r.title}</a>
                 <span className="issue-meta">
@@ -266,12 +266,12 @@ function Pager({ page, total }: { page: number; total: number | null }) {
 function Empty({ view }: { view: View }) {
   return view === "prioritized" ? (
     <div className="empty">
-      <strong>No issues to show 🎉</strong>
+      <strong>No issues or PRs to show 🎉</strong>
       {/* LIST-14: "settings" opens Additional repositories with focus on "Add repository". */}
       <p>You can choose more repositories in the <Link to="/settings#add-repository">settings</Link>.</p>
     </div>
   ) : (
-    <div className="empty"><strong>No issues in the Icebox</strong></div>
+    <div className="empty"><strong>No issues or PRs in the Icebox</strong></div>
   );
 }
 

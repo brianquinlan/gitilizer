@@ -35,7 +35,7 @@ export function iceboxMessage(job: ScoreInput & { iceboxedAt: string | null }, n
   const me = job.user.github_login;
   const nowT = parseTime(isoZ(now))!;
   const since = parseTime(job.iceboxedAt) ?? nowT;
-  const kind = issue.pull_request ? "pull request" : "issue";
+  const kind = issue.pull_request ? "PR" : "issue";
   const lines = [
     `current_time: ${isoZ(now)}`,
     `me: ${me}`,

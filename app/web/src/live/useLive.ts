@@ -76,7 +76,7 @@ export function useLive(view: View) {
       }
       if (r.leaving.length) leave(r.leaving);
       // One announcement per group of updates; none for a bulk re-rank's silent reorder.
-      if (r.changed) setAnnouncement(`${r.changed} ${r.changed === 1 ? "issue" : "issues"} changed rank`); // LIVE-21
+      if (r.changed) setAnnouncement(`${r.changed} ${r.changed === 1 ? "issue or PR" : "issues and PRs"} changed rank`); // LIVE-21
     }, 100);
     return () => clearInterval(t);
   }, [commit, leave]);

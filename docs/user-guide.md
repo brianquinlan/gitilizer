@@ -1,6 +1,6 @@
 # Gitilizer user guide
 
-Gitilizer collects your open GitHub issues and pull requests into one list and uses Google's Gemini to put them in priority order. This guide explains how to set it up, what the notifications mean, and what Gitilizer does with your data.
+Gitilizer collects your open GitHub issues and PRs into one list and uses Google's Gemini to put them in priority order. This guide explains how to set it up, what the notifications mean, and what Gitilizer does with your data.
 
 - [Getting started](#getting-started)
 - [GitHub personal access tokens](#github-personal-access-tokens)
@@ -40,7 +40,7 @@ A fine-grained token can be read-only. Create one at [github.com/settings/person
 
 Some organizations must approve fine-grained tokens before they work; GitHub shows the request as pending until an owner approves it.
 
-Public repositories, and the issues where you're mentioned or assigned in them, are readable whichever owner you choose.
+Public repositories, and the issues and PRs where you're mentioned or assigned in them, are readable whichever owner you choose.
 
 ### Classic token
 
@@ -89,7 +89,7 @@ The bell shows problems that stop Gitilizer from working fully. Red means an err
 | Your GitHub personal access token has expired | Create a new token and add it in Settings. |
 | Your GitHub personal access token isn't valid | The token was revoked, deleted or mistyped. Add a new one. |
 | {org} doesn't allow this type of token | The organization blocks classic or fine-grained tokens. Use the other kind, or ask an owner to allow yours. |
-| Your GitHub personal access token can't read {permission} | Give the token read access to Issues, Pull requests and Metadata. |
+| Your GitHub personal access token can't read {permission} | Give the token read access to issues, PRs and metadata. |
 | Your token isn't authorized for {org} | The organization uses single sign-on. Authorize the token for it, then choose Sync now. |
 | GitHub sent an unexpected response | Gitilizer keeps retrying. Report it on GitHub if it continues. |
 | GitHub's rate limit has been reached | GitHub limits each token's requests. Other tools using the same token share the limit. Scanning resumes when it resets. |
@@ -106,10 +106,10 @@ The bell shows problems that stop Gitilizer from working fully. Red means an err
 | The Gemini model Gitilizer uses isn't available | A problem with Gitilizer. Please report it. |
 | Gemini sent an unexpected response | Gitilizer keeps retrying. Report it if it continues. |
 | Your ranking prompt isn't working | Most items couldn't be ranked with your custom prompt. Edit it or restore the default. |
-| Gitilizer couldn't rank {n} issues | Those items are shown with "–". Gitilizer tries again when they change. |
+| Gitilizer couldn't rank {n} issues and PRs | Those items are shown with "–". Gitilizer tries again when they change. |
 | Can't connect to Gitilizer | Your browser can't reach Gitilizer. Check your connection. |
 | Gitilizer couldn't finish scanning | A problem on Gitilizer's side. Please report it if it continues. |
-| Your issues haven't updated since {time} | No scan has finished for 3 hours. Try Sync now. |
+| Your issues and PRs haven't updated since {time} | No scan has finished for 3 hours. Try Sync now. |
 
 Report problems at [github.com/brianquinlan/gitilizer/issues](https://github.com/brianquinlan/gitilizer/issues).
 

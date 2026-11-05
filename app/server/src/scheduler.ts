@@ -220,7 +220,7 @@ export class Scheduler {
       const inactive = Date.now() - Date.parse(u.last_seen_at) > config.inactiveDays * 86_400_000;
       const last = u.last_finished ? Date.parse(u.last_finished) : 0;
       if (!inactive && Date.now() - last >= interval * 1000) this.trigger(u.id, `schedule:${state}`);
-      // "Your issues haven't updated since {time}" (PRD catalogue: 3 hours).
+      // "Your issues and PRs haven't updated since {time}" (PRD catalogue: 3 hours).
       const lastOk = u.last_ok ? Date.parse(u.last_ok) : null;
       if (u.first_sync_done && lastOk && Date.now() - lastOk > config.staleAfterSeconds * 1000) {
         await raise(this.ctx, u.id, "stale", { since: new Date(lastOk).toISOString() });

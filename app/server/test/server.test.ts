@@ -33,7 +33,7 @@ describe("GitHub error classification (PRD catalogue)", () => {
     const sso = classify(err(403, "Resource protected by organization SAML enforcement.", { "x-github-sso": "required; url=https://github.com/orgs/acme/sso?authorization_request=x" }));
     expect(sso).toMatchObject({ code: "sso", details: { org: "acme" } });
     const perm = classify(err(403, "Resource not accessible by personal access token", { "x-accepted-github-permissions": "pull_requests=read" }));
-    expect(perm).toMatchObject({ code: "permission", details: { permission: "Pull requests" } });
+    expect(perm).toMatchObject({ code: "permission", details: { permission: "PRs" } });
     expect(classify(err(502, "Bad gateway")).code).toBe("unavailable");
     expect(partialResultOrgIds("partial-results; organizations=21955855,20582480")).toEqual(["21955855", "20582480"]);
     expect(partialResultOrgIds("required; url=https://github.com/orgs/acme/sso")).toEqual([]);

@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-04 (credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus; the GitHub credential is called a "GitHub personal access token" everywhere; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles) |
+| **Last updated** | 2026-11-04 (pull requests are called "PRs", and text that covers both issues and PRs says so; credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus; the GitHub credential is called a "GitHub personal access token" everywhere; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -97,7 +97,7 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
 
 | Term | Meaning |
 |---|---|
-| Item | A GitHub issue or pull request. |
+| Item | A GitHub issue or PR. |
 | Prioritized list | The ranked list of the developer's items. In Figma the screen is called "Issue inbox", and its tab is labeled "Prioritized". |
 | Icebox | Items the developer has deliberately moved out of the Prioritized list. They have no rank. |
 | Rank | An item's position in the Prioritized list: 1 is the most important. This document always says "rank" for the position. |
@@ -334,31 +334,31 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 
 | Severity | Summary | Heading | Consequence and fix | Detected when | Clears when |
 |---|---|---|---|---|---|
-| Error | GitHub connection | Your GitHub personal access token has expired | Issue scanning is paused. Replace your personal access token in Settings. | GitHub returns 401 after the expiry date that GitHub sent in the `GitHub-Authentication-Token-Expiration` header of earlier responses. | A new PAT is saved. |
-| Error | GitHub connection | Your GitHub personal access token isn't valid | Issue scanning is paused. The token may have been revoked, deleted or mistyped. Replace your personal access token in Settings. | Any other 401, or GitHub's temporary 403 after repeated failed authentication. | A new PAT is saved. |
+| Error | GitHub connection | Your GitHub personal access token has expired | Scanning is paused. Replace your personal access token in Settings. | GitHub returns 401 after the expiry date that GitHub sent in the `GitHub-Authentication-Token-Expiration` header of earlier responses. | A new PAT is saved. |
+| Error | GitHub connection | Your GitHub personal access token isn't valid | Scanning is paused. The token may have been revoked, deleted or mistyped. Replace your personal access token in Settings. | Any other 401, or GitHub's temporary 403 after repeated failed authentication. | A new PAT is saved. |
 | Error | GitHub connection | {org} doesn't allow this type of token | Issues and PRs from {org} are missing from your list. {org} blocks {classic / fine-grained} personal access tokens. Create the other type of token, or ask an owner of {org} to allow this one. | 403 whose message says the organization "forbids access via a personal access token (classic)" or "…with fine-grained permissions". | A new PAT is saved, or a request to {org} succeeds. |
 | Error | GitHub connection | Your GitHub personal access token can't read {permission} | Some of your issues and PRs can't be read, so your list may be incomplete. Give the token read access to {permission}, or create a new token and add it in Settings. The documentation lists the permissions Gitilizer needs. | 403 "Resource not accessible by personal access token"; the `X-Accepted-GitHub-Permissions` header names the permission. | A new PAT is saved, or a request that needs {permission} succeeds. |
 | Error | GitHub connection | Your token isn't authorized for {org} | Issues and PRs from {org} are missing from your list. {org} uses single sign-on, so the token must be authorized for it. Authorize it in your GitHub personal access token settings, then choose Sync now. | 403 with an `X-GitHub-SSO` header, or `X-GitHub-SSO: partial-results` on a search. | A new PAT is saved, or a request to {org} succeeds. |
 | Error | GitHub connection | GitHub sent an unexpected response | Your list may be missing recent changes. Gitilizer keeps retrying automatically. If this continues, report it using the GitHub link at the bottom of the page. | Any other 4xx, a GraphQL `errors` array, or a response that can't be parsed, after retries. | A scan succeeds. |
-| Warning (short-lived) | GitHub connection | GitHub's rate limit has been reached | Issue scanning is paused until {time}, when GitHub resets the limit, and then resumes automatically. Other tools that use the same token count toward the same limit. | 403 or 429 with `x-ratelimit-remaining: 0`, or a secondary rate limit message, for more than 15 minutes (`NOTIF-21`). | A GitHub request succeeds. |
-| Warning (short-lived) | GitHub connection | GitHub isn't responding | Issue scanning is paused. Gitilizer keeps retrying automatically. If this continues, check [githubstatus.com](https://www.githubstatus.com). | 5xx responses, timeouts or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | A scan succeeds. |
+| Warning (short-lived) | GitHub connection | GitHub's rate limit has been reached | Scanning is paused until {time}, when GitHub resets the limit, and then resumes automatically. Other tools that use the same token count toward the same limit. | 403 or 429 with `x-ratelimit-remaining: 0`, or a secondary rate limit message, for more than 15 minutes (`NOTIF-21`). | A GitHub request succeeds. |
+| Warning (short-lived) | GitHub connection | GitHub isn't responding | Scanning is paused. Gitilizer keeps retrying automatically. If this continues, check [githubstatus.com](https://www.githubstatus.com). | 5xx responses, timeouts or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | A scan succeeds. |
 | Error | Additional repositories | Gitilizer can't access {repo} | Issues and PRs from {repo} are missing from your list. Check the name in Settings, or give your token access to {repo}. | 404 on `GET /repos/{repo}`, or 422 on a search that uses `repo:`. | The repository is removed in Settings, a new PAT is saved, or a request to {repo} succeeds. |
-| Error | Gemini connection | Your Gemini API key isn't valid | New and changed issues aren't being ranked. Create a new key in Google AI Studio and add it in Settings. | 400 `API_KEY_INVALID`, or 401. | A new key is saved. |
-| Error | Gemini connection | Google has disabled your Gemini API key | Google reported the key as leaked, so it no longer works. New and changed issues aren't being ranked. Create a new key in Google AI Studio and add it in Settings. | 403 "Your API key was reported as leaked". | A new key is saved. |
-| Error | Gemini connection | Your Gemini API key can't use the Gemini API | New and changed issues aren't being ranked. The key may be restricted to other Google APIs, or its project may not allow the Gemini API. Create a new key in Google AI Studio and add it in Settings. | Any other 403 `PERMISSION_DENIED`. | A new key is saved, or a Gemini request succeeds. |
-| Error | Gemini connection | Your Gemini credits have run out | New and changed issues aren't being ranked. Add credits or turn on auto-reload in Google AI Studio. | 402. | A Gemini request succeeds, or a new key is saved. |
-| Error | Gemini connection | Your Gemini project needs billing | New and changed issues aren't being ranked. The key's Google Cloud project needs a working billing account, or has a past-due balance. Fix billing in the Google Cloud console. | 400 `FAILED_PRECONDITION` about billing, or 403 for an unpaid balance. | A Gemini request succeeds, or a new key is saved. |
-| Warning | Gemini connection | Gitilizer is using a backup Gemini model | Your daily quota for {primary model} is used up, so new and changed issues are being ranked with {backup model} until it resets at {time}, in about {duration}. Rankings may be less accurate until then. To avoid this, turn on billing in Google AI Studio. | 429 for a per-day quota on any model except the last one in `RANK-13`. Only one is active at a time; it names the model now in use. | The primary model's quota resets. |
-| Error | Gemini connection | Your Gemini daily quota is used up | Your daily quota is used up for every Gemini model Gitilizer can use, so new and changed issues aren't being ranked. Ranking resumes automatically when the quota resets at {time}, in about {duration}. To avoid this, use an API key with billing turned on. | 429 for a per-day quota on every model in `RANK-13`. Google resets daily quotas at midnight Pacific time. | A Gemini request succeeds. |
+| Error | Gemini connection | Your Gemini API key isn't valid | New and changed issues and PRs aren't being ranked. Create a new key in Google AI Studio and add it in Settings. | 400 `API_KEY_INVALID`, or 401. | A new key is saved. |
+| Error | Gemini connection | Google has disabled your Gemini API key | Google reported the key as leaked, so it no longer works. New and changed issues and PRs aren't being ranked. Create a new key in Google AI Studio and add it in Settings. | 403 "Your API key was reported as leaked". | A new key is saved. |
+| Error | Gemini connection | Your Gemini API key can't use the Gemini API | New and changed issues and PRs aren't being ranked. The key may be restricted to other Google APIs, or its project may not allow the Gemini API. Create a new key in Google AI Studio and add it in Settings. | Any other 403 `PERMISSION_DENIED`. | A new key is saved, or a Gemini request succeeds. |
+| Error | Gemini connection | Your Gemini credits have run out | New and changed issues and PRs aren't being ranked. Add credits or turn on auto-reload in Google AI Studio. | 402. | A Gemini request succeeds, or a new key is saved. |
+| Error | Gemini connection | Your Gemini project needs billing | New and changed issues and PRs aren't being ranked. The key's Google Cloud project needs a working billing account, or has a past-due balance. Fix billing in the Google Cloud console. | 400 `FAILED_PRECONDITION` about billing, or 403 for an unpaid balance. | A Gemini request succeeds, or a new key is saved. |
+| Warning | Gemini connection | Gitilizer is using a backup Gemini model | Your daily quota for {primary model} is used up, so new and changed issues and PRs are being ranked with {backup model} until it resets at {time}, in about {duration}. Rankings may be less accurate until then. To avoid this, turn on billing in Google AI Studio. | 429 for a per-day quota on any model except the last one in `RANK-13`. Only one is active at a time; it names the model now in use. | The primary model's quota resets. |
+| Error | Gemini connection | Your Gemini daily quota is used up | Your daily quota is used up for every Gemini model Gitilizer can use, so new and changed issues and PRs aren't being ranked. Ranking resumes automatically when the quota resets at {time}, in about {duration}. To avoid this, use an API key with billing turned on. | 429 for a per-day quota on every model in `RANK-13`. Google resets daily quotas at midnight Pacific time. | A Gemini request succeeds. |
 | Warning (short-lived) | Gemini connection | Gemini is limiting requests from your key | Ranking is slower than usual and catches up automatically. Other apps that use this key count toward the same limit. | 429 for a per-minute limit, for more than 15 minutes (`NOTIF-21`). | Gemini requests succeed without 429s for 15 minutes. |
-| Warning (short-lived) | Gemini connection | Gemini isn't responding | New and changed issues aren't being ranked. Gitilizer keeps retrying automatically. If this continues, check the [Google AI Studio status page](https://aistudio.google.com/status). | 500, 503 or 504 responses, no answer within 90 seconds, or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | A Gemini request succeeds. |
-| Error | Gemini connection | The Gemini model Gitilizer uses isn't available | New and changed issues aren't being ranked. This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page. | 404 `model_not_found`. | A Gemini request succeeds. |
-| Error | Gemini connection | Gemini sent an unexpected response | New and changed issues may not be ranked. Gitilizer keeps retrying automatically. If this continues, report it using the GitHub link at the bottom of the page. | Any other Gemini error, after retries. | A Gemini request succeeds. |
-| Error | Issue ranking | Your ranking prompt isn't working | Most new and changed issues couldn't be ranked with your custom prompt. Edit the prompt, or restore the default prompt in Settings. | A custom prompt is set and more than half of the items in a ranking run fail to produce valid output. | The prompt is changed, or a ranking run succeeds. |
-| Warning | Issue ranking | Gitilizer couldn't rank {n} issues | These issues are shown without a rank. Gitilizer tries again when they change. | Individual items fail after retries (blocked response, output cut off, invalid output). See `LIST-30`. | Every one of them is ranked or leaves the list. |
+| Warning (short-lived) | Gemini connection | Gemini isn't responding | New and changed issues and PRs aren't being ranked. Gitilizer keeps retrying automatically. If this continues, check the [Google AI Studio status page](https://aistudio.google.com/status). | 500, 503 or 504 responses, no answer within 90 seconds, or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | A Gemini request succeeds. |
+| Error | Gemini connection | The Gemini model Gitilizer uses isn't available | New and changed issues and PRs aren't being ranked. This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page. | 404 `model_not_found`. | A Gemini request succeeds. |
+| Error | Gemini connection | Gemini sent an unexpected response | New and changed issues and PRs may not be ranked. Gitilizer keeps retrying automatically. If this continues, report it using the GitHub link at the bottom of the page. | Any other Gemini error, after retries. | A Gemini request succeeds. |
+| Error | Ranking | Your ranking prompt isn't working | Most new and changed issues and PRs couldn't be ranked with your custom prompt. Edit the prompt, or restore the default prompt in Settings. | A custom prompt is set and more than half of the items in a ranking run fail to produce valid output. | The prompt is changed, or a ranking run succeeds. |
+| Warning | Ranking | Gitilizer couldn't rank {n} issues and PRs | These issues and PRs are shown without a rank. Gitilizer tries again when they change. | Individual items fail after retries (blocked response, output cut off, invalid output). See `LIST-30`. | Every one of them is ranked or leaves the list. |
 | Error | Gitilizer | Can't connect to Gitilizer | Your list won't update until the connection comes back. Check your internet connection. | The web app's requests to the Gitilizer API fail. Detected in the browser. | A request succeeds. |
 | Error | Gitilizer | Gitilizer couldn't finish scanning | Your list may be missing recent changes. Gitilizer tries again at the next scan. If this continues, report it using the GitHub link at the bottom of the page. | The backend's own scan job fails for a reason other than GitHub. | A scan succeeds. |
-| Error | Gitilizer | Your issues haven't updated since {time} | No scan has finished in 3 hours, so your list may be missing recent changes. Try Sync now. If this continues, report it using the GitHub link at the bottom of the page. | No scan has succeeded for 3 hours. This catches failures the other rows miss. | A scan succeeds. |
+| Error | Gitilizer | Your issues and PRs haven't updated since {time} | No scan has finished in 3 hours, so your list may be missing recent changes. Try Sync now. If this continues, report it using the GitHub link at the bottom of the page. | No scan has succeeded for 3 hours. This catches failures the other rows miss. | A scan succeeds. |
 | Warning | GitHub connection | Your GitHub personal access token will expire soon | Your GitHub personal access token will expire in {n} days. Create a new one and add it to Settings. | The stored expiry date is 7 days away or less (`NOTIF-22`). | A PAT with a later expiry date is saved. |
 
 Not in the catalogue, by decision:
@@ -467,7 +467,7 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 
 ### Empty, loading and first-sync states
 
-- **LIST-14** If the developer has no items and at least one sync has finished, the table body must be replaced by "No issues to show 🎉" and "You can choose more repositories in the settings.", where "settings" opens Settings at Additional repositories, with focus on the "Add repository" field.
+- **LIST-14** If the developer has no items and at least one sync has finished, the table body must be replaced by "No issues or PRs to show 🎉" and "You can choose more repositories in the settings.", where "settings" opens Settings at Additional repositories, with focus on the "Add repository" field.
 - **LIST-15** While the first sync is running and nothing has been ranked yet, the table must show the column headings, three skeleton rows and "Scanning your issues and PRs…", as in [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689). The skeleton placeholders pulse, fading to about a third of their strength and back, 0.8 s each way ([Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433)); with reduced motion they don't pulse. As soon as the first item has been ranked, the list replaces the skeleton rows, and further items appear as they are ranked.
 - **LIST-30** An item must not be shown in the Prioritized list until it has been ranked. Two kinds of unranked item are shown after all ranked items, newest first, with "–" in the Priority column: an item waiting because the daily quota is used up for every model (`RANK-15`), and an item whose ranking failed. For a failed item (`RANK-6`), the "Gitilizer couldn't rank {n} issues" warning is shown (see the [catalogue](#catalogue)).
 
@@ -558,7 +558,7 @@ Each animation takes about 0.4 seconds.
 
 ### Accessibility of updates
 
-- **LIVE-21** Screen readers must hear one announcement per group of updates (for example "3 issues changed rank"), not one per item.
+- **LIVE-21** Screen readers must hear one announcement per group of updates (for example "3 issues and PRs changed rank"), not one per item.
 - **LIVE-22** If the operating system asks for reduced motion, items must change in place with a quick cross-fade and no movement. The row indicators still appear.
 
 ---
@@ -575,7 +575,7 @@ The Icebox holds items the developer has decided to set aside. It works like the
 - **ICE-4** The default sort must be Issue ascending: PRs first, then issues, each by number ascending.
 - **ICE-5** The Actions column must have a "Restore" button that returns the item to the Prioritized list.
 - **ICE-6** When an item in the Icebox changes on GitHub, Gitilizer must run the **Icebox check**: a short question to the agent, with its own prompt, about whether the change should bring the item back. If the answer is yes, the item returns to the Prioritized list automatically and is ranked again.
-- **ICE-7** If the Icebox is empty, the table body must be replaced by "No issues in the Icebox".
+- **ICE-7** If the Icebox is empty, the table body must be replaced by "No issues or PRs in the Icebox".
 - **ICE-8** Pages, sorting, the item count and "Sync now" must work as in the Prioritized list.
 - **ICE-9** While the Icebox is shown, an item that leaves it (it returns to the list under `ICE-6`, or leaves under `ICE-11`) must use the leave animation in `LIVE-15`, without the holding rules in [When updates wait](#when-updates-wait).
 - **ICE-10** A restored item must keep its last score. (An item that changed while in the Icebox will usually have returned to the list already, under `ICE-6`, and been ranked again.)
@@ -605,7 +605,7 @@ Both credentials are required.
 - **SET-6** For a PAT, the backend must record the expiry date from GitHub's `GitHub-Authentication-Token-Expiration` header, if it sends one, for the expiry warning.
 - **SET-20** "Learn more ↗" at the end of the GitHub token's guidance text, inline with it, must open, in a new tab, the documentation page about GitHub tokens (`FOOT-3`). That page explains:
   - that Gitilizer accepts both kinds of personal access token and recommends a fine-grained one;
-  - that a **fine-grained token** can be read-only (Issues, Pull requests and Metadata: read) but reads the private repositories of only one owner, the developer or one organization, and that an organization may have to approve it;
+  - that a **fine-grained token** can be read-only (issues, PRs and metadata: read) but reads the private repositories of only one owner, the developer or one organization, and that an organization may have to approve it;
   - that a **classic token** with the `repo` scope reads every repository the developer can access, in every organization, but also allows writing, so it is needed only when the developer's private repositories belong to more than one owner; and that Gitilizer only ever reads;
   - that Gitilizer takes one token per developer ([Non-goals](#non-goals)).
 - **SET-32** The Gemini key's guidance text must end, inline with it, with "Learn more ↗", which opens, in a new tab, the documentation about Gemini API keys (`FOOT-3`): how to create one, the free tier's limits and how to turn billing on.
@@ -619,7 +619,7 @@ Both credentials are required.
   | Gemini key works | ✓ "Validated just now · Gemini accepted this key" |
   | GitHub token not accepted | ✗ "GitHub didn't accept this token. Check that you copied it correctly." |
   | GitHub token expired | ✗ "This token expired on {date}. Create a new one." |
-  | GitHub token missing a permission | ✗ "This token can't read {permission}. Give it read access to Issues, Pull requests and Metadata." |
+  | GitHub token missing a permission | ✗ "This token can't read {permission}. Give it read access to issues, PRs and metadata." |
   | Gemini key not accepted | ✗ "Google didn't accept this API key. Check that you copied all of it." |
   | Gemini key disabled | ✗ "Google has disabled this key because it was reported as leaked. Create a new one." |
   | Gemini key can't use Gemini | ✗ "This key can't use the Gemini API. Create a key in Google AI Studio." |
@@ -651,7 +651,7 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 - **SET-11** The page must show the current ranking prompt in an editor. With no custom prompt, it shows the default prompt.
 - **SET-12** The developer can edit the prompt. When the prompt differs from the default, a "Restore default" control must be shown; it replaces the text with the default.
 - **SET-13** The custom prompt replaces only the instructions part of what the agent receives. Gitilizer always adds the "About me" block (login, additional repositories with their prioritization prompts, and collaborators) and the output format, as in `systemInstruction()` in `app/ranker/src/prioritizer.ts`. These additions are not shown in or editable from Settings.
-- **SET-23** The section description must read "The agent reads each issue's title, description, labels, comments and reviews and gives it a score."
+- **SET-23** The section description must read "The agent reads the title, description, labels, comments and reviews of each issue and PR and gives it a score."
 - **SET-24** The default prompt is `prompts/v4.md`. A developer who has never changed the prompt always gets the current default, so they pick up improvements automatically. A custom prompt can be at most 20,000 characters (`SET-27`).
 
 ### Collaborators
@@ -687,7 +687,7 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 - **SCAN-0** Scanning and ranking must continue while no browser is open, so the list is up to date when the developer comes back.
 - **SCAN-1** A scan must find every open item that matches `LIST-1`, reading GitHub with the developer's PAT, and keep the 1,000 most recently updated (`LIST-19`). Each GitHub search must be sorted by most recently updated and needs only its first 1,000 results: any item among the developer's 1,000 most recently updated is also among the first 1,000 results of every search it matches. So searches never need to be split, even when GitHub reports more than 1,000 results.
 - **SCAN-2** A scan must find items that have changed since the last scan, and items that no longer match (closed, merged, unassigned, a repository archived or removed). Items that no longer match leave the list as in `LIVE-15`, and leave the Icebox as in `ICE-11`.
-- **SCAN-3** A scan must collect what the ranking agent needs to judge each new or changed item: the item, its comments, timeline and reviews, and the PRs and issues it links to.
+- **SCAN-3** A scan must collect what the ranking agent needs to judge each new or changed item: the item, its comments, timeline and reviews, and the issues and PRs it links to.
 - **SCAN-4** Two scans for the same developer must never run at the same time. A sync requested while one is running joins it.
 
 ### When scans run
@@ -1075,3 +1075,45 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
   [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
   and
   [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237).
+
+### Twenty-sixth revision (2026-11-04, ninth round)
+
+- Pull requests are called "PRs" everywhere the developer reads about them, and
+  text about both issues and PRs says "issues and PRs" ("issue or PR" for one,
+  "no issues or PRs" for none) instead of just "issues". "Issues" is capitalized
+  only at the start of a sentence. "Item" in this document is unchanged, and so
+  are labels that name the type, like the Issue column and "Issue #1842".
+- The GitHub token's guidance text on Warm Welcome and in Settings, the
+  fine-grained token's permissions (`SET-20`) and the Validate result for a
+  missing permission (`SET-28`) ask for read access to "issues, PRs and
+  metadata". The `{permission}` in that result and in its notification
+  ([Catalogue](#catalogue)) is lowercase, and "PRs" for pull requests.
+- In the [Catalogue](#catalogue): "Issue scanning is paused" is now "Scanning
+  is paused"; "New and changed issues", "Gitilizer couldn't rank {n} issues"
+  and "Your issues haven't updated since {time}" name issues and PRs; and the
+  "Issue ranking" summary is now "Ranking".
+- "No issues or PRs to show 🎉" (`LIST-14`), "No issues or PRs in the Icebox"
+  (`ICE-7`), "3 issues and PRs changed rank" (`LIVE-21`), the Ranking prompt
+  description (`SET-23`) and the PR icon's accessible label, "PR".
+- Changed Figma: "All issues and PRs" (was "All issues & PRs") in
+  [Shared / Inbox layout](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-1000),
+  the Icebox frames and
+  [Inbox controls · Sync Progress](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=325-6832);
+  "Issues and PRs you placed in the Icebox." and the empty state in
+  [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947)
+  and
+  [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593);
+  the empty state in
+  [Issue inbox · No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-897);
+  the token guidance in
+  [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832);
+  the token guidance and the Additional repositories, Ranking prompt,
+  Collaborators and save option texts in
+  [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802),
+  [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
+  and
+  [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237);
+  and the notification bodies in
+  [Notifications · Multiple active errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=223-1808)
+  and
+  [Notifications · Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=200-2665).

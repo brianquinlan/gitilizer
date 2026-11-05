@@ -72,8 +72,10 @@ export function classify(e: any, expiresAt?: string | null): GitHubProblem {
   if (status === 403 && lower.includes("resource not accessible by personal access token")) {
     // e.g. "issues=read; pull_requests=read"
     const accepted = headers["x-accepted-github-permissions"] ?? "";
-    const permission = accepted.split(/[;,]/)[0]?.split("=")[0]?.trim().replace(/_/g, " ") || "this resource";
-    return new GitHubProblem("permission", message, { status, permission: permission.replace(/^\w/, (c) => c.toUpperCase()) });
+    const name = accepted.split(/[;,]/)[0]?.split("=")[0]?.trim().toLowerCase() ?? "";
+    // Shown mid-sentence ("can't read {permission}"), so lowercase, and "PRs" for pull requests.
+    const permission = name === "pull_requests" ? "PRs" : name.replace(/_/g, " ") || "this resource";
+    return new GitHubProblem("permission", message, { status, permission });
   }
   if (status === 403 && lower.includes("bad credentials")) return new GitHubProblem("invalid", message, { status });
   if (status === 404 || status === 410) return new GitHubProblem("not_found", message, { status });
