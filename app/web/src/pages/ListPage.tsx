@@ -71,7 +71,7 @@ export function ListPage({ view }: { view: View }) {
           <span role="columnheader" style={{ textAlign: "right", paddingRight: 46 }}>Actions</span>
         </div>
         <div {...tableProps} role="rowgroup">
-          {!live ? (firstSyncRunning ? <FirstSync /> : <Skeleton />) :
+          {!live ? (firstSyncRunning ? <FirstSync /> : <Skeleton view={view} />) :
             visible.length === 0 && firstSyncRunning ? <FirstSync /> :
             visible.length === 0 ? <Empty view={view} /> :
             <Rows rows={visible} rank={rank} view={view} indicators={indicators} collapsing={collapsing} step={step}
@@ -279,20 +279,23 @@ function Empty({ view }: { view: View }) {
 function FirstSync() {
   return (
     <>
-      <Skeleton />
+      <Skeleton view="prioritized" />
       <div className="scanning" role="status">Scanning your issues and PRs…</div>
     </>
   );
 }
 
-/** Skeleton rows as in Figma "Shared / Skeleton rows"; they pulse unless reduced motion is on. */
-function Skeleton() {
+/**
+ * Skeleton rows as in Figma "Shared / Skeleton rows"; they pulse unless reduced motion is on.
+ * The Icebox has no Priority column (ICE-2), so its rows leave out the rank cell to match its 4-column grid.
+ */
+function Skeleton({ view }: { view: View }) {
   const widths = [[62, 30], [53, 27], [69, 33]];
   return (
     <>
       {widths.map(([title, meta], i) => (
         <div className="tr skeleton" key={i} aria-hidden="true">
-          <span><span className="bar" style={{ width: 17 }} /></span>
+          {view === "prioritized" && <span><span className="bar" style={{ width: 17 }} /></span>}
           <span className="sk-issue">
             <span className="bar dot" />
             <span className="sk-lines">
