@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-04 (pull requests are called "PRs", and text that covers both issues and PRs says so; credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus; the GitHub credential is called a "GitHub personal access token" everywhere; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles) |
+| **Last updated** | 2026-11-04 (pull requests are called "PRs", and text that covers both issues and PRs says so; credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus; the GitHub credential is called a "GitHub personal access token", or a "personal access token" where GitHub is already clear, as in the Settings field label under the "GitHub" card title; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles; Warm Welcome's credential text and save note in the same type as Settings) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -387,7 +387,11 @@ fields instead of the whole Settings page.
   its results (`SET-1`, `SET-2`, `SET-21`, `SET-28`), the links "Create a
   token ↗" and "Get an API key ↗" (`SET-4`), and the guidance text shown in
   Figma with "Learn more ↗" inline at its end (`SET-20`, `SET-32`). A credential
-  already saved from Settings appears as dots, as it does there.
+  already saved from Settings appears as dots, as it does there. The links,
+  guidance text and Validate results use the same typeface, style and size as
+  in Settings, and so does the note under "Save", which matches the notes beside
+  the Settings save buttons; only the field labels are bolder, because the
+  fields have no card titles above them.
 - **WEL-4** "Save" must be disabled until both fields have a value, typed or
   already saved. Choosing it validates each typed value that hasn't passed
   Validate as typed, showing progress and results under its field as Validate
@@ -1117,3 +1121,27 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
   [Notifications · Multiple active errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=223-1808)
   and
   [Notifications · Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=200-2665).
+
+### Twenty-seventh revision (2026-11-04, tenth round)
+
+- Warm Welcome's credential links, guidance text and Validate results, and its
+  note under "Save", use the same type as Settings instead of a smaller size
+  (`WEL-3`).
+- Changed Figma: the field labels (13 px), "Create a token ↗" and "Get an API
+  key ↗" (12.5 px), Validate results (12.5 px), guidance text (12 px, 160%) and
+  save notes (12.5 px, 150%), all Inter Regular, in
+  [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832),
+  [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802),
+  [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
+  and
+  [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237).
+  Warm Welcome's field labels stay Inter Semi Bold. In the same frames, the
+  masked credential values are 14 px IBM Plex Mono, and "Validate", "Save
+  changes", "Save and re-rank" and "Cancel" are 14 px Inter Medium (Warm
+  Welcome's "Save" is 14 px Inter Semi Bold), as the application shows them.
+  The [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-346)
+  text is 12 px.
+- The **Last updated** line no longer says the GitHub credential is called a
+  "GitHub personal access token" everywhere: as the [Glossary](#glossary) and
+  `SET-1` say, the Settings field under the "GitHub" card title is labeled
+  "Personal access token".

@@ -178,11 +178,10 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .welcome-fields { width: 100%; display: grid; gap: 20px; text-align: left; }
 .credential-field { display: grid; gap: 8px; }
 .welcome .field-label label { font-weight: 600; color: var(--ink); }
-.welcome .field-label a { font-size: 11px; }
-.welcome .fine { font-size: 11px; line-height: 1.6; }
 .welcome-save { width: 100%; display: grid; gap: 12px; justify-items: center; }
 .welcome-save .btn.primary { height: 40px; min-width: 88px; padding: 0 20px; justify-content: center; font-weight: 600; }
-.welcome-save .save-note { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.5; }
+/* WEL-3: the credential fields and the save note use the same type as in Settings. */
+.welcome-save .save-note { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.5; }
 /* PLAT-6: from 1024 px the left column gives up width so the right one keeps the 392 px box and 32 px gutters. */
 .signin { flex: 1; display: grid; grid-template-columns: minmax(0, 688px) minmax(456px, 1fr); }
 .signin-left { padding: 56px 64px; border-right: 1px solid var(--line); background: var(--surface); }
@@ -220,7 +219,7 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .field-row { display: flex; gap: 8px; }
 .result { font-size: 12.5px; display: flex; gap: 6px; align-items: center; color: var(--ok); }
 .result.bad { color: var(--error); }
-.fine { font-size: 12px; color: var(--muted); margin: 0; }
+.fine { font-size: 12px; line-height: 1.6; color: var(--muted); margin: 0; }
 .list-rows .lr { display: grid; grid-template-columns: 220px minmax(0, 1fr) 130px 90px; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
 .list-rows.collab .lr { grid-template-columns: minmax(0, 1fr) 130px 90px; }
 .list-rows .add { display: flex; gap: 8px; padding: 12px 16px; }
@@ -293,7 +292,7 @@ input.invalid, textarea.invalid, .secret.invalid input { border-color: var(--err
 .editor-head { font-family: var(--font); font-size: 12.5px; }
 .save-actions { border-top: 1px solid var(--line); padding: 24px 0 8px; display: grid; gap: 14px; }
 .save-row { display: flex; gap: 12px; align-items: center; }
-.save-row span { font-size: 12.5px; color: var(--muted); }
+.save-row span { font-size: 12.5px; line-height: 1.5; color: var(--muted); }
 .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .lr-main .spacer, .collab-row .spacer { flex: 1; }
 /* LIST-17: while syncing, the button is disabled but the turning icon stays in the accent color. */
