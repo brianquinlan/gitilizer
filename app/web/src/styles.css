@@ -184,12 +184,13 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .welcome-save { width: 100%; display: grid; gap: 12px; justify-items: center; }
 .welcome-save .btn.primary { height: 40px; min-width: 88px; padding: 0 20px; justify-content: center; font-weight: 600; }
 .welcome-save .save-note { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.5; }
-.signin { flex: 1; display: grid; grid-template-columns: 688px 1fr; }
+/* PLAT-6: from 1024 px the left column gives up width so the right one keeps the 392 px box and 32 px gutters. */
+.signin { flex: 1; display: grid; grid-template-columns: minmax(0, 688px) minmax(456px, 1fr); }
 .signin-left { padding: 56px 64px; border-right: 1px solid var(--line); background: var(--surface); }
 .signin-left h1 { font-size: 64px; line-height: 1.08; font-weight: 400; letter-spacing: -0.02em; margin: 24px 0 18px; }
 .signin-left p { color: var(--muted); font-size: 16px; }
-.signin-right { display: grid; place-items: center; background: var(--surface); }
-.signin-box { width: 392px; display: grid; gap: 12px; }
+.signin-right { display: grid; place-items: center; padding: 0 32px; background: var(--surface); }
+.signin-box { width: 392px; max-width: 100%; display: grid; gap: 12px; }
 .signin-box h2 { font-size: 30px; margin: 0 0 18px; font-weight: 600; letter-spacing: -0.01em; }
 .provider { height: 48px; justify-content: center; }
 .provider.dark { background: #20252d; color: #fff; border-color: #20252d; }
