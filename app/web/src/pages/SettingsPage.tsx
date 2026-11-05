@@ -129,14 +129,12 @@ export function SettingsPage() {
             <SectionHead n="01" title="Connections" badge="Required" />
             <p>Both credentials are required before Gitilizer can scan and rank your inbox.</p>
             <div className="stack">
-              <CredentialCard kind="github_pat" icon={<GitHubIcon />} title="GitHub personal access token" label="Personal access token"
-                purpose="A personal access token to read your issues, pull requests and comment activity."
+              <CredentialCard kind="github_pat" icon={<GitHubIcon />} title="GitHub" label="Personal access token"
                 setup={{ text: "Create a token", href: "https://github.com/settings/personal-access-tokens/new" }}
                 guidance={<>Grant read access to Issues, Pull Requests and Metadata for the repositories you want to scan.</>}
                 learnMore={`${DOCS_URL}#github-personal-access-tokens`}
                 status={me.credentials.github_pat} value={secrets.github_pat} onChange={(v) => setSecrets({ ...secrets, github_pat: v })} />
-              <CredentialCard kind="gemini_key" icon={<SparklesIcon />} title="Gemini API key" label="Gemini API key"
-                purpose="Gemini scores each issue and PR to decide its rank."
+              <CredentialCard kind="gemini_key" icon={<SparklesIcon />} title="Gemini" label="Gemini API key"
                 setup={{ text: "Get an API key", href: "https://aistudio.google.com/apikey" }}
                 guidance={<>Used by Gemini to score and prioritize your issues and PRs.</>}
                 learnMore={`${DOCS_URL}#gemini-api-keys`}
@@ -231,7 +229,7 @@ const CHIPS: Record<CredentialStatus["chip"], [string, string]> = {
 };
 
 function CredentialCard(props: {
-  kind: CredentialKind; icon: ReactNode; title: string; label: string; purpose: string; guidance: ReactNode; learnMore: string;
+  kind: CredentialKind; icon: ReactNode; title: string; label: string; guidance: ReactNode; learnMore: string;
   setup: { text: string; href: string }; status: CredentialStatus; value: string; onChange: (v: string) => void;
 }) {
   const [check, setCheck] = useState<Check>(null);
@@ -241,7 +239,6 @@ function CredentialCard(props: {
   return (
     <div className="panel card">
       <div className="card-head">{props.icon}<h3>{props.title}</h3><span className={`badge ${chipClass}`}>{chipText}</span></div>
-      <p className="purpose">{props.purpose}</p>
       <CredentialField kind={props.kind} label={props.label} setup={props.setup} guidance={props.guidance} learnMore={props.learnMore}
         saved={props.status.set} value={props.value} onChange={props.onChange} check={check} onCheck={setCheck} />
     </div>
