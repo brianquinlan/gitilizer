@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-04 (credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus; the GitHub credential is called a "GitHub personal access token" everywhere) |
+| **Last updated** | 2026-11-04 (credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus; the GitHub credential is called a "GitHub personal access token" everywhere; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -596,7 +596,7 @@ Settings is one page. The left column has links to its sections (Connections, Ad
 
 Both credentials are required.
 
-- **SET-1** The developer must be able to enter a GitHub personal access token and a Gemini API key, in that order. Each field is masked. The GitHub card is titled "GitHub personal access token" and its field is labeled "Personal access token".
+- **SET-1** The developer must be able to enter a GitHub personal access token and a Gemini API key, in that order. Each field is masked. The cards are titled "GitHub" and "Gemini", and their fields are labeled "Personal access token" and "Gemini API key", so the card title doesn't repeat the field label. Each card has its title and status chip, then the field, then the guidance text under it, with no description between the title and the field: the guidance text already says what the credential is for.
 - **SET-2** Each credential must have a "Validate" button that checks the value typed in the field, without saving it, and shows the result under the field (`SET-28`).
 - **SET-21** "Validate" must be disabled while its field is empty. That includes when the field shows a saved credential: a saved credential appears as dots, can't be shown or edited, and can't be validated again until it is replaced. The eye icon shows only a value typed during this visit. (Figma shows both Validate buttons disabled, because both credentials are saved.)
 - **SET-3** Each credential card must show a status chip (`SET-30`).
@@ -1059,3 +1059,19 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
   the sign-in page's "Sign in first. Connect your tools next." explanation
   (`AUTH-4`), as drawn in
   [Sign in](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2978).
+
+### Twenty-fifth revision (2026-11-04, eighth round)
+
+- The credential cards in Settings no longer have a description under their
+  titles ("A personal access token to read your issues, pull requests and
+  comment activity." and "Gemini scores each issue and PR to decide its
+  rank."), because the guidance text under each field says the same. Each card
+  now has its title and status chip, the field and the guidance text (`SET-1`).
+- The credential cards are titled "GitHub" and "Gemini" instead of "GitHub
+  personal access token" and "Gemini API key", which repeated the field labels
+  under them (`SET-1`).
+- Changed Figma: retitled the cards and removed the descriptions in
+  [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802),
+  [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
+  and
+  [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237).

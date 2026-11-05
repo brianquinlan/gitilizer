@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype follows the 2026-11-01 PRD except where [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) says otherwise. |
 | **Author** | brian@sweetapp.com (drafted with Claude) |
-| **Last updated** | 2026-11-04 (rank reasoning popup holds updates and returns focus, `LIVE-27`, `LIST-24`; credentials entered and checked on Warm Welcome, `WEL-2` to `WEL-4`, `POST /api/setup`, D-12; rank reasoning popup, `LIST-24`, not clipped on short pages; sync progress, `LIST-33`; "Save and re-rank" is a sync; a Gemini request can't outlive its ranking lease, and expired leases are logged, GitHub issue #3); 2026-11-03 (relative times, `LIST-22`); 2026-11-02 (production: Google and GitHub sign-in, several processes on one database, the container image, pipeline and infrastructure scripts; D-10 and D-11) |
+| **Last updated** | 2026-11-04 (credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles, `SET-1`; rank reasoning popup holds updates and returns focus, `LIVE-27`, `LIST-24`; credentials entered and checked on Warm Welcome, `WEL-2` to `WEL-4`, `POST /api/setup`, D-12; rank reasoning popup, `LIST-24`, not clipped on short pages; sync progress, `LIST-33`; "Save and re-rank" is a sync; a Gemini request can't outlive its ranking lease, and expired leases are logged, GitHub issue #3); 2026-11-03 (relative times, `LIST-22`); 2026-11-02 (production: Google and GitHub sign-in, several processes on one database, the container image, pipeline and infrastructure scripts; D-10 and D-11) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Google Cloud project** | `gitilizer` |
 | **Source** | [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer) |
@@ -412,9 +412,10 @@ Details that need more than markup:
   link, masked input, eye icon, Validate and its result) is one component,
   `CredentialField`, used by both Warm Welcome and Settings' credential cards,
   so the two behave alike, down to the inline "Learn more ↗" after the
-  guidance (`SET-20`, `SET-32`). Settings adds the card, chip and purpose line.
-  Save is disabled while either field is empty (a saved credential counts) or
-  a check is running. It sends the typed values to `POST /api/setup`, showing
+  guidance (`SET-20`, `SET-32`). Settings adds the card, titled "GitHub" or
+  "Gemini", with its chip and no description under the title (`SET-1`). Save
+  is disabled while either field is empty (a saved credential counts) or a
+  check is running. It sends the typed values to `POST /api/setup`, showing
   "Checking…" under each field whose value hasn't passed Validate; the
   response's results then replace them. On success the store reloads
   `GET /api/me`, whose `screen` is now `app`, and the app navigates to `/`,
