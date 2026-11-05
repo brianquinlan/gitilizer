@@ -15,6 +15,16 @@ export function credentialFieldId(kind: CredentialKind) {
   return kind === "github_pat" ? "github-pat" : "gemini-key";
 }
 
+/** Shows or hides the typed value. The icon and the label both name what a click does: an open eye and "Show"
+ *  while masked, a slashed eye and "Hide" while shown. No `aria-pressed`, which would contradict the changing label. */
+export function EyeToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) {
+  return (
+    <button className="eye" onClick={onToggle} aria-label={show ? "Hide" : "Show"}>
+      {show ? <EyeOffIcon /> : <EyeIcon />}
+    </button>
+  );
+}
+
 export function CredentialField(props: {
   kind: CredentialKind; label: string; setup: { text: string; href: string };
   /** The guidance text; "Learn more ↗" follows it inline (SET-20, SET-32). */
@@ -57,11 +67,7 @@ export function CredentialField(props: {
           <input id={id} type={show ? "text" : "password"} autoComplete="off" spellCheck={false}
                  placeholder={props.saved ? "•••• •••• •••• •••• ••••" : "Paste it here"}
                  value={value} onChange={(e) => { props.onChange(e.target.value); onCheck(null); }} />
-          {value && (
-            <button className="eye" onClick={() => setShow(!show)} aria-pressed={show} aria-label={show ? "Hide" : "Show"}>
-              {show ? <EyeIcon /> : <EyeOffIcon />}
-            </button>
-          )}
+          {value && <EyeToggle show={show} onToggle={() => setShow(!show)} />}
         </div>
         <button className="btn" onClick={validate} disabled={!value.trim() || check === "checking"}>Validate</button>
       </div>
