@@ -138,7 +138,10 @@ export class Scheduler {
   private run(userId: string, trigger: string) {
     if (this.running.has(userId)) {
       // A scan for this developer is running here: join it, and follow an incremental one with a full one.
-      if (FULL_TRIGGERS.has(trigger)) void this.retryFullAfterIncremental(userId, trigger, true);
+      if (FULL_TRIGGERS.has(trigger)) {
+        this.retryFullAfterIncremental(userId, trigger, true)
+          .catch((e) => log.error("scheduler", "couldn't request a full scan", { user: userId, error: String(e?.stack ?? e) }));
+      }
       return;
     }
     this.running.add(userId);

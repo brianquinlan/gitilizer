@@ -495,6 +495,22 @@ describe("ranking worker", () => {
     expect((await shownNotifications(ctx, "w1")).map((n) => n.code)).toEqual(["gemini_invalid"]);
     expect(await claimJobs(ctx, 5, 60)).toHaveLength(0); // paused until the key changes
   });
+
+  it("keeps running when the database drops while it records a failure", async () => {
+    const { ctx } = await makeCtx();
+    await addUser(ctx, "w2");
+    await scan(ctx, "w2", "test");
+    const [job] = await claimJobs(ctx, 1, 60);
+    const worker = new RankingWorker(ctx, { llm: () => ({ generate: () => Promise.reject(new Error("socket hang up")) }) });
+    const one = ctx.db.one.bind(ctx.db);
+    ctx.db.one = () => Promise.reject(new Error("Connection terminated unexpectedly"));
+    try {
+      await expect(worker.run(job)).resolves.toBeUndefined(); // logged, not thrown
+    } finally {
+      ctx.db.one = one;
+    }
+    expect((await ctx.db.one(`select state from rank_jobs where id = $1`, [job.id])).state).toBe("leased");
+  });
 });
 
 // --- Sign-in allowlist (PRD NFR-12, Q-80; contributor/DEPLOYMENT.md) ---

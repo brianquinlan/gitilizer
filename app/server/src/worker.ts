@@ -110,7 +110,13 @@ export class RankingWorker {
       // Expected, short-lived failures are counted in the summary; the rest need a look.
       const expected = ["rate_limited", "unavailable", "daily_quota"].includes(c.code);
       log[expected ? "debug" : "warn"]("worker", "job failed", { item: job.itemKey, model: job.model, code: c.code, message: c.message.slice(0, 300) });
-      await failJob(this.ctx, job.id, { code: c.code, message: c.message.slice(0, 500), retryAfterSeconds: c.retryAfter });
+      try {
+        await failJob(this.ctx, job.id, { code: c.code, message: c.message.slice(0, 500), retryAfterSeconds: c.retryAfter });
+      } catch (dbError) {
+        // The database is unreachable, for example a dropped connection. Leave the
+        // job leased: reapLeases puts it back in the queue when the lease expires.
+        log.error("worker", "couldn't record a failed job", { item: job.itemKey, error: String(dbError) });
+      }
     }
   }
 
