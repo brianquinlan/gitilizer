@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2026-11-06. Phases 1 to 8 done: `gitilizer.com` is served by `gitilizer-api` on Google Cloud, released once through the Release workflow and rolled back and forward once, with monitoring, alerts and a budget. Phase 9: left are the 6.7 checklist on `gitilizer.com` and confirming the alert email arrived. |
+| **Status** | 2026-11-06. Phases 1 to 8 done: `gitilizer.com` is served by `gitilizer-api` on Google Cloud, released once through the Release workflow and rolled back and forward once, with monitoring, alerts and a budget. Phase 9: only Google sign-in on `gitilizer.com` is left. |
 | **Goal** | `dev.gitilizer.com` and `gitilizer.com` running on Google Cloud as [DESIGN.md](DESIGN.md#hosting-on-google-cloud) and [DEPLOYMENT.md](DEPLOYMENT.md) describe, with the old configuration in the `gitilizer` project removed first. |
 | **Region** | `us-east4` ([D-3](DESIGN.md#d-3)) |
 
@@ -365,12 +365,12 @@ add a second channel.
 
 Before telling anyone about `gitilizer.com`:
 
-- [ ] Everything in the 6.7 checklist, repeated on `gitilizer.com` (except the allowlist, which production doesn't have).
+- [ ] Everything in the 6.7 checklist, repeated on `gitilizer.com` (except the allowlist, which production doesn't have). (2026-11-06: GitHub sign-in, the first sync with all 390 items ranked by `gemini-3.8-flash` and no failed jobs, live updates in a second tab, `POST /api/auth/dev` 404, `__Host-` cookies, `www` and `http://` redirects, the `*.run.app` address refused, and 1,169 log entries with no tokens, keys or emails. Still to do: Google sign-in.)
 - [x] Production and development data are separate: an account on one doesn't exist on the other. (2026-11-06: production has 1 account and development 2, with no ID in common.)
 - [x] `run-dev` can't read any `prod-*` secret: `gcloud secrets get-iam-policy prod-credential-key` lists only `run-prod`.
 - [x] No service account holds Owner or Editor: `gcloud projects get-iam-policy gitilizer`.
 - [x] Backups run, and a restore works: `gcloud sql instances clone gitilizer-pg gitilizer-restore-test --point-in-time=...`, check the data, delete the clone. (2026-11-06: daily backups since 11-03; a clone at 17:50 UTC took about 9 minutes and had the same users and scans as the source up to that time, in both databases; then deleted.)
-- [ ] The uptime alert fires: briefly change the check's path to one that returns 404, confirm the email, change it back. (2026-11-06: path changed at 17:55 UTC; every location failed by 18:00, and "gitilizer.com is down" opened at 18:00:27. Still to confirm: the email arrived.)
+- [x] The uptime alert fires: briefly change the check's path to one that returns 404, confirm the email, change it back. (2026-11-06: path changed at 17:55 UTC; every location failed by 18:00, and "gitilizer.com is down" opened at 18:00:27, and the email arrived.)
 - [x] A release and a rollback have each been done once (7.5).
 - [x] The privacy section and the user guide are reachable from the footer.
 
