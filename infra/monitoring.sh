@@ -27,7 +27,7 @@ for f in "$dir"/*.yaml; do
 done
 
 step "Email channel"
-channel=$(mon channels list --filter="type=email AND labels.email_address=\"$email\"" --format='value(name)' | head -1)
+channel=$(mon channels list --filter="type=\"email\" AND labels.email_address=\"$email\"" --format='value(name)' | head -1)
 if [[ -z $channel ]]; then
   channel=$(mon channels create --display-name="Gitilizer owner" --type=email --channel-labels=email_address="$email" --format='value(name)')
   echo "  + $email"
