@@ -20,10 +20,15 @@ ensure "provider gitilizer-repo" gcloud iam workload-identity-pools providers de
     --issuer-uri=https://token.actions.githubusercontent.com \
     --attribute-mapping=google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.environment=assertion.environment \
     --attribute-condition="assertion.repository_id=='$repo_id' && assertion.environment=='production'"
+# Trusted by the token's environment, not by its `sub` claim: GitHub can change the `sub` format (a repository
+# can customize it), and the provider's condition above already admits only this repository's `production`
+# environment. A binding on `sub` alone made the first release fail with iam.serviceAccounts.getAccessToken denied.
+pool=projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github
 gcloud iam service-accounts add-iam-policy-binding "$(sa deploy-prod)" --role=roles/iam.workloadIdentityUser \
-  --member="principal://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/subject/repo:$REPO:environment:production" \
-  --quiet >/dev/null
-echo "  ✓ only repo:$REPO:environment:production may act as deploy-prod"
+  --member="principalSet://iam.googleapis.com/$pool/attribute.environment/production" --quiet >/dev/null
+gcloud iam service-accounts remove-iam-policy-binding "$(sa deploy-prod)" --role=roles/iam.workloadIdentityUser \
+  --member="principal://iam.googleapis.com/$pool/subject/repo:$REPO:environment:production" --quiet >/dev/null 2>&1 || true
+echo "  ✓ only the production environment of $REPO may act as deploy-prod"
 
 cat <<VARS
 
