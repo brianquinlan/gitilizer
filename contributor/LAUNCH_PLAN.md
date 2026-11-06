@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2026-11-06. Phases 1 to 6 done. Production runs as `gitilizer-api` behind the load balancer, tested there before DNS changes (7.1, 7.2); `gitilizer.com` still points at GoDaddy. Next: the GitHub `production` environment (7.3), the cutover at GoDaddy (7.4) and the first release (7.5). |
+| **Status** | 2026-11-06. Phases 1 to 7 done: `gitilizer.com` is served by `gitilizer-api` on Google Cloud, released once through the Release workflow and rolled back and forward once. Monitoring and alerts are set up (8.2). Next: the budget (8.1) and the launch checks (Phase 9). |
 | **Goal** | `dev.gitilizer.com` and `gitilizer.com` running on Google Cloud as [DESIGN.md](DESIGN.md#hosting-on-google-cloud) and [DEPLOYMENT.md](DEPLOYMENT.md) describe, with the old configuration in the `gitilizer` project removed first. |
 | **Region** | `us-east4` ([D-3](DESIGN.md#d-3)) |
 
@@ -302,9 +302,9 @@ live updates, and Claude checked the rest from outside and in the logs):
 |---|---|---|
 | 7.1 | Done | **Create the service** with the image development is running: `GOOGLE_CLIENT_ID=<prod> GITHUB_CLIENT_ID=<prod> bash infra/services.sh prod <sha>`, where `<sha>` comes from `gcloud run services describe gitilizer-dev --region us-east4 --format='value(spec.template.spec.containers[0].image)'`. |
 | 7.2 | Done | `bash infra/load-balancer.sh` again: it adds `gitilizer.com` and `www`. It prints a `curl --resolve` command that tests production through the load balancer before DNS changes. |
-| 7.3 | You | **GitHub environment:** Settings → Environments → New environment `production`. **Required reviewers:** you. **Deployment branches and tags:** selected tags, pattern `release-*`. **Environment variables** (`pipeline.sh` printed them, 6.3): `WIF_PROVIDER` = `projects/414241858841/locations/global/workloadIdentityPools/github/providers/gitilizer-repo`, `DEPLOY_SA` = `deploy-prod@gitilizer.iam.gserviceaccount.com`, `GCP_PROJECT` = `gitilizer`, `GCP_REGION` = `us-east4`, `PUBLIC_URL` = `https://gitilizer.com`. The Workload Identity provider accepts only this repository's `production` environment. |
-| 7.4 | You | **Cutover at GoDaddy** (a day after lowering the TTL, 0.5): (1) `gitilizer.com` → **Forwarding**: delete any forwarding, or GoDaddy puts its own A records back; (2) delete the A records for `@` (`3.33.130.190`, `15.197.148.33`); (3) add `A` `@` → the IPv4 address and `AAAA` `@` → the IPv6 address, TTL 600 seconds, raised to 1 hour after a day; (4) keep `www` as a CNAME to `@`; (5) optionally, CAA records `@ 0 issue "pki.goog"` and `@ 0 issue "letsencrypt.org"` (both are needed if you add any); (6) don't change the nameservers, `_acme-challenge` or the Search Console `TXT` record. Check with `nslookup gitilizer.com 8.8.8.8` and `curl -sSI https://gitilizer.com`. |
-| 7.5 | You | **First real release:** follow [DEPLOYMENT.md](DEPLOYMENT.md#releasing-to-production) end to end, so the pipeline is proven before anyone depends on it, then practise a [rollback](DEPLOYMENT.md#rolling-back). |
+| 7.3 | Done | **GitHub environment:** Settings → Environments → New environment `production`. **Required reviewers:** you. **Deployment branches and tags:** selected tags, pattern `release-*`. **Environment variables** (`pipeline.sh` printed them, 6.3): `WIF_PROVIDER` = `projects/414241858841/locations/global/workloadIdentityPools/github/providers/gitilizer-repo`, `DEPLOY_SA` = `deploy-prod@gitilizer.iam.gserviceaccount.com`, `GCP_PROJECT` = `gitilizer`, `GCP_REGION` = `us-east4`, `PUBLIC_URL` = `https://gitilizer.com`. The Workload Identity provider accepts only this repository's `production` environment. |
+| 7.4 | Done | **Cutover at GoDaddy** (a day after lowering the TTL, 0.5): (1) `gitilizer.com` → **Forwarding**: delete any forwarding, or GoDaddy puts its own A records back; (2) delete the A records for `@` (`3.33.130.190`, `15.197.148.33`); (3) add `A` `@` → the IPv4 address and `AAAA` `@` → the IPv6 address, TTL 600 seconds, raised to 1 hour after a day; (4) keep `www` as a CNAME to `@`; (5) optionally, CAA records `@ 0 issue "pki.goog"` and `@ 0 issue "letsencrypt.org"` (both are needed if you add any); (6) don't change the nameservers, `_acme-challenge` or the Search Console `TXT` record. Check with `nslookup gitilizer.com 8.8.8.8` and `curl -sSI https://gitilizer.com`. |
+| 7.5 | Done | **First real release:** follow [DEPLOYMENT.md](DEPLOYMENT.md#releasing-to-production) end to end, so the pipeline is proven before anyone depends on it, then practise a [rollback](DEPLOYMENT.md#rolling-back). |
 
 **7.1 and 7.2, done** (Claude, with your token, 2026-11-06). `gitilizer-api`
 runs `a0e0133` (revision `gitilizer-api-00001-8bg`), the image development ran
@@ -319,6 +319,26 @@ sign-in start with the production client IDs and `__Host-` cookies,
 reach every Google front end; until then `gitilizer.com` answered with the
 default redirect to itself.
 
+**7.3 to 7.5, done** (2026-11-06).
+
+- **7.3.** The `production` environment needs your approval, with "Prevent
+  self-review" off so you can approve your own releases.
+- **7.4.** GoDaddy shows its parking as one `A @` record whose value is
+  "Parked"; editing it to the IPv4 address replaced both parking addresses.
+  Within minutes GoDaddy's nameserver and Google, Cloudflare and Quad9 returned
+  the new addresses, and `https://gitilizer.com` answered from production with
+  Google's certificate. Raise the TTL of the `@` records to 1 hour a day later.
+- **7.5.** `release-2026-11-06` (`a0e0133`) is revision
+  `gitilizer-api-00002-9dm`. The first two runs failed at "Development built
+  this commit", though the image was there: `deploy-prod` trusted only a token
+  whose `sub` was exactly `repo:brianquinlan/gitilizer:environment:production`,
+  and GitHub's token didn't carry that `sub`, so impersonating `deploy-prod` was
+  refused (`iam.serviceAccounts.getAccessToken`). `pipeline.sh` now trusts the
+  principal set `attribute.environment/production` instead (PR #30). A new IAM
+  binding can take a few minutes to apply: the run a minute after it still
+  failed, and the next one passed. Then you rolled back to
+  `gitilizer-api-00001-8bg` and forward again.
+
 ---
 
 ## Phase 8: monitoring, alerts and budget
@@ -326,8 +346,18 @@ default redirect to itself.
 | # | Who | Task |
 |---|---|---|
 | 8.1 | You | **Budget.** Billing → **Budgets & alerts** → a budget for project `gitilizer`, US$200 a month, alerts at 50%, 90% and 100% of actual spend and 100% of forecast. |
-| 8.2 | You | `ALERT_EMAIL=<you> bash infra/monitoring.sh`: log-based metrics, the uptime check, four alert policies and the dashboard ([DEPLOYMENT.md](DEPLOYMENT.md#monitoring-and-alerts)). Google sends nothing to confirm an email channel, so check that alerts arrive (Phase 9). |
+| 8.2 | Done | `ALERT_EMAIL=<you> bash infra/monitoring.sh`: log-based metrics, the uptime check, four alert policies and the dashboard ([DEPLOYMENT.md](DEPLOYMENT.md#monitoring-and-alerts)). Google sends nothing to confirm an email channel, so check that alerts arrive (Phase 9). |
 | 8.3 | You, later | **Usage dashboard** (`METRIC-1`). Looker Studio reaching Cloud SQL means opening the instance to Looker Studio's addresses with a read-only user. Decide after launch whether that's worth it, or whether `/internal/metrics` is enough. |
+
+**8.2, done** (Claude, with your token, 2026-11-06), with alerts going to
+`brian@sweetapp.com`: six log-based metrics, the email channel, the uptime
+check on `https://gitilizer.com/api/health` every 5 minutes, four alert
+policies and the Gitilizer dashboard. The dashboard's chart of time to a usable
+list asked for `REDUCE_PERCENTILE_75`, which Cloud Monitoring doesn't have (it
+offers the 5th, 50th, 95th and 99th percentiles), so it is now a PromQL
+`histogram_quantile(0.75, …)` query. The email channel's filter in
+`monitoring.sh` needed `"email"` in quotes, or running the script again would
+add a second channel.
 
 ---
 
@@ -341,7 +371,7 @@ Before telling anyone about `gitilizer.com`:
 - [x] No service account holds Owner or Editor: `gcloud projects get-iam-policy gitilizer`.
 - [ ] Backups run, and a restore works: `gcloud sql instances clone gitilizer-pg gitilizer-restore-test --point-in-time=...`, check the data, delete the clone.
 - [ ] The uptime alert fires: briefly change the check's path to one that returns 404, confirm the email, change it back.
-- [ ] A release and a rollback have each been done once (7.5).
+- [x] A release and a rollback have each been done once (7.5).
 - [ ] The privacy section and the user guide are reachable from the footer.
 
 ---
@@ -358,10 +388,10 @@ Before telling anyone about `gitilizer.com`:
 8. ~~Cloud Build's GitHub connection (6.1); `services.sh dev placeholder`, `pipeline.sh` and the first build, `load-balancer.sh` (6.2 to 6.4).~~ Done.
 9. ~~GitHub rulesets (6.5); the `dev` records at GoDaddy (6.6).~~ Done.
 10. ~~Try development with your real data (6.7).~~ Done.
-11. ~~`services.sh prod`, `load-balancer.sh` again (7.1, 7.2)~~ Done. The GitHub `production` environment (7.3).
-12. ~~Lower the TTLs a day ahead (0.5)~~ Done. The cutover at GoDaddy (7.4).
-13. First release and a practice rollback (7.5).
-14. Budget and `monitoring.sh` (8.1, 8.2).
+11. ~~`services.sh prod`, `load-balancer.sh` again, the GitHub `production` environment (7.1 to 7.3).~~ Done.
+12. ~~Lower the TTLs a day ahead (0.5), then the cutover at GoDaddy (7.4).~~ Done. Raise the `@` TTLs to 1 hour on 2026-11-07.
+13. ~~First release and a practice rollback (7.5).~~ Done.
+14. Budget (8.1). ~~`monitoring.sh` (8.2)~~ Done.
 15. Launch checks (Phase 9).
 
 ---
