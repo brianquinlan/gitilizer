@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2026-11-02. Phases 1 to 5 done. Development is live at `https://dev.gitilizer.com`, built and deployed from `main` by Cloud Build (6.1 to 6.4, 6.6). Next: the GitHub rulesets (6.5) and trying development with your real data (6.7). |
+| **Status** | 2026-11-06. Phases 1 to 6 done. Production runs as `gitilizer-api` behind the load balancer, tested there before DNS changes (7.1, 7.2); `gitilizer.com` still points at GoDaddy. Next: the GitHub `production` environment (7.3), the cutover at GoDaddy (7.4) and the first release (7.5). |
 | **Goal** | `dev.gitilizer.com` and `gitilizer.com` running on Google Cloud as [DESIGN.md](DESIGN.md#hosting-on-google-cloud) and [DEPLOYMENT.md](DEPLOYMENT.md) describe, with the old configuration in the `gitilizer` project removed first. |
 | **Region** | `us-east4` ([D-3](DESIGN.md#d-3)) |
 
@@ -131,7 +131,7 @@ If the inventory finds any of these names in use, or recently deleted (Cloud SQL
 | 0.2 | You | Answer L-1 to L-9. | Done |
 | 0.3 | You | GoDaddy: auto-renew and domain lock on. | Done |
 | 0.4 | You | The repository is public, so GitHub's required reviewers are free. | Done |
-| 0.5 | You | A day before the cutover in [Phase 7](#phase-7-production), lower the TTL of the `@` A records at GoDaddy to 600 seconds. | |
+| 0.5 | You | A day before the cutover in [Phase 7](#phase-7-production), lower the TTL of the `@` A records at GoDaddy to 600 seconds. | Done (already 600 seconds on 2026-11-06) |
 
 ---
 
@@ -278,20 +278,21 @@ The repository is linked as `brianquinlan-gitilizer` (the console's default name
 | 6.2 | Done | **Create the service** with all its settings, running Google's sample container for now: `GOOGLE_CLIENT_ID=<dev> GITHUB_CLIENT_ID=<dev> SIGN_IN_ALLOWLIST="google:<you> github-id:<your id>" bash infra/services.sh dev placeholder`. The allowlist stays out of Git. |
 | 6.3 | Done | **The trigger and Workload Identity:** `bash infra/pipeline.sh` (note the two values it prints, for 7.3). Then build and deploy `main` for the first time: `gcloud builds triggers run deploy-dev --region=us-east4 --branch=main`, and watch it under Cloud Build → History. |
 | 6.4 | Done | **Load balancer:** `bash infra/load-balancer.sh`. Checked through the load balancer before DNS: `https://dev.gitilizer.com` answers with the certificate, `http://` redirects to `https://`, and the `*.run.app` address is refused. |
-| 6.5 | You | **GitHub rulesets** (Settings → Rules → Rulesets): for `main`, require a pull request and the `ci` check, and block force pushes; for tags `release-*`, block updates and deletion. |
+| 6.5 | Done | **GitHub rulesets** (Settings → Rules → Rulesets): for `main`, require a pull request and the `ci` check, and block force pushes; for tags `release-*`, block updates and deletion. |
 | 6.6 | Done | **Point `dev` at Google** at GoDaddy: `A` `dev` → the IPv4 address and `AAAA` `dev` → the IPv6 address that `certificate.sh` printed. |
-| 6.7 | You and Claude | **Try development** at `https://dev.gitilizer.com`, with your real data: the checklist below. |
+| 6.7 | Done | **Try development** at `https://dev.gitilizer.com`, with your real data: the checklist below. |
 
-**6.7 checklist:**
+**6.7 checklist** (2026-11-06; you tried sign-in, the allowlist, syncing and
+live updates, and Claude checked the rest from outside and in the logs):
 
-- [ ] Google and GitHub sign-in both work; an account not on the allowlist sees the refusal and no account is created.
-- [ ] `POST /api/auth/dev` returns 404.
-- [ ] The session cookie is `__Host-gitilizer_session`, `Secure`, `HttpOnly`, `SameSite=Lax`.
-- [ ] Saving credentials starts the first sync; items are ranked by real Gemini; the free-tier fallback behaves.
-- [ ] Live updates arrive in a second tab; after a deploy, the page reconnects and catches up.
-- [ ] Logs are JSON with severities, and contain no tokens, keys or emails.
-- [ ] The `*.run.app` address is refused; `http://dev.gitilizer.com` redirects to HTTPS.
-- [ ] Merging a small change to `main` reaches development within minutes.
+- [x] Google and GitHub sign-in both work; an account not on the allowlist sees the refusal and no account is created.
+- [x] `POST /api/auth/dev` returns 404.
+- [x] The session cookie is `__Host-gitilizer_session`, `Secure`, `HttpOnly`, `SameSite=Lax`.
+- [x] Saving credentials starts the first sync; items are ranked by real Gemini. Not yet seen: the free-tier fallback.
+- [x] Live updates arrive in a second tab. Not yet seen: reconnecting and catching up after a deploy.
+- [x] Logs are JSON with severities, and contain no tokens, keys or emails (2,000 entries, 3 days). They showed one crash: a dropped database connection while the worker recorded a failed job stopped the process. Fixed in PR #28.
+- [x] The `*.run.app` address is refused; `http://dev.gitilizer.com` redirects to HTTPS.
+- [x] Merging a small change to `main` reaches development within minutes.
 
 ---
 
@@ -299,12 +300,24 @@ The repository is linked as `brianquinlan-gitilizer` (the console's default name
 
 | # | Who | Task |
 |---|---|---|
-| 7.1 | You | **Create the service** with the image development is running: `GOOGLE_CLIENT_ID=<prod> GITHUB_CLIENT_ID=<prod> bash infra/services.sh prod <sha>`, where `<sha>` comes from `gcloud run services describe gitilizer-dev --region us-east4 --format='value(spec.template.spec.containers[0].image)'`. |
-| 7.2 | You | `bash infra/load-balancer.sh` again: it adds `gitilizer.com` and `www`. It prints a `curl --resolve` command that tests production through the load balancer before DNS changes. |
-| 7.3 | You | **GitHub environment:** Settings → Environments → New environment `production`. **Required reviewers:** you. **Deployment branches and tags:** selected tags, pattern `release-*`. **Environment variables:** `WIF_PROVIDER` and `DEPLOY_SA`, from 6.4. | The values: `WIF_PROVIDER` = `projects/414241858841/locations/global/workloadIdentityPools/github/providers/gitilizer-repo`, `DEPLOY_SA` = `deploy-prod@gitilizer.iam.gserviceaccount.com`, `GCP_PROJECT` = `gitilizer`, `GCP_REGION` = `us-east4`, `PUBLIC_URL` = `https://gitilizer.com`.
-
+| 7.1 | Done | **Create the service** with the image development is running: `GOOGLE_CLIENT_ID=<prod> GITHUB_CLIENT_ID=<prod> bash infra/services.sh prod <sha>`, where `<sha>` comes from `gcloud run services describe gitilizer-dev --region us-east4 --format='value(spec.template.spec.containers[0].image)'`. |
+| 7.2 | Done | `bash infra/load-balancer.sh` again: it adds `gitilizer.com` and `www`. It prints a `curl --resolve` command that tests production through the load balancer before DNS changes. |
+| 7.3 | You | **GitHub environment:** Settings → Environments → New environment `production`. **Required reviewers:** you. **Deployment branches and tags:** selected tags, pattern `release-*`. **Environment variables** (`pipeline.sh` printed them, 6.3): `WIF_PROVIDER` = `projects/414241858841/locations/global/workloadIdentityPools/github/providers/gitilizer-repo`, `DEPLOY_SA` = `deploy-prod@gitilizer.iam.gserviceaccount.com`, `GCP_PROJECT` = `gitilizer`, `GCP_REGION` = `us-east4`, `PUBLIC_URL` = `https://gitilizer.com`. The Workload Identity provider accepts only this repository's `production` environment. |
 | 7.4 | You | **Cutover at GoDaddy** (a day after lowering the TTL, 0.5): (1) `gitilizer.com` → **Forwarding**: delete any forwarding, or GoDaddy puts its own A records back; (2) delete the A records for `@` (`3.33.130.190`, `15.197.148.33`); (3) add `A` `@` → the IPv4 address and `AAAA` `@` → the IPv6 address, TTL 600 seconds, raised to 1 hour after a day; (4) keep `www` as a CNAME to `@`; (5) optionally, CAA records `@ 0 issue "pki.goog"` and `@ 0 issue "letsencrypt.org"` (both are needed if you add any); (6) don't change the nameservers, `_acme-challenge` or the Search Console `TXT` record. Check with `nslookup gitilizer.com 8.8.8.8` and `curl -sSI https://gitilizer.com`. |
 | 7.5 | You | **First real release:** follow [DEPLOYMENT.md](DEPLOYMENT.md#releasing-to-production) end to end, so the pipeline is proven before anyone depends on it, then practise a [rollback](DEPLOYMENT.md#rolling-back). |
+
+**7.1 and 7.2, done** (Claude, with your token, 2026-11-06). `gitilizer-api`
+runs `a0e0133` (revision `gitilizer-api-00001-8bg`), the image development ran
+after PR #28, and started with no problems in its log. The load balancer now
+has `neg-prod` and `be-prod`, and routes `gitilizer.com` to production and
+`www` to `gitilizer.com`. Checked through the load balancer with
+`curl --resolve` before DNS changes: `/api/health` answers, Google and GitHub
+sign-in start with the production client IDs and `__Host-` cookies,
+`POST /api/auth/dev` returns 404, `www` and `http://` redirect to
+`https://gitilizer.com`, `/docs/privacy` redirects to the user guide, and the
+`*.run.app` address returns 404. A URL map change takes about two minutes to
+reach every Google front end; until then `gitilizer.com` answered with the
+default redirect to itself.
 
 ---
 
@@ -324,8 +337,8 @@ Before telling anyone about `gitilizer.com`:
 
 - [ ] Everything in the 6.7 checklist, repeated on `gitilizer.com` (except the allowlist, which production doesn't have).
 - [ ] Production and development data are separate: an account on one doesn't exist on the other.
-- [ ] `run-dev` can't read any `prod-*` secret: `gcloud secrets get-iam-policy prod-credential-key` lists only `run-prod`.
-- [ ] No service account holds Owner or Editor: `gcloud projects get-iam-policy gitilizer`.
+- [x] `run-dev` can't read any `prod-*` secret: `gcloud secrets get-iam-policy prod-credential-key` lists only `run-prod`.
+- [x] No service account holds Owner or Editor: `gcloud projects get-iam-policy gitilizer`.
 - [ ] Backups run, and a restore works: `gcloud sql instances clone gitilizer-pg gitilizer-restore-test --point-in-time=...`, check the data, delete the clone.
 - [ ] The uptime alert fires: briefly change the check's path to one that returns 404, confirm the email, change it back.
 - [ ] A release and a rollback have each been done once (7.5).
@@ -335,18 +348,18 @@ Before telling anyone about `gitilizer.com`:
 
 ## Your tasks, in one list
 
-1. Run the inventory; check the Firebase console (1.1, 1.2).
-2. Approve the delete list and run the deletions (1.3, 1.4).
-3. ~~`infra/foundation.sh`~~ Done. Run it again after 5.5.
-4. `infra/certificate.sh`; the `_acme-challenge` CNAME at GoDaddy (4.1 to 4.3).
-5. Search Console verification, with a `TXT` record at GoDaddy (5.1).
-6. Google Auth Platform: branding, audience (publish), scopes, two clients (5.2, 5.3).
-7. Two GitHub OAuth apps (5.4); `infra/oauth-secrets.sh`, then `infra/foundation.sh` again (5.5).
-8. Cloud Build's GitHub connection (6.1); `services.sh dev placeholder`, `pipeline.sh` and the first build, `load-balancer.sh` (6.2 to 6.4).
-9. GitHub rulesets (6.5); the `dev` records at GoDaddy (6.6).
-10. Try development with your real data (6.7).
-11. `services.sh prod`, `load-balancer.sh` again, the GitHub `production` environment (7.1 to 7.3).
-12. Lower the TTLs a day ahead (0.5), then the cutover at GoDaddy (7.4).
+1. ~~Run the inventory; check the Firebase console (1.1, 1.2).~~ Done.
+2. ~~Approve the delete list and run the deletions (1.3, 1.4).~~ Done.
+3. ~~`infra/foundation.sh`, and again after 5.5~~ Done.
+4. ~~`infra/certificate.sh`; the `_acme-challenge` CNAME at GoDaddy (4.1 to 4.3).~~ Done.
+5. ~~Search Console verification, with a `TXT` record at GoDaddy (5.1).~~ Done.
+6. ~~Google Auth Platform: branding, audience (publish), scopes, two clients (5.2, 5.3).~~ Done.
+7. ~~Two GitHub OAuth apps (5.4); `infra/oauth-secrets.sh`, then `infra/foundation.sh` again (5.5).~~ Done.
+8. ~~Cloud Build's GitHub connection (6.1); `services.sh dev placeholder`, `pipeline.sh` and the first build, `load-balancer.sh` (6.2 to 6.4).~~ Done.
+9. ~~GitHub rulesets (6.5); the `dev` records at GoDaddy (6.6).~~ Done.
+10. ~~Try development with your real data (6.7).~~ Done.
+11. ~~`services.sh prod`, `load-balancer.sh` again (7.1, 7.2)~~ Done. The GitHub `production` environment (7.3).
+12. ~~Lower the TTLs a day ahead (0.5)~~ Done. The cutover at GoDaddy (7.4).
 13. First release and a practice rollback (7.5).
 14. Budget and `monitoring.sh` (8.1, 8.2).
 15. Launch checks (Phase 9).
