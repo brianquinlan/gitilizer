@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2026-11-06. Phases 1 to 8 done: `gitilizer.com` is served by `gitilizer-api` on Google Cloud, released once through the Release workflow and rolled back and forward once, with monitoring, alerts and a budget. Phase 9: the restore and alert checks are done; left are the 6.7 checklist on `gitilizer.com` and the separate-data check. |
+| **Status** | 2026-11-06. Phases 1 to 8 done: `gitilizer.com` is served by `gitilizer-api` on Google Cloud, released once through the Release workflow and rolled back and forward once, with monitoring, alerts and a budget. Phase 9: left are the 6.7 checklist on `gitilizer.com` and confirming the alert email arrived. |
 | **Goal** | `dev.gitilizer.com` and `gitilizer.com` running on Google Cloud as [DESIGN.md](DESIGN.md#hosting-on-google-cloud) and [DEPLOYMENT.md](DEPLOYMENT.md) describe, with the old configuration in the `gitilizer` project removed first. |
 | **Region** | `us-east4` ([D-3](DESIGN.md#d-3)) |
 
@@ -366,7 +366,7 @@ add a second channel.
 Before telling anyone about `gitilizer.com`:
 
 - [ ] Everything in the 6.7 checklist, repeated on `gitilizer.com` (except the allowlist, which production doesn't have).
-- [ ] Production and development data are separate: an account on one doesn't exist on the other.
+- [x] Production and development data are separate: an account on one doesn't exist on the other. (2026-11-06: production has 1 account and development 2, with no ID in common.)
 - [x] `run-dev` can't read any `prod-*` secret: `gcloud secrets get-iam-policy prod-credential-key` lists only `run-prod`.
 - [x] No service account holds Owner or Editor: `gcloud projects get-iam-policy gitilizer`.
 - [x] Backups run, and a restore works: `gcloud sql instances clone gitilizer-pg gitilizer-restore-test --point-in-time=...`, check the data, delete the clone. (2026-11-06: daily backups since 11-03; a clone at 17:50 UTC took about 9 minutes and had the same users and scans as the source up to that time, in both databases; then deleted.)
