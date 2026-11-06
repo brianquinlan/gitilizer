@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2026-11-06. Phases 1 to 7 done: `gitilizer.com` is served by `gitilizer-api` on Google Cloud, released once through the Release workflow and rolled back and forward once. Monitoring and alerts are set up (8.2). Next: the budget (8.1) and the launch checks (Phase 9). |
+| **Status** | 2026-11-06. Phases 1 to 8 done: `gitilizer.com` is served by `gitilizer-api` on Google Cloud, released once through the Release workflow and rolled back and forward once, with monitoring, alerts and a budget. Phase 9: the restore and alert checks are done; left are the 6.7 checklist on `gitilizer.com` and the separate-data check. |
 | **Goal** | `dev.gitilizer.com` and `gitilizer.com` running on Google Cloud as [DESIGN.md](DESIGN.md#hosting-on-google-cloud) and [DEPLOYMENT.md](DEPLOYMENT.md) describe, with the old configuration in the `gitilizer` project removed first. |
 | **Region** | `us-east4` ([D-3](DESIGN.md#d-3)) |
 
@@ -345,7 +345,7 @@ default redirect to itself.
 
 | # | Who | Task |
 |---|---|---|
-| 8.1 | You | **Budget.** Billing → **Budgets & alerts** → a budget for project `gitilizer`, US$200 a month, alerts at 50%, 90% and 100% of actual spend and 100% of forecast. |
+| 8.1 | Done | **Budget.** Billing → **Budgets & alerts** → a budget for project `gitilizer`, US$200 a month, alerts at 50%, 90% and 100% of actual spend and 100% of forecast. |
 | 8.2 | Done | `ALERT_EMAIL=<you> bash infra/monitoring.sh`: log-based metrics, the uptime check, four alert policies and the dashboard ([DEPLOYMENT.md](DEPLOYMENT.md#monitoring-and-alerts)). Google sends nothing to confirm an email channel, so check that alerts arrive (Phase 9). |
 | 8.3 | You, later | **Usage dashboard** (`METRIC-1`). Looker Studio reaching Cloud SQL means opening the instance to Looker Studio's addresses with a read-only user. Decide after launch whether that's worth it, or whether `/internal/metrics` is enough. |
 
@@ -369,10 +369,10 @@ Before telling anyone about `gitilizer.com`:
 - [ ] Production and development data are separate: an account on one doesn't exist on the other.
 - [x] `run-dev` can't read any `prod-*` secret: `gcloud secrets get-iam-policy prod-credential-key` lists only `run-prod`.
 - [x] No service account holds Owner or Editor: `gcloud projects get-iam-policy gitilizer`.
-- [ ] Backups run, and a restore works: `gcloud sql instances clone gitilizer-pg gitilizer-restore-test --point-in-time=...`, check the data, delete the clone.
-- [ ] The uptime alert fires: briefly change the check's path to one that returns 404, confirm the email, change it back.
+- [x] Backups run, and a restore works: `gcloud sql instances clone gitilizer-pg gitilizer-restore-test --point-in-time=...`, check the data, delete the clone. (2026-11-06: daily backups since 11-03; a clone at 17:50 UTC took about 9 minutes and had the same users and scans as the source up to that time, in both databases; then deleted.)
+- [ ] The uptime alert fires: briefly change the check's path to one that returns 404, confirm the email, change it back. (2026-11-06: path changed at 17:55 UTC; every location failed by 18:00, and "gitilizer.com is down" opened at 18:00:27. Still to confirm: the email arrived.)
 - [x] A release and a rollback have each been done once (7.5).
-- [ ] The privacy section and the user guide are reachable from the footer.
+- [x] The privacy section and the user guide are reachable from the footer.
 
 ---
 
@@ -391,7 +391,7 @@ Before telling anyone about `gitilizer.com`:
 11. ~~`services.sh prod`, `load-balancer.sh` again, the GitHub `production` environment (7.1 to 7.3).~~ Done.
 12. ~~Lower the TTLs a day ahead (0.5), then the cutover at GoDaddy (7.4).~~ Done. Raise the `@` TTLs to 1 hour on 2026-11-07.
 13. ~~First release and a practice rollback (7.5).~~ Done.
-14. Budget (8.1). ~~`monitoring.sh` (8.2)~~ Done.
+14. ~~Budget and `monitoring.sh` (8.1, 8.2).~~ Done.
 15. Launch checks (Phase 9).
 
 ---
