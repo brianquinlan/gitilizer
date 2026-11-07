@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-04 (pull requests are called "PRs", and text that covers both issues and PRs says so; credentials entered and validated on Warm Welcome; credential links without "(it's free!)", and "Learn more" for both credentials; rank reasoning popup; sync progress text; "Save and re-rank" counts as a sync; Gemini timeouts count as "isn't responding"; rank reasoning popup holds updates and returns focus; the GitHub credential is called a "GitHub personal access token", or a "personal access token" where GitHub is already clear, as in the Settings field label under the "GitHub" card title; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles; Warm Welcome's credential text and save note in the same type as Settings; Delete account panel text shortened to "Deleting your account is permanent and cannot be reversed.") |
+| **Last updated** | 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -106,6 +106,7 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
 | Inclusion reason | Why an item is on the developer's list, for example "Assigned to you". See [Which items appear](#which-items-appear). |
 | Additional repository | A repository the developer added in Settings. Its open items appear in the list even if the developer isn't otherwise involved. Earlier versions of this document called it an "interested repository". |
 | Prioritization prompt | Optional free text that the developer gives one additional repository, telling the ranking agent what matters in it, for example "Security issues only". |
+| Excluded repository | A repository, or an owner (an organization or a personal account), that the developer added under Excluded repositories in Settings. None of its items appear, whatever their inclusion reason. |
 | Ranking prompt | The instructions the ranking agent follows for every item. The developer can replace the default in Settings. |
 | Collaborator | A GitHub user whose items and comments the developer wants scored higher. |
 | Scan | A backend job that reads the developer's items from GitHub and finds new, changed and removed items. |
@@ -147,8 +148,8 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Icebox | [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947) | [Icebox](#icebox) |
 | Icebox, empty | [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593) | [Icebox](#icebox) |
 | Icebox row | [Icebox / Issue row · Restore](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=180-1403) | [Icebox](#icebox) |
-| Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), including Additional repositories, Collaborators, Delete account, and the save and cancel buttons | [Settings](#settings) |
-| Settings with errors | [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237): a failed Validate, a duplicate repository, a prompt that's too long, a duplicate collaborator, and the save buttons disabled | [Saving](#saving) |
+| Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), including Additional repositories, Excluded repositories, Collaborators, Delete account, and the save and cancel buttons | [Settings](#settings) |
+| Settings with errors | [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237): a failed Validate, a duplicate repository, an excluded repository that can't be found, an exclusion that is already an additional repository, a prompt that's too long, a duplicate collaborator, and the save buttons disabled | [Saving](#saving) |
 
 ### Live reorder prototype
 
@@ -189,7 +190,7 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 
 ### Routes
 
-- **NAV-3** The screens must have these URLs on `https://gitilizer.com`: `/` for the Prioritized list and `/icebox` for the Icebox (each with `?page=N` for pages after the first), `/settings` (with `#connections`, `#additional-repositories`, `#ranking-prompt`, `#collaborators` and `#account` for its sections) and `/sign-in`. Sort order is a stored preference, not part of the URL.
+- **NAV-3** The screens must have these URLs on `https://gitilizer.com`: `/` for the Prioritized list and `/icebox` for the Icebox (each with `?page=N` for pages after the first), `/settings` (with `#connections`, `#additional-repositories`, `#excluded-repositories`, `#ranking-prompt`, `#collaborators` and `#account` for its sections) and `/sign-in`. Sort order is a stored preference, not part of the URL.
 - **NAV-4** Moving between these screens must not reload the page.
 
 ### Moving between screens
@@ -411,7 +412,7 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 
 ### Which items appear
 
-- **LIST-1** An item must appear in the list if it is open, is not in an archived repository, and at least one of these is true:
+- **LIST-1** An item must appear in the list if it is open, is not in an archived repository, is not excluded (`SET-34`, `SET-35`), and at least one of these is true:
   - the developer's review is requested on it personally (a request to a team the developer belongs to doesn't count; see [Non-goals](#non-goals));
   - the developer is assigned to it;
   - the developer is @-mentioned by name in its description or in a comment (a mention of a team doesn't count; see [Non-goals](#non-goals));
@@ -547,6 +548,7 @@ Each animation takes about 0.4 seconds.
   | The PR was closed without merging | Closed |
   | The developer chose "Move to icebox" | Moved to Icebox |
   | It no longer matches `LIST-1` (the developer was unassigned, a review request was withdrawn, its repository was archived or removed from additional repositories) | No longer yours |
+  | It was excluded (`SET-34`) | Excluded |
   | The Icebox check brought it back to the Prioritized list (`ICE-6`, `ICE-9`; shown in the Icebox) | Back in your list |
 
 - **LIVE-26** An item that leaves because of the 1,000-item limit (`LIST-19`) shows no label. It moves off the bottom of the page as an item moving to a later page does (`LIVE-13`).
@@ -583,7 +585,7 @@ The Icebox holds items the developer has decided to set aside. It works like the
 - **ICE-8** Pages, sorting, the item count and "Sync now" must work as in the Prioritized list.
 - **ICE-9** While the Icebox is shown, an item that leaves it (it returns to the list under `ICE-6`, or leaves under `ICE-11`) must use the leave animation in `LIVE-15`, without the holding rules in [When updates wait](#when-updates-wait).
 - **ICE-10** A restored item must keep its last score. (An item that changed while in the Icebox will usually have returned to the list already, under `ICE-6`, and been ranked again.)
-- **ICE-11** An item that would no longer be eligible for the Prioritized list must leave the Icebox automatically. That includes items that are closed or merged, items that no longer match `LIST-1`, items in a repository that has been archived, and items that were there only because of an additional repository the developer has removed.
+- **ICE-11** An item that would no longer be eligible for the Prioritized list must leave the Icebox automatically. That includes items that are closed or merged, items that no longer match `LIST-1`, items in a repository that has been archived, items that were there only because of an additional repository the developer has removed, and items in an excluded repository (`SET-34`).
 - **ICE-12** The Icebox check's prompt must lean toward bringing items back. It keeps an item in the Icebox only when the change is clearly unimportant, such as a bot's comment, a label or milestone edit, or a CI result. Changes made by the developer count like anyone else's: for example, the developer commenting "This is a critical security issue, I'll work on it right away" brings the item back. If the check can't be made (for example, Gemini still fails after retries), the item comes back.
 - **ICE-13** Changes to the Icebox check's prompt should be measured against labelled examples before they ship, as `RANK-7` requires for the ranking prompt.
 - **ICE-14** The Icebox check's prompt belongs to Gitilizer. Developers can't see or change it.
@@ -594,7 +596,7 @@ The Icebox holds items the developer has decided to set aside. It works like the
 
 Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
 
-Settings is one page. The left column has links to its sections (Connections, Additional repositories, Ranking prompt, Collaborators), the developer's account details ("Signed in with GitHub", "Sign out") and a Delete account panel. The main column has the numbered sections (01 Connections, 02 Additional repositories, 03 Ranking prompt, 04 Collaborators) and, at the bottom, three buttons: "Save changes", "Save and re-rank" and "Cancel".
+Settings is one page. The left column has links to its sections (Connections, Additional repositories, Excluded repositories, Ranking prompt, Collaborators), the developer's account details ("Signed in with GitHub", "Sign out") and a Delete account panel. The main column has the numbered sections (01 Connections, 02 Additional repositories, 03 Excluded repositories, 04 Ranking prompt, 05 Collaborators) and, at the bottom, three buttons: "Save changes", "Save and re-rank" and "Cancel".
 
 ### Connections
 
@@ -650,6 +652,62 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 - **SET-9** Each repository may have a prioritization prompt: free text that tells the ranking agent what the developer cares about in it, for example "Security issues only". It is entered in the "Prioritization prompt" field when adding the repository, and shown under the repository's name. The agent receives it as a note on that repository. It can be at most 500 characters. It can't be edited after the repository is added: to change it, the developer removes the repository and adds it again.
 - **SET-31** Additional repositories are repositories the developer follows, not ones they're responsible for. The agent's "About me" text and the default prompt must describe them that way, measured as in `RANK-7`. A developer who is responsible for a repository can say so in its prioritization prompt.
 
+### Excluded repositories
+
+- **SET-33** The developer must be able to exclude a repository by typing
+  `owner/name`, or an owner (an organization or a personal account) by typing
+  its name, or by pasting either's GitHub URL, and choosing "Exclude"; and
+  remove an exclusion with "Remove". A leading "@" typed with an owner's name is
+  removed, as in `SET-25`. The field is labeled "Exclude an organization or
+  repository", with the placeholder "owner/repository or org" and the help text
+  under it shown in Figma. Any other format is an error ("Enter a repository as
+  owner/name, an owner's name, or paste a GitHub URL."), and so is one already
+  in the list ("{name} is already excluded.") (`SET-27`). There can be at most
+  25 exclusions. The section description must read "Issues and PRs from these
+  never appear in your list, even when you're assigned, asked to review or
+  @-mentioned. Gitilizer doesn't scan or rank them."
+- **SET-34** No item in an excluded repository, or in any repository an
+  excluded owner owns, may appear in the Prioritized list or the Icebox,
+  whatever its inclusion reason (`LIST-1`), except as in `SET-35`. Excluding a
+  personal account hides the repositories it owns, not the items that person
+  opens or comments on elsewhere. Gitilizer doesn't scan or rank excluded
+  items, and the ranking agent isn't told about exclusions.
+- **SET-35** An additional repository wins over an excluded owner that owns it:
+  its items appear as in `LIST-1`. The owner's row must say so under its name:
+  "Every repository {owner} owns, except {repo}, which is an additional
+  repository." With more than one, it names them all, in alphabetical order:
+  "…except {repo}, {repo} and {repo}, which are additional repositories." Each
+  repository name is a link that scrolls to that repository's row in Additional
+  repositories. The text wraps onto more lines if it doesn't fit; it is never
+  cut off. The same repository can't be both excluded and an additional
+  repository: adding it to either list while it is in the other is an error
+  (`SET-27`): "{repo} is one of your additional repositories. Remove it there
+  first to exclude it." or "{repo} is excluded. Remove it from Excluded
+  repositories first to follow it."
+- **SET-36** Each exclusion must show what it is: "Checking…" while Gitilizer
+  looks it up, then "Repository", "Organization" or "Personal account", all in
+  grey, or "Not found" with a red ✗ when GitHub says it doesn't exist or the
+  token can't read it. Hovering over "Not found" shows "GitHub says {name}
+  doesn't exist, or your token can't read it. If the name is misspelled, remove
+  it and add it again." Each row starts with an icon, aligned as in
+  Collaborators: the repository icon for a repository, and the owner's GitHub
+  avatar for an owner, with rounded corners for an organization and round for a
+  personal account, as GitHub shows them. While Gitilizer is checking an owner,
+  if GitHub can't be reached, or if the owner isn't found, a generic avatar is
+  shown: unlike in Collaborators, the red ✗ next to "Not found" is the row's
+  only error marker. An owner's row says "Every repository {owner} owns." under
+  its name, and a personal account's adds "Issues and PRs {owner} opens
+  elsewhere still appear." A "Not found" exclusion is kept; it hides nothing,
+  because Gitilizer can't read that repository anyway. If GitHub can't be
+  reached, an exclusion keeps its last known state, and a renamed repository or
+  owner stays excluded under its new name. An account that later takes an
+  excluded owner's old name isn't excluded.
+- **SET-37** Exclusions take effect when settings are saved (`SET-14`). Items
+  they cover leave the Prioritized list as in `LIVE-15` and the Icebox as in
+  `ICE-11` straight away, without waiting for a scan. Removing an exclusion
+  brings its items back at the scan that saving starts (`SCAN-5`), and they are
+  ranked like new items.
+
 ### Ranking prompt
 
 - **SET-11** The page must show the current ranking prompt in an editor. With no custom prompt, it shows the default prompt.
@@ -672,8 +730,8 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 - **SET-26** Leaving Settings with unsaved changes (through a link, the browser's Back button or closing the tab) must ask the developer to confirm.
 
 - **SET-27** Settings must show problems next to the field they belong to, as in [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237):
-  - The field gets a red border, and a one-line message in red appears under it, for example "northstar/web is already in your list.", "Enter a repository as owner/name or paste its GitHub URL.", "jordanlee is already a collaborator." or "A prompt can be at most 20,000 characters. This one has 21,345."
-  - Repository and collaborator errors appear when the developer chooses "Add repository" or "Add collaborator", and nothing is added. A prompt's error appears as soon as it goes over its limit, and a character count appears once a ranking prompt passes 18,000 characters.
+  - The field gets a red border, and a one-line message in red appears under it, for example "northstar/web is already in your list.", "Enter a repository as owner/name or paste its GitHub URL.", "northstar/web is one of your additional repositories. Remove it there first to exclude it.", "jordanlee is already a collaborator." or "A prompt can be at most 20,000 characters. This one has 21,345."
+  - Repository, exclusion and collaborator errors appear when the developer chooses "Add repository", "Exclude" or "Add collaborator", and nothing is added. A prompt's error appears as soon as it goes over its limit, and a character count appears once a ranking prompt passes 18,000 characters.
   - While any error is showing, "Save changes" and "Save and re-rank" are disabled.
   - If the server finds a problem when saving, it is shown the same way, and the page scrolls to the first one.
 
@@ -689,8 +747,8 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 ### Finding items
 
 - **SCAN-0** Scanning and ranking must continue while no browser is open, so the list is up to date when the developer comes back.
-- **SCAN-1** A scan must find every open item that matches `LIST-1`, reading GitHub with the developer's PAT, and keep the 1,000 most recently updated (`LIST-19`). Each GitHub search must be sorted by most recently updated and needs only its first 1,000 results: any item among the developer's 1,000 most recently updated is also among the first 1,000 results of every search it matches. So searches never need to be split, even when GitHub reports more than 1,000 results.
-- **SCAN-2** A scan must find items that have changed since the last scan, and items that no longer match (closed, merged, unassigned, a repository archived or removed). Items that no longer match leave the list as in `LIVE-15`, and leave the Icebox as in `ICE-11`.
+- **SCAN-1** A scan must find every open item that matches `LIST-1`, reading GitHub with the developer's PAT, and keep the 1,000 most recently updated (`LIST-19`). Each GitHub search must be sorted by most recently updated and needs only its first 1,000 results: any item among the developer's 1,000 most recently updated is also among the first 1,000 results of every search it matches. So searches never need to be split, even when GitHub reports more than 1,000 results. That holds only if excluded items (`SET-34`) are left out by the searches themselves, not removed from their results, so they never take up any of a search's first 1,000 results. The search for an additional repository leaves out owner exclusions (`SET-35`). Only exclusions that GitHub found (`SET-36`) are added to the searches. If GitHub refuses a search because an exclusion can no longer be read, that exclusion becomes "Not found" and the search is repeated without it.
+- **SCAN-2** A scan must find items that have changed since the last scan, and items that no longer match (closed, merged, unassigned, a repository archived, removed or excluded). Items that no longer match leave the list as in `LIVE-15`, and leave the Icebox as in `ICE-11`.
 - **SCAN-3** A scan must collect what the ranking agent needs to judge each new or changed item: the item, its comments, timeline and reviews, and the issues and PRs it links to.
 - **SCAN-4** Two scans for the same developer must never run at the same time. A sync requested while one is running joins it.
 
@@ -738,7 +796,7 @@ Gitilizer keeps:
 |---|---|
 | Account | Sign-in provider and provider user ID, name, email, avatar URL. |
 | Credentials | GitHub PAT (with its expiry date, if known) and Gemini API key. |
-| Settings | Additional repositories with their prioritization prompts, collaborators, custom ranking prompt, sort preferences. |
+| Settings | Additional repositories with their prioritization prompts, excluded repositories, collaborators, custom ranking prompt, sort preferences. |
 | Item data | The GitHub data needed to rank and show each item. |
 | Item state | For each developer and item: inclusion reasons, score, rank, the agent's output, when it was last ranked, and whether and when it was moved to the Icebox. |
 | Notifications | Active notifications with their first-detected time. |
@@ -893,6 +951,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 | <a id="q-80"></a>Q-80 | Who can sign in to the development environment | `dev.gitilizer.com`, with real GitHub and Gemini and each developer's own credentials. Only accounts on an allowlist can sign in: Google accounts by email, GitHub accounts by username or ID, kept in a setting the owner can change without a release. | `NFR-12`, `AUTH-10` |
 | <a id="q-81"></a>Q-81 | Progress during a sync, and whether bulk re-ranks are syncs | Show progress next to Sync now: the items found so far while searching, then the items left to rank. "Save and re-rank" is a sync, because the developer asked for it and otherwise sees nothing happen for minutes; the daily re-rank isn't, so it never disables Sync now. GitHub issue #5. | `LIST-16`, `LIST-32`, `LIST-33`, `SET-15`, `RANK-9` |
 | <a id="q-82"></a>Q-82 | Entering credentials on Warm Welcome, and what Save does when one fails | Warm Welcome has both fields itself, instead of a "Go to Settings" button, so setup is less overwhelming. Save validates any value not yet validated and saves nothing unless both pass. Saving in Settings still doesn't validate. | `WEL-2` to `WEL-4`, `SET-29` |
+| <a id="q-83"></a>Q-83 | Hiding whole repositories | Settings has an Excluded repositories list of repositories and owners (organizations or personal accounts). Nothing from them appears, even when the developer is assigned, asked to review or mentioned. Exclusions are part of the GitHub searches, so they don't use up the 1,000-result window. An additional repository inside an excluded owner still appears; the same repository can't be in both lists. Excluding by author, per-repository rules for each inclusion reason, and a filter language were considered and not chosen for now. | `SET-33` to `SET-37`, `LIST-1`, `SCAN-1`, `ICE-11` |
 
 ---
 
@@ -1156,3 +1215,29 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
   [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
   and
   [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237).
+
+### Twenty-ninth revision (2026-11-06)
+
+- Added Excluded repositories to Settings (`SET-33` to `SET-37`, Q-83): the
+  developer lists repositories and owners whose items never appear, whatever
+  the inclusion reason. `LIST-1`, `SCAN-1`, `SCAN-2`, `ICE-11`, `SET-27`,
+  `NAV-3`, the Settings layout, the glossary and the stored settings change to
+  match, and Ranking prompt and Collaborators are now sections 04 and 05.
+  `LIVE-25` gains an "Excluded" leave label.
+- Changed Figma: a new section 03, Excluded repositories, and an "Excluded
+  repositories" link in the left column, in
+  [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=364-2491),
+  [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=377-2491)
+  and
+  [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=369-2491),
+  with Ranking prompt and Collaborators renumbered. Settings / Page content
+  also gets the "Cancel" row that Settings already had.
+- Changed Figma: in the same three frames, sections 02 Additional
+  repositories, 03 Excluded repositories and 05 Collaborators use the type the
+  application shows, as the Connections cards have since the twenty-seventh
+  revision: field labels 13 px Inter Medium; repository names, usernames and
+  inputs 13 px IBM Plex Mono; status labels 12 px and "Remove" 12.5 px; field
+  errors 12.5 px; help text and the notes under owners 12 px at 160%;
+  prioritization prompts 13 px IBM Plex Mono with 12 px captions; and the
+  "Add repository", "Exclude" and "Add collaborator" buttons 14 px Inter
+  Medium.
