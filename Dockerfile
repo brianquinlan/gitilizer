@@ -42,6 +42,11 @@ COPY app/server/src ./app/server/src
 COPY app/server/tsconfig.json ./app/server/
 COPY prompts ./prompts
 COPY --from=build /app/app/web/dist ./app/web/dist
+# The commit the image was built from: Cloud Build passes it, and only the newest release running does
+# background work (DESIGN.md, D-14). Empty for an image built elsewhere, which then always does its work.
+# Last, so a new commit doesn't invalidate the cached layers above.
+ARG GITILIZER_RELEASE=""
+ENV GITILIZER_RELEASE=$GITILIZER_RELEASE
 USER node
 EXPOSE 8080
 # One process, so Cloud Run's SIGTERM reaches the server directly (it closes event streams and stops cleanly).

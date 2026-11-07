@@ -418,7 +418,7 @@ Splitting production into `gitilizer-api` and `gitilizer-worker` later adds at l
 | Risk | What to do about it |
 |---|---|
 | **One instance has a ceiling**: about 1,000 open tabs, and one vCPU for all scanning and ranking. | The "busy" alert and the dashboard's open-requests chart; then [split production](DEPLOYMENT.md#splitting-production), which needs no code change. |
-| **Deploys overlap**: for a minute, two revisions run. | Safe by design: the lease hands the periodic pass over, scans and ranking jobs are claimed with `SKIP LOCKED`, schema upgrades take turns, and tabs reconnect and catch up. |
+| **Deploys overlap**: the previous revision can keep running for 15 minutes or more after a release (seen on 2026-11-07). | Only the newest release claims scans and ranking jobs ([DESIGN.md D-14](DESIGN.md#d-14)). Otherwise safe by design: the lease hands the periodic pass over, scans and ranking jobs are claimed with `SKIP LOCKED`, schema upgrades take turns, and tabs reconnect and catch up. |
 | **Losing the credential key** makes every stored credential unreadable. | Never destroy a version of `*-credential-key`; only `run-*` and you can read it. |
 | **Development shares the Cloud SQL instance** ([D-8](DESIGN.md#d-8)). | Separate databases and users, small pools (5 and 10), maintenance on Sunday nights. |
 | **First contact with the real Google, GitHub and Gemini.** Sign-in and the worker have only run against stand-ins. | Development first, with your own data (6.7). |

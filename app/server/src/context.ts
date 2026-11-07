@@ -159,6 +159,11 @@ export type Ctx = {
   validateGemini(key: string, model: string): Promise<CheckResult>;
   /** Called by routes to ask the scheduler for a scan now. */
   requestScan(userId: string, trigger: string): void;
+  /**
+   * Whether this process's release should do background work: false once a newer release is running
+   * (design: Deployment, D-14). Absent means always.
+   */
+  isCurrentRelease?: () => Promise<boolean>;
   /** HTTP client for the sign-in providers; tests replace it. */
   http?: typeof fetch;
 };

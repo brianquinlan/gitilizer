@@ -101,6 +101,16 @@ create table if not exists excluded_repos (
   position int not null default 0,
   primary key (user_id, name)
 );
+create table if not exists releases (
+  release text primary key,
+  first_started_at timestamptz not null default now()
+);
+create table if not exists processes (
+  id text primary key,
+  release text not null,
+  started_at timestamptz not null default now(),
+  heartbeat_at timestamptz not null default now()
+);
 create table if not exists collaborators (
   user_id text not null references users(id) on delete cascade,
   login text not null,
