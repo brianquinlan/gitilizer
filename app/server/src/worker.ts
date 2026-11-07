@@ -67,7 +67,8 @@ export class RankingWorker {
       let claimed: ClaimedJob[] = [];
       try {
         const room = this.concurrency - this.inFlight;
-        if (room > 0) {
+        // An older release stands down: jobs it has keep running, but it claims no more (design: Deployment, D-14).
+        if (room > 0 && (await (this.ctx.isCurrentRelease?.() ?? true))) {
           await reapLeases(this.ctx);
           claimed = await this.claim(room);
         }

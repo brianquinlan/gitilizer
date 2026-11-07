@@ -126,7 +126,7 @@ export class Scheduler {
   /** Takes waiting requests, up to this process's spare capacity, and starts their scans. */
   private async claim() {
     const room = this.maxScans - this.running.size;
-    if (room <= 0) return;
+    if (room <= 0 || !(await this.isCurrent())) return;
     const rows = await this.ctx.db.query(
       `delete from scan_requests where user_id in (
          select user_id from scan_requests where not_before <= now()
@@ -188,6 +188,10 @@ export class Scheduler {
     await this.ctx.db.query(`delete from leases where name = 'scheduler' and holder = $1`, [this.id]).catch(() => {});
   }
 
+  private isCurrent(): Promise<boolean> {
+    return this.ctx.isCurrentRelease?.() ?? Promise.resolve(true);
+  }
+
   /** Takes or renews the periodic pass's lease. */
   private async lead(): Promise<boolean> {
     const r = await this.ctx.db.one(
@@ -201,6 +205,11 @@ export class Scheduler {
   }
 
   async tick() {
+    // An older release stands down: no periodic pass and no new scans (design: Deployment, D-14).
+    if (!(await this.isCurrent())) {
+      await this.ctx.db.query(`delete from leases where name = 'scheduler' and holder = $1`, [this.id]);
+      return;
+    }
     if (await this.lead()) await this.periodic();
     // Every scanner claims requests on each tick too, in case a NOTIFY was missed.
     this.kick();

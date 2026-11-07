@@ -6,7 +6,7 @@
 steps:
   - id: build
     name: gcr.io/cloud-builders/docker
-    args: [build, -t, "${_REGION}-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA", .]
+    args: [build, --build-arg, "GITILIZER_RELEASE=$COMMIT_SHA", -t, "${_REGION}-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA", .]
   - id: push
     name: gcr.io/cloud-builders/docker
     args: [push, "${_REGION}-docker.pkg.dev/$PROJECT_ID/gitilizer/gitilizer:$COMMIT_SHA"]

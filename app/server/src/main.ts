@@ -16,6 +16,7 @@ import { localUserId, seedLocalCredentials } from "./local.ts";
 import { reapScans } from "./scanner.ts";
 import { log } from "./log.ts";
 import { PgListener, PgRelay } from "./pubsub.ts";
+import { ReleaseGate } from "./release.ts";
 import { Scheduler } from "./scheduler.ts";
 import { RankingWorker } from "./worker.ts";
 
@@ -165,6 +166,10 @@ async function main() {
     validateGemini: config.geminiMode === "fake" ? validateGeminiFake : validateGeminiReal,
     requestScan: () => {},
   };
+  // Only the newest release running does background work (design: Deployment, D-14).
+  const gate = new ReleaseGate(db, env.GITILIZER_RELEASE || null);
+  await gate.start();
+  ctx.isCurrentRelease = () => gate.isCurrent();
   const scheduler = new Scheduler(ctx);
   ctx.requestScan = (userId, trigger) => scheduler.trigger(userId, trigger);
 
@@ -209,7 +214,7 @@ async function main() {
   worker?.start();
   const parts = [config.scheduler ? "scheduler and scanner" : null, worker ? "ranking worker" : null].filter(Boolean);
   log.info("startup", `Gitilizer API on :${config.port}, metrics on :${config.internalPort}${parts.length ? `, ${parts.join(" and ")} running` : ""}${config.webDir ? ", serving the web app" : ""}`, {
-    environment: env.GITILIZER_ENV ?? (config.localMode ? "local" : "unset"),
+    environment: env.GITILIZER_ENV ?? (config.localMode ? "local" : "unset"), release: gate.release,
   });
 
   let stopping = false;
@@ -221,6 +226,7 @@ async function main() {
     hub.closeAll();
     await scheduler.stop();
     await worker?.stop();
+    await gate.stop();
     await app.close();
     await internal.close();
     await listener?.stop();

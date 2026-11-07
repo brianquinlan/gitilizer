@@ -104,7 +104,7 @@ git tag --list 'release-*' -n1
 
 ### Database changes
 
-The server upgrades the database schema when it starts. Processes that start together (two revisions during a release) take turns, holding a Postgres advisory lock. During a release the old and new revisions run side by side for a short time, so every schema change must work with both. Add a column in one release, and stop using an old one in a later release. Never rename or drop a column in a single release.
+The server upgrades the database schema when it starts. Processes that start together (two revisions during a release) take turns, holding a Postgres advisory lock. After a release, Cloud Run can keep the previous revision's instance running for a quarter of an hour or more. It gets no traffic, and it stops claiming scans and ranking jobs as soon as the new release starts ([DESIGN.md D-14](DESIGN.md#d-14)), but it is still connected to the database, so every schema change must work with both. Add a column in one release, and stop using an old one in a later release. Never rename or drop a column in a single release.
 
 ### Rolling back
 
@@ -115,7 +115,15 @@ gcloud run revisions list --service gitilizer-api --region us-east4
 gcloud run services update-traffic gitilizer-api --region us-east4 --to-revisions <previous-revision>=100
 ```
 
-If `gitilizer-worker` exists, do the same for it. A rollback doesn't undo schema changes, which is why changes must work with the previous release. The next release's workflow sends traffic to its new revisions again. Fix the problem on `main`, check it on development and release again.
+If `gitilizer-worker` exists, do the same for it.
+
+Only the release that started most recently claims scans and ranking jobs ([DESIGN.md D-14](DESIGN.md#d-14)), so after a rollback the newer release keeps doing that background work until Cloud Run stops its instance. To hand it back at once, delete the newer revision once no traffic goes to it:
+
+```sh
+gcloud run revisions delete <newer-revision> --region us-east4
+```
+
+A rollback doesn't undo schema changes, which is why changes must work with the previous release. The next release's workflow sends traffic to its new revisions again. Fix the problem on `main`, check it on development and release again.
 
 ## Changing a setting or a secret
 
