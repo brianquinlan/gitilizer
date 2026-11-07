@@ -16,9 +16,13 @@ export type SearchHit = {
 
 export type ItemState = SearchHit & { merged: boolean };
 
-/** What GET /repos/{repo} says about an additional repository (PRD SET-8). */
+/**
+ * What GET /repos/{repo} says about an additional or excluded repository
+ * (PRD SET-8, SET-36), with its owner's avatar and kind of account, which the
+ * row shows as GitHub does.
+ */
 export type RepoInfo =
-  | { access: "ok" | "archived"; fullName: string }
+  | { access: "ok" | "archived"; fullName: string; id: number; ownerAvatarUrl: string; ownerType: "Organization" | "User" }
   | { access: "not_found" }
   | { access: "sso_required"; org: string }
   | { access: "token_type_blocked"; org: string; tokenType: "classic" | "fine-grained" };
@@ -41,7 +45,19 @@ export interface GitHubApi {
   repo(fullName: string): Promise<RepoInfo>;
   /** A collaborator's profile (SET-19). Throws GitHubProblem if GitHub can't be reached. */
   user(login: string): Promise<{ exists: true; avatarUrl: string } | { exists: false }>;
+  /**
+   * An account by login or by numeric ID (excluded owners, SET-36). By ID it
+   * returns the current login after a rename; by login it doesn't follow one.
+   */
+  account(ref: { login: string } | { id: number }): Promise<AccountInfo>;
+  /** A repository by numeric ID, with its current name (excluded repositories, SET-36). */
+  repoById(id: number): Promise<RepoInfo>;
 }
+
+/** A GitHub account, for an excluded owner (SET-36). */
+export type AccountInfo =
+  | { exists: true; id: number; login: string; type: "Organization" | "User"; avatarUrl: string }
+  | { exists: false };
 
 /** A classified GitHub failure (PRD notification catalogue). */
 export type GitHubProblemCode =

@@ -8,6 +8,7 @@ import { GitHubProblem, type GitHubApi, type SearchHit } from "./github/types.ts
 import { firstSyncBatch, pushSync, queueRankJobs, updateUnranked, type QueuedJob } from "./jobs.ts";
 import { publish } from "./list.ts";
 import { clear, raise } from "./notify.ts";
+import { NO_EXCLUSIONS, checkExclusions, exclusionQualifiers, exclusionRows, exclusionsFrom, isExcluded, type Exclusions } from "./exclusions.ts";
 
 type Found = { hit: SearchHit; reasons: Set<Reason>; handle: string | null };
 export type DiscoveryQuery = { reason: Reason; q: string; handle?: string; repo?: string };
@@ -16,15 +17,26 @@ export type DiscoveryQuery = { reason: Reason; q: string; handle?: string; repo?
  * The searches that make up discovery, with the reason each contributes
  * (LIST-1). A full scan reads open items; an incremental scan reads everything
  * updated since `since`, open or not, so closed and merged items show up too.
+ *
+ * Exclusions are negated qualifiers on the personal searches only (SCAN-1,
+ * SET-34). A search for an additional repository carries none: GitHub combines
+ * a positive `repo:` with a negated `-user:` unpredictably (design D-13). When
+ * an excluded owner owns additional repositories, the personal searches run
+ * again for just those repositories, so their items keep their reasons (SET-35).
  */
-export function discoveryQueries(login: string, repos: string[], since: string | null = null): DiscoveryQuery[] {
+export function discoveryQueries(login: string, repos: string[], since: string | null = null, ex: Exclusions = NO_EXCLUSIONS): DiscoveryQuery[] {
   const base = since ? `archived:false updated:>=${since}` : "is:open archived:false";
+  const personal = (scope: string): DiscoveryQuery[] => [
+    { reason: "review_requested", q: `${base} user-review-requested:${login}${scope}` },
+    { reason: "assigned", q: `${base} assignee:${login}${scope}` },
+    { reason: "mentioned", q: `${base} mentions:${login}${scope}`, handle: `@${login}` },
+    { reason: "created", q: `${base} author:${login}${scope}` },
+    { reason: "commented", q: `${base} commenter:${login}${scope}` },
+  ];
+  const excepted = repos.filter((r) => ex.excepted.includes(r.toLowerCase()));
   return [
-    { reason: "review_requested", q: `${base} user-review-requested:${login}` },
-    { reason: "assigned", q: `${base} assignee:${login}` },
-    { reason: "mentioned", q: `${base} mentions:${login}`, handle: `@${login}` },
-    { reason: "created", q: `${base} author:${login}` },
-    { reason: "commented", q: `${base} commenter:${login}` },
+    ...personal(exclusionQualifiers(ex)),
+    ...(excepted.length ? personal(excepted.map((r) => ` repo:${r}`).join("")) : []),
     ...repos.map((r) => ({ reason: "additional_repo" as Reason, q: `${base} repo:${r}`, repo: r })),
   ];
 }
@@ -165,6 +177,10 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, scanId: number,
   await db.query(`insert into settings (user_id) values ($1) on conflict do nothing`, [userId]);
   await checkCollaborators(ctx, gh, userId);
   const repos = await checkRepos(ctx, gh, userId);
+  // Exclusions are looked up on full scans, and new ones on every scan (design: Scanner, step 1).
+  // Only accessible additional repositories can be searched, so only they are excepted (SET-35).
+  await checkExclusions(ctx, gh, userId, full);
+  const ex = exclusionsFrom(await exclusionRows(db, userId), repos);
 
   // What the developer has now. Read before discovery, so it can count what it finds (LIST-33).
   const existing = new Map<string, any>();
@@ -183,7 +199,7 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, scanId: number,
     await pushSync(ctx, userId);
   };
   const partial = new Set<string>();
-  for (const q of discoveryQueries(viewer.login, repos, since)) {
+  for (const q of discoveryQueries(viewer.login, repos, since, ex)) {
     let hits: SearchHit[];
     try {
       let ssoOrgs: string[] | undefined;
@@ -204,6 +220,7 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, scanId: number,
       throw e;
     }
     for (const h of hits) {
+      if (isExcluded(h.repo, ex)) continue; // in case GitHub ignored a qualifier (SET-34)
       const f = found.get(h.key) ?? { hit: h, reasons: new Set<Reason>(), handle: null };
       if (h.state === "open") f.reasons.add(q.reason);
       if (q.reason === "mentioned" && q.handle && !f.handle) f.handle = q.handle;
@@ -358,6 +375,7 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, scanId: number,
     for (const [key, prev] of existing) {
       if (prev.status === "gone" || found.has(key) || removals.some((r) => r.key === key)) continue;
       const [repo, num] = key.split("#");
+      if (isExcluded(repo, ex)) { await gone(key, "excluded"); continue; } // SET-34; saving usually got here first (SET-37)
       let reason: RemovalReason = "no_longer_matches";
       try {
         const st = await gh.item(repo, Number(num));
@@ -443,13 +461,17 @@ export async function checkRepos(ctx: Ctx, gh: GitHubApi, userId: string, only?:
       const clash = await db.one(`select 1 from additional_repos where user_id = $1 and full_name = $2`, [userId, info.fullName]);
       if (clash) await db.query(`delete from additional_repos where user_id = $1 and full_name = $2`, [userId, name]);
       else await db.query(`update additional_repos set full_name = $3 where user_id = $1 and full_name = $2`, [userId, name, info.fullName]);
+      // The additional repository wins if the rename makes it one the developer excluded (SET-35).
+      await db.query(`delete from excluded_repos where user_id = $1 and kind = 'repo' and lower(name) = lower($2)`, [userId, info.fullName]);
       await clear(ctx, userId, ["repo_inaccessible"], name);
       name = info.fullName;
     }
     const tokenType = info.access === "token_type_blocked" ? info.tokenType : null;
+    const owner = info.access === "ok" || info.access === "archived" ? info : null;
     await db.query(
-      `update additional_repos set access = $3, token_type = $4, checked_at = now() where user_id = $1 and full_name = $2`,
-      [userId, name, info.access, tokenType],
+      `update additional_repos set access = $3, token_type = $4, checked_at = now(),
+         owner_avatar_url = coalesce($5, owner_avatar_url), owner_type = coalesce($6, owner_type) where user_id = $1 and full_name = $2`,
+      [userId, name, info.access, tokenType, owner?.ownerAvatarUrl ?? null, owner?.ownerType ?? null],
     );
     if (info.access === "ok") {
       searchable.push(name);

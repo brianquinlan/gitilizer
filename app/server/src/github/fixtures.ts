@@ -4,7 +4,7 @@
 // "touch" or close an item to exercise live updates.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { GitHubProblem, itemKey, limitSnapshot, type GitHubApi, type ItemState, type RepoInfo, type SearchHit } from "./types.ts";
+import { GitHubProblem, itemKey, limitSnapshot, type AccountInfo, type GitHubApi, type ItemState, type RepoInfo, type SearchHit } from "./types.ts";
 
 type Entry = { snap: Record<string, any>; closed: boolean; merged: boolean };
 
@@ -86,6 +86,7 @@ function commenters(snap: Record<string, any>): string[] {
 /** Evaluates the qualifiers the scanner uses (design: Scanner, step 2). */
 function matches(snap: Record<string, any>, q: string): boolean {
   const full = `${snap.ref.owner}/${snap.ref.repo}`.toLowerCase();
+  const repos: string[] = [];
   for (const term of q.split(/\s+/)) {
     const c = term.indexOf(":");
     const k = c < 0 ? term : term.slice(0, c);
@@ -99,13 +100,23 @@ function matches(snap: Record<string, any>, q: string): boolean {
       case "mentions": if (!texts(snap).some((t) => new RegExp(`@${v}\\b`, "i").test(t))) return false; break;
       case "user-review-requested":
         if (!(snap.pull?.requested_reviewers ?? []).some((u: any) => u.login.toLowerCase() === v)) return false; break;
-      case "repo": if (full !== v) return false; break;
+      // Several repo: qualifiers mean any of them, as on GitHub (design D-13).
+      case "repo": repos.push(v); break;
+      case "-repo": if (full === v) return false; break;
+      case "-user": case "-org": if (full.split("/")[0] === v) return false; break;
       case "updated":
         if (v.startsWith(">=") && Date.parse(snap.issue.updated_at) < Date.parse(term.slice(c + 3))) return false; break;
       default: break;
     }
   }
-  return true;
+  return repos.length === 0 || repos.includes(full);
+}
+
+/** A stable numeric ID for a fixture account or repository, standing in for GitHub's. */
+export function fixtureId(name: string): number {
+  let h = 2166136261;
+  for (const c of name.toLowerCase()) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  return (h >>> 0) % 1_000_000_000;
 }
 
 export class FixtureGitHub implements GitHubApi {
@@ -136,7 +147,28 @@ export class FixtureGitHub implements GitHubApi {
   async repo(fullName: string): Promise<RepoInfo> {
     const e = [...this.store.entries.values()].find((e) => `${e.snap.ref.owner}/${e.snap.ref.repo}`.toLowerCase() === fullName.toLowerCase());
     if (!e) return { access: "not_found" };
-    return { access: e.snap.repo?.archived ? "archived" : "ok", fullName: `${e.snap.ref.owner}/${e.snap.ref.repo}` };
+    const name = `${e.snap.ref.owner}/${e.snap.ref.repo}`;
+    const owner = String(e.snap.ref.owner);
+    return {
+      access: e.snap.repo?.archived ? "archived" : "ok", fullName: name, id: fixtureId(name),
+      ownerAvatarUrl: `https://github.com/${owner}.png?size=64`, ownerType: "Organization",
+    };
+  }
+
+  async repoById(id: number): Promise<RepoInfo> {
+    const e = [...this.store.entries.values()].find((e) => fixtureId(`${e.snap.ref.owner}/${e.snap.ref.repo}`) === id);
+    return e ? this.repo(`${e.snap.ref.owner}/${e.snap.ref.repo}`) : { access: "not_found" };
+  }
+
+  /** Fixture accounts: everyone who appears in the fixtures, and every repository owner (an organization). */
+  async account(ref: { login: string } | { id: number }): Promise<AccountInfo> {
+    const owners = new Set([...this.store.entries.values()].map((e) => String(e.snap.ref.owner)));
+    const people = [...this.store.logins];
+    const all = [...[...owners].map((o) => ({ login: o, type: "Organization" as const })),
+      ...people.filter((p) => ![...owners].some((o) => o.toLowerCase() === p)).map((p) => ({ login: p, type: "User" as const }))];
+    const a = all.find((x) => ("id" in ref ? fixtureId(x.login) === ref.id : x.login.toLowerCase() === ref.login.toLowerCase()));
+    if (!a) return { exists: false };
+    return { exists: true, id: fixtureId(a.login), login: a.login, type: a.type, avatarUrl: `https://github.com/${a.login}.png?size=64` };
   }
 
   async user(login: string) {

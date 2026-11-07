@@ -1,20 +1,20 @@
-// Settings (PRD "Settings", SET-1..31). Figma: "Settings" and "Settings · Errors".
+// Settings (PRD "Settings", SET-1..37). Figma: "Settings" and "Settings · Errors".
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  MAX_COLLABORATORS, MAX_PROMPT_LENGTH, MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, PROMPT_COUNT_FROM,
-  parseLogin, parseRepo, repoControlId,
-  type AdditionalRepo, type Collaborator, type CredentialKind, type CredentialStatus, type FieldError, type SettingsResponse,
+  MAX_COLLABORATORS, MAX_EXCLUSIONS, MAX_PROMPT_LENGTH, MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, PROMPT_COUNT_FROM,
+  conflictFields, exclusionControlId, exclusionNote, parseExclusion, parseLogin, parseRepo, repoControlId,
+  type AdditionalRepo, type Collaborator, type CredentialKind, type CredentialStatus, type ExcludedRepo, type FieldError, type SettingsResponse,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
 import { DOCS_URL } from "../components/Chrome.tsx";
 import { CredentialField, type Check } from "../components/CredentialField.tsx";
 import {
-  AlertIcon, FolderGitIcon, GitHubIcon, ListIcon, PlugIcon, PlusIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
+  AlertIcon, EyeOffIcon, FolderGitIcon, GitHubIcon, ListIcon, PlugIcon, PlusIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
 } from "../icons.tsx";
 import { focusTarget, navigate, setNavigationGuard } from "../router.tsx";
 import { useStore } from "../store.tsx";
 
-type Draft = { repos: AdditionalRepo[]; collaborators: Collaborator[]; prompt: string };
+type Draft = { repos: AdditionalRepo[]; exclusions: ExcludedRepo[]; collaborators: Collaborator[]; prompt: string };
 type Errors = Record<string, string>;
 
 const LEAVE_PROMPT = "Leave Settings? Your changes haven't been saved.";
@@ -31,7 +31,7 @@ export function SettingsPage() {
   useEffect(() => {
     api.get<SettingsResponse>("/api/settings").then((s) => {
       setServer(s);
-      setDraft({ repos: s.additionalRepos, collaborators: s.collaborators, prompt: s.customPrompt ?? s.defaultPrompt });
+      setDraft({ repos: s.additionalRepos, exclusions: s.excludedRepos, collaborators: s.collaborators, prompt: s.customPrompt ?? s.defaultPrompt });
     });
   }, []);
   // Links from notifications and the empty list go to a control and focus it (NOTIF-9, LIST-14).
@@ -43,6 +43,7 @@ export function SettingsPage() {
     if (!server || !draft) return false;
     return Boolean(secrets.github_pat || secrets.gemini_key)
       || JSON.stringify(draft.repos.map((r) => [r.fullName, r.prioritizationPrompt])) !== JSON.stringify(server.additionalRepos.map((r) => [r.fullName, r.prioritizationPrompt]))
+      || JSON.stringify(draft.exclusions.map((e) => e.name)) !== JSON.stringify(server.excludedRepos.map((e) => e.name))
       || JSON.stringify(draft.collaborators.map((c) => c.login)) !== JSON.stringify(server.collaborators.map((c) => c.login))
       || draft.prompt !== (server.customPrompt ?? server.defaultPrompt);
   }, [server, draft, secrets]);
@@ -75,6 +76,7 @@ export function SettingsPage() {
       const credentials = Object.fromEntries(Object.entries(secrets).filter(([, v]) => v.trim()));
       await api.put("/api/settings", {
         additionalRepos: draft.repos.map(({ fullName, prioritizationPrompt }) => ({ fullName, prioritizationPrompt })),
+        excludedRepos: draft.exclusions.map((e) => e.name),
         collaborators: draft.collaborators.map((c) => c.login),
         customPrompt: draft.prompt === server.defaultPrompt ? null : draft.prompt,
         credentials: Object.keys(credentials).length ? credentials : undefined,
@@ -109,6 +111,7 @@ export function SettingsPage() {
           <nav className="side-nav" aria-label="Settings sections">
             <a href="#connections" onClick={jump("connections")}><PlugIcon /> Connections</a>
             <a href="#additional-repositories" onClick={jump("additional-repositories")}><FolderGitIcon /> Additional repositories</a>
+            <a href="#excluded-repositories" onClick={jump("excluded-repositories")}><EyeOffIcon /> Excluded repositories</a>
             <a href="#ranking-prompt" onClick={jump("ranking-prompt-section")}><ListIcon /> Ranking prompt</a>
             <a href="#collaborators" onClick={jump("collaborators")}><UsersIcon /> Collaborators</a>
           </nav>
@@ -145,12 +148,19 @@ export function SettingsPage() {
           <section className="section" id="additional-repositories">
             <SectionHead n="02" title="Additional repositories" badge="Optional" />
             <p>Follow repositories beyond your assigned, created and @mention issues and PRs. Their open issues and PRs join the same list.</p>
-            <RepoList repos={draft.repos} errors={allErrors} setError={setError}
+            <RepoList repos={draft.repos} excluded={draft.exclusions} errors={allErrors} setError={setError}
                       onChange={(repos) => setDraft((d) => d && { ...d, repos: typeof repos === "function" ? repos(d.repos) : repos })} />
           </section>
 
+          <section className="section" id="excluded-repositories">
+            <SectionHead n="03" title="Excluded repositories" badge="Optional" />
+            <p>Issues and PRs from these never appear in your list, even when you're assigned, asked to review or @-mentioned. Gitilizer doesn't scan or rank them.</p>
+            <ExclusionList items={draft.exclusions} additional={draft.repos.map((r) => r.fullName)} errors={allErrors} setError={setError}
+                           onChange={(x) => setDraft((d) => d && { ...d, exclusions: typeof x === "function" ? x(d.exclusions) : x })} />
+          </section>
+
           <section className="section" id="ranking-prompt-section">
-            <SectionHead n="03" title="Ranking prompt" badge="Optional" />
+            <SectionHead n="04" title="Ranking prompt" badge="Optional" />
             <p>The agent reads the title, description, labels, comments and reviews of each issue and PR and gives it a score.</p>
             <div className={`panel editor ${allErrors["ranking-prompt"] ? "invalid" : ""}`}>
               <div className="editor-head">
@@ -171,7 +181,7 @@ export function SettingsPage() {
           </section>
 
           <section className="section" id="collaborators">
-            <SectionHead n="04" title="Collaborators" badge="Optional" />
+            <SectionHead n="05" title="Collaborators" badge="Optional" />
             <p>By default, issues, PRs and comments made by your collaborators have higher priority.</p>
             <CollaboratorList people={draft.collaborators} errors={allErrors} setError={setError}
                               onChange={(c) => setDraft((d) => d && { ...d, collaborators: typeof c === "function" ? c(d.collaborators) : c })} />
@@ -251,6 +261,16 @@ function CredentialCard(props: {
 
 type Setter<T> = (v: T | ((prev: T) => T)) => void;
 
+/**
+ * A repository's icon (SET-8, SET-36): its owner's avatar, as GitHub shows a
+ * repository, square with rounded corners for an organization and round for a
+ * personal account; the repository icon until GitHub has found it.
+ */
+function OwnerAvatar({ url, type }: { url: string | null; type: "Organization" | "User" | null }) {
+  if (url) return <img className={`avatar ${type === "User" ? "" : "org"}`} src={url} alt="" />;
+  return <span className="icon-slot" aria-hidden="true"><FolderGitIcon size={14} /></span>;
+}
+
 function accessView(r: AdditionalRepo): { className: string; text: string; title?: string } {
   const org = r.fullName.split("/")[0];
   switch (r.access) {
@@ -266,8 +286,8 @@ function accessView(r: AdditionalRepo): { className: string; text: string; title
   }
 }
 
-function RepoList({ repos, onChange, errors, setError }: {
-  repos: AdditionalRepo[]; onChange: Setter<AdditionalRepo[]>; errors: Errors; setError: (f: string, m: string | null) => void;
+function RepoList({ repos, excluded, onChange, errors, setError }: {
+  repos: AdditionalRepo[]; excluded: ExcludedRepo[]; onChange: Setter<AdditionalRepo[]>; errors: Errors; setError: (f: string, m: string | null) => void;
 }) {
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -275,15 +295,19 @@ function RepoList({ repos, onChange, errors, setError }: {
     const full = parseRepo(name);
     const err = !full ? MESSAGES.repoFormat
       : repos.some((r) => r.fullName.toLowerCase() === full.toLowerCase()) ? MESSAGES.repoDuplicate(full)
+      : excluded.some((e) => e.kind === "repo" && e.name.toLowerCase() === full.toLowerCase()) ? MESSAGES.repoIsExcluded(full) // SET-35
       : repos.length >= MAX_REPOS ? MESSAGES.repoLimit : null;
     setError("add-repository", err);
     if (err || !full) return;
     if (prompt.length > MAX_REPO_PROMPT_LENGTH) return;
-    onChange([...repos, { fullName: full, prioritizationPrompt: prompt.trim(), access: "checking", tokenType: null }]);
+    onChange([...repos, { fullName: full, prioritizationPrompt: prompt.trim(), access: "checking", tokenType: null, ownerAvatarUrl: null, ownerType: null }]);
     setName(""); setPrompt("");
     // Check access at once (SET-8). GitHub follows renames, so the row shows the current name.
-    api.post<{ access: AdditionalRepo["access"]; fullName: string; tokenType: AdditionalRepo["tokenType"] }>("/api/repos/check", { fullName: full })
-      .then((r) => onChange((cur) => cur.map((x) => (x.fullName === full ? { ...x, access: r.access, tokenType: r.tokenType, fullName: cur.some((y) => y !== x && y.fullName === r.fullName) ? x.fullName : r.fullName } : x))))
+    api.post<Omit<AdditionalRepo, "prioritizationPrompt">>("/api/repos/check", { fullName: full })
+      .then((r) => onChange((cur) => cur.map((x) => (x.fullName === full ? {
+        ...x, access: r.access, tokenType: r.tokenType, ownerAvatarUrl: r.ownerAvatarUrl, ownerType: r.ownerType,
+        fullName: cur.some((y) => y !== x && y.fullName === r.fullName) ? x.fullName : r.fullName,
+      } : x))))
       .catch(() => {});
   };
   const promptError = prompt.length > MAX_REPO_PROMPT_LENGTH ? MESSAGES.repoPromptLength(prompt.length) : undefined;
@@ -296,14 +320,14 @@ function RepoList({ repos, onChange, errors, setError }: {
         return (
           <div className="lr repo-row" key={r.fullName} id={rowId}>
             <div className="lr-main">
-              <FolderGitIcon size={14} />
+              <OwnerAvatar url={r.access === "ok" || r.access === "archived" ? r.ownerAvatarUrl : null} type={r.ownerType} />
               <span className="mono">{r.fullName}</span>
               <span className="spacer" />
               <span className={`access ${a.className}`} title={a.title} tabIndex={a.title ? 0 : undefined}>
                 {a.className === "bad" && <XCircleIcon size={12} />} {a.text}
               </span>
               <button className="link-btn" aria-label={`Remove ${r.fullName}`}
-                      onClick={() => { onChange(repos.filter((x) => x !== r)); setError(rowId, null); }}><XIcon size={12} /> Remove</button>
+                      onClick={() => { onChange(repos.filter((x) => x !== r)); setError(rowId, null); clearConflict(errors, setError, r.fullName); }}><XIcon size={12} /> Remove</button>
             </div>
             {r.prioritizationPrompt && (
               <div className="lr-prompt"><span className="caption">Prioritization prompt</span><span className="mono">{r.prioritizationPrompt}</span></div>
@@ -324,6 +348,112 @@ function RepoList({ repos, onChange, errors, setError }: {
                   onChange={(e) => setPrompt(e.target.value)} />
         <FieldMessage message={promptError} />
         <div><button className="btn" onClick={add} disabled={Boolean(promptError)}><PlusIcon /> Add repository</button></div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Excluded repositories (SET-33..37)
+// ---------------------------------------------------------------------------
+
+/**
+ * Removing a repository from either list resolves a conflict with the other
+ * (SET-35), so the error that named it goes too: on the other list's add field,
+ * or on an exclusion's row after a refused save. Other errors stay.
+ */
+function clearConflict(errors: Errors, setError: (f: string, m: string | null) => void, repo: string) {
+  for (const field of conflictFields(errors, repo)) setError(field, null);
+}
+
+function exclusionStatus(e: ExcludedRepo): { className: string; text: string; title?: string } {
+  if (e.status === "checking") return { className: "", text: "Checking…" };
+  if (e.status === "not_found") {
+    return { className: "bad", text: "Not found", title: `GitHub says ${e.name} doesn't exist, or your token can't read it. If the name is misspelled, remove it and add it again.` };
+  }
+  if (e.kind === "repo") return { className: "", text: "Repository" };
+  return { className: "", text: e.ownerType === "User" ? "Personal account" : "Organization" };
+}
+
+/**
+ * The row's icon (SET-36): the owner's avatar, for an owner or for a
+ * repository's owner, square with rounded corners for an organization and round
+ * for a personal account. Until GitHub has found it, the repository icon or a
+ * generic avatar: the red ✗ by "Not found" is the row's only error marker.
+ */
+function ExclusionIcon({ e }: { e: ExcludedRepo }) {
+  if (e.kind === "repo") return <OwnerAvatar url={e.status === "ok" ? e.avatarUrl : null} type={e.ownerType} />;
+  if (e.status === "ok" && e.avatarUrl) return <img className={`avatar ${e.ownerType === "Organization" ? "org" : ""}`} src={e.avatarUrl} alt="" />;
+  return <span className="avatar generic" aria-hidden="true"><UserIcon /></span>;
+}
+
+/** Scrolls to an additional repository's row and focuses it (SET-35). */
+const showRepo = (repo: string) => (ev: React.MouseEvent<HTMLAnchorElement>) => {
+  ev.preventDefault();
+  const row = document.getElementById(repoControlId(repo));
+  if (!row) return;
+  row.scrollIntoView({ behavior: "smooth", block: "center" });
+  row.setAttribute("tabindex", "-1");
+  row.focus({ preventScroll: true });
+};
+
+function ExclusionList({ items, additional, onChange, errors, setError }: {
+  items: ExcludedRepo[]; additional: string[]; onChange: Setter<ExcludedRepo[]>; errors: Errors; setError: (f: string, m: string | null) => void;
+}) {
+  const [input, setInput] = useState("");
+  const add = () => {
+    const e = parseExclusion(input);
+    const err = !e ? MESSAGES.exclusionFormat
+      : items.some((x) => x.name.toLowerCase() === e.name.toLowerCase()) ? MESSAGES.exclusionDuplicate(e.name)
+      : e.kind === "repo" && additional.some((r) => r.toLowerCase() === e.name.toLowerCase()) ? MESSAGES.exclusionIsAdditional(e.name)
+      : items.length >= MAX_EXCLUSIONS ? MESSAGES.exclusionLimit : null;
+    setError("add-exclusion", err);
+    if (err || !e) return;
+    onChange([...items, { name: e.name, kind: e.kind, status: "checking", ownerType: null, avatarUrl: null }]);
+    setInput("");
+    // Looked up at once (SET-36); the row takes GitHub's spelling of the name.
+    api.post<ExcludedRepo>("/api/exclusions/check", { name: e.name })
+      .then((r) => onChange((cur) => cur.map((x) => (x.name === e.name
+        ? { ...x, status: r.status, ownerType: r.ownerType, avatarUrl: r.avatarUrl, name: cur.some((y) => y !== x && y.name.toLowerCase() === r.name.toLowerCase()) ? x.name : r.name }
+        : x))))
+      .catch(() => {});
+  };
+  return (
+    <div className="panel list-rows">
+      {items.map((e) => {
+        const st = exclusionStatus(e);
+        const rowId = exclusionControlId(e.name);
+        return (
+          <div className="lr repo-row" key={e.name} id={rowId}>
+            <div className="lr-main">
+              <ExclusionIcon e={e} />
+              <span className="mono">{e.name}</span>
+              <span className="spacer" />
+              <span className={`access ${st.className}`} title={st.title} tabIndex={st.title ? 0 : undefined}>
+                {st.className === "bad" && <XCircleIcon size={12} />} {st.text}
+              </span>
+              <button className="link-btn" aria-label={`Remove ${e.name}`}
+                      onClick={() => { onChange(items.filter((x) => x !== e)); setError(rowId, null); if (e.kind === "repo") clearConflict(errors, setError, e.name); }}><XIcon size={12} /> Remove</button>
+            </div>
+            {e.kind === "owner" && e.status === "ok" && (
+              <div className="lr-note">
+                {exclusionNote(e.name, e.ownerType, additional).parts.map((p, i) => (typeof p === "string"
+                  ? <span key={i}>{p}</span>
+                  : <a key={i} href={`#${repoControlId(p.repo)}`} onClick={showRepo(p.repo)}>{p.repo}</a>))}
+              </div>
+            )}
+            <FieldMessage message={errors[rowId]} />
+          </div>
+        );
+      })}
+      <div className="add">
+        <label htmlFor="add-exclusion">Exclude an organization or repository</label>
+        <input id="add-exclusion" type="text" className={`mono-input ${errors["add-exclusion"] ? "invalid" : ""}`} placeholder="owner/repository or org"
+               value={input} aria-invalid={Boolean(errors["add-exclusion"])} aria-describedby="add-exclusion-help"
+               onChange={(ev) => { setInput(ev.target.value); setError("add-exclusion", null); }} onKeyDown={(ev) => ev.key === "Enter" && add()} />
+        <FieldMessage message={errors["add-exclusion"]} />
+        <p className="fine" id="add-exclusion-help">Enter owner/repository to hide one repository, or an organization or username to hide every repository it owns. You can also paste a GitHub URL.</p>
+        <div><button className="btn" onClick={add}><PlusIcon /> Exclude</button></div>
       </div>
     </div>
   );

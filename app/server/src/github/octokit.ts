@@ -3,7 +3,7 @@ import { Octokit } from "@octokit/core";
 import { paginateRest } from "@octokit/plugin-paginate-rest";
 import { retry } from "@octokit/plugin-retry";
 import { throttling } from "@octokit/plugin-throttling";
-import { GitHubProblem, itemKey, limitSnapshot, type GitHubApi, type ItemState, type RepoInfo, type SearchHit } from "./types.ts";
+import { GitHubProblem, itemKey, limitSnapshot, type AccountInfo, type GitHubApi, type ItemState, type RepoInfo, type SearchHit } from "./types.ts";
 
 const GitilizerOctokit = Octokit.plugin(paginateRest, retry, throttling);
 const FULL_MEDIA = "application/vnd.github.full+json";
@@ -229,13 +229,24 @@ export class OctokitGitHub implements GitHubApi {
   }
 
   async repo(fullName: string): Promise<RepoInfo> {
+    // GitHub follows renames, so full_name is the current name (SET-8).
+    return this.repoAt(`GET /repos/${fullName}`, fullName.split("/")[0]);
+  }
+
+  async repoById(id: number): Promise<RepoInfo> {
+    return this.repoAt(`GET /repositories/${id}`, "");
+  }
+
+  private async repoAt(route: string, owner: string): Promise<RepoInfo> {
     try {
-      // GitHub follows renames, so full_name is the current name (SET-8).
-      const r = await this.req(`GET /repos/${fullName}`);
-      return { access: r.data.archived ? "archived" : "ok", fullName: r.data.full_name };
+      const r = await this.req(route);
+      return {
+        access: r.data.archived ? "archived" : "ok", fullName: r.data.full_name, id: r.data.id,
+        ownerAvatarUrl: r.data.owner?.avatar_url, ownerType: r.data.owner?.type === "User" ? "User" : "Organization",
+      };
     } catch (e) {
       if (!(e instanceof GitHubProblem)) throw e;
-      const org = e.details.org || fullName.split("/")[0];
+      const org = e.details.org || owner;
       if (e.code === "not_found") return { access: "not_found" };
       if (e.code === "sso") return { access: "sso_required", org };
       if (e.code === "org_blocks_token") return { access: "token_type_blocked", org, tokenType: e.details.tokenType === "classic" ? "classic" : "fine-grained" };
@@ -249,6 +260,20 @@ export class OctokitGitHub implements GitHubApi {
       return { exists: true as const, avatarUrl: r.data.avatar_url as string };
     } catch (e) {
       if (e instanceof GitHubProblem && e.code === "not_found") return { exists: false as const };
+      throw e;
+    }
+  }
+
+  async account(ref: { login: string } | { id: number }): Promise<AccountInfo> {
+    try {
+      // GET /user/{id} follows renames; GET /users/{login} doesn't (design D-13).
+      const r = await this.req("id" in ref ? `GET /user/${ref.id}` : `GET /users/${ref.login}`);
+      return {
+        exists: true, id: r.data.id, login: r.data.login, avatarUrl: r.data.avatar_url,
+        type: r.data.type === "Organization" ? "Organization" : "User",
+      };
+    } catch (e) {
+      if (e instanceof GitHubProblem && e.code === "not_found") return { exists: false };
       throw e;
     }
   }

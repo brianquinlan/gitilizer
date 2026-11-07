@@ -20,6 +20,7 @@ export const LEAVE_LABEL: Record<RemovalReason, string> = {
   iceboxed: "Moved to Icebox",
   restored: "Restored",
   no_longer_matches: "No longer yours",
+  excluded: "Excluded", // SET-37
   over_limit: "", // LIVE-26: no label
 };
 

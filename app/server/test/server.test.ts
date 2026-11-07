@@ -88,7 +88,7 @@ describe("settings rules (SET-7, SET-25, SET-27)", () => {
   it("reports problems next to their fields", () => {
     const s: SettingsUpdate = {
       additionalRepos: [{ fullName: "a/b", prioritizationPrompt: "" }, { fullName: "A/B", prioritizationPrompt: "x".repeat(501) }],
-      collaborators: ["kevmoo", "@KevMoo"], customPrompt: "y".repeat(20_001), rerank: false,
+      excludedRepos: [], collaborators: ["kevmoo", "@KevMoo"], customPrompt: "y".repeat(20_001), rerank: false,
     };
     expect(settingsErrors(s)).toEqual([
       { field: "repo-A-B", message: "A/B is already in your list." },
@@ -377,7 +377,10 @@ describe("HTTP API", () => {
       if (s.additionalRepos[0].access !== "checking" && s.collaborators.every((c: any) => c.status !== "unknown")) break;
       await new Promise((r) => setTimeout(r, 50));
     }
-    expect(s.additionalRepos).toEqual([{ fullName: "dart-lang/http", prioritizationPrompt: "Security issues only", access: "ok", tokenType: null }]);
+    expect(s.additionalRepos).toEqual([{
+      fullName: "dart-lang/http", prioritizationPrompt: "Security issues only", access: "ok", tokenType: null,
+      ownerAvatarUrl: "https://github.com/dart-lang.png?size=64", ownerType: "Organization", // shown as GitHub does (SET-8)
+    }]);
     expect(s.collaborators).toEqual([
       { login: "kevmoo", status: "ok", avatarUrl: "https://github.com/kevmoo.png?size=64" },
       { login: "nobody-xyz", status: "not_found", avatarUrl: null },
