@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-07 (repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -649,6 +649,8 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   | The organization blocks this kind of token | "{org} doesn't allow {classic / fine-grained} tokens. Create the other kind of token, or ask an owner of {org} to allow this one." |
 
   If GitHub can't be reached, the repository keeps its last known state. A renamed repository keeps working: GitHub forwards the old name, and Gitilizer shows the new one.
+
+  Each repository starts with its owner's GitHub avatar, as GitHub shows a repository: with rounded corners for an organization and round for a personal account, in a 24 px space so the names line up with Collaborators. Until GitHub has found the repository, and while it can't be accessed, the repository icon takes the avatar's place.
 - **SET-9** Each repository may have a prioritization prompt: free text that tells the ranking agent what the developer cares about in it, for example "Security issues only". It is entered in the "Prioritization prompt" field when adding the repository, and shown under the repository's name. The agent receives it as a note on that repository. It can be at most 500 characters. It can't be edited after the repository is added: to change it, the developer removes the repository and adds it again.
 - **SET-31** Additional repositories are repositories the developer follows, not ones they're responsible for. The agent's "About me" text and the default prompt must describe them that way, measured as in `RANK-7`. A developer who is responsible for a repository can say so in its prioritization prompt.
 
@@ -663,8 +665,9 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   under it shown in Figma. Any other format is an error ("Enter a repository as
   owner/name, an owner's name, or paste a GitHub URL."), and so is one already
   in the list ("{name} is already excluded.") (`SET-27`). There can be at most
-  25 exclusions. The section description must read "Issues and PRs from these
-  never appear in your list, even when you're assigned, asked to review or
+  25 exclusions. Excluding a repository whose owner is also excluded is allowed
+  and changes nothing. The section description must read "Issues and PRs from
+  these never appear in your list, even when you're assigned, asked to review or
   @-mentioned. Gitilizer doesn't scan or rank them."
 - **SET-34** No item in an excluded repository, or in any repository an
   excluded owner owns, may appear in the Prioritized list or the Icebox,
@@ -673,30 +676,33 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   opens or comments on elsewhere. Gitilizer doesn't scan or rank excluded
   items, and the ranking agent isn't told about exclusions.
 - **SET-35** An additional repository wins over an excluded owner that owns it:
-  its items appear as in `LIST-1`. The owner's row must say so under its name:
-  "Every repository {owner} owns, except {repo}, which is an additional
-  repository." With more than one, it names them all, in alphabetical order:
-  "…except {repo}, {repo} and {repo}, which are additional repositories." Each
-  repository name is a link that scrolls to that repository's row in Additional
-  repositories. The text wraps onto more lines if it doesn't fit; it is never
-  cut off. The same repository can't be both excluded and an additional
-  repository: adding it to either list while it is in the other is an error
-  (`SET-27`): "{repo} is one of your additional repositories. Remove it there
-  first to exclude it." or "{repo} is excluded. Remove it from Excluded
-  repositories first to follow it."
+  its items appear as in `LIST-1`, with the inclusion reasons they would have if
+  the owner weren't excluded (`LIST-21`), not only the repository's name. The
+  owner's row must say so under its name: "Every repository {owner} owns, except
+  {repo}, which is an additional repository." With more than one, it names them
+  all, in alphabetical order: "…except {repo}, {repo} and {repo}, which are
+  additional repositories." Each repository name is a link that scrolls to that
+  repository's row in Additional repositories. The text wraps onto more lines if
+  it doesn't fit; it is never cut off. The same repository can't be both
+  excluded and an additional repository: adding it to either list while it is in
+  the other is an error (`SET-27`): "{repo} is one of your additional
+  repositories. Remove it there first to exclude it." or "{repo} is excluded.
+  Remove it from Excluded repositories first to follow it." Removing the
+  repository from either list clears that error. If a rename on GitHub makes an
+  excluded repository the same as an additional repository, the exclusion is
+  removed.
 - **SET-36** Each exclusion must show what it is: "Checking…" while Gitilizer
   looks it up, then "Repository", "Organization" or "Personal account", all in
   grey, or "Not found" with a red ✗ when GitHub says it doesn't exist or the
   token can't read it. Hovering over "Not found" shows "GitHub says {name}
   doesn't exist, or your token can't read it. If the name is misspelled, remove
-  it and add it again." Each row starts with an icon, aligned as in
-  Collaborators: the repository icon for a repository, and the owner's GitHub
-  avatar for an owner, with rounded corners for an organization and round for a
-  personal account, as GitHub shows them. While Gitilizer is checking an owner,
-  if GitHub can't be reached, or if the owner isn't found, a generic avatar is
-  shown: unlike in Collaborators, the red ✗ next to "Not found" is the row's
-  only error marker. An owner's row says "Every repository {owner} owns." under
-  its name, and a personal account's adds "Issues and PRs {owner} opens
+  it and add it again." Each row starts with the owner's GitHub avatar, the
+  excluded owner's or the repository's owner's, shown as in `SET-8`. While
+  Gitilizer is checking, if GitHub can't be reached, or if it isn't found, a
+  repository shows the repository icon and an owner a generic avatar: unlike in
+  Collaborators, the red ✗ next to "Not found" is the row's only error marker.
+  Once GitHub has found it, an owner's row says "Every repository {owner} owns."
+  under its name, and a personal account's adds "Issues and PRs {owner} opens
   elsewhere still appear." A "Not found" exclusion is kept; it hides nothing,
   because Gitilizer can't read that repository anyway. If GitHub can't be
   reached, an exclusion keeps its last known state, and a renamed repository or
@@ -747,7 +753,7 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 ### Finding items
 
 - **SCAN-0** Scanning and ranking must continue while no browser is open, so the list is up to date when the developer comes back.
-- **SCAN-1** A scan must find every open item that matches `LIST-1`, reading GitHub with the developer's PAT, and keep the 1,000 most recently updated (`LIST-19`). Each GitHub search must be sorted by most recently updated and needs only its first 1,000 results: any item among the developer's 1,000 most recently updated is also among the first 1,000 results of every search it matches. So searches never need to be split, even when GitHub reports more than 1,000 results. That holds only if excluded items (`SET-34`) are left out by the searches themselves, not removed from their results, so they never take up any of a search's first 1,000 results. The search for an additional repository leaves out owner exclusions (`SET-35`). Only exclusions that GitHub found (`SET-36`) are added to the searches. If GitHub refuses a search because an exclusion can no longer be read, that exclusion becomes "Not found" and the search is repeated without it.
+- **SCAN-1** A scan must find every open item that matches `LIST-1`, reading GitHub with the developer's PAT, and keep the 1,000 most recently updated (`LIST-19`). Each GitHub search must be sorted by most recently updated and needs only its first 1,000 results: any item among the developer's 1,000 most recently updated is also among the first 1,000 results of every search it matches. So searches never need to be split, even when GitHub reports more than 1,000 results. That holds only if excluded items (`SET-34`) are left out by the searches themselves, not removed from their results, so they never take up any of a search's first 1,000 results. The search for an additional repository carries no exclusions (`SET-35`), and exclusions GitHub couldn't find (`SET-36`) aren't added to any search.
 - **SCAN-2** A scan must find items that have changed since the last scan, and items that no longer match (closed, merged, unassigned, a repository archived, removed or excluded). Items that no longer match leave the list as in `LIVE-15`, and leave the Icebox as in `ICE-11`.
 - **SCAN-3** A scan must collect what the ranking agent needs to judge each new or changed item: the item, its comments, timeline and reviews, and the issues and PRs it links to.
 - **SCAN-4** Two scans for the same developer must never run at the same time. A sync requested while one is running joins it.
@@ -1241,3 +1247,32 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
   prioritization prompts 13 px IBM Plex Mono with 12 px captions; and the
   "Add repository", "Exclude" and "Add collaborator" buttons 14 px Inter
   Medium.
+
+### Thirtieth revision (2026-11-07)
+
+Found while building excluded repositories, by testing GitHub's issue search, and in review:
+
+- GitHub ignores, rather than refuses, an excluded repository or owner it
+  can't find, so `SCAN-1` no longer says what to do when a search is refused
+  because of one. The search for an additional repository carries no
+  exclusions at all: GitHub combines a repository with an excluded owner
+  unpredictably.
+- `SET-35`: items in an additional repository inside an excluded owner keep
+  their inclusion reasons, such as "Review requested", not only the
+  repository's name.
+- `SET-33`: excluding a repository whose owner is also excluded is allowed.
+- `SET-36`: the note under an owner appears only once GitHub has found it, so
+  a misspelled owner isn't described as owning repositories.
+- `SET-35`: removing a repository from either list clears the error about it
+  being in both, and a rename on GitHub that puts the same repository in both
+  lists removes the exclusion.
+- `SET-8`, `SET-36`: a repository, additional or excluded, starts with its
+  owner's GitHub avatar, as GitHub shows a repository, instead of the
+  repository icon, which now appears only until GitHub has found it.
+- Changed Figma: repositories GitHub has found show their owner's avatar in
+  sections 02 and 03 of
+  [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802),
+  [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
+  and
+  [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237),
+  and prioritization prompts and owner notes start under the names.

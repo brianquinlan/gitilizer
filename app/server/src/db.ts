@@ -89,6 +89,18 @@ create table if not exists additional_repos (
   position int not null default 0,
   primary key (user_id, full_name)
 );
+create table if not exists excluded_repos (
+  user_id text not null references users(id) on delete cascade,
+  name text not null,
+  kind text not null,
+  github_id bigint,
+  owner_type text,
+  status text not null default 'checking',
+  avatar_url text,
+  checked_at timestamptz,
+  position int not null default 0,
+  primary key (user_id, name)
+);
 create table if not exists collaborators (
   user_id text not null references users(id) on delete cascade,
   login text not null,
@@ -248,6 +260,8 @@ alter table settings drop column if exists review_teams;
 alter table settings drop column if exists review_teams_fetched_at;
 alter table additional_repos add column if not exists token_type text;
 alter table additional_repos add column if not exists checked_at timestamptz;
+alter table additional_repos add column if not exists owner_avatar_url text;
+alter table additional_repos add column if not exists owner_type text;
 alter table collaborators add column if not exists avatar_url text;
 alter table collaborators add column if not exists checked_at timestamptz;
 alter table collaborators add column if not exists position int not null default 0;

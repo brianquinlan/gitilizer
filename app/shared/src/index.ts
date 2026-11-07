@@ -19,7 +19,7 @@ export const ItemStatus = z.enum(["active", "iceboxed"]);
 export type ItemStatus = z.infer<typeof ItemStatus>;
 
 /** Why a row left a view (PRD LIVE-25, LIVE-26, ICE-9). */
-export const RemovalReason = z.enum(["closed", "merged", "iceboxed", "restored", "no_longer_matches", "over_limit"]);
+export const RemovalReason = z.enum(["closed", "merged", "iceboxed", "restored", "no_longer_matches", "excluded", "over_limit"]);
 export type RemovalReason = z.infer<typeof RemovalReason>;
 
 export const ItemRow = z.object({
@@ -156,6 +156,7 @@ export const MAX_REPO_PROMPT_LENGTH = 500; // SET-9
 export const MAX_PROMPT_LENGTH = 20_000; // SET-24
 export const PROMPT_COUNT_FROM = 18_000; // SET-27: the character count appears from here
 export const MAX_COLLABORATORS = 50; // SET-25
+export const MAX_EXCLUSIONS = 25; // SET-33
 
 export const AdditionalRepo = z.object({
   fullName: z.string(),
@@ -163,8 +164,28 @@ export const AdditionalRepo = z.object({
   access: RepoAccess,
   /** For token_type_blocked: the kind of token the organization blocks. */
   tokenType: z.enum(["classic", "fine-grained"]).nullable(),
+  /** The owner's avatar and kind of account, shown as GitHub does (SET-8); null until GitHub has found the repository. */
+  ownerAvatarUrl: z.string().nullable(),
+  ownerType: z.enum(["Organization", "User"]).nullable(),
 });
 export type AdditionalRepo = z.infer<typeof AdditionalRepo>;
+
+/** An excluded repository or owner (PRD SET-33 to SET-37). */
+export const ExcludedRepo = z.object({
+  /** "owner/name" for a repository, "owner" for an owner; GitHub's current spelling once found. */
+  name: z.string(),
+  kind: z.enum(["repo", "owner"]),
+  /** checking until GitHub has answered; not_found when it doesn't exist or the token can't read it (SET-36). */
+  status: z.enum(["checking", "ok", "not_found"]),
+  /**
+   * The owner's kind of account and avatar: the excluded owner's, or the
+   * repository owner's, as GitHub shows a repository. The kind picks the
+   * avatar's shape (SET-36). Null until GitHub has found it.
+   */
+  ownerType: z.enum(["Organization", "User"]).nullable(),
+  avatarUrl: z.string().nullable(),
+});
+export type ExcludedRepo = z.infer<typeof ExcludedRepo>;
 
 export const Collaborator = z.object({
   login: z.string(),
@@ -176,6 +197,7 @@ export type Collaborator = z.infer<typeof Collaborator>;
 
 export const Settings = z.object({
   additionalRepos: z.array(AdditionalRepo),
+  excludedRepos: z.array(ExcludedRepo),
   collaborators: z.array(Collaborator),
   /** null = use the default prompt. */
   customPrompt: z.string().nullable(),
@@ -190,6 +212,8 @@ export type SettingsResponse = z.infer<typeof SettingsResponse>;
 /** PUT /api/settings: everything on the page (SET-14). */
 export const SettingsUpdate = z.object({
   additionalRepos: z.array(z.object({ fullName: z.string(), prioritizationPrompt: z.string() })),
+  /** Names as typed or as GitHub spells them: "owner/name" or "owner" (SET-33). */
+  excludedRepos: z.array(z.string()).default([]),
   collaborators: z.array(z.string()),
   customPrompt: z.string().nullable(),
   credentials: z.object({ github_pat: z.string().optional(), gemini_key: z.string().optional() }).optional(),
@@ -204,6 +228,7 @@ export type FieldError = z.infer<typeof FieldError>;
 
 /** Control ids used by Settings links (NOTIF-9, LIST-14). */
 export const repoControlId = (fullName: string) => `repo-${fullName.replace("/", "-")}`;
+export const exclusionControlId = (name: string) => `exclusion-${name.replace("/", "-")}`;
 
 /**
  * Parses "owner/name" or a GitHub URL ("https://github.com/owner/name/…") into
@@ -222,18 +247,101 @@ export function parseLogin(input: string): string | null {
   return /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/.test(s) ? s : null;
 }
 
+/**
+ * Parses an exclusion (SET-33): "owner/name", "owner", or a GitHub URL for
+ * either ("https://github.com/owner", "https://github.com/orgs/owner/…",
+ * "https://github.com/owner/name/…"). A leading "@" is removed. Returns null
+ * for anything else.
+ */
+export function parseExclusion(input: string): { kind: "repo" | "owner"; name: string } | null {
+  let s = input.trim().replace(/^@/, "");
+  const url = s.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/(?:orgs\/([^/\s?#]+)(?:[/?#].*)?|([^/\s?#]+)\/?(?:[?#].*)?)$/i);
+  if (url) s = url[1] ?? url[2];
+  if (s.includes("/") || /github\.com\//i.test(s)) {
+    const repo = parseRepo(s.replace(/^@/, ""));
+    return repo ? { kind: "repo", name: repo } : null;
+  }
+  const owner = parseLogin(s);
+  return owner ? { kind: "owner", name: owner } : null;
+}
+
+/** The additional repositories an excluded owner owns, which still appear (SET-35). Alphabetical. */
+export function exceptedRepos(owner: string, additionalRepos: string[]): string[] {
+  const o = owner.toLowerCase();
+  return additionalRepos.filter((r) => r.split("/")[0].toLowerCase() === o).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+}
+
+/**
+ * The note under an excluded owner (SET-35, SET-36), as text parts and the
+ * repository names it links to, in reading order.
+ */
+export function exclusionNote(owner: string, ownerType: "Organization" | "User" | null, additionalRepos: string[]): { parts: (string | { repo: string })[] } {
+  const except = exceptedRepos(owner, additionalRepos);
+  const parts: (string | { repo: string })[] = [`Every repository ${owner} owns`];
+  if (except.length) {
+    parts.push(", except ");
+    except.forEach((repo, i) => {
+      if (i > 0) parts.push(i === except.length - 1 ? " and " : ", ");
+      parts.push({ repo });
+    });
+    parts.push(except.length === 1 ? ", which is an additional repository." : ", which are additional repositories.");
+  } else {
+    parts.push(".");
+  }
+  if (ownerType === "User") parts.push(` Issues and PRs ${owner} opens elsewhere still appear.`);
+  return { parts };
+}
+
 /** Same checks as the server (SET-7, SET-9, SET-24, SET-25, SET-27). */
 export const MESSAGES = {
   repoFormat: "Enter a repository as owner/name or paste its GitHub URL.",
   repoDuplicate: (r: string) => `${r} is already in your list.`,
   repoLimit: `You can add at most ${MAX_REPOS} repositories.`,
   repoPromptLength: (n: number) => `A prioritization prompt can be at most ${MAX_REPO_PROMPT_LENGTH} characters. This one has ${n.toLocaleString("en-US")}.`,
+  exclusionFormat: "Enter a repository as owner/name, an owner's name, or paste a GitHub URL.",
+  exclusionDuplicate: (n: string) => `${n} is already excluded.`,
+  exclusionLimit: `You can exclude at most ${MAX_EXCLUSIONS} repositories and owners.`,
+  exclusionIsAdditional: (r: string) => `${r} is one of your additional repositories. Remove it there first to exclude it.`,
+  repoIsExcluded: (r: string) => `${r} is excluded. Remove it from Excluded repositories first to follow it.`,
   loginFormat: "Enter a GitHub username, for example octocat.",
   loginDuplicate: (l: string) => `${l} is already a collaborator.`,
   loginLimit: `You can add at most ${MAX_COLLABORATORS} collaborators.`,
   promptLength: (n: number) => `A prompt can be at most ${MAX_PROMPT_LENGTH.toLocaleString("en-US")} characters. This one has ${n.toLocaleString("en-US")}.`,
   promptEmpty: "Enter a prompt, or choose Restore default.",
 };
+
+/**
+ * Problems with the exclusions on the page (SET-27, SET-33, SET-35), checked in
+ * the browser and again on the server. `additionalRepos` are the page's
+ * additional repositories.
+ */
+export function exclusionErrors(exclusions: string[], additionalRepos: string[]): FieldError[] {
+  const errors: FieldError[] = [];
+  const seen = new Set<string>();
+  const additional = new Set(additionalRepos.map((r) => r.toLowerCase()));
+  if (exclusions.length > MAX_EXCLUSIONS) errors.push({ field: "add-exclusion", message: MESSAGES.exclusionLimit });
+  for (const raw of exclusions) {
+    const e = parseExclusion(raw);
+    if (!e) { errors.push({ field: "add-exclusion", message: MESSAGES.exclusionFormat }); continue; }
+    const key = e.name.toLowerCase();
+    if (seen.has(key)) errors.push({ field: exclusionControlId(e.name), message: MESSAGES.exclusionDuplicate(e.name) });
+    seen.add(key);
+    if (e.kind === "repo" && additional.has(key)) errors.push({ field: exclusionControlId(e.name), message: MESSAGES.exclusionIsAdditional(e.name) });
+  }
+  return errors;
+}
+
+/**
+ * The fields whose error is a conflict over `repo` between Additional and
+ * Excluded repositories (SET-35), which removing `repo` from either list
+ * resolves. Names are compared without regard to case.
+ */
+export function conflictFields(errors: Record<string, string>, repo: string): string[] {
+  const r = repo.toLowerCase();
+  const conflict = (m: string | undefined) =>
+    m !== undefined && (m.toLowerCase() === MESSAGES.exclusionIsAdditional(r).toLowerCase() || m.toLowerCase() === MESSAGES.repoIsExcluded(r).toLowerCase());
+  return Object.keys(errors).filter((f) => conflict(errors[f]));
+}
 
 /** Result of POST /api/credentials/:kind/check (SET-2, SET-28). */
 export const CheckResult = z.object({

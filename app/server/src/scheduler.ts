@@ -18,6 +18,8 @@ const PRESENCE_TTL_SECONDS = 90;
 const LEASE_SECONDS = 30;
 /** A Sync now that arrives during another process's incremental scan waits this long, then tries again. */
 const RETRY_FULL_SECONDS = 10;
+/** Saves that change what a scan looks for. */
+const SETTINGS_TRIGGERS = new Set(["settings", "credentials"]);
 
 /** "visible", "open" or "away" for the developer `$1` (or the outer query's `u.id`), from tabs seen in the last 90 s. */
 const PRESENCE_STATE = (who: string) => `(
@@ -137,9 +139,9 @@ export class Scheduler {
 
   private run(userId: string, trigger: string) {
     if (this.running.has(userId)) {
-      // A scan for this developer is running here: join it, and follow an incremental one with a full one.
+      // A scan for this developer is running here: join it, and follow it with a full one if it can't stand in.
       if (FULL_TRIGGERS.has(trigger)) {
-        this.retryFullAfterIncremental(userId, trigger, true)
+        this.followWithFullScan(userId, trigger, true)
           .catch((e) => log.error("scheduler", "couldn't request a full scan", { user: userId, error: String(e?.stack ?? e) }));
       }
       return;
@@ -148,7 +150,7 @@ export class Scheduler {
     scan(this.ctx, userId, trigger)
       .then(async (r) => {
         // Skipped because another process is scanning this developer: a full scan waits for it to finish.
-        if (r.outcome === "skipped" && FULL_TRIGGERS.has(trigger)) await this.retryFullAfterIncremental(userId, trigger);
+        if (r.outcome === "skipped" && FULL_TRIGGERS.has(trigger)) await this.followWithFullScan(userId, trigger);
       })
       .catch((e) => log.error("scan", "scan crashed", { user: userId, error: String(e?.stack ?? e) }))
       .finally(() => {
@@ -157,10 +159,15 @@ export class Scheduler {
       });
   }
 
-  /** `startingHere`: a scan is starting in this process, and may not have recorded its kind yet. */
-  private async retryFullAfterIncremental(userId: string, trigger: string, startingHere = false) {
+  /**
+   * A full scan was asked for while another scan runs. An incremental one can't stand in for it. Nor can
+   * any scan that started before Settings or credentials were saved: it searches with the old settings,
+   * so new exclusions and repositories would wait for the hourly full scan (SET-37, SCAN-5).
+   * `startingHere`: a scan is starting in this process, and may not have recorded its kind yet.
+   */
+  private async followWithFullScan(userId: string, trigger: string, startingHere = false) {
     const open = await this.ctx.db.one(`select kind from scans where user_id = $1 and finished_at is null`, [userId]);
-    if (open ? open.kind !== "full" : startingHere) await this.request(userId, trigger, RETRY_FULL_SECONDS);
+    if (open ? open.kind !== "full" || SETTINGS_TRIGGERS.has(trigger) : startingHere) await this.request(userId, trigger, RETRY_FULL_SECONDS);
   }
 
   start() {

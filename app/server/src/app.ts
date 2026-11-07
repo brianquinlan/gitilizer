@@ -8,10 +8,11 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import {
   CSRF_HEADER, CredentialKind, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, MAX_COLLABORATORS, MAX_PROMPT_LENGTH,
-  MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, SettingsUpdate, SetupRequest, Sort, parseLogin, parseRepo, repoControlId,
+  MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, SettingsUpdate, SetupRequest, Sort, exclusionErrors, parseExclusion, parseLogin, parseRepo, repoControlId,
   type CheckResult, type FieldError, type Me, type SettingsResponse, type SetupResponse,
 } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
+import { exclusionRows, lookUpExclusion, removeExcluded } from "./exclusions.ts";
 import { checkValue, credentialStatus, getCredential, saveCredential } from "./credentials.ts";
 import type { FixtureStore } from "./github/fixtures.ts";
 import { pushSync, queueFullRerank, queueRankJobs, syncState } from "./jobs.ts";
@@ -286,11 +287,20 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     const userId = uid(req);
     const s = (await db.one(`select * from settings where user_id = $1`, [userId])) ?? {};
     const repos = await db.query(
-      `select full_name, prioritization_prompt, access, token_type from additional_repos where user_id = $1 order by position, full_name`, [userId],
+      `select full_name, prioritization_prompt, access, token_type, owner_avatar_url, owner_type from additional_repos
+       where user_id = $1 order by position, full_name`, [userId],
     );
     const collabs = await db.query(`select login, status, avatar_url from collaborators where user_id = $1 order by position, login`, [userId]);
+    const excluded = await exclusionRows(db, userId);
     return {
-      additionalRepos: repos.map((r) => ({ fullName: r.full_name, prioritizationPrompt: r.prioritization_prompt, access: r.access, tokenType: r.token_type })),
+      additionalRepos: repos.map((r) => ({
+        fullName: r.full_name, prioritizationPrompt: r.prioritization_prompt, access: r.access, tokenType: r.token_type,
+        ownerAvatarUrl: r.owner_avatar_url, ownerType: r.owner_type === "Organization" || r.owner_type === "User" ? r.owner_type : null,
+      })),
+      excludedRepos: excluded.map((e) => ({
+        name: e.name, kind: e.kind, status: e.status, avatarUrl: e.avatar_url,
+        ownerType: e.owner_type === "Organization" || e.owner_type === "User" ? e.owner_type : null,
+      })),
       collaborators: collabs.map((c) => ({ login: c.login, status: c.status, avatarUrl: c.avatar_url })),
       customPrompt: s.custom_prompt ?? null,
       sortPrioritized: s.sort_prioritized ?? DEFAULT_SORT_PRIORITIZED,
@@ -315,6 +325,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
 
     const repos = next.additionalRepos.map((r) => ({ name: parseRepo(r.fullName)!, prompt: r.prioritizationPrompt.trim() }));
     const logins = next.collaborators.map((l) => parseLogin(l)!);
+    const exclusions = next.excludedRepos.map((e) => parseExclusion(e)!);
     const trimmed = next.customPrompt?.trim() ?? "";
     const prompt = trimmed && trimmed !== ctx.config.defaultPrompt.trim() ? next.customPrompt : null;
     const prev = await db.one(`select custom_prompt from settings where user_id = $1`, [userId]);
@@ -336,6 +347,17 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
           [userId, prevRepos.find((p) => p.toLowerCase() === r.name.toLowerCase()) ?? r.name, r.prompt, i],
         );
       }
+      // Exclusions that stay keep their GitHub ID, state and avatar (SET-36); new ones start unchecked.
+      const keepEx = new Set(exclusions.map((e) => e.name.toLowerCase()));
+      const prevEx = (await t.query(`select name from excluded_repos where user_id = $1`, [userId])).map((r) => r.name as string);
+      for (const n of prevEx) if (!keepEx.has(n.toLowerCase())) await t.query(`delete from excluded_repos where user_id = $1 and name = $2`, [userId, n]);
+      for (const [i, e] of exclusions.entries()) {
+        await t.query(
+          `insert into excluded_repos (user_id, name, kind, position) values ($1, $2, $3, $4)
+           on conflict (user_id, name) do update set position = $4`,
+          [userId, prevEx.find((n) => n.toLowerCase() === e.name.toLowerCase()) ?? e.name, e.kind, i],
+        );
+      }
       const keepLogins = new Set(logins.map((l) => l.toLowerCase()));
       const prevLogins = (await t.query(`select login from collaborators where user_id = $1`, [userId])).map((r) => r.login as string);
       for (const l of prevLogins) if (!keepLogins.has(l.toLowerCase())) await t.query(`delete from collaborators where user_id = $1 and login = $2`, [userId, l]);
@@ -353,6 +375,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       if (!repos.some((r) => r.name.toLowerCase() === name.toLowerCase())) await clear(ctx, userId, ["repo_inaccessible"], name);
     }
     await credentialsSaved(userId, creds.map(([kind]) => kind));
+    await removeExcluded(ctx, userId); // SET-37: excluded items leave at once, without waiting for a scan
     if ((prev?.custom_prompt ?? null) !== prompt) await clear(ctx, userId, ["prompt_failing"]);
     if (next.rerank) await queueFullRerank(ctx, userId, "rerank"); // SET-15, LIVE-24
     scheduler.trigger(userId, "settings"); // SCAN-5: saving settings starts a sync
@@ -410,16 +433,33 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     const { fullName } = z.object({ fullName: z.string().max(200) }).parse(req.body);
     const name = parseRepo(fullName);
     const pat = await getCredential(ctx, uid(req), "github_pat");
-    if (!name || !pat) return { access: "checking", fullName: name ?? fullName, tokenType: null };
+    const unchecked = { access: "checking", fullName: name ?? fullName, tokenType: null, ownerAvatarUrl: null, ownerType: null };
+    if (!name || !pat) return unchecked;
     try {
       const info = await ctx.github(pat).repo(name);
+      const found = info.access === "ok" || info.access === "archived";
       return {
         access: info.access,
-        fullName: "fullName" in info ? info.fullName : name,
+        fullName: found ? info.fullName : name,
         tokenType: info.access === "token_type_blocked" ? info.tokenType : null,
+        ownerAvatarUrl: found ? info.ownerAvatarUrl : null,
+        ownerType: found ? info.ownerType : null,
       };
     } catch {
-      return { access: "checking", fullName: name, tokenType: null }; // checked again by the next scan
+      return unchecked; // checked again by the next scan
+    }
+  });
+  app.post("/api/exclusions/check", async (req) => {
+    const { name } = z.object({ name: z.string().max(200) }).parse(req.body);
+    const e = parseExclusion(name);
+    const pat = await getCredential(ctx, uid(req), "github_pat");
+    const unchecked = { name: e?.name ?? name, kind: e?.kind ?? "repo", status: "checking", ownerType: null, avatarUrl: null };
+    if (!e || !pat) return unchecked;
+    try {
+      const r = await lookUpExclusion(ctx.github(pat), e.kind, { name: e.name });
+      return { name: r.name, kind: e.kind, status: r.status, ownerType: r.ownerType, avatarUrl: r.avatarUrl };
+    } catch {
+      return unchecked; // checked again by the next scan (SET-36)
     }
   });
   app.post("/api/collaborators/check", async (req) => {
@@ -518,7 +558,7 @@ export function buildInternalApp(ctx: Ctx): FastifyInstance {
   return app;
 }
 
-/** The rules in SET-7, SET-9, SET-24, SET-25 and SET-27, checked again on the server. */
+/** The rules in SET-7, SET-9, SET-24, SET-25, SET-27, SET-33 and SET-35, checked again on the server. */
 export function settingsErrors(s: SettingsUpdate): FieldError[] {
   const errors: FieldError[] = [];
   const seen = new Set<string>();
@@ -530,6 +570,7 @@ export function settingsErrors(s: SettingsUpdate): FieldError[] {
     seen.add(name.toLowerCase());
     if (r.prioritizationPrompt.length > MAX_REPO_PROMPT_LENGTH) errors.push({ field: repoControlId(name), message: MESSAGES.repoPromptLength(r.prioritizationPrompt.length) });
   }
+  errors.push(...exclusionErrors(s.excludedRepos, s.additionalRepos.map((r) => parseRepo(r.fullName) ?? r.fullName)));
   const logins = new Set<string>();
   if (s.collaborators.length > MAX_COLLABORATORS) errors.push({ field: "add-collaborator", message: MESSAGES.loginLimit });
   for (const l of s.collaborators) {

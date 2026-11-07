@@ -332,6 +332,21 @@ describe("sharing the scheduler's work", () => {
     expect(await ctx.db.one(`select count(*)::int as n from scan_requests`)).toEqual({ n: 0 });
   });
 
+  it("follows a full scan that started before Settings were saved with another, but lets Sync now join it (SET-37, SCAN-4)", async () => {
+    const { ctx } = await makeCtx();
+    await addUser(ctx);
+    const scanner = new Scheduler(ctx);
+    // A full scan is already running (in another process, say), started before the save.
+    await ctx.db.query(`insert into scans (user_id, trigger, kind) values ('u1', 'schedule:visible', 'full')`);
+    scanner.trigger("u1", "manual");
+    await new Promise((r) => setTimeout(r, 500));
+    expect(await ctx.db.one(`select count(*)::int as n from scan_requests`)).toEqual({ n: 0 }); // joined
+    scanner.trigger("u1", "settings");
+    expect(await until(async () => Boolean(await ctx.db.one(
+      `select 1 from scan_requests where trigger = 'settings' and not_before > now() + interval '5 seconds'`,
+    )))).toBe(true);
+  });
+
   it("keeps a full-scan request over a scheduled one, and only one per developer", async () => {
     const { ctx } = await makeCtx();
     await addUser(ctx);
