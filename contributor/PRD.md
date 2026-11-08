@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-07 (repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -51,14 +51,18 @@ Developers who work across many GitHub repositories get a steady stream of assig
 
 Gitilizer is a web application, at [gitilizer.com](https://gitilizer.com), that shows a developer one ordered list of the open GitHub items that involve them. An AI agent ranks every item, so the item that most deserves the developer's attention is at the top. The list keeps itself up to date as items change on GitHub, without the developer reloading the page.
 
-The developer supplies their own credentials: a GitHub personal access token (PAT), which Gitilizer uses to read their items, and a Gemini API key, which Gitilizer uses to rank them.
+The developer supplies their own credentials: a GitHub personal access token
+(PAT), which Gitilizer uses to read their items, and an API key for the ranking
+agent they choose (Gemini, Claude or OpenAI), which Gitilizer uses to rank them.
 
 ### Goals
 
 1. A developer can see their most important item at a glance, and can trust that the order reflects the current state of GitHub.
 2. The list stays current without a page reload, and changes in order are easy to follow.
 3. A developer can tune the ranking with their own instructions, the repositories they care about and the people they work with.
-4. When something stops Gitilizer from working (an expired token, a Gemini quota problem), the developer finds out and knows how to fix it.
+4. When something stops Gitilizer from working (an expired token, a ranking
+   agent's quota or credits running out), the developer finds out and knows how
+   to fix it.
 
 ### Non-goals
 
@@ -69,8 +73,12 @@ These are out of scope for the first release.
 - Shared or team views of a list.
 - Email, push or other notifications outside the app.
 - Native mobile apps.
-- Gitilizer-provided GitHub or Gemini credentials.
-- Ranking with models other than Gemini. The design should still allow other model providers to be added later.
+- Gitilizer-provided GitHub or ranking agent credentials.
+- Ranking with more than one agent at a time, such as a backup agent that takes
+  over when the first can't rank, and ranking agents other than Gemini, Claude
+  and OpenAI, including any OpenAI-compatible endpoint ([Q-84](#q-84)). The
+  design should still allow other providers to be added later.
+- Choosing the model. Gitilizer chooses one for each ranking agent (`SET-22`).
 - Review requests made to a GitHub team the developer belongs to, and the ranking agent's "review teams" setting. Only review requests made to the developer personally count. **Revisit after the first release** (see [Q-43](#q-43)).
 - Showing the agent's next action for an item ([Q-31](#q-31)).
 - Mentions of a GitHub team the developer belongs to (`@org/team`). Only mentions of the developer by name count ([Q-65](#q-65)).
@@ -107,6 +115,7 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
 | Additional repository | A repository the developer added in Settings. Its open items appear in the list even if the developer isn't otherwise involved. Earlier versions of this document called it an "interested repository". |
 | Prioritization prompt | Optional free text that the developer gives one additional repository, telling the ranking agent what matters in it, for example "Security issues only". |
 | Excluded repository | A repository, or an owner (an organization or a personal account), that the developer added under Excluded repositories in Settings. None of its items appear, whatever their inclusion reason. |
+| Ranking agent | The AI that scores items: Gemini (Google), Claude (Anthropic) or OpenAI. The developer chooses one in Settings and gives Gitilizer its API key. This document also calls it "the agent". |
 | Ranking prompt | The instructions the ranking agent follows for every item. The developer can replace the default in Settings. |
 | Collaborator | A GitHub user whose items and comments the developer wants scored higher. |
 | Scan | A backend job that reads the developer's items from GitHub and finds new, changed and removed items. |
@@ -148,8 +157,10 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Icebox | [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947) | [Icebox](#icebox) |
 | Icebox, empty | [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593) | [Icebox](#icebox) |
 | Icebox row | [Icebox / Issue row · Restore](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=180-1403) | [Icebox](#icebox) |
-| Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), including Additional repositories, Excluded repositories, Collaborators, Delete account, and the save and cancel buttons | [Settings](#settings) |
-| Settings with errors | [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237): a failed Validate, a duplicate repository, an excluded repository that can't be found, an exclusion that is already an additional repository, a prompt that's too long, a duplicate collaborator, and the save buttons disabled | [Saving](#saving) |
+| Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), including the Ranking agent card, Additional repositories, Excluded repositories, Collaborators, Delete account, and the save and cancel buttons | [Settings](#settings) |
+| Settings with errors | [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237): a failed Validate, a ranking agent chosen without its API key, a duplicate repository, an excluded repository that can't be found, an exclusion that is already an additional repository, a prompt that's too long, a duplicate collaborator, and the save buttons disabled | [Saving](#saving) |
+| Switching ranking agent | [Settings · Switch ranking agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631) | [Connections](#connections) |
+| Ranking agent choices | [Settings / Ranking agent option](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2497), [Warm Welcome / Ranking agent tile](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2522) | [Connections](#connections), [Warm Welcome](#warm-welcome) |
 
 ### Live reorder prototype
 
@@ -182,7 +193,7 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 | # | Condition | Screen |
 |---|---|---|
 | 1 | Not signed in | [Sign-in](#sign-in), for every URL. After signing in, the developer returns to the URL they asked for. |
-| 2 | Signed in, and the developer hasn't yet completed setup, meaning they haven't yet saved both a GitHub PAT and a Gemini API key | [Warm Welcome](#warm-welcome) |
+| 2 | Signed in, and the developer hasn't yet completed setup, meaning they haven't yet saved both a GitHub PAT and an API key for the ranking agent they chose | [Warm Welcome](#warm-welcome) |
 | 3 | Signed in, anything else | The screen the developer navigated to. The default is the [Prioritized list](#prioritized-list). |
 
 - **NAV-1** The rules above must be evaluated on every page load and whenever the condition changes, for example when the developer saves both credentials on Warm Welcome or the Settings page.
@@ -251,12 +262,26 @@ Figma: [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Git
 - **FOOT-2** The footer must show the tagline "Less triage. More shipping." and two links, both opening in a new tab:
   - "Documentation": the user documentation, hosted in the GitHub repository (`https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md`);
   - "GitHub": the project's GitHub page, [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer), which is also the project's landing page.
-- **FOOT-3** The user documentation must exist at launch. At least, it must explain the two kinds of GitHub token and how to create one with the right permissions (the page that the GitHub token's "Learn more" opens, `SET-20`), how to create a Gemini API key (the page that the Gemini key's "Learn more" opens, `SET-32`), and what each [notification](#catalogue) means. It must also explain the limits of a free-tier Gemini API key: the small daily quota, how Gitilizer then falls back to smaller models and finally pauses ranking (`RANK-13` to `RANK-15`), and how to get a key with billing turned on, with a link to Google's instructions.
+- **FOOT-3** The user documentation must exist at launch. At least, it must
+  explain the two kinds of GitHub token and how to create one with the right
+  permissions (the page that the GitHub token's "Learn more" opens, `SET-20`),
+  how to create an API key for each ranking agent and what each costs (the pages
+  that the ranking agent's "Learn more" opens, `SET-32`), and what each
+  [notification](#catalogue) means. It must also explain the limits of a
+  free-tier Gemini API key: the small daily quota, how Gitilizer then falls back
+  to smaller models and finally pauses ranking (`RANK-13` to `RANK-15`), and how
+  to get a key with billing turned on, with a link to Google's instructions.
 - **FOOT-4** The user documentation must have a privacy section that explains, in plain language:
   - what Gitilizer stores about a developer ([Data and privacy](#data-and-privacy)), and that credentials are encrypted and never shown again (`PRIV-1`);
   - when it is deleted: an item's data 30 days after no developer has it (`PRIV-5`), everything about a developer immediately when they delete their account (`SET-17`), and copies in backups within 6 months (`PRIV-4`);
-  - what Gitilizer sends to Gemini, with the developer's own key: the content of the developer's own issues and PRs, including comments and reviews, and the developer's settings, never their credentials (`PRIV-1`, `PRIV-2`);
-  - that Google's terms let it use content sent with a free-tier Gemini key to improve its products, and that this content can come from private repositories, with a link to Google's terms.
+  - what Gitilizer sends to the developer's ranking agent, with the developer's
+    own key: the content of the developer's own issues and PRs, including
+    comments and reviews, and the developer's settings, never their credentials
+    (`PRIV-1`, `PRIV-2`);
+  - for each ranking agent, what its provider's terms say about using content
+    sent through its API, with a link to them. For example, Google's terms let
+    it use content sent with a free-tier Gemini key to improve its products.
+    This content can come from private repositories.
 
 ---
 
@@ -325,9 +350,16 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 - **NOTIF-13** A notification must be removed as soon as the developer has plausibly fixed the problem. For example, saving a new PAT must clear every PAT-related notification at once. If the problem comes back with the new PAT, the notification is shown again with a new first-detected time.
 - **NOTIF-14** A notification whose condition clears without the developer doing anything (a rate limit resets, GitHub recovers) must be removed when the backend next observes that the condition is gone.
 - **NOTIF-15** The web app must update the bell and the popover without a page reload when notifications are added or removed.
-- **NOTIF-16** Before setup is complete, no notification is shown for a missing PAT or Gemini API key, because Warm Welcome covers that case. After setup, a missing credential is an error ("No GitHub personal access token is set" or "No Gemini API key is set"). Settings has no way to remove a saved credential, only to replace it, so today this can happen only through a fault.
+- **NOTIF-16** Before setup is complete, no notification is shown for a missing
+  PAT or ranking agent API key, because Warm Welcome covers that case. After
+  setup, a missing credential is an error ("No GitHub personal access token is
+  set" or "No {agent} API key is set"). Settings can remove only the key of an
+  agent that isn't in use (`SET-39`), so this can happen only through a fault.
 - **NOTIF-21** Short-lived problems (rows marked "short-lived" in the catalogue: rate limits, "isn't responding", "limiting requests") often fix themselves after a retry. Gitilizer must retry them without telling the developer for 15 minutes, and then show them as **warnings**. The first-detected time is when the problem started, not when the warning appeared. If one lasts long enough to stop the list updating, "Your issues haven't updated since {time}" (an error, after 3 hours) covers it.
 - **NOTIF-22** The PAT expiry warning must first appear 7 days before the PAT expires. Its body counts down the days ("will expire in 3 days", as in Figma's example).
+- **NOTIF-23** Notifications about a ranking agent appear only for the agent in
+  use. Switching agents (`SET-40`) clears every notification about the previous
+  one, as saving a new key does (`NOTIF-13`).
 
 ### Catalogue
 
@@ -355,6 +387,20 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 | Warning (short-lived) | Gemini connection | Gemini isn't responding | New and changed issues and PRs aren't being ranked. Gitilizer keeps retrying automatically. If this continues, check the [Google AI Studio status page](https://aistudio.google.com/status). | 500, 503 or 504 responses, no answer within 90 seconds, or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | A Gemini request succeeds. |
 | Error | Gemini connection | The Gemini model Gitilizer uses isn't available | New and changed issues and PRs aren't being ranked. This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page. | 404 `model_not_found`. | A Gemini request succeeds. |
 | Error | Gemini connection | Gemini sent an unexpected response | New and changed issues and PRs may not be ranked. Gitilizer keeps retrying automatically. If this continues, report it using the GitHub link at the bottom of the page. | Any other Gemini error, after retries. | A Gemini request succeeds. |
+| Error | Claude connection | Your Claude API key isn't valid | New and changed issues and PRs aren't being ranked. Create a new key in the Claude Console and add it in Settings. | 401 `authentication_error`. | A new key is saved. |
+| Error | Claude connection | Your Claude API key can't use the model Gitilizer uses | New and changed issues and PRs aren't being ranked. The key's workspace may not allow the model. Create a key without that restriction in the Claude Console and add it in Settings. | 403 `permission_error`. | A new key is saved, or a Claude request succeeds. |
+| Error | Claude connection | Your Anthropic credits have run out | New and changed issues and PRs aren't being ranked. Add credits, or raise your spend limit, in the Claude Console. | 402 `billing_error`; 400 saying the credit balance is too low or a spend limit was reached; or 429 for a monthly spend cap, which has no `retry-after` header. | A Claude request succeeds, or a new key is saved. |
+| Warning (short-lived) | Claude connection | Claude is limiting requests from your key | Ranking is slower than usual and catches up automatically. Other apps that use this key count toward the same limit, and keys on a higher usage tier get higher limits. | Any other 429 `rate_limit_error`, for more than 15 minutes (`NOTIF-21`). | Claude requests succeed without 429s for 15 minutes. |
+| Warning (short-lived) | Claude connection | Claude isn't responding | New and changed issues and PRs aren't being ranked. Gitilizer keeps retrying automatically. If this continues, check [status.claude.com](https://status.claude.com). | 500, 504 or 529 (`overloaded_error`) responses, no answer within 90 seconds, or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | A Claude request succeeds. |
+| Error | Claude connection | The Claude model Gitilizer uses isn't available | New and changed issues and PRs aren't being ranked. This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page. | 404 `not_found_error` for the model. | A Claude request succeeds. |
+| Error | Claude connection | Claude sent an unexpected response | New and changed issues and PRs may not be ranked. Gitilizer keeps retrying automatically. If this continues, report it using the GitHub link at the bottom of the page. | Any other Claude error, after retries. | A Claude request succeeds. |
+| Error | OpenAI connection | Your OpenAI API key isn't valid | New and changed issues and PRs aren't being ranked. Create a new key in the OpenAI dashboard and add it in Settings. | 401 "Incorrect API key provided" or "Invalid Authentication". | A new key is saved. |
+| Error | OpenAI connection | Your OpenAI API key can't use the model Gitilizer uses | New and changed issues and PRs aren't being ranked. The key may be restricted, its project may not allow the model, or OpenAI may not serve your region. Check the key in the OpenAI dashboard, or create a new one and add it in Settings. | 403, including "Country, region, or territory not supported". | A new key is saved, or an OpenAI request succeeds. |
+| Error | OpenAI connection | Your OpenAI credits have run out | New and changed issues and PRs aren't being ranked. Add credits, or raise your spend or usage limit, in the OpenAI dashboard. | 429 `insufficient_quota`, `credit_balance_exhausted`, or a spend or usage limit code such as `project_spend_limit_exceeded`. | An OpenAI request succeeds, or a new key is saved. |
+| Warning (short-lived) | OpenAI connection | OpenAI is limiting requests from your key | Ranking is slower than usual and catches up automatically. Other apps that use this key count toward the same limit, and higher usage tiers get higher limits. | Any other 429, for more than 15 minutes (`NOTIF-21`). | OpenAI requests succeed without 429s for 15 minutes. |
+| Warning (short-lived) | OpenAI connection | OpenAI isn't responding | New and changed issues and PRs aren't being ranked. Gitilizer keeps retrying automatically. If this continues, check [status.openai.com](https://status.openai.com). | 500 or 503 responses, no answer within 90 seconds, or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | An OpenAI request succeeds. |
+| Error | OpenAI connection | The OpenAI model Gitilizer uses isn't available | New and changed issues and PRs aren't being ranked. This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page. | 404 `model_not_found`. | An OpenAI request succeeds. |
+| Error | OpenAI connection | OpenAI sent an unexpected response | New and changed issues and PRs may not be ranked. Gitilizer keeps retrying automatically. If this continues, report it using the GitHub link at the bottom of the page. | Any other OpenAI error, after retries. | An OpenAI request succeeds. |
 | Error | Ranking | Your ranking prompt isn't working | Most new and changed issues and PRs couldn't be ranked with your custom prompt. Edit the prompt, or restore the default prompt in Settings. | A custom prompt is set and more than half of the items in a ranking run fail to produce valid output. | The prompt is changed, or a ranking run succeeds. |
 | Warning | Ranking | Gitilizer couldn't rank {n} issues and PRs | These issues and PRs are shown without a rank. Gitilizer tries again when they change. | Individual items fail after retries (blocked response, output cut off, invalid output). See `LIST-30`. | Every one of them is ranked or leaves the list. |
 | Error | Gitilizer | Can't connect to Gitilizer | Your list won't update until the connection comes back. Check your internet connection. | The web app's requests to the Gitilizer API fail. Detected in the browser. | A request succeeds. |
@@ -380,19 +426,20 @@ fields instead of the whole Settings page.
 - **WEL-1** Warm Welcome must be shown under the conditions in [Which screen is shown](#which-screen-is-shown). It is therefore always the first screen after a developer's first sign-in.
 - **WEL-2** It must show the app bar, the footer and a panel with the title
   "Welcome to your prioritized inbox", the text "Add your GitHub personal access
-  token and Gemini API key so Gitilizer can scan and rank your issues and PRs.",
-  a field for each credential, a "Save" button and the note "You can update both
-  credentials later in Settings."
-- **WEL-3** The two fields, "GitHub personal access token" and "Gemini API key",
-  must work as in Settings: masked, with the eye icon, a "Validate" button and
-  its results (`SET-1`, `SET-2`, `SET-21`, `SET-28`), the links "Create a
-  token ↗" and "Get an API key ↗" (`SET-4`), and the guidance text shown in
-  Figma with "Learn more ↗" inline at its end (`SET-20`, `SET-32`). A credential
-  already saved from Settings appears as dots, as it does there. The links,
-  guidance text and Validate results use the same typeface, style and size as
-  in Settings, and so does the note under "Save", which matches the notes beside
-  the Settings save buttons; only the field labels are bolder, because the
-  fields have no card titles above them.
+  token, then choose the AI that ranks your issues and PRs and add its API
+  key.", the GitHub field, the ranking agent choice (`WEL-5`), the field for the
+  chosen agent's key, a "Save" button and the note "You can change these later
+  in Settings."
+- **WEL-3** The two fields, "GitHub personal access token" and "{agent} API key"
+  (for example "Gemini API key"), must work as in Settings: masked, with the eye
+  icon, a "Validate" button and its results (`SET-1`, `SET-2`, `SET-21`,
+  `SET-28`), the links "Create a token ↗" and "Get an API key ↗" (`SET-4`), and
+  the guidance text shown in Figma with "Learn more ↗" inline at its end
+  (`SET-20`, `SET-32`). A credential already saved from Settings appears as
+  dots, as it does there. The links, guidance text and Validate results use the
+  same typeface, style and size as in Settings, and so does the note under
+  "Save", which matches the notes beside the Settings save buttons; only the
+  field labels are bolder, because the fields have no card titles above them.
 - **WEL-4** "Save" must be disabled until both fields have a value, typed or
   already saved. Choosing it validates each typed value that hasn't passed
   Validate as typed, showing progress and results under its field as Validate
@@ -401,6 +448,14 @@ fields instead of the whole Settings page.
   [first-sync state](#empty-loading-and-first-sync-states) of the Prioritized
   list (`SET-5`). If any fails, nothing is saved and the developer stays on
   Warm Welcome with the failure under its field ([Q-82](#q-82)).
+- **WEL-5** Between the two fields, under the label "Ranking agent", three tiles
+  must offer the agents, as in Figma: "Gemini" ("Google", "Free tier
+  available"), "Claude" ("Anthropic", "Pay as you go") and "OpenAI" ("OpenAI",
+  "Pay as you go"). Gemini is chosen at first. Under the tiles is the hint "Not
+  sure? Gemini's free tier is the easiest way to try Gitilizer." Choosing a tile
+  changes the second field's label, setup link and guidance text to that agent's
+  (`SET-1`, `SET-4`, `SET-32`) and clears a value typed for another agent, with
+  its Validate result. "Save" saves the chosen agent as the one in use.
 
 ---
 
@@ -474,7 +529,12 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 
 - **LIST-14** If the developer has no items and at least one sync has finished, the table body must be replaced by "No issues or PRs to show 🎉" and "You can choose more repositories in the settings.", where "settings" opens Settings at Additional repositories, with focus on the "Add repository" field.
 - **LIST-15** While the first sync is running and nothing has been ranked yet, the table must show the column headings, three skeleton rows and "Scanning your issues and PRs…", as in [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689). The skeleton placeholders pulse, fading to about a third of their strength and back, 0.8 s each way ([Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433)); with reduced motion they don't pulse. As soon as the first item has been ranked, the list replaces the skeleton rows, and further items appear as they are ranked.
-- **LIST-30** An item must not be shown in the Prioritized list until it has been ranked. Two kinds of unranked item are shown after all ranked items, newest first, with "–" in the Priority column: an item waiting because the daily quota is used up for every model (`RANK-15`), and an item whose ranking failed. For a failed item (`RANK-6`), the "Gitilizer couldn't rank {n} issues" warning is shown (see the [catalogue](#catalogue)).
+- **LIST-30** An item must not be shown in the Prioritized list until it has
+  been ranked. Two kinds of unranked item are shown after all ranked items,
+  newest first, with "–" in the Priority column: an item waiting because ranking
+  is paused (`RANK-20`), and an item whose ranking failed. For a failed item
+  (`RANK-6`), the "Gitilizer couldn't rank {n} issues" warning is shown (see the
+  [catalogue](#catalogue)).
 
 ### Sync now
 
@@ -483,13 +543,23 @@ Figma: [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 - **LIST-16** A "Sync now" button must start a sync: a scan for new, changed and removed items, followed by ranking of only the new and changed items. "Save and re-rank" (`SET-15`) also starts a sync, one that ranks every item again. The daily re-rank (`RANK-9`) isn't a sync: it doesn't turn the icon, disable the button or show progress (`LIST-33`), and only its result is shown (`LIVE-24`).
 - **LIST-17** While any sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), the button must show the **Syncing** state: its icon, in the accent color, turns clockwise once per second. With reduced motion, the icon is still and in the accent color.
 - **LIST-28** The button must be disabled while a sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), and enabled again as soon as the sync finishes (`LIST-32`). There is no other minimum interval between manual syncs.
-- **LIST-32** A sync counts as finished, and the icon stops turning, when the scan has finished and every new and changed item (after "Save and re-rank", every item) has been ranked, has failed, or is waiting because the daily quota is used up for every model (`RANK-15`). Waiting items are shown with "–" (`LIST-30`), and the "Your Gemini daily quota is used up" error explains the wait, so the icon doesn't turn until midnight Pacific time.
+- **LIST-32** A sync counts as finished, and the icon stops turning, when the
+  scan has finished and every new and changed item (after "Save and re-rank",
+  every item) has been ranked, has failed, or is waiting because ranking is
+  paused (`RANK-20`). Waiting items are shown with "–" (`LIST-30`), and the
+  error that paused ranking explains the wait, so the icon doesn't keep turning
+  until, for example, midnight Pacific time or until the developer adds credits.
 - **LIST-33** While a sync is in progress, text next to the button must show how far it has got (GitHub issue #5), as in [Inbox controls · Sync Progress](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=325-6832).
   - While a full scan is finding items: "Finding issues and PRs… {n} so far", where {n} is the number of distinct open items found so far that aren't in the Icebox, at most 1,000 (`LIST-19`). It goes up as each search finishes. Until the first search finishes, the text is "Finding issues and PRs…".
   - Once every search has finished, and for the whole of an incremental scan: "{n} left to rank", where {n} counts the items the sync will rank that haven't been ranked yet, including any still being downloaded, plus the Icebox checks it hasn't made yet (`ICE-6`). An item whose ranking failed (`LIST-30`) is done. {n} may go up during a sync as linked items are found (`RANK-10`).
-  - While ranking is held up by Gemini's per-minute limits or a retry: "{n} left to rank · waiting for Gemini".
-  - No text when {n} is 0, or when every remaining item is waiting because every model's daily quota is used up (`RANK-15`, `LIST-32`).
-  - The text changes at most once every 2 seconds, so it doesn't flicker, except that it disappears as soon as the sync finishes. "· waiting for Gemini" appears only after 5 seconds without progress, and goes as soon as {n} changes.
+  - While ranking is held up by the ranking agent's per-minute limits or a
+    retry: "{n} left to rank · waiting for {agent}".
+  - No text when {n} is 0, or when every remaining item is waiting because
+    ranking is paused (`RANK-20`, `LIST-32`).
+  - The text changes at most once every 2 seconds, so it doesn't flicker, except
+    that it disappears as soon as the sync finishes. "· waiting for {agent}"
+    appears only after 5 seconds without progress, and goes as soon as {n}
+    changes.
 
 ### Moving an item to the Icebox
 
@@ -586,7 +656,13 @@ The Icebox holds items the developer has decided to set aside. It works like the
 - **ICE-9** While the Icebox is shown, an item that leaves it (it returns to the list under `ICE-6`, or leaves under `ICE-11`) must use the leave animation in `LIVE-15`, without the holding rules in [When updates wait](#when-updates-wait).
 - **ICE-10** A restored item must keep its last score. (An item that changed while in the Icebox will usually have returned to the list already, under `ICE-6`, and been ranked again.)
 - **ICE-11** An item that would no longer be eligible for the Prioritized list must leave the Icebox automatically. That includes items that are closed or merged, items that no longer match `LIST-1`, items in a repository that has been archived, items that were there only because of an additional repository the developer has removed, and items in an excluded repository (`SET-34`).
-- **ICE-12** The Icebox check's prompt must lean toward bringing items back. It keeps an item in the Icebox only when the change is clearly unimportant, such as a bot's comment, a label or milestone edit, or a CI result. Changes made by the developer count like anyone else's: for example, the developer commenting "This is a critical security issue, I'll work on it right away" brings the item back. If the check can't be made (for example, Gemini still fails after retries), the item comes back.
+- **ICE-12** The Icebox check's prompt must lean toward bringing items back. It
+  keeps an item in the Icebox only when the change is clearly unimportant, such
+  as a bot's comment, a label or milestone edit, or a CI result. Changes made by
+  the developer count like anyone else's: for example, the developer commenting
+  "This is a critical security issue, I'll work on it right away" brings the
+  item back. If the check can't be made (for example, the ranking agent still
+  fails after retries), the item comes back.
 - **ICE-13** Changes to the Icebox check's prompt should be measured against labelled examples before they ship, as `RANK-7` requires for the ranking prompt.
 - **ICE-14** The Icebox check's prompt belongs to Gitilizer. Developers can't see or change it.
 
@@ -600,13 +676,28 @@ Settings is one page. The left column has links to its sections (Connections, Ad
 
 ### Connections
 
-Both credentials are required.
+Both credentials are required: a GitHub personal access token, and an API key
+for the ranking agent the developer chooses.
 
-- **SET-1** The developer must be able to enter a GitHub personal access token and a Gemini API key, in that order. Each field is masked. The cards are titled "GitHub" and "Gemini", and their fields are labeled "Personal access token" and "Gemini API key", so the card title doesn't repeat the field label. Each card has its title and status chip, then the field, then the guidance text under it, with no description between the title and the field: the guidance text already says what the credential is for.
+- **SET-1** The developer must be able to enter a GitHub personal access token
+  and an API key for their ranking agent, in that order. The cards are titled
+  "GitHub" and "Ranking agent", and their fields are labeled "Personal access
+  token" and "{agent} API key" (for example "Gemini API key"). Each field is
+  masked. Each card has its title and status chip, then the field, then the
+  guidance text under it, with no description between the title and the
+  field: the guidance text already says what the credential is for. The
+  Ranking agent card also has the agent picker above its field (`SET-38`) and
+  the billing and cost notes below it (`SET-41`).
 - **SET-2** Each credential must have a "Validate" button that checks the value typed in the field, without saving it, and shows the result under the field (`SET-28`).
 - **SET-21** "Validate" must be disabled while its field is empty. That includes when the field shows a saved credential: a saved credential appears as dots, can't be shown or edited, and can't be validated again until it is replaced. The eye icon shows only a value typed during this visit. (Figma shows both Validate buttons disabled, because both credentials are saved.)
 - **SET-3** Each credential card must show a status chip (`SET-30`).
-- **SET-4** "Get an API key ↗" must open Google AI Studio's API key page, and "Create a token ↗" must open GitHub's new-token page, both in a new tab. The labels don't say the credentials are free: a Gemini key's cost depends on whether its project has billing turned on, which the documentation behind "Learn more" explains (`SET-32`).
+- **SET-4** "Get an API key ↗" must open the chosen agent's API key page
+  (Google AI Studio for Gemini, the Claude Console for Claude, the OpenAI
+  dashboard for OpenAI), and "Create a token ↗" must open GitHub's new-token
+  page, both in a new tab. The labels don't say the credentials are free: a
+  Gemini key's cost depends on whether its project has billing turned on, and
+  Claude and OpenAI have no free tier, as the documentation behind "Learn
+  more" explains (`SET-32`).
 - **SET-5** Saving a credential must clear the related notifications (`NOTIF-13`) and start a sync.
 - **SET-6** For a PAT, the backend must record the expiry date from GitHub's `GitHub-Authentication-Token-Expiration` header, if it sends one, for the expiry warning.
 - **SET-20** "Learn more ↗" at the end of the GitHub token's guidance text, inline with it, must open, in a new tab, the documentation page about GitHub tokens (`FOOT-3`). That page explains:
@@ -614,8 +705,13 @@ Both credentials are required.
   - that a **fine-grained token** can be read-only (issues, PRs and metadata: read) but reads the private repositories of only one owner, the developer or one organization, and that an organization may have to approve it;
   - that a **classic token** with the `repo` scope reads every repository the developer can access, in every organization, but also allows writing, so it is needed only when the developer's private repositories belong to more than one owner; and that Gitilizer only ever reads;
   - that Gitilizer takes one token per developer ([Non-goals](#non-goals)).
-- **SET-32** The Gemini key's guidance text must end, inline with it, with "Learn more ↗", which opens, in a new tab, the documentation about Gemini API keys (`FOOT-3`): how to create one, the free tier's limits and how to turn billing on.
-- **SET-22** Settings must not show which Gemini model is used. Gitilizer chooses it.
+- **SET-32** The ranking agent's guidance text, "Used by {agent} to score and
+  prioritize your issues and PRs.", must end, inline with it, with "Learn more
+  ↗", which opens, in a new tab, the documentation about that agent's API keys
+  (`FOOT-3`): how to create one, what it costs, and for Gemini the free tier's
+  limits and how to turn billing on.
+- **SET-22** Settings must not show which model is used. Gitilizer chooses it
+  for each ranking agent (`RANK-11`, `RANK-19`).
 - **SET-28** Validate must show its progress and result under the field. A success has a green check mark; a failure has a red ✗ and red text, as in [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237).
 
   | State | Shown under the field |
@@ -623,19 +719,77 @@ Both credentials are required.
   | Checking | A spinner and "Checking…". The button is disabled until the check finishes. |
   | GitHub token works | ✓ "Validated just now · Reading GitHub as @{login}". Naming the account makes a token from the wrong account easy to spot; Gitilizer doesn't otherwise check it. |
   | Gemini key works | ✓ "Validated just now · Gemini accepted this key" |
+  | Claude or OpenAI key works | ✓ "Validated just now · Claude accepted this key" ("OpenAI" for an OpenAI key), naming the agent as the Gemini row does |
   | GitHub token not accepted | ✗ "GitHub didn't accept this token. Check that you copied it correctly." |
   | GitHub token expired | ✗ "This token expired on {date}. Create a new one." |
   | GitHub token missing a permission | ✗ "This token can't read {permission}. Give it read access to issues, PRs and metadata." |
   | Gemini key not accepted | ✗ "Google didn't accept this API key. Check that you copied all of it." |
   | Gemini key disabled | ✗ "Google has disabled this key because it was reported as leaked. Create a new one." |
   | Gemini key can't use Gemini | ✗ "This key can't use the Gemini API. Create a key in Google AI Studio." |
-  | Provider can't be reached | ✗ "Couldn't reach GitHub. Check your connection and try again." ("Google" for the Gemini key) |
+  | Claude or OpenAI key not accepted | ✗ "Anthropic didn't accept this API key. Check that you copied all of it." ("OpenAI" for an OpenAI key) |
+  | Claude or OpenAI key can't use the model | ✗ "This key can't use the model Gitilizer uses. Check its restrictions in the Claude Console." ("OpenAI dashboard" for an OpenAI key) |
+  | Claude or OpenAI account has no credits, if the check can tell | ✗ "This key works, but its account has no credits left. Add credits in the Claude Console." ("OpenAI dashboard" for an OpenAI key) |
+  | Provider can't be reached | ✗ "Couldn't reach GitHub. Check your connection and try again." ("Google", "Anthropic" or "OpenAI" for a ranking agent's key) |
   | Anything else | ✗ "Something went wrong on our side. Try again." |
 
 GitHub answers an expired token the same way as a mistyped one, and sends the expiry date only with successful responses, so Validate can tell an expired typed token apart only if GitHub's answer changes. Until then it shows "GitHub didn't accept this token…" ([Q-78](#q-78)). The "Your GitHub personal access token has expired" notification is unaffected, because by then Gitilizer has seen the expiry date.
 
 - **SET-29** Saving in Settings doesn't validate credentials (Warm Welcome does, `WEL-4`). A saved credential that doesn't work shows up as a [notification](#catalogue) when Gitilizer first uses it.
-- **SET-30** The status chip on each credential card must show one of: "Not set" (grey) when no credential is saved; "Connected" (green) when one is saved and no error notification about it is active; "Not working" (red) while an error notification about it is active; "Expires soon" (amber) while the GitHub token's expiry warning is active.
+- **SET-30** The status chip on each credential card must show one of: "Not set"
+  (grey) when no credential is saved; "Connected" (green) when one is saved and
+  no error notification about it is active; "Not working" (red) while an error
+  notification about it is active; "Expires soon" (amber) while the GitHub
+  token's expiry warning is active. On the Ranking agent card, the chip is about
+  the key of the agent chosen in the picker.
+- **SET-38** The Ranking agent card must have a picker with three choices, as in
+  Figma: "Gemini" ("Google · free tier"), "Claude" ("Anthropic · paid") and
+  "OpenAI" ("OpenAI · paid"). It starts on the agent in use. Choosing another
+  shows that agent's field, setup link, guidance text, notes and status chip in
+  the card, and clears a value typed for the previous agent, with its Validate
+  result or field error. The new choice takes effect only when Settings is saved
+  (`SET-14`, `SET-40`).
+- **SET-39** Gitilizer must keep a saved key for each agent, so the developer
+  can switch back without pasting it again. Under the guidance text, for each
+  agent other than the chosen one that has a saved key, the card shows "Your
+  {agent} key stays saved, so you can switch back without pasting it again."
+  For an agent other than the one in use, the line ends with a "Remove {agent}
+  key" link. Choosing it removes the line at once, and choosing that agent
+  before saving then shows "Not set" and an empty field; the key is deleted
+  when Settings is saved, and "Cancel" keeps it. The key of the agent in use
+  can't be removed, only replaced.
+- **SET-40** Choosing "Save changes" after choosing a different agent must first
+  ask the developer to confirm, in a dialog as in Figma, when the chosen agent
+  has a saved or typed key (otherwise `SET-27`'s error shows instead) and at
+  least one item in the Prioritized list was scored by the agent in use
+  (`RANK-16`); {n} is the number of those items. With no such item, "Save
+  changes" saves without asking. The dialog has the title "Switch ranking to
+  {agent}?", two paragraphs and three buttons:
+  - "Your {n} issues and PRs were ranked by {previous agent}. Scores from
+    different agents don't line up exactly, so the order can be a little off
+    until every item has been ranked again."
+  - "“Switch and re-rank” ranks all of them with {agent} now. “Switch” ranks new
+    and changed items with {agent} now, and the rest at the daily re-rank,
+    within 24 hours."
+  - "Switch" saves as "Save changes" does, and "Switch and re-rank" as "Save and
+    re-rank" does (`SET-15`). "Cancel" closes the dialog without saving.
+
+  "Save and re-rank" doesn't ask, because it re-ranks everything anyway.
+  Switching, with or without the dialog, starts a sync (`SET-5`), even when the
+  new agent's key was saved before; ends any pause caused by the previous agent
+  (`RANK-20`), so waiting items are ranked with the new one; and clears the
+  notifications about the previous agent (`NOTIF-23`).
+- **SET-41** Under the field, the Ranking agent card must show two notes about
+  the chosen agent, "Billing" and "Typical cost", as in Figma:
+
+  | Agent | Billing | Typical cost |
+  |---|---|---|
+  | Gemini | Free tier, with a small daily quota. A key with billing turned on avoids pauses. | About {cost} a month for every 100 issues and PRs, with billing turned on. |
+  | Claude | No free tier. Anthropic bills your account for every issue and PR ranked. | About {cost} a month for every 100 issues and PRs. |
+  | OpenAI | No free tier. OpenAI bills your account for every issue and PR ranked. | About {cost} a month for every 100 issues and PRs. |
+
+  Each {cost} is a fixed figure that Gitilizer updates when prices or models
+  change, not a calculation for the developer's own list. **TODO:** the
+  figures ([Q-86](#q-86)).
 
 ### Additional repositories
 
@@ -737,6 +891,9 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 
 - **SET-27** Settings must show problems next to the field they belong to, as in [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237):
   - The field gets a red border, and a one-line message in red appears under it, for example "northstar/web is already in your list.", "Enter a repository as owner/name or paste its GitHub URL.", "northstar/web is one of your additional repositories. Remove it there first to exclude it.", "jordanlee is already a collaborator." or "A prompt can be at most 20,000 characters. This one has 21,345."
+  - A ranking agent chosen without a saved or typed key is an error under its
+    field when the developer saves: "Add a {agent} API key, or choose an agent
+    you've already set up." ("an OpenAI API key" for OpenAI). Nothing is saved.
   - Repository, exclusion and collaborator errors appear when the developer chooses "Add repository", "Exclude" or "Add collaborator", and nothing is added. A prompt's error appears as soon as it goes over its limit, and a character count appears once a ranking prompt passes 18,000 characters.
   - While any error is showing, "Save changes" and "Save and re-rank" are disabled.
   - If the server finds a problem when saving, it is shown the same way, and the page scrolls to the first one.
@@ -769,7 +926,11 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 
 ### Ranking
 
-- **RANK-1** Ranking must use the existing ranking agent, with the developer's ranking prompt (or the default), their settings and the item's context, and the developer's Gemini API key. Each item is scored on its own, so a change to one item re-scores only that item. (The design doc has the details.)
+- **RANK-1** Ranking must use the existing ranking agent, with the developer's
+  ranking prompt (or the default), their settings and the item's context, and
+  the API key of the developer's ranking agent (`SET-38`). Each item is scored
+  on its own, so a change to one item re-scores only that item. (The design doc
+  has the details.)
 - **RANK-2** For each item the agent returns a score (named `priority` in its
   output, 0.0 to 1.0), whether the item is actionable, a one-line next action
   and its reasoning. All four must be stored. The interface uses the score and
@@ -778,19 +939,54 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 - **RANK-3** Ranks must come from sorting items by score, highest first. Two items must never share a rank.
 - **RANK-4** The agent should try to give items distinct scores, but because each item is scored on its own, ties can't always be avoided. Ties must be broken by most recent activity, then by repository and number, so the order is always the same for the same data.
 - **RANK-5** An item must be ranked again when it is new or has changed on GitHub (its `updated_at` is later than when it was last ranked), and all items must be ranked again when the developer chooses "Save and re-rank" (`SET-15`).
-- **RANK-6** Short-lived Gemini failures must be retried automatically. An item that still can't be ranked is shown as in `LIST-30`.
+- **RANK-6** Short-lived failures of the ranking agent must be retried
+  automatically. An item that still can't be ranked is shown as in `LIST-30`.
 - **RANK-7** Changes to the default prompt or model should be measured with the evaluation harness before they ship.
 - **RANK-8** The default prompt should score a draft PR lower than the same PR ready for review. (`prompts/v4.md` already scores the developer's own drafts low; extend that to other people's drafts, and measure it as in `RANK-7`.)
 - **RANK-9** Every item must be ranked again at least once every 24 hours, so scores that depend on age stay current. This is a bulk re-rank (`LIVE-24`). It happens out of sight: it isn't a sync, so Sync now doesn't turn and stays enabled while it runs (`LIST-16`).
 - **RANK-10** When a scan sees a change to an item, Gitilizer must also rank again the items in the developer's list that it links to. For example, an issue drops when a PR that fixes it is opened, although the issue itself hasn't changed.
-- **RANK-11** At most 4 Gemini requests may run at once for one developer. Ranking uses `gemini-3.8-flash` with thinking turned down as far as the model allows, to keep cost down. (The [model comparison](../eval/model-comparison-2026-11-01.md) measured this, "low" thinking, at Kendall tau 0.69, against 0.77 at the default level. The decision can be revisited.)
+- **RANK-11** At most 4 requests to the ranking agent may run at once for one
+  developer. With Gemini, ranking uses `gemini-3.8-flash` with thinking turned
+  down as far as the model allows, to keep cost down. (The [model
+  comparison](../eval/model-comparison-2026-11-01.md) measured this, "low"
+  thinking, at Kendall tau 0.69, against 0.77 at the default level. The decision
+  can be revisited.)
 - **RANK-12** Gitilizer must work with a Gemini API key on Google's free tier.
-- **RANK-13** Gitilizer must rank with `gemini-3.8-flash` (the primary model). When Google reports that the developer's daily quota for the model in use is used up, Gitilizer must switch to the next model in this order: `gemini-3.8-flash`, then `gemini-3.5-flash-lite`, then `gemini-3.1-flash-lite`. It returns to the primary model when that model's quota resets, at midnight Pacific time. For as long as a backup model is in use, the developer sees the "Gitilizer is using a backup Gemini model" warning, even if that is most of every day on the free tier. This works because Google sets quotas separately for each model: running out on one doesn't block the others.
+- **RANK-13** With Gemini, Gitilizer must rank with `gemini-3.8-flash` (the
+  primary model). When Google reports that the developer's daily quota for the
+  model in use is used up, Gitilizer must switch to the next model in this
+  order: `gemini-3.8-flash`, then `gemini-3.5-flash-lite`, then
+  `gemini-3.1-flash-lite`. It returns to the primary model when that model's
+  quota resets, at midnight Pacific time. For as long as a backup model is in
+  use, the developer sees the "Gitilizer is using a backup Gemini model"
+  warning, even if that is most of every day on the free tier. This works
+  because Google sets quotas separately for each model: running out on one
+  doesn't block the others.
 - **RANK-14** Per-minute limits must not cause a switch: Gitilizer waits and retries, as for "Gemini is limiting requests from your key".
 - **RANK-15** When the daily quota is used up for all three models, ranking must pause until the quotas reset, and the developer sees the "Your Gemini daily quota is used up" error.
-- **RANK-16** Each item's score must record which model produced it.
-- **RANK-17** Scores from different models share one list. The primary model's quota goes to new and changed items first, because they are most likely to be near the top; the daily re-rank (`RANK-9`) uses whichever model is available, so over time items are scored again by the primary model as its quota allows.
-- **RANK-18** Each Gemini call scores exactly one item.
+- **RANK-16** Each item's score must record which agent and model produced it.
+- **RANK-17** Scores from different models, and after a switch (`SET-40`) from
+  different agents, share one list. The primary model's quota goes to new and
+  changed items first, because they are most likely to be near the top; the
+  daily re-rank (`RANK-9`) uses whichever model is available, so over time items
+  are scored again by the primary model as its quota allows.
+- **RANK-18** Each call to the ranking agent scores exactly one item.
+- **RANK-19** With Claude, Gitilizer must rank with `claude-haiku-5-5`, and with
+  OpenAI with `gpt-6-luna`, with thinking turned down as far as the model
+  allows, as for Gemini (`RANK-11`). They are each provider's cheapest current
+  model, chosen before measuring; evaluation (`RANK-7`) may change them
+  ([Q-85](#q-85)). Neither has a free tier or a daily quota per model, so there
+  are no backup models: when credits run out, ranking pauses (`RANK-20`) with
+  the "Your {provider} credits have run out" error. The same model makes the
+  Icebox check (`ICE-6`), measured against its labelled examples (`ICE-13`).
+- **RANK-20** Ranking is paused while every Gemini model's daily quota is used
+  up (`RANK-15`), and while an error notification says that the agent's key,
+  credits, billing or model doesn't work (the "isn't valid", "disabled", "can't
+  use", "credits have run out", "needs billing" and "isn't available" rows of
+  the [catalogue](#catalogue)). Items to rank wait (`LIST-30`) and are ranked
+  when the condition clears, as the catalogue's last column says, or when the
+  developer switches agents (`SET-40`). Short-lived problems, such as rate
+  limits, don't pause ranking: Gitilizer waits and retries (`RANK-6`).
 
 ---
 
@@ -801,15 +997,18 @@ Gitilizer keeps:
 | Data | Notes |
 |---|---|
 | Account | Sign-in provider and provider user ID, name, email, avatar URL. |
-| Credentials | GitHub PAT (with its expiry date, if known) and Gemini API key. |
+| Credentials | GitHub PAT (with its expiry date, if known), an API key for each ranking agent the developer has saved one for, and which agent is in use. |
 | Settings | Additional repositories with their prioritization prompts, excluded repositories, collaborators, custom ranking prompt, sort preferences. |
 | Item data | The GitHub data needed to rank and show each item. |
 | Item state | For each developer and item: inclusion reasons, score, rank, the agent's output, when it was last ranked, and whether and when it was moved to the Icebox. |
 | Notifications | Active notifications with their first-detected time. |
 
-- **PRIV-0** Gitilizer must read GitHub only with the developer's PAT and call Gemini only with the developer's API key. Gitilizer's own credentials are used only for sign-in.
+- **PRIV-0** Gitilizer must read GitHub only with the developer's PAT and call
+  the ranking agent only with the developer's API key. Gitilizer's own
+  credentials are used only for sign-in.
 - **PRIV-1** Credentials must be encrypted at rest, must never be sent back to the browser after they are saved, must never be written to logs and must never be included in a ranking prompt.
-- **PRIV-2** Only the context of the developer's own items may be sent to Gemini, using the developer's own key.
+- **PRIV-2** Only the context of the developer's own items may be sent to the
+  ranking agent in use, using the developer's own key.
 - **PRIV-3** Deleting an account (`SET-17`) must delete all of the data above for that developer. Cached item data shared with other developers may be kept only while another developer still needs it.
 - **PRIV-5** An item's GitHub data, and each developer's record of it (its score and the agent's output), must be deleted 30 days after no developer has the item in their Prioritized list or Icebox any more, whatever the reason: closed or merged, no longer matching `LIST-1`, past the 1,000-item limit, or every developer who had it deleted their account.
 - **PRIV-4** Database backups must be kept for 6 months, so a deleted account's data stays in backups for up to 6 months; credentials stay encrypted there (`PRIV-1`). If a backup is ever restored, every account deleted after that backup was taken must be deleted again.
@@ -823,14 +1022,19 @@ Gitilizer keeps:
 - **PLAT-1** The source code and documentation must be hosted on GitHub ([github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer)).
 - **PLAT-2** The application must run on Google Cloud.
 - **PLAT-3** It must perform best for developers in North America and Western Europe.
-- **PLAT-4** Running costs must fit within US$200 a month. This doesn't include developers' own GitHub and Gemini usage, which uses their own credentials.
+- **PLAT-4** Running costs must fit within US$200 a month. This doesn't include
+  developers' own GitHub and ranking agent usage, which uses their own
+  credentials.
 - **PLAT-5** The application must be served at `https://gitilizer.com`.
 
 ### Scale
 
 - **NFR-1** The system must support at least 10,000 developers using the application at the same time without scaling or performance problems.
   - "Using the application at the same time" means having it visible in a browser tab. The system is sized for 10,000 such developers, out of up to 100,000 accounts, with up to 1,000 items each (`LIST-19`).
-  - At one scan every 5 minutes, that is about 33 scans per second. Each developer's scan uses their own GitHub and Gemini limits, so Gitilizer's own load is mainly scan jobs, database writes and live-update connections.
+  - At one scan every 5 minutes, that is about 33 scans per second. Each
+    developer's scan uses their own GitHub and ranking agent limits, so
+    Gitilizer's own load is mainly scan jobs, database writes and live-update
+    connections.
   - The design doc must show that this fits the US$200 monthly budget (`PLAT-4`). If it doesn't, the scale target or the scan intervals in `SCAN-5` will have to change.
 
 ### Performance and availability
@@ -857,19 +1061,35 @@ Gitilizer keeps:
 ### Security and operations
 
 - **NFR-5** All traffic must use HTTPS.
-- **NFR-6** The backend must record metrics for scan duration, ranking duration, GitHub and Gemini error rates by type, and notification counts by type, so operators can see problems before developers report them.
-- **NFR-11** The backend must log enough to find the cause of a production problem without reproducing it, and no more. Each line records one event (a scan finishing, a job failing, an unexpected GitHub or Gemini response, an unhandled error) with what it was about (developer, item, error code). Routine success is not logged one line per item, logs can be searched by severity, and credentials never appear in them (`PRIV-1`).
+- **NFR-6** The backend must record metrics for scan duration, ranking duration,
+  GitHub and ranking agent error rates by agent and type, and notification
+  counts by type, so operators can see problems before developers report them.
+- **NFR-11** The backend must log enough to find the cause of a production
+  problem without reproducing it, and no more. Each line records one event (a
+  scan finishing, a job failing, an unexpected GitHub or ranking agent response,
+  an unhandled error) with what it was about (developer, item, error code).
+  Routine success is not logged one line per item, logs can be searched by
+  severity, and credentials never appear in them (`PRIV-1`).
 - **NFR-12** A change must run in a separate development environment, with its own database, before it reaches gitilizer.com. Deploying to the development environment is automatic; deploying to gitilizer.com is a deliberate step, of a build that has already run in the development environment. The design doc describes the environments.
-  - The development environment is at `dev.gitilizer.com` and uses real GitHub and Gemini, with each developer's own credentials, like production.
+  - The development environment is at `dev.gitilizer.com` and uses real GitHub
+    and ranking agents, with each developer's own credentials, like production.
   - Because it runs untested code with those credentials, only accounts on an allowlist can sign in there ([Q-80](#q-80)). The owner lists Google accounts by email address and GitHub accounts by username or numeric ID, and can change the list without a release. Someone removed from the list is signed out at their next request; their account stays. Anyone else sees the "Not allowed" message (`AUTH-10`). Production has no allowlist.
 
 ---
 
 ## Open questions
 
-There are no open questions at the moment. New ones are marked **TODO:** where they come up and listed here.
+New questions are marked **TODO:** where they come up and listed here.
 
-Q-58 to Q-63 were found by building the prototype described in the [design doc](DESIGN.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers and the new Figma designs; Q-77 to Q-79 came from bringing the prototype in line with this document; Q-80 came from the decision to have a development environment.
+| ID | Question | Suggested answer | Where |
+|---|---|---|---|
+| <a id="q-86"></a>Q-86 | The "Typical cost" figures | Measure them in the development environment: ranking calls per item per month (at least 30, from the daily re-rank, `RANK-9`, plus changes and Icebox checks), times the tokens per call, times each provider's price. Recording each call's token counts makes this exact. | `SET-41` |
+
+Q-58 to Q-63 were found by building the prototype described in the [design
+doc](DESIGN.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers
+and the new Figma designs; Q-77 to Q-79 came from bringing the prototype in line
+with this document; Q-80 came from the decision to have a development
+environment; Q-84 to Q-86 came from adding Claude and OpenAI.
 
 ### Answered questions
 
@@ -878,7 +1098,7 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 | <a id="q-1"></a>Q-1 | Hosting, repository and budget | "Costed" meant "hosted". Code and documentation are on GitHub at github.com/brianquinlan/gitilizer. The app runs on Google Cloud, performs best in North America and Western Europe, and costs at most US$200 a month. It is served at gitilizer.com. | `PLAT-1` to `PLAT-5` |
 | <a id="q-2"></a>Q-2 | Scale | 10,000 developers with the app visible, up to 100,000 accounts, up to 1,000 items each. | `NFR-1` |
 | <a id="q-3"></a>Q-3 | Success metrics | None: this is a hobby project. The owner needs total users, users who completed setup, and daily, weekly and monthly actives. | `METRIC-1`, `METRIC-2` |
-| <a id="q-4"></a>Q-4 | Non-goals | Confirmed, plus models other than Gemini (the design should still allow them later). | [Non-goals](#non-goals) |
+| <a id="q-4"></a>Q-4 | Non-goals | Confirmed, plus models other than Gemini (the design should still allow them later). Changed on 2026-11-07: Claude and OpenAI rank too ([Q-84](#q-84)). | [Non-goals](#non-goals) |
 | <a id="q-5"></a>Q-5 | Footer URLs | "Documentation" opens the user documentation in the GitHub repository; "GitHub" opens the repository, which is the project's landing page. | `FOOT-2`, `FOOT-3` |
 | <a id="q-6"></a>Q-6 | Routes | As suggested; moving between screens doesn't reload the page. | `NAV-3`, `NAV-4` |
 | <a id="q-7"></a>Q-7 | Getting back to the list | The Gitilizer logo links to the Prioritized list. (Whether saving Settings also goes back is [Q-64](#q-64).) | `NAV-7` |
@@ -958,6 +1178,8 @@ Q-58 to Q-63 were found by building the prototype described in the [design doc](
 | <a id="q-81"></a>Q-81 | Progress during a sync, and whether bulk re-ranks are syncs | Show progress next to Sync now: the items found so far while searching, then the items left to rank. "Save and re-rank" is a sync, because the developer asked for it and otherwise sees nothing happen for minutes; the daily re-rank isn't, so it never disables Sync now. GitHub issue #5. | `LIST-16`, `LIST-32`, `LIST-33`, `SET-15`, `RANK-9` |
 | <a id="q-82"></a>Q-82 | Entering credentials on Warm Welcome, and what Save does when one fails | Warm Welcome has both fields itself, instead of a "Go to Settings" button, so setup is less overwhelming. Save validates any value not yet validated and saves nothing unless both pass. Saving in Settings still doesn't validate. | `WEL-2` to `WEL-4`, `SET-29` |
 | <a id="q-83"></a>Q-83 | Hiding whole repositories | Settings has an Excluded repositories list of repositories and owners (organizations or personal accounts). Nothing from them appears, even when the developer is assigned, asked to review or mentioned. Exclusions are part of the GitHub searches, so they don't use up the 1,000-result window. An additional repository inside an excluded owner still appears; the same repository can't be in both lists. Excluding by author, per-repository rules for each inclusion reason, and a filter language were considered and not chosen for now. | `SET-33` to `SET-37`, `LIST-1`, `SCAN-1`, `ICE-11` |
+| <a id="q-84"></a>Q-84 | Ranking agents other than Gemini | The developer chooses one ranking agent, Gemini, Claude or OpenAI, and gives Gitilizer its API key. Gitilizer keeps the keys of the others, so switching back is easy, and switching asks whether to re-rank now. A primary agent with backups, and any OpenAI-compatible endpoint, were considered and not chosen for now. | `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`, `NOTIF-23` |
+| <a id="q-85"></a>Q-85 | Which Claude and OpenAI models rank | `claude-haiku-5-5` and `gpt-6-luna` for now: each provider's cheapest current model, at $0.10 per million input tokens and $0.50 per million output tokens on 2026-11-07. To be measured with the evaluation harness, against `gemini-3.8-flash` at low thinking, for both ranking and the Icebox check (`ICE-13`), before release. | `RANK-19` |
 
 ---
 
@@ -1276,3 +1498,43 @@ Found while building excluded repositories, by testing GitHub's issue search, an
   and
   [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237),
   and prioritization prompts and owner notes start under the names.
+
+### Thirty-first revision (2026-11-07, second round)
+
+- Added ranking agents (Q-84): the developer chooses Gemini, Claude or OpenAI
+  to rank their list and gives Gitilizer that agent's API key. The Gemini card
+  in Settings becomes a Ranking agent card with a picker, billing and cost
+  notes, and the saved keys of other agents (`SET-38`, `SET-39`, `SET-41`).
+  Choosing another agent and saving asks whether to re-rank now (`SET-40`).
+  Warm Welcome offers the three agents as tiles (`WEL-5`). Claude and OpenAI
+  rank with one model each (`RANK-19`) and have their own rows in the
+  notification catalogue, and only the agent in use has notifications
+  (`NOTIF-23`). Ranking pauses for a key, credits or billing error, not only
+  for Gemini's daily quota, and waiting items are shown and end a sync as they
+  do for the quota (`RANK-20`). `SET-1`, `SET-4`, `SET-22`, `SET-27`, `SET-28`, `SET-30`,
+  `SET-32`, `WEL-2`, `WEL-3`, `NOTIF-16`, `LIST-30`, `LIST-32`, `LIST-33`,
+  `ICE-12`, `RANK-1`, `RANK-6`,
+  `RANK-11`, `RANK-13`, `RANK-16` to `RANK-18`, `FOOT-3`, `FOOT-4`, `PRIV-0`,
+  `PRIV-2`, `PLAT-4`, `NFR-1`, `NFR-6`, `NFR-11`, `NFR-12`, the non-goals, the
+  glossary, the stored credentials and Q-4 change to match. Q-85 picks
+  `claude-haiku-5-5` and `gpt-6-luna` until evaluation says otherwise; Q-86
+  (the cost figures) is open.
+- Changed Figma: the Ranking agent card, with Gemini chosen, in
+  [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802) and
+  [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509), and with Claude chosen and no key in
+  [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237); the
+  Connections description and the note beside "Save and re-rank"; the agent
+  tiles in [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832); a new
+  [Settings · Switch ranking agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631)
+  frame; and two new components,
+  [Settings / Ranking agent option](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2497)
+  and
+  [Warm Welcome / Ranking agent tile](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2522).
+- Changed Figma: the "Sign in first. Connect your tools next." text on
+  [Sign in](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2978),
+  [Sign in · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=304-1734)
+  and
+  [Sign in · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=306-1355)
+  says "an API key for Gemini, Claude or OpenAI" instead of "a Gemini API key"
+  (`AUTH-4`). Masked credentials in the Settings frames fit on one line, and
+  Warm Welcome's Validate results use the words in `SET-28`.

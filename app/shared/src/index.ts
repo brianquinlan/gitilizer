@@ -41,8 +41,12 @@ export const ItemRow = z.object({
   reasoning: z.string().nullable().optional(),
   /** True when ranking failed after retries (shown with "–", LIST-30). */
   rankFailed: z.boolean(),
-  /** True when the item is waiting because every model's daily quota is used up (shown with "–", LIST-30, RANK-15). */
-  waitingForQuota: z.boolean(),
+  /**
+   * True when the item is waiting because ranking is paused: every Gemini
+   * model's daily quota is used up, or the agent's key, credits or billing
+   * doesn't work (shown with "–", LIST-30, RANK-20).
+   */
+  waiting: z.boolean(),
 });
 export type ItemRow = z.infer<typeof ItemRow>;
 
@@ -61,12 +65,12 @@ export function reasonLabel(item: Pick<ItemRow, "reasons" | "mentionHandle" | "r
 }
 
 /** True for an item shown with "–" at the end of the list (LIST-30). */
-export const isUnranked = (i: Pick<ItemRow, "score" | "rankFailed" | "waitingForQuota">) =>
-  i.rankFailed || (i.score === null && i.waitingForQuota);
+export const isUnranked = (i: Pick<ItemRow, "score" | "rankFailed" | "waiting">) =>
+  i.rankFailed || (i.score === null && i.waiting);
 
 /**
  * Order of the Prioritized list (PRD RANK-3, RANK-4): score desc, then most
- * recent activity, then key. Unranked items (failed, or waiting for quota)
+ * recent activity, then key. Unranked items (failed, or waiting while ranking is paused)
  * come after every ranked item, newest first (LIST-30).
  */
 export function compareByPriority(a: ItemRow, b: ItemRow): number {
@@ -100,8 +104,66 @@ export const FIRST_DIRECTION: Record<SortColumn, "asc" | "desc"> = {
 // Account, settings, credentials
 // ---------------------------------------------------------------------------
 
-export const CredentialKind = z.enum(["github_pat", "gemini_key"]);
+export const CredentialKind = z.enum(["github_pat", "gemini_key", "anthropic_key", "openai_key"]);
 export type CredentialKind = z.infer<typeof CredentialKind>;
+
+/** The ranking agents a developer can choose (PRD SET-38). */
+export const RankingAgent = z.enum(["gemini", "claude", "openai"]);
+export type RankingAgent = z.infer<typeof RankingAgent>;
+
+/** The credentials that are a ranking agent's API key. */
+export const AgentKeyKind = z.enum(["gemini_key", "anthropic_key", "openai_key"]);
+export type AgentKeyKind = z.infer<typeof AgentKeyKind>;
+
+/** What the interface says about each agent (SET-1, SET-4, SET-32, SET-38, SET-41, WEL-5). */
+export const AGENT_INFO: Record<RankingAgent, {
+  name: string;
+  vendor: string;
+  kind: AgentKeyKind;
+  /** The second line of a choice in the Settings picker (SET-38). */
+  tag: string;
+  free: boolean;
+  setup: { text: string; href: string };
+  /** Where the developer manages the key, in notification and Validate text. */
+  console: string;
+  /** Anchor of the agent's section in the user guide (SET-32). */
+  docs: string;
+  billing: string;
+  /** "About {cost} a month for every 100 issues and PRs…" until the figures are measured (PRD Q-86). */
+  cost: string;
+}> = {
+  gemini: {
+    name: "Gemini", vendor: "Google", kind: "gemini_key", tag: "Google · free tier", free: true,
+    setup: { text: "Get an API key", href: "https://aistudio.google.com/apikey" },
+    console: "Google AI Studio", docs: "gemini-api-keys",
+    billing: "Free tier, with a small daily quota. A key with billing turned on avoids pauses.",
+    cost: "About {cost} a month for every 100 issues and PRs, with billing turned on.",
+  },
+  claude: {
+    name: "Claude", vendor: "Anthropic", kind: "anthropic_key", tag: "Anthropic · paid", free: false,
+    setup: { text: "Get an API key", href: "https://platform.claude.com/settings/keys" },
+    console: "the Claude Console", docs: "claude-api-keys",
+    billing: "No free tier. Anthropic bills your account for every issue and PR ranked.",
+    cost: "About {cost} a month for every 100 issues and PRs.",
+  },
+  openai: {
+    name: "OpenAI", vendor: "OpenAI", kind: "openai_key", tag: "OpenAI · paid", free: false,
+    setup: { text: "Get an API key", href: "https://platform.openai.com/api-keys" },
+    console: "the OpenAI dashboard", docs: "openai-api-keys",
+    billing: "No free tier. OpenAI bills your account for every issue and PR ranked.",
+    cost: "About {cost} a month for every 100 issues and PRs.",
+  },
+};
+
+/** The agent whose key a credential is, or null for the GitHub token. */
+export function agentForKind(kind: CredentialKind): RankingAgent | null {
+  return RankingAgent.options.find((a) => AGENT_INFO[a].kind === kind) ?? null;
+}
+
+/** The id of a credential's field, which Settings links focus (NOTIF-9). */
+export function credentialControlId(kind: CredentialKind): string {
+  return { github_pat: "github-pat", gemini_key: "gemini-key", anthropic_key: "claude-key", openai_key: "openai-key" }[kind];
+}
 
 /** The status chip on a credential card (PRD SET-30). */
 export const CredentialChip = z.enum(["not_set", "connected", "not_working", "expires_soon"]);
@@ -118,7 +180,7 @@ export type CredentialStatus = z.infer<typeof CredentialStatus>;
  * How far a running sync has got, for the text next to Sync now (PRD LIST-33):
  * the items found so far while a full scan searches (null until the first
  * search returns), then the items left to rank. `waiting` is true when
- * everything left is waiting out a Gemini per-minute limit or a retry.
+ * everything left is waiting out the agent's per-minute limit or a retry.
  */
 export const SyncProgress = z.discriminatedUnion("phase", [
   z.object({ phase: z.literal("finding"), found: z.number().int().nullable() }),
@@ -141,7 +203,9 @@ export const Me = z.object({
   }),
   /** Which top-level screen to show (PRD NAV-1). */
   screen: z.enum(["welcome", "app"]),
-  credentials: z.object({ github_pat: CredentialStatus, gemini_key: CredentialStatus }),
+  credentials: z.object({ github_pat: CredentialStatus, gemini_key: CredentialStatus, anthropic_key: CredentialStatus, openai_key: CredentialStatus }),
+  /** The agent that ranks the developer's list (SET-38). */
+  rankingAgent: RankingAgent,
   firstSyncDone: z.boolean(),
   sync: SyncEvent,
 });
@@ -206,7 +270,12 @@ export const Settings = z.object({
 });
 export type Settings = z.infer<typeof Settings>;
 
-export const SettingsResponse = Settings.extend({ defaultPrompt: z.string() });
+export const SettingsResponse = Settings.extend({
+  defaultPrompt: z.string(),
+  rankingAgent: RankingAgent,
+  /** Items in the Prioritized list scored by each agent, for the switch dialog's {n} (SET-40). */
+  rankedBy: z.record(RankingAgent, z.number().int()),
+});
 export type SettingsResponse = z.infer<typeof SettingsResponse>;
 
 /** PUT /api/settings: everything on the page (SET-14). */
@@ -216,7 +285,13 @@ export const SettingsUpdate = z.object({
   excludedRepos: z.array(z.string()).default([]),
   collaborators: z.array(z.string()),
   customPrompt: z.string().nullable(),
-  credentials: z.object({ github_pat: z.string().optional(), gemini_key: z.string().optional() }).optional(),
+  credentials: z.object({
+    github_pat: z.string().optional(), gemini_key: z.string().optional(), anthropic_key: z.string().optional(), openai_key: z.string().optional(),
+  }).optional(),
+  /** The agent chosen in the picker (SET-38); unchanged when absent. */
+  rankingAgent: RankingAgent.optional(),
+  /** Saved keys of agents not in use that the developer removed (SET-39). */
+  removeCredentials: z.array(AgentKeyKind).default([]),
   /** "Save and re-rank" (SET-15). */
   rerank: z.boolean(),
 });
@@ -308,6 +383,10 @@ export const MESSAGES = {
   loginLimit: `You can add at most ${MAX_COLLABORATORS} collaborators.`,
   promptLength: (n: number) => `A prompt can be at most ${MAX_PROMPT_LENGTH.toLocaleString("en-US")} characters. This one has ${n.toLocaleString("en-US")}.`,
   promptEmpty: "Enter a prompt, or choose Restore default.",
+  agentKeyMissing: (agent: RankingAgent) => {
+    const name = AGENT_INFO[agent].name;
+    return `Add ${/^[AEIOU]/.test(name) ? "an" : "a"} ${name} API key, or choose an agent you've already set up.`;
+  },
 };
 
 /**
@@ -346,7 +425,7 @@ export function conflictFields(errors: Record<string, string>, repo: string): st
 /** Result of POST /api/credentials/:kind/check (SET-2, SET-28). */
 export const CheckResult = z.object({
   ok: z.boolean(),
-  code: z.enum(["ok", "not_accepted", "expired", "permission", "leaked", "permission_denied", "unreachable", "error"]),
+  code: z.enum(["ok", "not_accepted", "expired", "permission", "leaked", "permission_denied", "no_credits", "unreachable", "error"]),
   login: z.string().optional(),
   expiresAt: z.string().optional(),
   permission: z.string().optional(),
@@ -355,28 +434,50 @@ export type CheckResult = z.infer<typeof CheckResult>;
 
 /** POST /api/setup: Warm Welcome's Save, with the values typed there (WEL-4). */
 export const SetupRequest = z.object({
-  credentials: z.object({ github_pat: z.string().max(500).optional(), gemini_key: z.string().max(500).optional() }),
+  credentials: z.object({
+    github_pat: z.string().max(500).optional(), gemini_key: z.string().max(500).optional(),
+    anthropic_key: z.string().max(500).optional(), openai_key: z.string().max(500).optional(),
+  }),
+  /** The agent chosen on Warm Welcome (WEL-5). */
+  rankingAgent: RankingAgent.default("gemini"),
 });
 export type SetupRequest = z.infer<typeof SetupRequest>;
 
 /** A check result for each typed value; with ok: false nothing was saved (WEL-4). */
 export const SetupResponse = z.object({
   ok: z.boolean(),
-  results: z.object({ github_pat: CheckResult.optional(), gemini_key: CheckResult.optional() }),
+  results: z.object({
+    github_pat: CheckResult.optional(), gemini_key: CheckResult.optional(), anthropic_key: CheckResult.optional(), openai_key: CheckResult.optional(),
+  }),
 });
 export type SetupResponse = z.infer<typeof SetupResponse>;
 
-/** The text shown under a credential field after Validate (SET-28). */
+/**
+ * The text shown under a credential field after Validate (SET-28). A success
+ * names the agent, a failure the company, as the Gemini rows always have.
+ */
 export function checkMessage(kind: CredentialKind, r: CheckResult): string {
-  const gh = kind === "github_pat";
+  const agent = agentForKind(kind);
+  if (!agent) {
+    switch (r.code) {
+      case "ok": return `Validated just now · Reading GitHub as @${r.login}`;
+      case "not_accepted": return "GitHub didn't accept this token. Check that you copied it correctly.";
+      case "expired": return `This token expired on ${r.expiresAt ? new Date(r.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "an earlier date"}. Create a new one.`;
+      case "permission": return `This token can't read ${r.permission ?? "issues"}. Give it read access to issues, PRs and metadata.`;
+      case "unreachable": return "Couldn't reach GitHub. Check your connection and try again.";
+      default: return "Something went wrong on our side. Try again.";
+    }
+  }
+  const { name, vendor, console: where } = AGENT_INFO[agent];
   switch (r.code) {
-    case "ok": return gh ? `Validated just now · Reading GitHub as @${r.login}` : "Validated just now · Gemini accepted this key";
-    case "not_accepted": return gh ? "GitHub didn't accept this token. Check that you copied it correctly." : "Google didn't accept this API key. Check that you copied all of it.";
-    case "expired": return `This token expired on ${r.expiresAt ? new Date(r.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "an earlier date"}. Create a new one.`;
-    case "permission": return `This token can't read ${r.permission ?? "issues"}. Give it read access to issues, PRs and metadata.`;
-    case "leaked": return "Google has disabled this key because it was reported as leaked. Create a new one.";
-    case "permission_denied": return "This key can't use the Gemini API. Create a key in Google AI Studio.";
-    case "unreachable": return `Couldn't reach ${gh ? "GitHub" : "Google"}. Check your connection and try again.`;
+    case "ok": return `Validated just now · ${name} accepted this key`;
+    case "not_accepted": return `${vendor} didn't accept this API key. Check that you copied all of it.`;
+    case "leaked": return `${vendor} has disabled this key because it was reported as leaked. Create a new one.`;
+    case "permission_denied": return agent === "gemini"
+      ? "This key can't use the Gemini API. Create a key in Google AI Studio."
+      : `This key can't use the model Gitilizer uses. Check its restrictions in ${where}.`;
+    case "no_credits": return `This key works, but its account has no credits left. Add credits in ${where}.`;
+    case "unreachable": return `Couldn't reach ${vendor}. Check your connection and try again.`;
     default: return "Something went wrong on our side. Try again.";
   }
 }

@@ -2,7 +2,7 @@
 // guidance below. Used by Warm Welcome and by Settings' credential cards, so the two behave alike
 // (PRD SET-1, SET-2, SET-21, SET-28, WEL-3; design: Web app).
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { checkMessage, type CheckResult, type CredentialKind } from "@gitilizer/shared";
+import { checkMessage, credentialControlId, type CheckResult, type CredentialKind } from "@gitilizer/shared";
 import { api } from "../api.ts";
 import { CheckCircleIcon, ExternalIcon, EyeIcon, EyeOffIcon, RefreshIcon, XCircleIcon } from "../icons.tsx";
 
@@ -12,7 +12,7 @@ export type Check = "checking" | CheckResult | null;
 export const passed = (c: Check) => c !== null && c !== "checking" && c.ok;
 
 export function credentialFieldId(kind: CredentialKind) {
-  return kind === "github_pat" ? "github-pat" : "gemini-key";
+  return credentialControlId(kind);
 }
 
 /** Shows or hides the typed value. The icon and the label both name what a click does: an open eye and "Show"
@@ -33,6 +33,10 @@ export function CredentialField(props: {
   saved: boolean;
   value: string; onChange: (v: string) => void;
   check: Check; onCheck: (c: Check) => void;
+  /** A problem found when saving, such as a ranking agent with no key (SET-27). */
+  error?: string;
+  /** Shown between the Validate result and the guidance text: the ranking agent's notes (SET-41). */
+  notes?: ReactNode;
 }) {
   const { kind, value, check, onCheck } = props;
   const id = credentialFieldId(kind);
@@ -62,19 +66,22 @@ export function CredentialField(props: {
         <a href={props.setup.href} target="_blank" rel="noreferrer">{props.setup.text} <ExternalIcon /></a>
       </div>
       <div className="field-row">
-        <div className={`secret ${check && check !== "checking" && !check.ok ? "invalid" : ""}`}>
+        <div className={`secret ${(check && check !== "checking" && !check.ok) || props.error ? "invalid" : ""}`}>
           {/* PRIV-1: a saved value is never sent back, so it shows as dots and can only be replaced. */}
           <input id={id} type={show ? "text" : "password"} autoComplete="off" spellCheck={false}
+                 aria-invalid={Boolean(props.error)} aria-describedby={props.error ? `${id}-error` : undefined}
                  placeholder={props.saved ? "•••• •••• •••• •••• ••••" : "Paste it here"}
                  value={value} onChange={(e) => { props.onChange(e.target.value); onCheck(null); }} />
           {value && <EyeToggle show={show} onToggle={() => setShow(!show)} />}
         </div>
         <button className="btn" onClick={validate} disabled={!value.trim() || check === "checking"}>Validate</button>
       </div>
+      {props.error && !check && <span className="result bad" id={`${id}-error`} role="alert"><XCircleIcon /> {props.error}</span>}
       {check === "checking" ? <span className="result muted"><RefreshIcon className="spin" size={14} /> Checking…</span>
         : check && <span className={`result ${check.ok ? "" : "bad"}`} role="status">
             {check.ok ? <CheckCircleIcon /> : <XCircleIcon />} {checkMessage(kind, check)}
           </span>}
+      {props.notes}
       <p className="fine">
         {props.guidance} <a className="fine-link" href={props.learnMore} target="_blank" rel="noreferrer">Learn more <ExternalIcon /></a>
       </p>

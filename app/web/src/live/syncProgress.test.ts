@@ -26,6 +26,7 @@ describe("sync progress text (LIST-33)", () => {
     expect(progressText({ phase: "finding", found: 120 }, false)).toBe("Finding issues and PRs… 120 so far");
     expect(progressText({ phase: "ranking", left: 212, waiting: false }, false)).toBe("212 left to rank");
     expect(progressText({ phase: "ranking", left: 48, waiting: true }, true)).toBe("48 left to rank · waiting for Gemini");
+    expect(progressText({ phase: "ranking", left: 48, waiting: true }, true, "Claude")).toBe("48 left to rank · waiting for Claude");
     expect(progressText({ phase: "ranking", left: 0, waiting: false }, false)).toBeNull();
     expect(progressText(null, false)).toBeNull();
   });

@@ -4,6 +4,8 @@
 import { randomUUID } from "node:crypto";
 import type { CredentialKind } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
+import { RankingAgent } from "@gitilizer/shared";
+import { agentInUse, keyKindFor } from "./agents.ts";
 import { credentialStatus, saveCredential } from "./credentials.ts";
 
 export const LOCAL_PROVIDER = "local";
@@ -28,21 +30,33 @@ export type Seeds = Partial<Record<CredentialKind, string | undefined>>;
 
 /**
  * Saves any credential the local developer doesn't have yet from `seeds`
- * (normally GITHUB_TOKEN and GEMINI_API_KEY from .env). A credential that is
- * already saved is never replaced: after the first run, Settings is the place
- * to change it. Returns true if the account has both credentials afterwards
- * and setup was completed by this call, so the caller can start the first sync.
+ * (normally GITHUB_TOKEN, GEMINI_API_KEY, ANTHROPIC_API_KEY and OPENAI_API_KEY
+ * from .env). A credential that is already saved is never replaced: after the
+ * first run, Settings is the place to change it. Returns true if the account
+ * has the GitHub token and its ranking agent's key afterwards and setup was
+ * completed by this call, so the caller can start the first sync.
  */
 export async function seedLocalCredentials(ctx: Ctx, userId: string, seeds: Seeds): Promise<{ seeded: CredentialKind[]; setupCompleted: boolean }> {
   const seeded: CredentialKind[] = [];
-  for (const kind of ["github_pat", "gemini_key"] as const) {
+  for (const kind of ["github_pat", "gemini_key", "anthropic_key", "openai_key"] as const) {
     const value = seeds[kind]?.trim();
     if (!value || value.length < 10) continue;
     if ((await credentialStatus(ctx, userId, kind)).set) continue;
     await saveCredential(ctx, userId, kind, value); // not validated, as in Settings (SET-29)
     seeded.push(kind);
   }
-  const both = (await credentialStatus(ctx, userId, "github_pat")).set && (await credentialStatus(ctx, userId, "gemini_key")).set;
+  // Before setup, rank with the first agent that has a key, so .env with only ANTHROPIC_API_KEY works too.
+  const u = await ctx.db.one(`select setup_completed_at from users where id = $1`, [userId]);
+  if (!u?.setup_completed_at && !(await credentialStatus(ctx, userId, keyKindFor(await agentInUse(ctx.db, userId)))).set) {
+    for (const agent of RankingAgent.options) {
+      if ((await credentialStatus(ctx, userId, keyKindFor(agent))).set) {
+        await ctx.db.query(`update users set ranking_agent = $2 where id = $1`, [userId, agent]);
+        break;
+      }
+    }
+  }
+  const agentKey = keyKindFor(await agentInUse(ctx.db, userId));
+  const both = (await credentialStatus(ctx, userId, "github_pat")).set && (await credentialStatus(ctx, userId, agentKey)).set;
   let setupCompleted = false;
   if (both) {
     const r = await ctx.db.query(

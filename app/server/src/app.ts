@@ -8,12 +8,13 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import {
   CSRF_HEADER, CredentialKind, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, MAX_COLLABORATORS, MAX_PROMPT_LENGTH,
-  MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, SettingsUpdate, SetupRequest, Sort, exclusionErrors, parseExclusion, parseLogin, parseRepo, repoControlId,
-  type CheckResult, type FieldError, type Me, type SettingsResponse, type SetupResponse,
+  MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, SettingsUpdate, SetupRequest, Sort, credentialControlId, exclusionErrors, parseExclusion, parseLogin,
+  parseRepo, repoControlId, type CheckResult, type FieldError, type Me, type RankingAgent, type SettingsResponse, type SetupResponse,
 } from "@gitilizer/shared";
+import { agentInUse, keyKindFor, rankedBy, switchAgent } from "./agents.ts";
 import type { Ctx } from "./context.ts";
 import { exclusionRows, lookUpExclusion, removeExcluded } from "./exclusions.ts";
-import { checkValue, credentialStatus, getCredential, saveCredential } from "./credentials.ts";
+import { checkValue, credentialStatus, getCredential, removeCredential, saveCredential } from "./credentials.ts";
 import type { FixtureStore } from "./github/fixtures.ts";
 import { pushSync, queueFullRerank, queueRankJobs, syncState } from "./jobs.ts";
 import { currentVersion, listRows, publish } from "./list.ts";
@@ -172,13 +173,16 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   // --- Account ---------------------------------------------------------------
   app.get("/api/me", async (req): Promise<Me> => {
     const u = await db.one(`select * from users where id = $1`, [uid(req)]);
-    const github = await credentialStatus(ctx, u.id, "github_pat");
-    const gemini = await credentialStatus(ctx, u.id, "gemini_key");
+    const status = (kind: CredentialKind) => credentialStatus(ctx, u.id, kind);
     return {
       user: { id: u.id, name: u.name, email: u.email, avatarUrl: u.avatar_url, provider: u.provider, githubLogin: u.github_login },
       // NAV-1, NAV-2: Warm Welcome until both credentials have been entered once.
       screen: u.setup_completed_at ? "app" : "welcome",
-      credentials: { github_pat: github, gemini_key: gemini },
+      credentials: {
+        github_pat: await status("github_pat"), gemini_key: await status("gemini_key"),
+        anthropic_key: await status("anthropic_key"), openai_key: await status("openai_key"),
+      },
+      rankingAgent: await agentInUse(db, u.id),
       firstSyncDone: u.first_sync_done,
       sync: await syncState(ctx, u.id),
     };
@@ -306,13 +310,19 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       sortPrioritized: s.sort_prioritized ?? DEFAULT_SORT_PRIORITIZED,
       sortIcebox: s.sort_icebox ?? DEFAULT_SORT_ICEBOX,
       defaultPrompt: ctx.config.defaultPrompt,
+      rankingAgent: await agentInUse(db, userId),
+      rankedBy: await rankedBy(db, userId),
     };
   });
 
-  /** After credentials are saved: clear their notifications (NOTIF-13, SET-5); the save that leaves both saved completes setup (NAV-8). */
+  /**
+   * After credentials are saved: clear their notifications (NOTIF-13, SET-5); the save that leaves the
+   * GitHub token and the ranking agent's key saved completes setup (NAV-8).
+   */
   const credentialsSaved = async (userId: string, kinds: CredentialKind[]) => {
     for (const kind of kinds) await clearForCredential(ctx, userId, kind);
-    const both = (await credentialStatus(ctx, userId, "github_pat")).set && (await credentialStatus(ctx, userId, "gemini_key")).set;
+    const agentKey = keyKindFor(await agentInUse(db, userId));
+    const both = (await credentialStatus(ctx, userId, "github_pat")).set && (await credentialStatus(ctx, userId, agentKey)).set;
     if (both) await db.query(`update users set setup_completed_at = now() where id = $1 and setup_completed_at is null`, [userId]);
   };
 
@@ -321,6 +331,15 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     const userId = uid(req);
     const next = SettingsUpdate.parse(req.body);
     const errors = settingsErrors(next);
+    // SET-27, SET-38: the chosen agent needs a key, saved or typed, and its key can't be removed (SET-39).
+    const current = await agentInUse(db, userId);
+    const agent: RankingAgent = next.rankingAgent ?? current;
+    const agentKind = keyKindFor(agent);
+    const typedAgentKey = Boolean(next.credentials?.[agentKind]?.trim());
+    const removals = next.removeCredentials.filter((k) => k !== agentKind && k !== keyKindFor(current));
+    if (!typedAgentKey && !(await credentialStatus(ctx, userId, agentKind)).set) {
+      errors.push({ field: credentialControlId(agentKind), message: MESSAGES.agentKeyMissing(agent) });
+    }
     if (errors.length) return reply.code(422).send({ errors });
 
     const repos = next.additionalRepos.map((r) => ({ name: parseRepo(r.fullName)!, prompt: r.prioritizationPrompt.trim() }));
@@ -369,7 +388,12 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
         );
       }
       for (const [kind, value] of creds) await saveCredential(ctx, userId, kind, value.trim(), t);
+      for (const kind of removals) await removeCredential(ctx, userId, kind, t);
     });
+    // SET-40: switching ends the previous agent's pause and clears its notifications (NOTIF-23); the sync below ranks
+    // waiting and new items with the new agent.
+    if (agent !== current) await switchAgent(ctx, userId, agent);
+    for (const kind of removals) await clearForCredential(ctx, userId, kind);
 
     for (const name of prevRepos) {
       if (!repos.some((r) => r.name.toLowerCase() === name.toLowerCase())) await clear(ctx, userId, ["repo_inaccessible"], name);
@@ -402,13 +426,16 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   // already validated, and nothing is saved unless every check passes.
   app.post("/api/setup", async (req, reply) => {
     const userId = uid(req);
-    const { credentials } = SetupRequest.parse(req.body);
+    const { credentials, rankingAgent } = SetupRequest.parse(req.body);
     const u = await db.one(`select setup_completed_at from users where id = $1`, [userId]);
     if (u.setup_completed_at) return bad(reply, 409, "Setup is already complete."); // NAV-2
+    // The GitHub token and the chosen agent's key (WEL-5); a value typed for another agent is ignored.
+    const needed: CredentialKind[] = ["github_pat", keyKindFor(rankingAgent)];
     const typed = (Object.entries(credentials) as [CredentialKind, string | undefined][])
+      .filter(([kind]) => needed.includes(kind))
       .map(([kind, v]) => [kind, v?.trim() ?? ""] as const)
       .filter(([, v]) => v.length > 0);
-    for (const kind of CredentialKind.options) {
+    for (const kind of needed) {
       if (!typed.some(([k]) => k === kind) && !(await credentialStatus(ctx, userId, kind)).set) {
         return bad(reply, 422, "Both credentials are needed.");
       }
@@ -419,6 +446,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     if (!checked.every(([, r]) => r.ok)) return { ok: false, results } satisfies SetupResponse;
 
     await db.tx(async (t) => {
+      await t.query(`update users set ranking_agent = $2 where id = $1`, [userId, rankingAgent]);
       for (const [kind, value] of typed) await saveCredential(ctx, userId, kind, value, t);
     });
     await credentialsSaved(userId, typed.map(([kind]) => kind));

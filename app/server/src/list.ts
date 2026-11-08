@@ -3,13 +3,14 @@ import type { ItemRow, RemovalReason } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 import type { Db } from "./db.ts";
 
-// waiting_for_quota: a ranking job is queued while every model's daily quota is used up (LIST-30, RANK-15).
+// waiting: a ranking job is queued while ranking is paused, because every Gemini model's daily quota is
+// used up or the agent's key, credits or billing doesn't work (LIST-30, RANK-20).
 const ROW_SQL = `
   select ui.item_key, ui.reasons, ui.mention_handle, ui.status, ui.iceboxed_at, ui.score, ui.reasoning, ui.rank_failed,
          i.kind, i.title, i.html_url, i.updated_at,
-         (u.ranking_paused_code = 'daily_quota' and u.ranking_paused_until > now()
+         (u.ranking_paused_until > now()
           and exists (select 1 from rank_jobs j where j.user_id = ui.user_id and j.item_key = ui.item_key
-                      and j.kind = 'rank' and j.state = 'queued')) as waiting_for_quota
+                      and j.kind = 'rank' and j.state = 'queued')) as waiting
   from user_items ui join items i on i.key = ui.item_key join users u on u.id = ui.user_id
   where ui.user_id = $1 and ui.status in ('active', 'iceboxed')`;
 
@@ -30,7 +31,7 @@ function toRow(r: any): ItemRow {
     reasoning: r.reasoning ?? null,
     score: r.score === null || r.score === undefined ? null : Number(r.score),
     rankFailed: Boolean(r.rank_failed),
-    waitingForQuota: Boolean(r.waiting_for_quota),
+    waiting: Boolean(r.waiting),
   };
 }
 

@@ -72,13 +72,13 @@ export function own(s: Live, key: string, row: ItemRow | null, leaveLabel?: stri
 
 /**
  * Rows in a view, before sorting: active items that have been ranked, or that
- * are shown with "–" (failed, or waiting for quota; LIST-30), or iceboxed
+ * are shown with "–" (failed, or waiting while ranking is paused; LIST-30), or iceboxed
  * items. Leaving rows stay until they collapse.
  */
 export function rowsFor(shown: Record<string, Row>, view: View): Row[] {
   const out: Row[] = [];
   for (const r of Object.values(shown)) {
-    if (view === "prioritized" && r.status === "active" && (r.score !== null || r.rankFailed || r.waitingForQuota)) out.push(r);
+    if (view === "prioritized" && r.status === "active" && (r.score !== null || r.rankFailed || r.waiting)) out.push(r);
     else if (view === "icebox" && r.status === "iceboxed") out.push(r);
     else if (r.leaving && ((view === "prioritized" && r.status === "active") || (view === "icebox" && r.status === "iceboxed"))) out.push(r);
   }

@@ -31,7 +31,7 @@ Everything is TypeScript, in npm workspaces:
 |---|---|
 | `app/web` | The React web app. |
 | `app/server` | The API, scheduler, scanner and ranking worker. |
-| `app/ranker` | The ranking agent (turns a GitHub snapshot into a prompt and asks Gemini for a score) and the evaluation harness. |
+| `app/ranker` | The ranking agent (turns a GitHub snapshot into a prompt and asks the developer's chosen model, Gemini, Claude or OpenAI, for a score) and the evaluation harness. |
 | `app/shared` | Types and schemas shared by the server and the web app. |
 | `prompts/` | The ranking prompts (`v4.md` is the default) and the Icebox check's prompt. |
 | `eval/` | The hand-ranked eval set, its frozen GitHub snapshots (`fixtures/`) and past evaluation runs (`runs/`). |
@@ -49,7 +49,7 @@ npm run typecheck
 
 ## The ranking agent and its evaluation
 
-The agent scores each issue or PR on its own (one Gemini call per item) from a 0.0–1.0 priority, so a change to one item re-scores only that item. [DESIGN.md](DESIGN.md#the-ranking-agent) explains how it works. Before changing the default prompt or model, measure the change against the hand-ranked list (PRD `RANK-7`).
+The agent scores each issue or PR on its own (one model call per item) from a 0.0–1.0 priority, so a change to one item re-scores only that item. [DESIGN.md](DESIGN.md#the-ranking-agent) explains how it works. Before changing the default prompt or model, measure the change against the hand-ranked list (PRD `RANK-7`).
 
 `.env` (ignored by Git) holds the credentials the tools use:
 
@@ -57,15 +57,18 @@ The agent scores each issue or PR on its own (one Gemini call per item) from a 0
 GEMINI_API_KEY=...
 GITHUB_TOKEN=...      # a classic token with no scopes is enough for public repositories
 # GITILIZER_MODEL=gemini-3.8-flash   (optional)
+# ANTHROPIC_API_KEY=...  OPENAI_API_KEY=...   (optional, for Claude and OpenAI)
 ```
 
-`npm run check` checks that both work and that the model exists.
+`npm run check` checks that they work and that the models exist.
 
 ### Run an evaluation
 
 ```powershell
 npm run evaluate -- --strategy recency     # no model: most recently updated first, the floor to beat
 npm run evaluate                           # Gemini, pointwise, default prompt (v4), 3 trials
+npm run evaluate -- --model claude-haiku-5-5   # Claude (ANTHROPIC_API_KEY)
+npm run evaluate -- --model gpt-6-luna         # OpenAI (OPENAI_API_KEY); --thinking none to max
 npm run evaluate -- --strategy listwise    # one call ranks all items
 npm run evaluate -- --thinking low --trials 5
 npm run evaluate -- --prompt prompts/v1.md --label v1

@@ -6,7 +6,7 @@ import { apply, clampPage, finalize, init, nextBatch, own, PAGE_SIZE, ranks, rec
 const row = (n: number, score: number | null, extra: Partial<ItemRow> = {}): ItemRow => ({
   key: `o/r#${n}`, repo: "o/r", number: n, kind: n % 2 ? "issue" : "pr", title: `Item ${n}`, htmlUrl: "",
   updatedAt: `2026-10-${String(10 + (n % 20)).padStart(2, "0")}T00:00:00Z`, reasons: ["assigned"], mentionHandle: null,
-  status: "active", iceboxedAt: null, score, rankFailed: false, waitingForQuota: false, ...extra,
+  status: "active", iceboxedAt: null, score, rankFailed: false, waiting: false, ...extra,
 });
 
 const ordered = (s: ReturnType<typeof init>) =>
@@ -116,7 +116,7 @@ describe("live update engine", () => {
   });
 
   it("shows items waiting for quota and failed items after ranked ones, newest first (LIST-30)", () => {
-    const s = init([row(1, 0.1), row(2, null, { waitingForQuota: true, updatedAt: "2026-10-01T00:00:00Z" }),
+    const s = init([row(1, 0.1), row(2, null, { waiting: true, updatedAt: "2026-10-01T00:00:00Z" }),
       row(3, null, { rankFailed: true, updatedAt: "2026-10-05T00:00:00Z" }), row(4, null)], 1);
     expect(ordered(s)).toEqual([1, 3, 2]);
   });

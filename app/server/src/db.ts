@@ -48,6 +48,7 @@ create table if not exists users (
   first_sync_done boolean not null default false,
   ranking_paused_until timestamptz,
   ranking_paused_code text,
+  ranking_agent text not null default 'gemini',
   last_full_scan_at timestamptz,
   setup_completed_at timestamptz,
   unique (provider, provider_user_id)
@@ -145,6 +146,7 @@ create table if not exists user_items (
   ranked_at timestamptz,
   ranked_updated_at timestamptz,
   ranked_model text,
+  ranked_agent text,
   rank_failed boolean not null default false,
   rank_error text,
   gone_reason text,
@@ -185,6 +187,7 @@ create table if not exists rank_jobs (
   lease_expires_at timestamptz,
   not_before timestamptz not null default now(),
   model text,
+  agent text,
   error_code text,
   item_updated_at timestamptz,
   created_at timestamptz not null default now(),
@@ -277,6 +280,10 @@ alter table collaborators add column if not exists checked_at timestamptz;
 alter table collaborators add column if not exists position int not null default 0;
 alter table items add column if not exists draft boolean not null default false;
 alter table user_items add column if not exists ranked_model text;
+alter table users add column if not exists ranking_agent text not null default 'gemini';
+alter table user_items add column if not exists ranked_agent text;
+update user_items set ranked_agent = 'gemini' where ranked_agent is null and ranked_model is not null;
+alter table rank_jobs add column if not exists agent text;
 alter table user_items add column if not exists rank_error text;
 alter table user_items add column if not exists gone_at timestamptz;
 update user_items set reasons = array_replace(reasons, 'interested_repo', 'additional_repo') where 'interested_repo' = any(reasons);

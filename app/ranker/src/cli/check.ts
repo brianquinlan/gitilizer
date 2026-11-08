@@ -1,5 +1,7 @@
 // npm run check: checks that the GitHub token and Gemini key in .env work, and that the model exists.
+// ANTHROPIC_API_KEY and OPENAI_API_KEY, when set, are checked against the models Claude and OpenAI rank with.
 import { GoogleGenAI } from "@google/genai";
+import { checkAgentKey, DEFAULT_AGENT_MODELS } from "../agents.ts";
 import { loadDotenv } from "../env.ts";
 import { listModels } from "../gemini.ts";
 import { GitHub, GitHubError } from "../github.ts";
@@ -43,5 +45,13 @@ try {
 } catch (e) {
   console.log(`Gemini: FAILED — ${(e as Error).name}: ${(e as Error).message}`);
   ok = false;
+}
+for (const [agent, name, envVar] of [["claude", "Claude", "ANTHROPIC_API_KEY"], ["openai", "OpenAI", "OPENAI_API_KEY"]] as const) {
+  const key = process.env[envVar];
+  if (!key) continue;
+  const model = DEFAULT_AGENT_MODELS[agent];
+  const r = await checkAgentKey(agent, key, model);
+  console.log(r.result === "ok" ? `${name}: OK, model '${model}' is available` : `${name}: FAILED — ${r.result}${r.status ? ` (HTTP ${r.status})` : ""}`);
+  if (r.result !== "ok") ok = false;
 }
 process.exit(ok ? 0 : 1);

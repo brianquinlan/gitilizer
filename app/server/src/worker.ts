@@ -1,27 +1,27 @@
 // The ranking worker (design: Ranking worker). It claims jobs from the queue,
-// asks Gemini with the developer's own key, and stores the answer. It runs in
-// every API process; the queue is in Postgres, so several processes share the
-// work without coordinating.
-import { FakeLLM, GeminiLLM, classifyGemini, iceboxCheck, scoreItem, type LLM } from "@gitilizer/ranker";
+// asks the developer's ranking agent with their own key, and stores the answer.
+// It runs in every API process; the queue is in Postgres, so several processes
+// share the work without coordinating.
+import { FakeLLM, classifyFor, createLLM, iceboxCheck, scoreItem, type LLM } from "@gitilizer/ranker";
 import type { Ctx } from "./context.ts";
 import { completeJob, failJob, reapLeases, type ClaimedJob } from "./jobs.ts";
 import { log } from "./log.ts";
 
-/** Ranking uses the lowest thinking level the models allow (PRD RANK-11). */
+/** Gemini ranks with the lowest thinking level its models allow (PRD RANK-11); Claude and OpenAI with none (RANK-19). */
 export const THINKING_LEVEL = "low";
 const LEASE_SECONDS = 120;
 /**
- * The most a job may wait for Gemini, retries included: well inside the lease,
+ * The most a job may wait for the ranking agent, retries included: well inside the lease,
  * so a slow answer comes back as `unavailable` and is retried later, instead
  * of the lease expiring and the item failing (GitHub issue #3).
  */
-export const GEMINI_TIMEOUT_MS = (LEASE_SECONDS - 30) * 1000;
+export const AGENT_TIMEOUT_MS = (LEASE_SECONDS - 30) * 1000;
 
 export type WorkerOptions = {
   /** Jobs in flight at once, across all developers. Each developer is limited to 4 by the claim (RANK-11). */
   concurrency?: number;
   idleMs?: number;
-  /** Makes the model client for a job. Defaults to Gemini, or the fake model in fixture mode. */
+  /** Makes the model client for a job. Defaults to the job's agent, or the fake model in fixture mode. */
   llm?: (job: ClaimedJob) => LLM;
 };
 
@@ -44,7 +44,9 @@ export class RankingWorker {
     this.llm = opts.llm ?? (ctx.config.geminiMode === "fake"
       ? () => fake
       // Few retries: the lease is 120 s, and the server re-queues short-lived failures.
-      : (job) => new GeminiLLM({ model: job.model, apiKey: job.geminiKey, thinkingLevel: THINKING_LEVEL, maxRetries: 2, timeoutMs: GEMINI_TIMEOUT_MS }));
+      : (job) => createLLM(job.agent, {
+        model: job.model, apiKey: job.apiKey, thinkingLevel: job.agent === "gemini" ? THINKING_LEVEL : null, maxRetries: 2, timeoutMs: AGENT_TIMEOUT_MS,
+      }));
   }
 
   start() {
@@ -106,11 +108,11 @@ export class RankingWorker {
         log.debug("worker", "ranked", { item: job.itemKey, model: job.model, priority: a.priority, ms: Date.now() - started });
       }
     } catch (e) {
-      const c = classifyGemini(e);
+      const c = classifyFor(job.agent, e);
       this.stats.failed[c.code] = (this.stats.failed[c.code] ?? 0) + 1;
       // Expected, short-lived failures are counted in the summary; the rest need a look.
       const expected = ["rate_limited", "unavailable", "daily_quota"].includes(c.code);
-      log[expected ? "debug" : "warn"]("worker", "job failed", { item: job.itemKey, model: job.model, code: c.code, message: c.message.slice(0, 300) });
+      log[expected ? "debug" : "warn"]("worker", "job failed", { item: job.itemKey, agent: job.agent, model: job.model, code: c.code, message: c.message.slice(0, 300) });
       try {
         await failJob(this.ctx, job.id, { code: c.code, message: c.message.slice(0, 500), retryAfterSeconds: c.retryAfter });
       } catch (dbError) {

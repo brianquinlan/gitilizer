@@ -23,7 +23,7 @@ async function makeCtx(localMode: boolean, autoScan = true): Promise<{ ctx: Ctx;
     db: await openDb(undefined, undefined), hub: new Hub(), config: config(localMode, autoScan),
     cipher: new CredentialCipher(Buffer.alloc(32, 3).toString("base64")),
     github: () => new FixtureGitHub(store),
-    validateGemini: async (key) => (/bad/.test(key) ? { ok: false, code: "not_accepted" } : { ok: true, code: "ok" }),
+    validateKey: async (_kind, key) => (/bad/.test(key) ? { ok: false, code: "not_accepted" } : { ok: true, code: "ok" }),
     requestScan: () => {},
   };
   const scheduler = new Scheduler(ctx);
