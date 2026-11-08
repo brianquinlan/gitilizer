@@ -52,6 +52,7 @@ GEMINI_API_KEY=...
 
 - **GitHub token:** create one at [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens/new). A fine-grained token needs read access to Issues, Pull requests and Metadata. Gitilizer only reads; it never writes to GitHub.
 - **Gemini API key:** create one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). A free-tier key works, but it allows only a limited number of rankings a day.
+- **Claude and OpenAI keys (optional):** add `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to rank with Claude or OpenAI instead. Local mode saves every key it finds, so you can switch agents in Settings without pasting one; with no Gemini key, it starts with the first agent that has a key. The evaluation tools use them with `--model claude-haiku-5-5` or `--model gpt-6-luna`.
 
 `.env` is ignored by Git, so your credentials stay on your computer. The evaluation tools ([README.md](README.md)) use the same file.
 
@@ -119,6 +120,7 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 |---|---|
 | `GITILIZER_MODEL` | The primary Gemini model to rank with; the backup models stay the same (also read from `.env`). |
 | `GITILIZER_MODELS` | The whole fallback list, comma-separated, primary first (default `gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite`). |
+| `GITILIZER_CLAUDE_MODEL`, `GITILIZER_OPENAI_MODEL` | The model Claude or OpenAI ranks with (default `claude-haiku-5-5` and `gpt-6-luna`). |
 | `LOG_LEVEL` | How much the server logs: `debug` (the default in local mode: every ranked item), `info`, `warn` or `error`. |
 | `CREDENTIAL_KEY` | Overrides the saved encryption key. If you change it, credentials saved with the old key can no longer be read; use `--reset`. |
 | `DATABASE_URL` | Uses a real Postgres server instead of PGlite, for example `postgres://localhost/gitilizer`. |

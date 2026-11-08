@@ -1,7 +1,7 @@
 // Prioritized list and Icebox (PRD "Prioritized list", "Live updates", "Icebox").
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, reasonLabel, type Sort, type SortColumn, type SyncEvent,
+  AGENT_INFO, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, reasonLabel, type Sort, type SortColumn, type SyncEvent,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
 import { BoxIcon, ChevronLeft, ChevronRight, DownToLineIcon, InfoIcon, IssueIcon, PrIcon, RefreshIcon, SortIcon, XIcon } from "../icons.tsx";
@@ -59,7 +59,7 @@ export function ListPage({ view }: { view: View }) {
           <Link to="/icebox" aria-current={view === "icebox" ? "page" : undefined}><BoxIcon /> Icebox</Link>
         </nav>
         <span className="spacer" />
-        <SyncButton sync={sync} />
+        <SyncButton sync={sync} agent={me ? AGENT_INFO[me.rankingAgent].name : "Gemini"} />
       </div>
 
       <div className={`table ${view === "icebox" ? "icebox" : ""} ${reducedMotion() ? "reduced" : ""}`} role="table" aria-label={view === "prioritized" ? "Prioritized issues" : "Icebox"}>
@@ -212,9 +212,9 @@ function Rows(props: {
  * Disabled while any sync runs, however it started, with the icon turning (LIST-17, LIST-28),
  * and how far the sync has got to its left (LIST-33).
  */
-function SyncButton({ sync }: { sync: SyncEvent }) {
+function SyncButton({ sync, agent }: { sync: SyncEvent; agent: string }) {
   const running = sync.running;
-  const progress = useSyncProgress(sync);
+  const progress = useSyncProgress(sync, agent);
   const [error, setError] = useState<string | null>(null);
   const start = async () => {
     setError(null);

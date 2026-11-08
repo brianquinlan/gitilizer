@@ -163,12 +163,16 @@ if (fixtures) {
 } else {
   serverEnv.LOCAL_GITHUB_TOKEN = process.env.GITHUB_TOKEN ?? dotenv.GITHUB_TOKEN ?? "";
   serverEnv.LOCAL_GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? dotenv.GEMINI_API_KEY ?? "";
+  // Claude and OpenAI keys are saved too, so switching agents in Settings needs no pasting (SET-39).
+  serverEnv.LOCAL_ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? dotenv.ANTHROPIC_API_KEY ?? "";
+  serverEnv.LOCAL_OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? dotenv.OPENAI_API_KEY ?? "";
 }
 
-console.log(`Gitilizer local mode (${fixtures ? "fixtures: no GitHub or Gemini calls" : "real GitHub and Gemini"})`);
+console.log(`Gitilizer local mode (${fixtures ? "fixtures: no GitHub or ranking agent calls" : "real GitHub and ranking agents"})`);
 console.log(`Data: ${dataDir}`);
-if (!fixtures && (!serverEnv.LOCAL_GITHUB_TOKEN || !serverEnv.LOCAL_GEMINI_API_KEY)) {
-  console.log("GITHUB_TOKEN or GEMINI_API_KEY isn't in .env. Enter what's missing in Settings when the app opens.");
+const anyAgentKey = serverEnv.LOCAL_GEMINI_API_KEY || serverEnv.LOCAL_ANTHROPIC_API_KEY || serverEnv.LOCAL_OPENAI_API_KEY;
+if (!fixtures && (!serverEnv.LOCAL_GITHUB_TOKEN || !anyAgentKey)) {
+  console.log("GITHUB_TOKEN, or GEMINI_API_KEY, ANTHROPIC_API_KEY or OPENAI_API_KEY, isn't in .env. Enter what's missing in Settings when the app opens.");
 }
 
 run("api", process.execPath, [tsxCli, join("app", "server", "src", "main.ts"), ...(fixtures ? ["--fixtures"] : []), "--local"], { env: serverEnv });

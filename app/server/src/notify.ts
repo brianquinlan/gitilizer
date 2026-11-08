@@ -1,5 +1,5 @@
 // Notification service (design: Notifications; PRD NOTIF-11..16).
-import { CATALOGUE, compareNotifications, type Notification, type NotificationCode } from "@gitilizer/shared";
+import { CATALOGUE, compareNotifications, type CredentialKind, type Notification, type NotificationCode } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 
 export async function shownNotifications(ctx: Ctx, userId: string): Promise<Notification[]> {
@@ -51,7 +51,7 @@ export async function clear(ctx: Ctx, userId: string, codes: NotificationCode[],
 }
 
 /** Saving a credential clears its notifications at once (NOTIF-13). */
-export async function clearForCredential(ctx: Ctx, userId: string, kind: "github_pat" | "gemini_key") {
+export async function clearForCredential(ctx: Ctx, userId: string, kind: CredentialKind) {
   const codes = (Object.keys(CATALOGUE) as NotificationCode[]).filter((c) => CATALOGUE[c].clearedBy === kind);
   await clear(ctx, userId, codes);
 }

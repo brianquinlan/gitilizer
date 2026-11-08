@@ -29,6 +29,22 @@ export const NotificationCode = z.enum([
   "gemini_unavailable", // warning, short-lived
   "gemini_model_unavailable",
   "gemini_unexpected",
+  // Claude connection (PRD RANK-19)
+  "claude_invalid",
+  "claude_permission_denied",
+  "claude_credits",
+  "claude_rate_limited", // warning, short-lived
+  "claude_unavailable", // warning, short-lived
+  "claude_model_unavailable",
+  "claude_unexpected",
+  // OpenAI connection (PRD RANK-19)
+  "openai_invalid",
+  "openai_permission_denied",
+  "openai_credits",
+  "openai_rate_limited", // warning, short-lived
+  "openai_unavailable", // warning, short-lived
+  "openai_model_unavailable",
+  "openai_unexpected",
   // Ranking
   "prompt_failing",
   "items_unranked", // warning
@@ -63,7 +79,7 @@ type Entry = {
   /** Short-lived problems are retried silently for SHORT_LIVED_MINUTES, then shown as warnings (NOTIF-21). */
   shortLived?: boolean;
   /** Credential whose replacement clears this notification at once (NOTIF-13). */
-  clearedBy?: "github_pat" | "gemini_key";
+  clearedBy?: "github_pat" | "gemini_key" | "anthropic_key" | "openai_key";
   heading: (p: Params) => string;
   body: (p: Params, now?: number) => Segment[];
 };
@@ -71,6 +87,8 @@ type Entry = {
 const T = (text: string): Segment => ({ text });
 const PAT = "github-pat";
 const KEY = "gemini-key";
+const CLAUDE_KEY = "claude-key";
+const OPENAI_KEY = "openai-key";
 const S = (text: string, control: string): Segment => ({ text, settings: control });
 const REPORT = "If this continues, report it using the GitHub link at the bottom of the page.";
 const NOT_RANKED = "New and changed issues and PRs aren't being ranked.";
@@ -261,6 +279,89 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
     heading: () => "Gemini sent an unexpected response",
     body: () => [T(`New and changed issues and PRs may not be ranked. Gitilizer keeps retrying automatically. ${REPORT}`)],
   },
+  claude_invalid: {
+    severity: "error", summary: "Claude connection", clearedBy: "anthropic_key",
+    heading: () => "Your Claude API key isn't valid",
+    body: () => [T(`${NOT_RANKED} Create a new key in the Claude Console and add it in `), S("Settings", CLAUDE_KEY), T(".")],
+  },
+  claude_permission_denied: {
+    severity: "error", summary: "Claude connection", clearedBy: "anthropic_key",
+    heading: () => "Your Claude API key can't use the model Gitilizer uses",
+    body: () => [
+      T(`${NOT_RANKED} The key's workspace may not allow the model. Create a key without that restriction in the Claude Console and add it in `),
+      S("Settings", CLAUDE_KEY), T("."),
+    ],
+  },
+  claude_credits: {
+    severity: "error", summary: "Claude connection", clearedBy: "anthropic_key",
+    heading: () => "Your Anthropic credits have run out",
+    body: () => [T(`${NOT_RANKED} Add credits, or raise your spend limit, in the Claude Console.`)],
+  },
+  claude_rate_limited: {
+    severity: "warning", summary: "Claude connection", shortLived: true,
+    heading: () => "Claude is limiting requests from your key",
+    body: () => [T("Ranking is slower than usual and catches up automatically. Other apps that use this key count toward the same limit, and keys on a higher usage tier get higher limits.")],
+  },
+  claude_unavailable: {
+    severity: "warning", summary: "Claude connection", shortLived: true,
+    heading: () => "Claude isn't responding",
+    body: () => [
+      T(`${NOT_RANKED} Gitilizer keeps retrying automatically. If this continues, check `),
+      { text: "status.claude.com", href: "https://status.claude.com" }, T("."),
+    ],
+  },
+  claude_model_unavailable: {
+    severity: "error", summary: "Claude connection",
+    heading: () => "The Claude model Gitilizer uses isn't available",
+    body: () => [T(`${NOT_RANKED} This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page.`)],
+  },
+  claude_unexpected: {
+    severity: "error", summary: "Claude connection",
+    heading: () => "Claude sent an unexpected response",
+    body: () => [T(`New and changed issues and PRs may not be ranked. Gitilizer keeps retrying automatically. ${REPORT}`)],
+  },
+  openai_invalid: {
+    severity: "error", summary: "OpenAI connection", clearedBy: "openai_key",
+    heading: () => "Your OpenAI API key isn't valid",
+    body: () => [T(`${NOT_RANKED} Create a new key in the OpenAI dashboard and add it in `), S("Settings", OPENAI_KEY), T(".")],
+  },
+  openai_permission_denied: {
+    severity: "error", summary: "OpenAI connection", clearedBy: "openai_key",
+    heading: () => "Your OpenAI API key can't use the model Gitilizer uses",
+    body: () => [
+      T(`${NOT_RANKED} The key may be restricted, its project may not allow the model, or OpenAI may not serve your region. ` +
+        "Check the key in the OpenAI dashboard, or create a new one and add it in "),
+      S("Settings", OPENAI_KEY), T("."),
+    ],
+  },
+  openai_credits: {
+    severity: "error", summary: "OpenAI connection", clearedBy: "openai_key",
+    heading: () => "Your OpenAI credits have run out",
+    body: () => [T(`${NOT_RANKED} Add credits, or raise your spend or usage limit, in the OpenAI dashboard.`)],
+  },
+  openai_rate_limited: {
+    severity: "warning", summary: "OpenAI connection", shortLived: true,
+    heading: () => "OpenAI is limiting requests from your key",
+    body: () => [T("Ranking is slower than usual and catches up automatically. Other apps that use this key count toward the same limit, and higher usage tiers get higher limits.")],
+  },
+  openai_unavailable: {
+    severity: "warning", summary: "OpenAI connection", shortLived: true,
+    heading: () => "OpenAI isn't responding",
+    body: () => [
+      T(`${NOT_RANKED} Gitilizer keeps retrying automatically. If this continues, check `),
+      { text: "status.openai.com", href: "https://status.openai.com" }, T("."),
+    ],
+  },
+  openai_model_unavailable: {
+    severity: "error", summary: "OpenAI connection",
+    heading: () => "The OpenAI model Gitilizer uses isn't available",
+    body: () => [T(`${NOT_RANKED} This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page.`)],
+  },
+  openai_unexpected: {
+    severity: "error", summary: "OpenAI connection",
+    heading: () => "OpenAI sent an unexpected response",
+    body: () => [T(`New and changed issues and PRs may not be ranked. Gitilizer keeps retrying automatically. ${REPORT}`)],
+  },
   prompt_failing: {
     severity: "error", summary: "Ranking",
     heading: () => "Your ranking prompt isn't working",
@@ -294,9 +395,14 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
 };
 
 /** Errors that make a credential's chip show "Not working" (SET-30). */
-export function credentialErrorCodes(kind: "github_pat" | "gemini_key"): NotificationCode[] {
+export function credentialErrorCodes(kind: "github_pat" | "gemini_key" | "anthropic_key" | "openai_key"): NotificationCode[] {
   return (Object.keys(CATALOGUE) as NotificationCode[])
     .filter((c) => CATALOGUE[c].clearedBy === kind && CATALOGUE[c].severity === "error" && c !== "repo_inaccessible");
+}
+
+/** Every notification about one ranking agent, cleared when the developer switches away from it (NOTIF-23). */
+export function agentNotificationCodes(agent: "gemini" | "claude" | "openai"): NotificationCode[] {
+  return (Object.keys(CATALOGUE) as NotificationCode[]).filter((c) => c.startsWith(`${agent}_`));
 }
 
 /** Errors before warnings, then oldest first (NOTIF-19). */

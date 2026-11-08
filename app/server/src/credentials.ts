@@ -1,6 +1,7 @@
 // Storing, reading and checking the developer's credentials (PRD SET-1..6, SET-28..30, PRIV-1).
 import { log } from "./log.ts";
-import { credentialErrorCodes, type CheckResult, type CredentialKind, type CredentialStatus } from "@gitilizer/shared";
+import { agentForKind, credentialErrorCodes, type AgentKeyKind, type CheckResult, type CredentialKind, type CredentialStatus } from "@gitilizer/shared";
+import { agentInUse, resumeRanking } from "./agents.ts";
 import type { Ctx } from "./context.ts";
 import { GitHubProblem } from "./github/types.ts";
 
@@ -29,17 +30,21 @@ export async function saveCredential(ctx: Ctx, userId: string, kind: CredentialK
        token_login = null, token_type = null, updated_at = now()`,
     [userId, kind, ciphertext, nonce],
   );
-  if (kind === "gemini_key") {
-    // Quotas belong to the key's Google Cloud project (design: Data model, gemini_quota).
-    await db.query(`update users set ranking_paused_until = null, ranking_paused_code = null where id = $1`, [userId]);
-    await db.query(`delete from gemini_quota where user_id = $1`, [userId]);
-    await db.query(`update rank_jobs set not_before = now() where user_id = $1 and state = 'queued'`, [userId]);
-  }
+  // Quotas belong to the key's Google Cloud project (design: Data model, gemini_quota).
+  if (kind === "gemini_key") await db.query(`delete from gemini_quota where user_id = $1`, [userId]);
+  // A new key for the agent in use ends a pause it caused (RANK-20).
+  const agent = agentForKind(kind);
+  if (agent && agent === (await agentInUse(db, userId))) await resumeRanking(ctx, userId, db);
+}
+
+/** Removes a saved key of an agent that isn't in use (SET-39). */
+export async function removeCredential(ctx: Ctx, userId: string, kind: AgentKeyKind, db = ctx.db) {
+  await db.query(`delete from credentials where user_id = $1 and kind = $2`, [userId, kind]);
 }
 
 /** Checks a typed value without saving it (SET-2, SET-28). */
 export async function checkValue(ctx: Ctx, kind: CredentialKind, value: string): Promise<CheckResult> {
-  if (kind === "gemini_key") return ctx.validateGemini(value, ctx.config.models[0]);
+  if (kind !== "github_pat") return ctx.validateKey(kind, value);
   try {
     const gh = ctx.github(value);
     const v = await gh.viewer();

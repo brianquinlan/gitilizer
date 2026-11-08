@@ -1,10 +1,11 @@
 // npm run evaluate -- [--strategy pointwise|listwise|recency] [--model M] [--thinking low|…]
+//   --model claude-haiku-5-5 or gpt-6-luna evaluates Claude or OpenAI (ANTHROPIC_API_KEY, OPENAI_API_KEY in .env).
 //   [--prompt prompts/v4.md] [--no-signals] [--trials 3] [--now ISO] [--label L] [--workers 6]
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { fromCwd, loadDotenv } from "../env.ts";
 import { evaluate } from "../evaluate.ts";
-import { GeminiLLM } from "../gemini.ts";
+import { agentForModel, createLLM } from "../agents.ts";
 import { loadGroundTruth } from "../groundTruth.ts";
 import { DEFAULT_MODEL, DEFAULT_PROMPT_PATH, ROOT, type Strategy } from "../prioritizer.ts";
 import { fixed } from "../py.ts";
@@ -28,16 +29,20 @@ const { values: a } = parseArgs({
 });
 const strategy = a.strategy as Strategy;
 if (!["pointwise", "listwise", "recency"].includes(strategy)) throw new Error(`unknown strategy ${strategy}`);
-if (a.thinking && !["minimal", "low", "medium", "high"].includes(a.thinking)) throw new Error(`unknown thinking level ${a.thinking}`);
+// Gemini takes minimal to high; OpenAI takes none to max; Claude ranks without thinking.
+if (a.thinking && !["none", "minimal", "low", "medium", "high", "xhigh", "max"].includes(a.thinking)) throw new Error(`unknown thinking level ${a.thinking}`);
 const model = a.model || process.env.GITILIZER_MODEL || DEFAULT_MODEL;
-if (strategy !== "recency" && !process.env.GEMINI_API_KEY) {
-  console.error("GEMINI_API_KEY is not set (put it in .env)");
+// The model's name picks the agent: claude-… is Claude, gpt-… is OpenAI, anything else Gemini.
+const agent = agentForModel(model);
+const keyVar = { gemini: "GEMINI_API_KEY", claude: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY" }[agent];
+if (strategy !== "recency" && !process.env[keyVar]) {
+  console.error(`${keyVar} is not set (put it in .env)`);
   process.exit(1);
 }
 try {
   const { runDir, agg } = await evaluate({
     doc: loadGroundTruth(fromCwd(a.truth!)), fixtures: fromCwd(a.fixtures!), strategy,
-    llm: strategy === "recency" ? null : new GeminiLLM({ model, thinkingLevel: a.thinking ?? null }),
+    llm: strategy === "recency" ? null : createLLM(agent, { model, thinkingLevel: a.thinking ?? null }),
     model, thinking: a.thinking ?? null, promptPath: fromCwd(a.prompt!), signals: !a["no-signals"], trials: Number(a.trials),
     now: a.now ?? null, label: a.label ?? null, workers: Number(a.workers), out: fromCwd(a.out!),
   });

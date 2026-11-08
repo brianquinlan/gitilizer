@@ -14,7 +14,7 @@ import { listRows } from "../src/list.ts";
 import { shownNotifications } from "../src/notify.ts";
 import { discoveryQueries, reapScans, scan } from "../src/scanner.ts";
 import { Scheduler } from "../src/scheduler.ts";
-import { GEMINI_TIMEOUT_MS, RankingWorker } from "../src/worker.ts";
+import { AGENT_TIMEOUT_MS, RankingWorker } from "../src/worker.ts";
 import { addUser, FIXTURES, makeCtx, MODELS, type RecordingHub } from "./helpers.ts";
 
 describe("GitHub error classification (PRD catalogue)", () => {
@@ -88,7 +88,7 @@ describe("settings rules (SET-7, SET-25, SET-27)", () => {
   it("reports problems next to their fields", () => {
     const s: SettingsUpdate = {
       additionalRepos: [{ fullName: "a/b", prioritizationPrompt: "" }, { fullName: "A/B", prioritizationPrompt: "x".repeat(501) }],
-      excludedRepos: [], collaborators: ["kevmoo", "@KevMoo"], customPrompt: "y".repeat(20_001), rerank: false,
+      excludedRepos: [], collaborators: ["kevmoo", "@KevMoo"], customPrompt: "y".repeat(20_001), removeCredentials: [], rerank: false,
     };
     expect(settingsErrors(s)).toEqual([
       { field: "repo-A-B", message: "A/B is already in your list." },
@@ -150,7 +150,7 @@ describe("scan and rank cycle", () => {
     const jobs = await claimJobs(ctx, 50, 60);
     expect(jobs).toHaveLength(4);
     const [job] = jobs;
-    expect(job).toMatchObject({ kind: "rank", model: MODELS[0], geminiKey: "secret-value-123" });
+    expect(job).toMatchObject({ kind: "rank", model: MODELS[0], apiKey: "secret-value-123", agent: "gemini" });
     expect(job.user).toEqual({ github_login: "brianquinlan", additional_repos: [{ repo: "dart-lang/http", prioritization_prompt: "not responsible for http2" }], collaborators: [] });
     expect(job.snapshot).toHaveProperty("issue");
     expect(await claimJobs(ctx, 50, 60)).toHaveLength(0);
@@ -265,14 +265,14 @@ describe("scan and rank cycle", () => {
     await failJob(ctx, job.id, { code: "daily_quota", message: "per day" });
     expect(await codes()).toEqual(["gemini_daily_quota"]);
     expect(await claimJobs(ctx, 5, 60)).toHaveLength(0);
-    const waiting = (await listRows(ctx.db, userId)).filter((r) => r.waitingForQuota);
+    const waiting = (await listRows(ctx.db, userId)).filter((r) => r.waiting);
     expect(waiting.length).toBe(2);
     // Midnight Pacific: every quota resets and the primary model comes back.
     await ctx.db.query(`update gemini_quota set exhausted_until = now() - interval '1 second'`);
     await ctx.db.query(`update users set ranking_paused_until = now() - interval '1 second'`);
     await refreshQuotas(ctx);
     expect(await codes()).toEqual([]);
-    expect((await listRows(ctx.db, userId)).filter((r) => r.waitingForQuota)).toHaveLength(0);
+    expect((await listRows(ctx.db, userId)).filter((r) => r.waiting)).toHaveLength(0);
     [job] = await claimJobs(ctx, 1, 60);
     expect(job.model).toBe(MODELS[0]);
     await rankAll();
@@ -339,7 +339,7 @@ describe("expired ranking leases (GitHub issue #3)", () => {
 
 describe("the worker's Gemini timeout", () => {
   it("is well inside the 120 s lease, so a slow answer is retried instead of failing the item", () => {
-    expect(GEMINI_TIMEOUT_MS).toBeLessThanOrEqual(90_000);
+    expect(AGENT_TIMEOUT_MS).toBeLessThanOrEqual(90_000);
   });
 });
 
@@ -455,7 +455,7 @@ describe("Warm Welcome's Save (WEL-4, POST /api/setup)", () => {
   });
 
   it("checks a value saved from Settings no more, and completes setup when both pass (NAV-8)", async () => {
-    const check = vi.spyOn(ctx, "validateGemini");
+    const check = vi.spyOn(ctx, "validateKey");
     await call("PUT", "/api/settings", { additionalRepos: [], collaborators: [], customPrompt: null, rerank: false, credentials: { gemini_key: "AIza-saved" } });
     expect((await call("GET", "/api/me")).json().screen).toBe("welcome");
     const r = await call("POST", "/api/setup", { credentials: { github_pat: " ghp_x " } });

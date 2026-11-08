@@ -1,9 +1,10 @@
 // Settings (PRD "Settings", SET-1..37). Figma: "Settings" and "Settings · Errors".
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  MAX_COLLABORATORS, MAX_EXCLUSIONS, MAX_PROMPT_LENGTH, MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, PROMPT_COUNT_FROM,
-  conflictFields, exclusionControlId, exclusionNote, parseExclusion, parseLogin, parseRepo, repoControlId,
-  type AdditionalRepo, type Collaborator, type CredentialKind, type CredentialStatus, type ExcludedRepo, type FieldError, type SettingsResponse,
+  AGENT_INFO, MAX_COLLABORATORS, MAX_EXCLUSIONS, MAX_PROMPT_LENGTH, MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, PROMPT_COUNT_FROM, RankingAgent,
+  conflictFields, credentialControlId, exclusionControlId, exclusionNote, parseExclusion, parseLogin, parseRepo, repoControlId,
+  type AdditionalRepo, type AgentKeyKind, type Collaborator, type CredentialKind, type CredentialStatus, type ExcludedRepo, type FieldError,
+  type Me, type SettingsResponse,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
 import { DOCS_URL } from "../components/Chrome.tsx";
@@ -23,7 +24,11 @@ export function SettingsPage() {
   const { me, refreshMe } = useStore();
   const [server, setServer] = useState<SettingsResponse | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [secrets, setSecrets] = useState<Record<CredentialKind, string>>({ github_pat: "", gemini_key: "" });
+  const [secrets, setSecrets] = useState<Record<CredentialKind, string>>({ github_pat: "", gemini_key: "", anthropic_key: "", openai_key: "" });
+  // The agent chosen in the picker, and saved keys the developer removed (SET-38, SET-39). Both take effect on save.
+  const [agent, setAgent] = useState<RankingAgent>("gemini");
+  const [removals, setRemovals] = useState<AgentKeyKind[]>([]);
+  const [switching, setSwitching] = useState(false); // the switch dialog (SET-40)
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -31,6 +36,7 @@ export function SettingsPage() {
   useEffect(() => {
     api.get<SettingsResponse>("/api/settings").then((s) => {
       setServer(s);
+      setAgent(s.rankingAgent);
       setDraft({ repos: s.additionalRepos, exclusions: s.excludedRepos, collaborators: s.collaborators, prompt: s.customPrompt ?? s.defaultPrompt });
     });
   }, []);
@@ -41,12 +47,12 @@ export function SettingsPage() {
 
   const dirty = useMemo(() => {
     if (!server || !draft) return false;
-    return Boolean(secrets.github_pat || secrets.gemini_key)
+    return Object.values(secrets).some(Boolean) || agent !== server.rankingAgent || removals.length > 0
       || JSON.stringify(draft.repos.map((r) => [r.fullName, r.prioritizationPrompt])) !== JSON.stringify(server.additionalRepos.map((r) => [r.fullName, r.prioritizationPrompt]))
       || JSON.stringify(draft.exclusions.map((e) => e.name)) !== JSON.stringify(server.excludedRepos.map((e) => e.name))
       || JSON.stringify(draft.collaborators.map((c) => c.login)) !== JSON.stringify(server.collaborators.map((c) => c.login))
       || draft.prompt !== (server.customPrompt ?? server.defaultPrompt);
-  }, [server, draft, secrets]);
+  }, [server, draft, secrets, agent, removals]);
 
   // SET-26: leaving with unsaved changes asks first, through links, Back and closing the tab.
   const dirtyRef = useRef(dirty);
@@ -80,6 +86,8 @@ export function SettingsPage() {
         collaborators: draft.collaborators.map((c) => c.login),
         customPrompt: draft.prompt === server.defaultPrompt ? null : draft.prompt,
         credentials: Object.keys(credentials).length ? credentials : undefined,
+        rankingAgent: agent,
+        removeCredentials: removals,
         rerank,
       });
       await refreshMe();
@@ -100,6 +108,31 @@ export function SettingsPage() {
   };
 
   const cancel = () => { dirtyRef.current = false; navigate("/"); }; // NAV-9
+
+  const agentKind = AGENT_INFO[agent].kind;
+  const agentField = credentialControlId(agentKind);
+  // SET-38: choosing another agent clears what was typed for the previous one, with its result or error.
+  const pick = (next: RankingAgent) => {
+    if (next === agent) return;
+    setSecrets((s) => ({ ...s, [agentKind]: "" }));
+    setError(agentField, null);
+    setAgent(next);
+  };
+  // SET-27: an agent needs a key, saved or typed. SET-40: "Save changes" with a different agent asks first,
+  // when the agent in use has scored items in the list.
+  const requestSave = (rerank: boolean) => {
+    const hasKey = secrets[agentKind].trim() !== "" || (me.credentials[agentKind].set && !removals.includes(agentKind));
+    if (!hasKey) {
+      setError(agentField, MESSAGES.agentKeyMissing(agent));
+      setTimeout(() => focusTarget(agentField), 0);
+      return;
+    }
+    if (!rerank && agent !== server.rankingAgent && (server.rankedBy[server.rankingAgent] ?? 0) > 0) {
+      setSwitching(true);
+      return;
+    }
+    void save(rerank);
+  };
 
   return (
     <div className="settings-page">
@@ -130,18 +163,17 @@ export function SettingsPage() {
         <div className="settings-main">
           <section className="section" id="connections">
             <SectionHead n="01" title="Connections" badge="Required" />
-            <p>Both credentials are required before Gitilizer can scan and rank your inbox.</p>
+            <p>Gitilizer needs a GitHub token, and an API key for the ranking agent you choose, before it can scan and rank your inbox.</p>
             <div className="stack">
               <CredentialCard kind="github_pat" icon={<GitHubIcon />} title="GitHub" label="Personal access token"
                 setup={{ text: "Create a token", href: "https://github.com/settings/personal-access-tokens/new" }}
                 guidance={<>Grant read access to issues, PRs and metadata for the repositories you want to scan.</>}
                 learnMore={`${DOCS_URL}#github-personal-access-tokens`}
                 status={me.credentials.github_pat} value={secrets.github_pat} onChange={(v) => setSecrets({ ...secrets, github_pat: v })} />
-              <CredentialCard kind="gemini_key" icon={<SparklesIcon />} title="Gemini" label="Gemini API key"
-                setup={{ text: "Get an API key", href: "https://aistudio.google.com/apikey" }}
-                guidance={<>Used by Gemini to score and prioritize your issues and PRs.</>}
-                learnMore={`${DOCS_URL}#gemini-api-keys`}
-                status={me.credentials.gemini_key} value={secrets.gemini_key} onChange={(v) => setSecrets({ ...secrets, gemini_key: v })} />
+              <AgentCard agent={agent} inUse={server.rankingAgent} credentials={me.credentials} removals={removals}
+                value={secrets[agentKind]} error={allErrors[agentField]} onPick={pick}
+                onChange={(v) => { setSecrets({ ...secrets, [agentKind]: v }); setError(agentField, null); }}
+                onRemove={(kind) => setRemovals((r) => [...r, kind])} />
             </div>
           </section>
 
@@ -191,18 +223,22 @@ export function SettingsPage() {
           <div className="save-actions">
             {saveError && <div className="error-text" role="alert">{saveError}</div>}
             <div className="save-row">
-              <button className="btn primary" disabled={blocked || saving} onClick={() => save(false)}>Save changes</button>
+              <button className="btn primary" disabled={blocked || saving} onClick={() => requestSave(false)}>Save changes</button>
               <span>Save changes without re-ranking. Existing issues and PRs that are already ranked will not be re-ranked.</span>
             </div>
             <div className="save-row">
-              <button className="btn" disabled={blocked || saving} onClick={() => save(true)}>Save and re-rank</button>
-              <span>Save changes and re-rank every issue and PR. This can use a lot of Gemini quota.</span>
+              <button className="btn" disabled={blocked || saving} onClick={() => requestSave(true)}>Save and re-rank</button>
+              <span>Save changes and re-rank every issue and PR. This can use a lot of your ranking agent’s quota or credits.</span>
             </div>
             <div className="save-row">
               <button className="btn" onClick={cancel}>Cancel</button>
               <span>Discard unsaved changes and return to your list.</span>
             </div>
           </div>
+          {switching && (
+            <SwitchDialog from={server.rankingAgent} to={agent} n={server.rankedBy[server.rankingAgent] ?? 0}
+              onCancel={() => setSwitching(false)} onSwitch={(rerank) => { setSwitching(false); void save(rerank); }} />
+          )}
         </div>
       </div>
     </div>
@@ -251,6 +287,93 @@ function CredentialCard(props: {
       <div className="card-head">{props.icon}<h3>{props.title}</h3><span className={`badge ${chipClass}`}>{chipText}</span></div>
       <CredentialField kind={props.kind} label={props.label} setup={props.setup} guidance={props.guidance} learnMore={props.learnMore}
         saved={props.status.set} value={props.value} onChange={props.onChange} check={check} onCheck={setCheck} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ranking agent (SET-1, SET-4, SET-32, SET-38 to SET-41)
+// ---------------------------------------------------------------------------
+
+const AGENTS = RankingAgent.options;
+
+function AgentCard(props: {
+  agent: RankingAgent; inUse: RankingAgent; credentials: Me["credentials"]; removals: AgentKeyKind[];
+  value: string; error?: string; onPick: (a: RankingAgent) => void; onChange: (v: string) => void; onRemove: (k: AgentKeyKind) => void;
+}) {
+  const info = AGENT_INFO[props.agent];
+  const removed = props.removals.includes(info.kind);
+  const status: CredentialStatus = removed ? { set: false, chip: "not_set", expiresAt: null } : props.credentials[info.kind];
+  const [check, setCheck] = useState<Check>(null);
+  useEffect(() => setCheck(null), [props.value, props.agent]);
+  const [chipClass, chipText] = CHIPS[status.chip];
+  // SET-39: other agents with a saved key; the one in use can't be removed.
+  const others = AGENTS.filter((a) => a !== props.agent && props.credentials[AGENT_INFO[a].kind].set && !props.removals.includes(AGENT_INFO[a].kind));
+  // Arrow keys move between the choices, as in any radio group.
+  const onKey = (e: React.KeyboardEvent) => {
+    const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const next = AGENTS[(AGENTS.indexOf(props.agent) + step + AGENTS.length) % AGENTS.length];
+    props.onPick(next);
+    setTimeout(() => document.getElementById(`agent-${next}`)?.focus(), 0);
+  };
+
+  return (
+    <div className="panel card">
+      <div className="card-head"><SparklesIcon /><h3>Ranking agent</h3><span className={`badge ${chipClass}`}>{chipText}</span></div>
+      <div className="agent-picker" role="radiogroup" aria-label="Ranking agent" onKeyDown={onKey}>
+        {AGENTS.map((a) => (
+          <button key={a} id={`agent-${a}`} type="button" role="radio" aria-checked={a === props.agent} tabIndex={a === props.agent ? 0 : -1}
+                  className={a === props.agent ? "on" : ""} onClick={() => props.onPick(a)}>
+            <span className="agent-name">{AGENT_INFO[a].name}</span>
+            <span className="agent-tag">{AGENT_INFO[a].tag}</span>
+          </button>
+        ))}
+      </div>
+      <CredentialField key={props.agent} kind={info.kind} label={`${info.name} API key`} setup={info.setup}
+        guidance={<>Used by {info.name} to score and prioritize your issues and PRs.</>} learnMore={`${DOCS_URL}#${info.docs}`}
+        saved={status.set} value={props.value} onChange={props.onChange} check={check} onCheck={setCheck} error={props.error}
+        notes={
+          <div className="agent-notes">
+            <div><span className="label">Billing</span>{info.billing}</div>
+            <div><span className="label">Typical cost</span>{info.cost}</div>
+          </div>
+        } />
+      {others.map((a) => (
+        <p className="fine other-key" key={a}>
+          Your {AGENT_INFO[a].name} key stays saved, so you can switch back without pasting it again.
+          {a !== props.inUse && <> <button type="button" className="link-btn plain inline" onClick={() => props.onRemove(AGENT_INFO[a].kind)}>Remove {AGENT_INFO[a].name} key</button></>}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** Asked before "Save changes" switches agents (SET-40). */
+function SwitchDialog(props: { from: RankingAgent; to: RankingAgent; n: number; onCancel: () => void; onSwitch: (rerank: boolean) => void }) {
+  const from = AGENT_INFO[props.from].name;
+  const to = AGENT_INFO[props.to].name;
+  const one = props.n === 1;
+  return (
+    <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="switch-title"
+         onKeyDown={(e) => e.key === "Escape" && props.onCancel()}>
+      <div className="panel dialog switch-dialog">
+        <h2 id="switch-title">Switch ranking to {to}?</h2>
+        <p>
+          Your {props.n.toLocaleString("en-US")} {one ? "issue or PR was" : "issues and PRs were"} ranked by {from}. Scores from different
+          agents don’t line up exactly, so the order can be a little off until every item has been ranked again.
+        </p>
+        <p>
+          “Switch and re-rank” ranks {one ? "it" : "all of them"} with {to} now. “Switch” ranks new and changed items with {to} now,
+          and the rest at the daily re-rank, within 24 hours.
+        </p>
+        <div className="dialog-actions">
+          <button className="btn" onClick={props.onCancel} autoFocus>Cancel</button>
+          <button className="btn" onClick={() => props.onSwitch(false)}>Switch</button>
+          <button className="btn primary" onClick={() => props.onSwitch(true)}>Switch and re-rank</button>
+        </div>
+      </div>
     </div>
   );
 }

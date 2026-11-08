@@ -30,7 +30,7 @@ async function proc(role: { scheduler: boolean; autoScan?: boolean }): Promise<P
     db: await openDb(url(), undefined, 5), hub: new Hub(), config: testConfig({ scheduler: role.scheduler, autoScan: role.autoScan ?? false }),
     cipher: new CredentialCipher(Buffer.alloc(32, 1).toString("base64")),
     github: () => new FixtureGitHub(store),
-    validateGemini: async () => ({ ok: true, code: "ok" }),
+    validateKey: async () => ({ ok: true, code: "ok" }),
     requestScan: () => {},
   };
   const listener = new PgListener(url());
@@ -106,7 +106,7 @@ describe.skipIf(!BASE)("several processes on one Postgres", () => {
       upserts: Array.from({ length: 60 }, (_, i) => ({
         key: `o/r#${i}`, repo: "o/r", number: i, kind: "issue", title: "x".repeat(200), htmlUrl: "https://github.com/o/r/issues/1",
         updatedAt: new Date().toISOString(), reasons: ["assigned"], mentionHandle: null, status: "active", iceboxedAt: null,
-        score: 0.5, rankFailed: false, waitingForQuota: false,
+        score: 0.5, rankFailed: false, waiting: false,
       })),
     };
     scanner.ctx.hub.list("u2", big);

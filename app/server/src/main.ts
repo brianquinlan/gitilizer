@@ -4,7 +4,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { CheckResult } from "@gitilizer/shared";
+import { checkAgentKey, DEFAULT_AGENT_MODELS } from "@gitilizer/ranker";
+import type { AgentKeyKind, CheckResult } from "@gitilizer/shared";
 import { CredentialCipher } from "./crypto.ts";
 import { openDb } from "./db.ts";
 import { loadAllowlist } from "./allowlist.ts";
@@ -57,6 +58,10 @@ export function loadConfig(e: Record<string, string | undefined> = env, argv: st
     githubMode,
     geminiMode,
     models: rankingModels(),
+    agentModels: {
+      claude: e.GITILIZER_CLAUDE_MODEL?.trim() || DEFAULT_AGENT_MODELS.claude,
+      openai: e.GITILIZER_OPENAI_MODEL?.trim() || DEFAULT_AGENT_MODELS.openai,
+    },
     defaultPrompt: readFileSync(join(ROOT, "prompts", "v4.md"), "utf8"),
     shortLivedSeconds: num(e.SHORT_LIVED_SECONDS, 15 * 60),
     staleAfterSeconds: num(e.STALE_AFTER_SECONDS, 3 * 3600),
@@ -134,10 +139,25 @@ async function validateGeminiReal(key: string, model: string): Promise<CheckResu
   return { ok: false, code: "error" };
 }
 
+/** GET /v1/models/{model} at Anthropic or OpenAI: checks the key and access to the model without using tokens (SET-28). */
+async function validateAgentKeyReal(agent: "claude" | "openai", key: string, model: string): Promise<CheckResult> {
+  const r = await checkAgentKey(agent, key, model);
+  if (r.result === "error") log.warn("credentials", `${agent} key check failed`, { status: r.status, body: r.body });
+  return { ok: r.result === "ok", code: r.result };
+}
+
+function validateKeyReal(config: Config) {
+  return (kind: AgentKeyKind, key: string): Promise<CheckResult> =>
+    kind === "anthropic_key" ? validateAgentKeyReal("claude", key, config.agentModels.claude)
+    : kind === "openai_key" ? validateAgentKeyReal("openai", key, config.agentModels.openai)
+    : validateGeminiReal(key, config.models[0]);
+}
+
 /** Fixture mode accepts any key except ones that say what should go wrong. */
-async function validateGeminiFake(key: string): Promise<CheckResult> {
+async function validateKeyFake(_kind: AgentKeyKind, key: string): Promise<CheckResult> {
   if (/leak/i.test(key)) return { ok: false, code: "leaked" };
   if (/bad|invalid/i.test(key)) return { ok: false, code: "not_accepted" };
+  if (/broke|nocredit/i.test(key)) return { ok: false, code: "no_credits" };
   return { ok: true, code: "ok" };
 }
 
@@ -163,7 +183,7 @@ async function main() {
   const ctx: Ctx = {
     db, cipher, hub, config,
     github: (pat) => (fixtures ? new FixtureGitHub(fixtures) : new OctokitGitHub(pat)),
-    validateGemini: config.geminiMode === "fake" ? validateGeminiFake : validateGeminiReal,
+    validateKey: config.geminiMode === "fake" ? validateKeyFake : validateKeyReal(config),
     requestScan: () => {},
   };
   // Only the newest release running does background work (design: Deployment, D-14).
@@ -194,8 +214,10 @@ async function main() {
     const userId = await localUserId(ctx);
     const { seeded, setupCompleted } = await seedLocalCredentials(ctx, userId, {
       github_pat: env.LOCAL_GITHUB_TOKEN, gemini_key: env.LOCAL_GEMINI_API_KEY,
+      anthropic_key: env.LOCAL_ANTHROPIC_API_KEY, openai_key: env.LOCAL_OPENAI_API_KEY,
     });
-    if (seeded.length) log.info("startup", `Local mode: saved the ${seeded.map((k) => (k === "github_pat" ? "GitHub token" : "Gemini API key")).join(" and ")} for the local developer`);
+    const names = { github_pat: "GitHub token", gemini_key: "Gemini API key", anthropic_key: "Claude API key", openai_key: "OpenAI API key" };
+    if (seeded.length) log.info("startup", `Local mode: saved the ${seeded.map((k) => names[k]).join(", ")} for the local developer`);
     const u = await db.one(
       `select setup_completed_at, exists (select 1 from scans where user_id = $1 and outcome = 'ok') as scanned from users where id = $1`,
       [userId],

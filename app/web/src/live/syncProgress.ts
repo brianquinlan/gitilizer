@@ -4,7 +4,7 @@ import type { SyncEvent, SyncProgress } from "@gitilizer/shared";
 
 /** The text changes at most this often, so it doesn't flicker. */
 export const PROGRESS_MIN_MS = 2000;
-/** "· waiting for Gemini" appears only after this long without progress. */
+/** "· waiting for {agent}" appears only after this long without progress. */
 export const WAITING_AFTER_MS = 5000;
 
 export type ProgressView = {
@@ -23,11 +23,12 @@ export function initProgress(): ProgressView {
   return { text: null, shownAt: -Infinity, latest: null, waitingSince: null, waitingLeft: null };
 }
 
-export function progressText(p: SyncProgress | null, waitingShown: boolean): string | null {
+/** `agent` is the name of the developer's ranking agent, such as "Gemini" (SET-38). */
+export function progressText(p: SyncProgress | null, waitingShown: boolean, agent = "Gemini"): string | null {
   if (!p) return null;
   if (p.phase === "finding") return p.found === null ? "Finding issues and PRs…" : `Finding issues and PRs… ${p.found} so far`;
   if (p.left <= 0) return null;
-  return `${p.left} left to rank${waitingShown ? " · waiting for Gemini" : ""}`;
+  return `${p.left} left to rank${waitingShown ? ` · waiting for ${agent}` : ""}`;
 }
 
 /** Takes in a `sync` event. Call `step` afterwards to update the text. */
@@ -50,10 +51,10 @@ export function receiveSync(v: ProgressView, e: SyncEvent, now: number): Progres
  * until 2 s after the last one. Returns the view (the same object if nothing
  * changed) and when to call again, or null if nothing is due.
  */
-export function step(v: ProgressView, now: number): { view: ProgressView; next: number | null } {
+export function step(v: ProgressView, now: number, agent = "Gemini"): { view: ProgressView; next: number | null } {
   const running = Boolean(v.latest?.running);
   const waitingDue = v.waitingSince === null ? null : v.waitingSince + WAITING_AFTER_MS;
-  const want = progressText(running ? v.latest!.progress : null, waitingDue !== null && now >= waitingDue);
+  const want = progressText(running ? v.latest!.progress : null, waitingDue !== null && now >= waitingDue, agent);
   let view = v;
   let next: number | null = null;
   if (want !== v.text) {

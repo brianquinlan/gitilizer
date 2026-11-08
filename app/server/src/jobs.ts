@@ -1,6 +1,7 @@
 // The ranking job queue and the worker's side of it (design: Ranking worker).
 import { randomUUID } from "node:crypto";
-import type { NotificationCode, SyncEvent } from "@gitilizer/shared";
+import type { NotificationCode, RankingAgent, SyncEvent } from "@gitilizer/shared";
+import { AGENT_KIND_SQL, agentInUse, keyKindFor } from "./agents.ts";
 import type { Ctx } from "./context.ts";
 import { getCredential } from "./credentials.ts";
 import { publish } from "./list.ts";
@@ -160,7 +161,8 @@ async function publishQueued(ctx: Ctx, userId: string) {
 /** Called by the scheduler: quotas that have reset bring the primary model back (RANK-13). */
 export async function refreshQuotas(ctx: Ctx) {
   const users = await ctx.db.query(
-    `select distinct user_id from gemini_quota where exhausted_until <= now()
+    `select distinct q.user_id from gemini_quota q join users u on u.id = q.user_id
+     where q.exhausted_until <= now() and u.ranking_agent = 'gemini'
      union select id from users where ranking_paused_code = 'daily_quota' and ranking_paused_until <= now()`,
   );
   await ctx.db.query(`delete from gemini_quota where exhausted_until <= now()`);
@@ -182,7 +184,9 @@ export type ClaimedJob = {
   snapshot: Record<string, unknown>;
   user: { github_login: string; additional_repos: { repo: string; prioritization_prompt: string }[]; collaborators: string[] };
   prompt: string | null;
-  geminiKey: string;
+  /** The developer's ranking agent when the job was claimed, its key and the model to use (RANK-13, RANK-19). */
+  agent: RankingAgent;
+  apiKey: string;
   model: string;
   /** For an Icebox check: when the developer moved the item to the Icebox (ICE-6). */
   iceboxedAt: string | null;
@@ -200,7 +204,7 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
        from rank_jobs j join users u on u.id = j.user_id left join items i on i.key = j.item_key
        where j.state = 'queued' and j.not_before <= now()
          and (u.ranking_paused_until is null or u.ranking_paused_until <= now())
-         and exists (select 1 from credentials c where c.user_id = j.user_id and c.kind = 'gemini_key')
+         and exists (select 1 from credentials c where c.user_id = j.user_id and c.kind = ${AGENT_KIND_SQL})
      ) c
      where n + leased <= $2
      order by priority, updated_at desc nulls last, id
@@ -216,14 +220,16 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
       [c.id, leaseSeconds],
     );
     if (!r) continue; // claimed by someone else
-    const { model } = await modelFor(ctx, r.user_id);
+    const agent = await agentInUse(db, r.user_id);
+    // Gemini falls back to backup models as daily quotas run out (RANK-13); Claude and OpenAI have one model each (RANK-19).
+    const model = agent === "gemini" ? (await modelFor(ctx, r.user_id)).model : ctx.config.agentModels[agent];
     const u = await db.one(`select github_login from users where id = $1`, [r.user_id]);
     const s = await db.one(`select custom_prompt from settings where user_id = $1`, [r.user_id]);
     const repos = await db.query(`select full_name, prioritization_prompt from additional_repos where user_id = $1 order by position, full_name`, [r.user_id]);
     const collabs = await db.query(`select login from collaborators where user_id = $1 order by position, login`, [r.user_id]);
     const item = await db.one(`select snapshot from items where key = $1`, [r.item_key]);
     const ui = await db.one(`select status, iceboxed_at from user_items where user_id = $1 and item_key = $2`, [r.user_id, r.item_key]);
-    const key = await getCredential(ctx, r.user_id, "gemini_key");
+    const key = await getCredential(ctx, r.user_id, keyKindFor(agent));
     if (!model) {
       // Every model is exhausted; leave it queued for when the quota resets.
       await db.query(`update rank_jobs set state = 'queued', attempts = attempts - 1, lease_expires_at = null where id = $1`, [r.id]);
@@ -234,7 +240,7 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
       await db.query(`update rank_jobs set state = 'failed', error_code = 'missing_input', finished_at = now() where id = $1`, [r.id]);
       continue;
     }
-    await db.query(`update rank_jobs set model = $2 where id = $1`, [r.id, model]);
+    await db.query(`update rank_jobs set model = $2, agent = $3 where id = $1`, [r.id, model, agent]);
     out.push({
       id: Number(r.id),
       kind: r.kind,
@@ -247,7 +253,8 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
         collaborators: collabs.map((x) => x.login),
       },
       prompt: s?.custom_prompt ?? null,
-      geminiKey: key,
+      agent,
+      apiKey: key,
       model,
       iceboxedAt: ui?.iceboxed_at ? new Date(ui.iceboxed_at).toISOString() : null,
     });
@@ -262,20 +269,34 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
 export type RankResult = { priority: number; actionable: boolean; next_action: string; reasoning: string };
 export type IceboxResult = { bring_back: boolean; reason: string };
 
-const GEMINI_OK_CLEARS: NotificationCode[] = [
-  "gemini_rate_limited", "gemini_unavailable", "gemini_credits", "gemini_billing", "gemini_permission_denied",
-  "gemini_model_unavailable", "gemini_unexpected", "prompt_failing",
-];
+/** What a successful request shows has cleared (PRD catalogue, "Clears when"). */
+const OK_CLEARS: Record<RankingAgent, NotificationCode[]> = {
+  gemini: [
+    "gemini_rate_limited", "gemini_unavailable", "gemini_credits", "gemini_billing", "gemini_permission_denied",
+    "gemini_model_unavailable", "gemini_unexpected", "prompt_failing",
+  ],
+  claude: [
+    "claude_rate_limited", "claude_unavailable", "claude_credits", "claude_permission_denied",
+    "claude_model_unavailable", "claude_unexpected", "prompt_failing",
+  ],
+  openai: [
+    "openai_rate_limited", "openai_unavailable", "openai_credits", "openai_permission_denied",
+    "openai_model_unavailable", "openai_unexpected", "prompt_failing",
+  ],
+};
+
+const jobAgent = (a: string | null): RankingAgent => (a === "claude" || a === "openai" ? a : "gemini");
 
 export async function completeJob(ctx: Ctx, jobId: number, r: RankResult | IceboxResult) {
   const db = ctx.db;
   const job = await db.one(
-    `select user_id, item_key, kind, reason, batch_id, model, item_updated_at from rank_jobs where id = $1 and state = 'leased'`, [jobId],
+    `select user_id, item_key, kind, reason, batch_id, model, agent, item_updated_at from rank_jobs where id = $1 and state = 'leased'`, [jobId],
   );
   if (!job) return false;
   const userId = job.user_id as string;
+  const agent = jobAgent(job.agent);
   await db.query(`update rank_jobs set state = 'done', finished_at = now() where id = $1`, [jobId]);
-  await clear(ctx, userId, GEMINI_OK_CLEARS);
+  if (agent === (await agentInUse(db, userId))) await clear(ctx, userId, OK_CLEARS[agent]);
 
   if (job.kind === "icebox_check") {
     await iceboxDecision(ctx, userId, job.item_key, (r as IceboxResult).bring_back, job.item_updated_at);
@@ -283,15 +304,15 @@ export async function completeJob(ctx: Ctx, jobId: number, r: RankResult | Icebo
     const a = r as RankResult;
     await db.query(
       `update user_items set score = $3, actionable = $4, next_action = $5, reasoning = $6, ranked_at = now(),
-         ranked_updated_at = $7, ranked_model = $8, rank_failed = false, rank_error = null where user_id = $1 and item_key = $2`,
-      [userId, job.item_key, a.priority, a.actionable, a.next_action, a.reasoning, job.item_updated_at, job.model],
+         ranked_updated_at = $7, ranked_model = $8, ranked_agent = $9, rank_failed = false, rank_error = null where user_id = $1 and item_key = $2`,
+      [userId, job.item_key, a.priority, a.actionable, a.next_action, a.reasoning, job.item_updated_at, job.model, agent],
     );
     await db.query(`update users set ever_ranked = true where id = $1`, [userId]);
     const batch = job.batch_id ? await db.one(`select reason from rank_batches where id = $1`, [job.batch_id]) : null;
     // A bulk re-rank publishes once at the end; the first sync fills in as items are ranked, without indicators (LIVE-24, LIST-15).
     if (!batch) await publish(ctx, userId, [job.item_key]);
     else if (batch.reason === "first_sync") await publish(ctx, userId, [job.item_key], [], true);
-    if (job.model === ctx.config.models[0]) await syncQuotaNotifications(ctx, userId);
+    if (agent === "gemini" && job.model === ctx.config.models[0]) await syncQuotaNotifications(ctx, userId);
   }
   await afterJob(ctx, userId, job.batch_id);
   return true;
@@ -404,37 +425,76 @@ export async function pushSync(ctx: Ctx, userId: string, opts: { now?: boolean }
 // ---------------------------------------------------------------------------
 
 /**
- * Key-level Gemini failures pause the developer's queue instead of failing
- * every item (design: Ranking worker, "Error codes").
+ * Key-level failures pause the developer's ranking instead of failing every
+ * item (RANK-20; design: Ranking worker, "Error codes"). Each agent has its
+ * own notifications; Gemini's leaked key and billing have no counterpart.
  */
-const KEY_LEVEL: Record<string, NotificationCode> = {
-  key_invalid: "gemini_invalid",
-  key_leaked: "gemini_leaked",
-  permission_denied: "gemini_permission_denied",
-  credits_exhausted: "gemini_credits",
-  billing_required: "gemini_billing",
-  model_not_found: "gemini_model_unavailable",
+const KEY_LEVEL: Record<RankingAgent, Record<string, NotificationCode>> = {
+  gemini: {
+    key_invalid: "gemini_invalid",
+    key_leaked: "gemini_leaked",
+    permission_denied: "gemini_permission_denied",
+    credits_exhausted: "gemini_credits",
+    billing_required: "gemini_billing",
+    model_not_found: "gemini_model_unavailable",
+  },
+  claude: {
+    key_invalid: "claude_invalid",
+    key_leaked: "claude_invalid",
+    permission_denied: "claude_permission_denied",
+    credits_exhausted: "claude_credits",
+    billing_required: "claude_credits",
+    model_not_found: "claude_model_unavailable",
+  },
+  openai: {
+    key_invalid: "openai_invalid",
+    key_leaked: "openai_invalid",
+    permission_denied: "openai_permission_denied",
+    credits_exhausted: "openai_credits",
+    billing_required: "openai_credits",
+    model_not_found: "openai_model_unavailable",
+  },
 };
-const TRANSIENT: Record<string, NotificationCode> = {
-  rate_limited: "gemini_rate_limited", // per-minute limits: wait and retry, never switch model (RANK-14)
-  unavailable: "gemini_unavailable",
+/** Per-minute limits and outages: wait and retry, never switch model (RANK-14). */
+const TRANSIENT: Record<RankingAgent, Record<string, NotificationCode>> = {
+  gemini: { rate_limited: "gemini_rate_limited", unavailable: "gemini_unavailable" },
+  claude: { rate_limited: "claude_rate_limited", unavailable: "claude_unavailable" },
+  openai: { rate_limited: "openai_rate_limited", unavailable: "openai_unavailable" },
+};
+const UNEXPECTED: Record<RankingAgent, NotificationCode> = { gemini: "gemini_unexpected", claude: "claude_unexpected", openai: "openai_unexpected" };
+/**
+ * How long a key-level failure pauses ranking. Credits and billing can be fixed
+ * outside Gitilizer, so ranking tries again every 15 minutes and the error clears
+ * when a request succeeds (RANK-20); a bad key waits for a new one.
+ */
+const PAUSE: Record<string, string> = {
+  credits_exhausted: `now() + interval '15 minutes'`,
+  billing_required: `now() + interval '15 minutes'`,
+  model_not_found: `now() + interval '1 hour'`,
 };
 const MAX_ATTEMPTS = 3;
 
 export async function failJob(ctx: Ctx, jobId: number, e: { code: string; message: string; retryAfterSeconds?: number | null }) {
   const db = ctx.db;
   const job = await db.one(
-    `select user_id, item_key, kind, attempts, batch_id, model from rank_jobs where id = $1 and state = 'leased'`, [jobId],
+    `select user_id, item_key, kind, attempts, batch_id, model, agent from rank_jobs where id = $1 and state = 'leased'`, [jobId],
   );
   if (!job) return false;
   const userId = job.user_id as string;
+  const agent = jobAgent(job.agent);
   const requeue = (delaySeconds = 0) => db.query(
     `update rank_jobs set state = 'queued', attempts = attempts - 1, lease_expires_at = null, model = null,
        not_before = now() + make_interval(secs => $2) where id = $1`,
     [jobId, delaySeconds],
   );
 
-  if (e.code === "daily_quota") {
+  // A job that ran with the previous agent says nothing about the one now in use (SET-40): run it again.
+  if (agent !== (await agentInUse(db, userId))) {
+    await requeue();
+    await pushSync(ctx, userId);
+    return true;
+  }
+  if (e.code === "daily_quota" && agent === "gemini") {
     // Per model: the next claim gets the next model (RANK-13).
     const until = job.model ? nextPacificMidnight() : new Date(Date.now() + 3600_000);
     await db.query(
@@ -447,18 +507,20 @@ export async function failJob(ctx: Ctx, jobId: number, e: { code: string; messag
     await pushSync(ctx, userId);
     return true;
   }
-  if (e.code in KEY_LEVEL) {
-    const pauseUntil = e.code === "model_not_found" ? `now() + interval '1 hour'` : `'infinity'::timestamptz`;
-    await db.query(`update users set ranking_paused_until = ${pauseUntil}, ranking_paused_code = $2 where id = $1`, [userId, e.code]);
+  const code = e.code === "daily_quota" ? "rate_limited" : e.code; // only Gemini has daily quotas per model
+  if (code in KEY_LEVEL[agent]) {
+    const pauseUntil = PAUSE[code] ?? `'infinity'::timestamptz`;
+    await db.query(`update users set ranking_paused_until = ${pauseUntil}, ranking_paused_code = $2 where id = $1`, [userId, code]);
     await requeue();
-    await raise(ctx, userId, KEY_LEVEL[e.code]);
+    await raise(ctx, userId, KEY_LEVEL[agent][code]);
+    await publishQueued(ctx, userId); // waiting items are shown with "–" (LIST-30)
     await pushSync(ctx, userId);
     return true;
   }
-  if (e.code in TRANSIENT) {
+  if (code in TRANSIENT[agent]) {
     await requeue(Math.max(5, e.retryAfterSeconds ?? 60));
-    await raise(ctx, userId, TRANSIENT[e.code]);
-    await pushSync(ctx, userId); // may be "waiting for Gemini" now (LIST-33)
+    await raise(ctx, userId, TRANSIENT[agent][code]);
+    await pushSync(ctx, userId); // may be "waiting for {agent}" now (LIST-33)
     return true;
   }
   // Item-level failure (blocked, invalid output, unknown): retry, then give up (RANK-6).
@@ -468,7 +530,7 @@ export async function failJob(ctx: Ctx, jobId: number, e: { code: string; messag
     return true;
   }
   await db.query(`update rank_jobs set state = 'failed', error_code = $2, finished_at = now() where id = $1`, [jobId, e.code]);
-  if (e.code === "unknown") await raise(ctx, userId, "gemini_unexpected");
+  if (e.code === "unknown") await raise(ctx, userId, UNEXPECTED[agent]);
   await giveUp(ctx, userId, job.item_key, job.kind, e.code);
   await checkPromptFailing(ctx, userId);
   await afterJob(ctx, userId, job.batch_id);

@@ -1,6 +1,6 @@
 // Shared server context, configuration and small helpers.
 import type { FastifyReply } from "fastify";
-import type { CheckResult, ListEvent, Notification, SyncEvent } from "@gitilizer/shared";
+import type { AgentKeyKind, CheckResult, ListEvent, Notification, SyncEvent } from "@gitilizer/shared";
 import type { Allowlist } from "./allowlist.ts";
 import type { CredentialCipher } from "./crypto.ts";
 import type { Db } from "./db.ts";
@@ -12,9 +12,12 @@ export type Config = {
   /** Bearer token for the operator endpoints on the internal port (/internal/metrics). */
   workerToken: string;
   githubMode: "real" | "fixtures";
+  /** "fake": every agent is the fake model and accepts any key (fixture mode, tests). */
   geminiMode: "real" | "fake";
   /** Gemini models in fallback order (PRD RANK-13); the first is the primary model. */
   models: string[];
+  /** The model Claude and OpenAI rank with (RANK-19). */
+  agentModels: { claude: string; openai: string };
   defaultPrompt: string;
   /** Short-lived notifications wait this long before showing (PRD NOTIF-21: 15 min). */
   shortLivedSeconds: number;
@@ -27,7 +30,7 @@ export type Config = {
   maxItems: number;
   /** A scan is full when the last full scan is older than this (design: Scheduler, D-5). */
   fullScanSeconds: number;
-  /** At most this many Gemini requests at once for one developer (RANK-11). */
+  /** At most this many requests to the ranking agent at once for one developer (RANK-11). */
   perDeveloperConcurrency: number;
   schedulerTickMs: number;
   /** Local mode: one developer, signed in automatically (contributor/LOCAL_DEVELOPMENT.md). */
@@ -155,8 +158,8 @@ export type Ctx = {
   config: Config;
   /** GitHub client for a PAT (or the fixture store in fixture mode). */
   github(pat: string): GitHubApi;
-  /** Checks a Gemini API key without using request quota (SET-28). */
-  validateGemini(key: string, model: string): Promise<CheckResult>;
+  /** Checks a ranking agent's API key without using request quota or tokens (SET-28). */
+  validateKey(kind: AgentKeyKind, key: string): Promise<CheckResult>;
   /** Called by routes to ask the scheduler for a scan now. */
   requestScan(userId: string, trigger: string): void;
   /**
