@@ -67,8 +67,8 @@ GITHUB_TOKEN=...      # a classic token with no scopes is enough for public repo
 ```powershell
 npm run evaluate -- --strategy recency     # no model: most recently updated first, the floor to beat
 npm run evaluate                           # Gemini, pointwise, default prompt (v4), 3 trials
-npm run evaluate -- --model claude-haiku-5-5   # Claude (ANTHROPIC_API_KEY)
-npm run evaluate -- --model gpt-6-luna         # OpenAI (OPENAI_API_KEY); --thinking none to max
+npm run evaluate -- --model claude-sonnet-5-5  # Claude (ANTHROPIC_API_KEY)
+npm run evaluate -- --model gpt-6.1-sol        # OpenAI (OPENAI_API_KEY); --thinking low to max
 npm run evaluate -- --strategy listwise    # one call ranks all items
 npm run evaluate -- --thinking low --trials 5
 npm run evaluate -- --prompt prompts/v1.md --label v1

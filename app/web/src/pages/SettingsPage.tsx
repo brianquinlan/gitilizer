@@ -7,6 +7,7 @@ import {
   type Me, type SettingsResponse,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
+import { AgentPicker } from "../components/AgentPicker.tsx";
 import { DOCS_URL } from "../components/Chrome.tsx";
 import { CredentialField, type Check } from "../components/CredentialField.tsx";
 import {
@@ -292,7 +293,7 @@ function CredentialCard(props: {
 }
 
 // ---------------------------------------------------------------------------
-// Ranking agent (SET-1, SET-4, SET-32, SET-38 to SET-41)
+// Ranking agent (SET-1, SET-4, SET-32, SET-38 to SET-40)
 // ---------------------------------------------------------------------------
 
 const AGENTS = RankingAgent.options;
@@ -309,37 +310,13 @@ function AgentCard(props: {
   const [chipClass, chipText] = CHIPS[status.chip];
   // SET-39: other agents with a saved key; the one in use can't be removed.
   const others = AGENTS.filter((a) => a !== props.agent && props.credentials[AGENT_INFO[a].kind].set && !props.removals.includes(AGENT_INFO[a].kind));
-  // Arrow keys move between the choices, as in any radio group.
-  const onKey = (e: React.KeyboardEvent) => {
-    const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
-    if (!step) return;
-    e.preventDefault();
-    const next = AGENTS[(AGENTS.indexOf(props.agent) + step + AGENTS.length) % AGENTS.length];
-    props.onPick(next);
-    setTimeout(() => document.getElementById(`agent-${next}`)?.focus(), 0);
-  };
-
   return (
     <div className="panel card">
       <div className="card-head"><SparklesIcon /><h3>Ranking agent</h3><span className={`badge ${chipClass}`}>{chipText}</span></div>
-      <div className="agent-picker" role="radiogroup" aria-label="Ranking agent" onKeyDown={onKey}>
-        {AGENTS.map((a) => (
-          <button key={a} id={`agent-${a}`} type="button" role="radio" aria-checked={a === props.agent} tabIndex={a === props.agent ? 0 : -1}
-                  className={a === props.agent ? "on" : ""} onClick={() => props.onPick(a)}>
-            <span className="agent-name">{AGENT_INFO[a].name}</span>
-            <span className="agent-tag">{AGENT_INFO[a].tag}</span>
-          </button>
-        ))}
-      </div>
+      <AgentPicker agent={props.agent} onPick={props.onPick} idPrefix="agent" />
       <CredentialField key={props.agent} kind={info.kind} label={`${info.name} API key`} setup={info.setup}
         guidance={<>Used by {info.name} to score and prioritize your issues and PRs.</>} learnMore={`${DOCS_URL}#${info.docs}`}
-        saved={status.set} value={props.value} onChange={props.onChange} check={check} onCheck={setCheck} error={props.error}
-        notes={
-          <div className="agent-notes">
-            <div><span className="label">Billing</span>{info.billing}</div>
-            <div><span className="label">Typical cost</span>{info.cost}</div>
-          </div>
-        } />
+        saved={status.set} value={props.value} onChange={props.onChange} check={check} onCheck={setCheck} error={props.error} />
       {others.map((a) => (
         <p className="fine other-key" key={a}>
           Your {AGENT_INFO[a].name} key stays saved, so you can switch back without pasting it again.

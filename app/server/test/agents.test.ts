@@ -1,4 +1,4 @@
-// Ranking agents (PRD SET-38 to SET-41, WEL-5, RANK-19, RANK-20, NOTIF-23): choosing one, ranking with it,
+// Ranking agents (PRD SET-38 to SET-40, WEL-5, RANK-19, RANK-20, NOTIF-23): choosing one, ranking with it,
 // pausing when its key or credits stop working, and switching.
 import type { FastifyInstance } from "fastify";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -31,10 +31,10 @@ describe("ranking with Claude or OpenAI (RANK-19, RANK-20)", () => {
 
   it("claims jobs with the agent's key and model, and records who scored the item (RANK-16)", async () => {
     const [job] = await claimJobs(ctx, 1, 60);
-    expect(job).toMatchObject({ agent: "claude", model: "claude-haiku-5-5", apiKey: "anthropic_key-secret-123" });
+    expect(job).toMatchObject({ agent: "claude", model: "claude-sonnet-5-5", apiKey: "anthropic_key-secret-123" });
     await completeJob(ctx, job.id, { priority: 0.7, actionable: true, next_action: "x", reasoning: "y" });
     const row = await ctx.db.one(`select ranked_agent, ranked_model from user_items where user_id = $1 and item_key = $2`, [userId, job.itemKey]);
-    expect(row).toEqual({ ranked_agent: "claude", ranked_model: "claude-haiku-5-5" });
+    expect(row).toEqual({ ranked_agent: "claude", ranked_model: "claude-sonnet-5-5" });
   });
 
   it("pauses when credits run out: items wait with \"–\", the sync ends, and ranking tries again in 15 minutes (RANK-20, LIST-30, LIST-32)", async () => {
@@ -70,7 +70,7 @@ describe("ranking with Claude or OpenAI (RANK-19, RANK-20)", () => {
     await ctx.db.query(`update users set ranking_agent = 'openai' where id = $1`, [other]);
     await scan(ctx, other, "test");
     const jobs = (await claimJobs(ctx, 20, 60)).filter((j) => j.agent === "openai");
-    expect(jobs[0]).toMatchObject({ model: "gpt-6-luna", apiKey: "openai_key-secret-123" });
+    expect(jobs[0]).toMatchObject({ model: "gpt-6.1-sol", apiKey: "openai_key-secret-123" });
     await failJob(ctx, jobs[0].id, { code: "key_invalid", message: "Incorrect API key provided" });
     expect((await shownNotifications(ctx, other)).map((n) => n.code)).toEqual(["openai_invalid"]);
     const u = await ctx.db.one(`select ranking_paused_until = 'infinity'::timestamptz as forever from users where id = $1`, [other]);

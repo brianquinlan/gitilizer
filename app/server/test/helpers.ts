@@ -14,7 +14,7 @@ export const MODELS = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-
 export function testConfig(over: Partial<Config> = {}): Config {
   return {
     port: 0, internalPort: 0, workerToken: "t", githubMode: "fixtures", geminiMode: "fake", models: MODELS,
-    agentModels: { claude: "claude-haiku-5-5", openai: "gpt-6-luna" },
+    agentModels: { claude: "claude-sonnet-5-5", openai: "gpt-6.1-sol" },
     defaultPrompt: "default prompt", shortLivedSeconds: 0, staleAfterSeconds: 3600,
     intervals: { visible: 300, open: 1800, background: 7200 }, inactiveDays: 7, maxItems: 1000, fullScanSeconds: 3600,
     perDeveloperConcurrency: 4, schedulerTickMs: 1000, localMode: false, autoScan: true, allowlist: null,

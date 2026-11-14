@@ -1,5 +1,5 @@
 // npm run evaluate -- [--strategy pointwise|listwise|recency] [--model M] [--thinking low|…]
-//   --model claude-haiku-5-5 or gpt-6-luna evaluates Claude or OpenAI (ANTHROPIC_API_KEY, OPENAI_API_KEY in .env).
+//   --model claude-sonnet-5-5 or gpt-6.1-sol (with --thinking low) evaluates Claude or OpenAI (ANTHROPIC_API_KEY, OPENAI_API_KEY in .env).
 //   [--prompt prompts/v4.md] [--no-signals] [--trials 3] [--now ISO] [--label L] [--workers 6]
 import { join } from "node:path";
 import { parseArgs } from "node:util";

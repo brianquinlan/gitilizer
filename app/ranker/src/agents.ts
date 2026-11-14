@@ -11,8 +11,8 @@ export type Agent = (typeof AGENTS)[number];
 
 /** The model each agent ranks with (RANK-19). Gemini's models, with their backups, are in the server's config (RANK-13). */
 export const DEFAULT_AGENT_MODELS: Record<Exclude<Agent, "gemini">, string> = {
-  claude: "claude-haiku-5-5",
-  openai: "gpt-6-luna",
+  claude: "claude-sonnet-5-5",
+  openai: "gpt-6.1-sol",
 };
 
 /** The agent a model name belongs to, for the evaluation CLI. */
