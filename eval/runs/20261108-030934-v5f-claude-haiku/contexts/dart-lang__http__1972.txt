@@ -1,0 +1,49 @@
+# ISSUE dart-lang/http#1972: HEAD call results in ClientException: Content-Length is larger than actual response length.
+url: https://github.com/dart-lang/http/issues/1972
+state: open
+author: Keetz (association with repo: NONE)
+created: 2026-08-11T13:44:56Z (18d ago)
+last updated: 2026-08-22T00:20:37Z (8d ago)
+labels: ['type-bug', 'package:http', 'needs-info']
+assignees: ['brianquinlan']
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 380, archived: False)
+(state reconstructed as of 2026-08-30T00:00:00Z; caveats: issue and comment bodies are shown as currently edited; reactions removed (no timestamps); PR mergeable_state, changed files and line counts are current values; review-thread resolution status unknown)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['assignee', 'commenter', 'watches_repo']
+- repo_interest_filter: not responsible for http2
+- author_is_collaborator: False
+- last_human_activity: brianquinlan labeled 8d ago
+- last_human_actor_is_me: True
+- my_last_activity: labeled 8d ago
+- mentions_of_me: []
+- days_since_update: 8.0
+- days_since_created: 18.4
+
+## Related issues and PRs
+- PR dart-lang/http#1974 [linked: closes/closed-by] 'Fix #1972: bypass body-reading for HEAD requests in io_client': open, by amanmaurya92, updated 0h ago, labels ['package:http', 'needs-info']
+
+## Description
+It looks like the HTTP implementation is receiving the Content-Length and then performing its usual body-length consistency check without correctly accounting for the fact that the request was HEAD.
+
+The HEAD call itself is fine and gives an 200 OK, but trying to do anything around a try/catch setup gets messed up by this unexpected ClientException.
+
+## Activity (6 events, oldest first)
+[2026-08-11 13:44Z, 18d ago] Keetz opened this issue
+[2026-08-11 13:44Z, 18d ago] Keetz labeled 'type-bug'
+[2026-08-11 13:44Z, 18d ago] Keetz labeled 'package:http'
+[2026-08-21 18:07Z, 8d ago] brianquinlan (ME) assigned brianquinlan
+[2026-08-22 00:20Z, 8d ago] brianquinlan (ME) commented:
+    1. What client are you using? Is it `IOClient`?
+    2. I don't understand the scenario: is the server returning a content-length header but without content? Because I can't reproduce that issue if that is the case:
+        ```dart
+          test('HEAD', () async {
+            httpServerChannel.sink.add('content-length: 100\r\n');
+            final response = await client.head(Uri.http(host, ''));
+            expect(response.statusCode, 200);
+            expect(response.headers['content-length'], '100');
+            expect(response.body, '');
+          });
+        ```
+[2026-08-22 00:20Z, 8d ago] brianquinlan (ME) labeled 'needs-info'

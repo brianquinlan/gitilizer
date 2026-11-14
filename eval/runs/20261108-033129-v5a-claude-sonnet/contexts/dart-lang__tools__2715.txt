@@ -1,0 +1,115 @@
+# PULL REQUEST dart-lang/tools#2715: [string_scanner] Validate error() span bounds and test eager lastSpan
+url: https://github.com/dart-lang/tools/pull/2715
+state: open
+author: kevmoo (association with repo: MEMBER)
+created: 2026-10-23T19:22:03Z (2d ago)
+last updated: 2026-10-23T20:12:29Z (2d ago)
+labels: ['package:string_scanner']
+assignees: []
+requested reviewers: ['davidmorgan']
+requested teams: ['dart-ecosystem-team']
+branch: dart-lang:fix-string_scanner-followup -> main
+reactions: {'eyes': 1}
+repository: dart-lang/tools — This repository is home to tooling related Dart packages. (stars: 121, open issues: 634, archived: False)
+
+## Derived signals (computed from the data below)
+- type: pull_request
+- my_roles: ['requested_reviewer_via_team(dart-ecosystem-team)']
+- repo_interest_filter: None
+- author_is_collaborator: True
+- last_human_activity: kevmoo review_requested 2d ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: []
+- days_since_update: 2.0
+- days_since_created: 2.0
+- other_reviews: {'gemini-code-assist[bot]': 'COMMENTED 2d ago'}
+- review_decision: REVIEW_REQUIRED
+- unresolved_review_threads: 0
+- draft: False
+- merged: False
+- mergeable_state: blocked
+- size: +62/-43 in 6 files
+- last_commit: 2d ago
+
+## Changed files (6)
+pkgs/string_scanner/CHANGELOG.md (+2/-1), pkgs/string_scanner/lib/src/relative_span_scanner.dart (+14/-22), pkgs/string_scanner/lib/src/span_scanner.dart (+2/-4), pkgs/string_scanner/lib/src/string_scanner.dart (+2/-4), pkgs/string_scanner/lib/src/utils.dart (+15/-12), pkgs/string_scanner/test/span_scanner_test.dart (+27/-0)
+
+## Related issues and PRs
+- PR dart-lang/tools#2633 '[string_scanner] Fix SpanScanner.within() and LineScanner edge cases': merged, by kevmoo, updated 2d ago, labels ['package:string_scanner']
+
+## Description
+Validates resolved `(position, length)` bounds in `error()` so `SpanScanner.within().error(message, length: n)` and out-of-range `Match` arguments throw `RangeError` instead of reading past the subspan into `_sourceFile`, and pins `SpanScanner.eager` `lastSpan` clearing (follow-up to #2633).
+
+- [#2633 review comment (`within().error` bounds)](https://github.com/dart-lang/tools/pull/2633#discussion_r4357319290)
+- [#2633 review comment (`SpanScanner.eager` `lastSpan`)](https://github.com/dart-lang/tools/pull/2633#discussion_r4357319299)
+
+## Activity (8 events, oldest first)
+[2026-10-23 19:02Z, 2d ago] Kevin Moore pushed commit a295254 '[string_scanner] Validate resolved error span bounds and test eager lastSpan clearing'
+[2026-10-23 19:22Z, 2d ago] kevmoo opened this PR
+[2026-10-23 19:22Z, 2d ago] kevmoo review_requested dart-ecosystem-team
+[2026-10-23 19:22Z, 2d ago] kevmoo review_requested davidmorgan
+[2026-10-23 19:22Z, 2d ago] github-actions[bot] labeled 'package:string_scanner'
+[2026-10-23 19:22Z, 2d ago] gemini-code-assist[bot] reviewed [COMMENTED]:
+    ## Code Review
+    
+    This pull request introduces validation for error arguments in `RelativeSpanScanner`, `SpanScanner`, and `StringScanner` by invoking `validateErrorArgs` in their `error` methods. It also adds unit tests to ensure `RangeError` is thrown when the error length exceeds the span, and that `lastSpan` is cleared when the position changes without a match. There are no review comments, so I have no feedback to provide.
+[2026-10-23 19:23Z, 2d ago] github-actions[bot] commented:
+    ## PR Health
+    
+    
+    <details>
+    <summary>
+    <strong>Coverage</strong> :warning:
+    </summary>
+    
+    | File | Coverage |
+    | :--- | :--- |
+    |pkgs/string_scanner/lib/src/relative_span_scanner.dart| :broken_heart: 91 % :arrow_down: 0 % |
+    |pkgs/string_scanner/lib/src/span_scanner.dart| :green_heart: 61 % :arrow_up: 6 % |
+    |pkgs/string_scanner/lib/src/string_scanner.dart| :broken_heart: 98 % :arrow_down: 0 % |
+    |pkgs/string_scanner/lib/src/utils.dart| :green_heart: 100 % |
+    
+    This check for [test coverage](https://github.com/dart-lang/ecosystem/wiki/Test-Coverage) is informational (issues shown here will not fail the PR).
+    
+    
+    This check can be disabled by tagging the PR with `skip-coverage-check`.
+    </details>
+    
+    <details>
+    <summary>
+    <strong>License Headers</strong> :heavy_check_mark:
+    </summary>
+    
+    ```
+    // Copyright (c) 2026, the Dart project authors. Please see the AUTHORS file
+    // for details. All rights reserved. Use of this source code is governed by a
+    // BSD-style license that can be found in the LICENSE file.
+    
+    ```
+    
+    | Files |
+    | :--- |
+    | _no missing headers_  |
+    
+    All source files should start with a [license header](https://github.com/dart-lang/ecosystem/wiki/License-Header).
+    
+    <details>
+    <summary>
+    Unrelated files missing license headers
+    </summary>
+    
+    | Files |
+    | :--- |
+    |pkgs/html/test/differential_test.dart|
+    |pkgs/html/test/dom_parsing_test.dart|
+    |pkgs/html/test/mxss_test.dart|
+    |pkgs/html/test/noah_ark_clause_limit_test.dart|
+    </details>
+    
+    
+    
+    
+    This check can be disabled by tagging the PR with `skip-license-check`.
+    </d …[1638 more chars]
+[2026-10-23 20:09Z, 2d ago] Kevin Moore pushed commit 1815adb '[string_scanner] Consolidate resolveErrorArgs and relative span offsets'

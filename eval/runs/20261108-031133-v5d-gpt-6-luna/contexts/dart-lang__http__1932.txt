@@ -1,0 +1,165 @@
+# ISSUE dart-lang/http#1932: `cronetHttpNoPlay=true` build broken in Flutter 3.44.0: Namespace 'org.chromium.net' is used in multiple modules and/or libraries
+url: https://github.com/dart-lang/http/issues/1932
+state: open
+author: dreautall (association with repo: NONE)
+created: 2026-05-31T14:56:55Z (5mo ago)
+last updated: 2026-10-21T13:35:50Z (4d ago)
+labels: ['type-bug', 'package:cronet_http']
+assignees: ['brianquinlan']
+reactions: {'+1': 2, 'eyes': 3}
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 380, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['assignee', 'commenter', 'watches_repo']
+- repo_interest_filter: not responsible for http2
+- author_is_collaborator: False
+- last_human_activity: igordanilovski commented 4d ago
+- last_human_actor_is_me: False
+- my_last_activity: commented 3mo ago
+- mentions_of_me: []
+- days_since_update: 4.2
+- days_since_created: 147.2
+
+## Related issues and PRs
+- PR dart-lang/http#2034 [linked: closes/closed-by] 'fix(cronet): avoid cronet namespace duplication': open, by brianquinlan, updated 2d ago, labels ['package:cronet_http']
+
+## Description
+Hi,
+
+building an apk with `--dart-define=cronetHttpNoPlay=true` is broken with the new Gradle version in Flutter 3.44.0. Building without that option (so, native cronet) works fine.
+
+Error message: `[org.chromium.net:cronet-embedded:141.7340.3] ~/.gradle/caches/9.1.0/transforms/2e5c6e1ae32483156f8fb1f259ac32ce/transformed/cronet-embedded-141.7340.3/AndroidManifest.xml Error:
+        Namespace 'org.chromium.net' is used in multiple modules and/or libraries: org.chromium.net:cronet-embedded:141.7340.3, org.chromium.net:httpengine-native-provider:141.7340.3, org.chromium.net:cronet-common:141.7340.3, org.chromium.net:cronet-api:141.7340.3, org.chromium.net:cronet-shared:141.7340.3. Please ensure that all modules and libraries have a unique namespace. For more information, See https://developer.android.com/studio/build/configure-app-module#set-namespace`
+
+Minimal example:
+```
+$ flutter create cronetbug
+$ cd cronetbug
+$ flutter pub add cronet_http
+$ flutter build apk --dart-define=cronetHttpNoPlay=true
+```
+
+<details>
+<summary>Minimal example with output on my machine (including the working run without that option)</summary>
+
+```
+➜  /tmp $ flutter --version
+Flutter 3.44.0 • channel stable • https://github.com/flutter/flutter.git
+Framework • revision 559ffa3f75 (2 weeks ago) • 2026-05-15 14:13:13 -0700
+Engine • hash fcf463a2242790d1fdcd9d044f533080f5022e18 (revision 4c525dac5e) (15 days ago) • 2026-05-15 19:00:04.000Z
+Tools • Dart 3.12.0 • DevTools 2.57.0
+➜  /tmp $ flutter create cronetbug
+Creating project cronetbug...
+Resolving dependencies in `cronetbug`... 
+Downloading packages... 
+Got dependencies in `cronetbug`.
+Wrote 131 files.
+
+All done!
+You can find general documentation for Flutter at: https://docs.flutter.dev/
+Detailed API documentation is available at: https://api.flutter.dev/
+If you prefer video documentation, consider: https://www.youtube.com/c/flutterdev
+
+In order to run your application, type:
+
+  $ cd cronetbug
+  $ flutter run
+
+Your application code is in cronetbug/lib/main.dart.
+
+➜  /tmp $ cd cronetbug 
+➜  cronetbug $ flutter pub add cronet_http
+Resolving dependencies... 
+Downloading packages... 
++ args 2.7.0
++ cronet_http 1.8.0
++ ffi 2.2.0
++ http 1.6.0
++ http_parser 4.1.2
++ http_profile 0.1.0
++ jni 0.15.2 (1.0.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  meta 1.18.0 (1.18.2 available)
++ package_config 2.2.0
++ plugin_platform_interface 2.1.8
+  test_api 0.7.11 (0.7.12 available)
++ typed_data 1.4.0
+  vector_math 2.2.0 (2.3.0 available)
++ web 1.1.1
+Changed 11 dependencies!
+5 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+➜  cronetbug $ flutter build apk --dart-define=cronetHttpNoPlay=true
+Resolving dependencies... 
+Downloading packages... 
+  jni 0.15.2 (1.0.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  meta 1.18.0 (1.18.2 available)
+  test_api 0.7.11 (0.7.12 available)
+  vector_math 2.2.0 (2.3.0 available)
+Got dependencies!
+5 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+WARNING: Your app uses the following plugins that apply Kotlin Gradle Plugin (KGP): cronet_http
+Future versions of Flutter will fail to build if your app uses plugins that apply KGP.
+
+Please check the changelogs of these plugins and upgrade to a version that supports Built-in Kotlin.
+If no such version exists, report the issue to the plugin. If necessary, here is a guide on filing 
+an issue against a plugin: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-app-developers#report-incompatible-kotlin-gradle-plugin-usage-to-plugin-authors
+
+If you are a plugin author, please migrate your plugin to Built-in Kotlin using this guide: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-plugin-authors
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 1368 bytes (99.9% reduction). Tree-shaking can be disabled by …[3009 more chars]
+
+## Activity (16 events, oldest first)
+[2026-05-31 14:56Z, 5mo ago] dreautall opened this issue
+[2026-05-31 14:56Z, 5mo ago] dreautall assigned brianquinlan
+[2026-05-31 14:56Z, 5mo ago] dreautall labeled 'type-bug'
+[2026-05-31 14:56Z, 5mo ago] dreautall labeled 'package:cronet_http'
+[2026-05-31 15:09Z, 5mo ago] dreautall commented:
+    I tried using the upcoming 1.9.0 version, strangely enough building without Play Services works fine, it now fails on building with play services with the same error message:
+    
+    `[org.chromium.net:cronet-api:141.7340.3] ~/.gradle/caches/9.1.0/transforms/963c24213ab3058b6aa73c06b12bac66/transformed/cronet-api-141.7340.3/AndroidManifest.xml Error:
+            Namespace 'org.chromium.net' is used in multiple modules and/or libraries: org.chromium.net:cronet-api:141.7340.3, org.chromium.net:cronet-shared:141.7340.3. Please ensure that all modules and libraries have a unique namespace. For more information, See https://developer.android.com/studio/build/configure-app-module#set-namespace`
+    
+    In pubspec.yaml - `flutter clean && flutter pub get` was run after the change:
+    ```
+      cronet_http:
+        git:
+          url: https://github.com/brianquinlan/http.git
+          path: pkgs/cronet_http
+          ref: cronet_1_9_0
+    ```
+[2026-06-22 22:13Z, 4mo ago] brianquinlan (ME) commented:
+    It is strange that the latest version doesn't work because the CI tests with the latest flutter version and both the Play and non-Play versions.
+[2026-06-24 19:45Z, 4mo ago] carloshenrique-dev commented:
+    I added this to my `gradle.properties` as a temporary workaround to unblock AAB and APK generation:
+    
+    ```
+    android.uniquePackageNames=false
+    ```
+    
+    But a proper fix is still needed.
+[2026-06-27 17:05Z, 4mo ago] dreautall referenced this in commit 66129be
+[2026-07-01 23:05Z, 4mo ago] brianquinlan (ME) commented:
+    This is an upstream bug for this but supposedly, it is fixed:
+    https://issues.chromium.org/issues/406926302
+    
+    Hmmm, `org.chromium.net:cronet-api:141.7340.3` referenced in https://github.com/dart-lang/http/issues/1932#issuecomment-4587107456 isn't the latest version. Likewise with `org.chromium.net:cronet-shared:141.7340.3`.
+    
+    I wonder why is holding back the use of the most recent version?
+[2026-07-01 23:58Z, 4mo ago] brianquinlan (ME) commented:
+    The version of `cronnet-embedded` used by `cronet_http` `1.9.0` depends on `cronet_shared:143.7445.0`:
+    https://mvnrepository.com/artifact/org.chromium.net/cronet-embedded/143.7445.0/dependencies
+[2026-07-02 00:16Z, 4mo ago] brianquinlan (ME) commented:
+    ...but the lastest (`18.1.1`) version of `play-services-cronet` depends on the older version of `cronet-api`:
+    https://mvnrepository.com/artifact/com.google.android.gms/play-services-cronet/18.1.1
+[2026-07-18 18:42Z, 3mo ago] downtown1629 commented:
+    I'm getting the same issue even without `cronetHttpNoPlay=true`. Is waiting for Google to update `play-services-cronet`'s dependency all we can do? Where should we report it?
+[2026-07-20 17:59Z, 3mo ago] brianquinlan (ME) commented:
+    I reopened https://g-issues.chromium.org/issues/406926302
+[2026-09-22 15:55Z, 33d ago] Mohammad-amleh commented:
+    when this issue will be resolved ?
+[2026-10-15 19:35Z, 10d ago] Pinguino0 referenced this in commit 8bce31a
+[2026-10-21 13:35Z, 4d ago] igordanilovski commented:
+    Any updates on this guys?
