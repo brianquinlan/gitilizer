@@ -1,0 +1,252 @@
+# PULL REQUEST dart-lang/tools#2544: [package_config] Forbid UNC paths in rootUri to mitigate UNC path injection
+url: https://github.com/dart-lang/tools/pull/2544
+state: open
+author: jonasfj (association with repo: MEMBER)
+created: 2026-08-20T13:37:13Z (2mo ago)
+last updated: 2026-08-26T11:59:26Z (2mo ago)
+labels: ['package:package_config']
+assignees: []
+requested reviewers: []
+requested teams: ['dart-ecosystem-team']
+branch: dart-lang:forbid_unc_paths -> main
+reactions: {'eyes': 1}
+repository: dart-lang/tools — This repository is home to tooling related Dart packages. (stars: 121, open issues: 634, archived: False)
+
+## Derived signals (computed from the data below)
+- type: pull_request
+- my_roles: ['requested_reviewer_via_team(dart-ecosystem-team)']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: lrhn reviewed [COMMENTED] 2mo ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: []
+- days_since_update: 60.3
+- days_since_created: 66.2
+- other_reviews: {'gemini-code-assist[bot]': 'COMMENTED 2mo ago', 'lrhn': 'COMMENTED 2mo ago'}
+- review_decision: REVIEW_REQUIRED
+- unresolved_review_threads: 6
+- draft: False
+- merged: False
+- mergeable_state: unknown
+- size: +58/-0 in 3 files
+- last_commit: 2mo ago
+
+## Changed files (3)
+pkgs/package_config/CHANGELOG.md (+2/-0), pkgs/package_config/lib/src/package_config.dart (+32/-0), pkgs/package_config/test/parse_test.dart (+24/-0)
+
+## Description
+On Windows a `package_config.json`, crafted by a malicious actor, can point to an external UNC network share (e.g. `"rootUri": "//attacker.example.com/share/"`). 
+
+Downstream tools (`analyzer`, `pub`, etc) that attempt to read from such a path (or just `File.statSync`) may trigger Windows to initiate an SMB request which the attacker can use to [record the user's account hashes](https://attack.mitre.org/techniques/T1187/).
+
+To mitigate this issue, we require that `rootUri`s inside `package_config.json` must be a local file path.
+
+For users who legitimately have `package_config.json` on a network share, the solution is to mount these network shares as local drive letters (like `Z:\`).
+
+
+BUG=536309083
+
+## Activity (28 events, oldest first)
+[2026-08-20 13:37Z, 2mo ago] jonasfj opened this PR
+[2026-08-20 13:37Z, 2mo ago] jonasfj review_requested dart-ecosystem-team
+[2026-08-20 13:37Z, 2mo ago] github-actions[bot] labeled 'package:package_config'
+[2026-08-20 13:37Z, 2mo ago] Jonas Finnemann Jensen pushed commit 8f881ea 'Forbid non-local file paths in rootUri to mitigate UNC path injection'
+[2026-08-20 13:38Z, 2mo ago] github-actions[bot] commented:
+    ## Package publishing
+    
+    If you have publishing permissions, you can use the links below to publish the changes after merging this PR.
+    
+    | Package | Version | Status | Publish tag (post-merge) |
+    | :--- | ---: | :--- | ---: |
+    | package:api_summary | 0.1.0-wip | WIP (no publish necessary) |  |
+    | package:bazel_worker | 1.1.5 | already published at pub.dev |  |
+    | package:benchmark_harness | 2.4.0 | already published at pub.dev |  |
+    | package:boolean_selector | 2.1.2 | already published at pub.dev |  |
+    | package:browser_launcher | 1.2.0-wip | WIP (no publish necessary) |  |
+    | package:cli_config | 0.2.1-wip | WIP (no publish necessary) |  |
+    | package:cli_util | 0.6.0-wip | WIP (no publish necessary) |  |
+    | package:clock | 1.1.3-wip | WIP (no publish necessary) |  |
+    | package:code_builder | 4.12.0-wip | WIP (no publish necessary) |  |
+    | package:coverage | 1.16.0-wip | WIP (no publish necessary) |  |
+    | package:csslib | 1.0.3-wip | WIP (no publish necessary) |  |
+    | package:extension_discovery | 2.1.0 | already published at pub.dev |  |
+    | package:file | 7.0.2-wip | WIP (no publish necessary) |  |
+    | package:file_testing | 3.1.0-wip | WIP (no publish necessary) |  |
+    | package:glob | 2.2.0-wip | WIP (no publish necessary) |  |
+    | package:graphs | 2.4.0-wip | WIP (no publish necessary) |  |
+    | package:html | 0.15.7-wip | WIP (no publish necessary) |  |
+    | package:io | 1.1.0-wip | WIP (no publish necessary) |  |
+    | package:json_rpc_2 | 4.1.0 | already published at pub.dev |  |
+    | package:markdown | …[2298 more chars]
+[2026-08-20 13:38Z, 2mo ago] github-actions[bot] commented:
+    ## PR Health
+    
+    
+    <details>
+    <summary>
+    <strong>Unused Dependencies</strong> :warning:
+    </summary>
+    
+    | Package | Status |
+    | :--- | :--- |
+    | package_config | <details><summary>:exclamation: Show Issues</summary><pre>These packages are used outside lib/ but are not dev_dependencies:<br>  * path</pre></details> |
+    
+    For details on how to fix these, see [dependency_validator](https://pub.dev/packages/dependency_validator).
+    
+    
+    This check can be disabled by tagging the PR with `skip-unused-dependencies-check`.
+    </details>
+    
+    <details>
+    <summary>
+    <strong>Breaking changes</strong> :heavy_check_mark:
+    </summary>
+    
+    | Package | Change | Current Version | New Version | Needed Version | Looking good? |
+    | :--- | :--- | ---: | ---: | ---: | ---: |
+    |package_config|None|3.0.0|3.0.1-wip|3.0.1-wip|:heavy_check_mark:|
+    
+    
+    This check can be disabled by tagging the PR with `skip-breaking-check`.
+    </details>
+    
+    <details>
+    <summary>
+    <strong>API leaks</strong> :heavy_check_mark:
+    </summary>
+    
+    The following packages contain symbols visible in the public API, but not exported by the library. Export these symbols or remove them from your publicly visible API.
+    
+    | Package | Leaked API symbol | Leaking sources |
+    | :--- | :--- | :--- |
+    
+    
+    
+    This check can be disabled by tagging the PR with `skip-leaking-check`.
+    </details>
+    
+    <details>
+    <summary>
+    <strong>Changelog Entry</strong> :heavy_check_mark:
+    </summary>
+    
+    | Package | Changed Files |
+    | :--- | :--- |
+    
+    
+    Changes to files need to be [accounted for](https://github.com/dart-lang/ecosystem/ …[1123 more chars]
+[2026-08-20 13:39Z, 2mo ago] gemini-code-assist[bot] reviewed [COMMENTED]:
+    ## Code Review
+    
+    This pull request mitigates UNC path injection (SMB NTLM leak) by forbidding non-local file paths in `rootUri`. Feedback on the changes highlights a regression where checking `root.host.isNotEmpty` instead of `parsedRootUri.host.isNotEmpty` breaks package resolution for legitimate projects hosted on network shares. Additionally, a temporary scratch file (`scratch.dart`) was committed and should be removed, and a test case should be added to verify that relative paths on network shares remain supported.
+    
+    <details>
+    <summary>I am having trouble creating individual review comments. Click here to see my feedback.</summary>
+    
+    ### pkgs/package_config/lib/src/package_config_json.dart (157-163)
+    
+    ![security-high](https://www.gstatic.com/codereviewagent/security-high-priority.svg) ![high](https://www.gstatic.com/codereviewagent/high-priority.svg)
+    
+    Checking `root.host.isNotEmpty` will cause a regression for legitimate users who have their project located on a network share (UNC path). When `baseLocation` has a host (e.g., `file://network-share/project/...`), any relative `rootUri` (like `../foo`) will resolve to a URI that inherits the same host. This causes `root.host.isNotEmpty` to be `true`, resulting in a false positive and breaking package resolution for those users.
+    
+    To fix this, check `parsedRootUri.host.isNotEmpty` instead. This ensures that only `rootUri`s that explicitly specify a host are rejected, while relative paths on a network share remain fully supported a …[1756 more chars]
+[2026-08-20 13:44Z, 2mo ago] jonasfj review_requested lrhn
+[2026-08-20 20:55Z, 2mo ago] lrhn left inline review comment on pkgs/package_config/lib/src/package_config_json.dart:
+    Need to check for port as well, don't want `file://:8192/path` to connect to something.
+    
+    Also `file:///path` and `file://localhost/path` are morally equivalent.
+    
+    Consider:
+    ```dart
+    if (root.authority case var authority 
+         when authority.isNotEmpty && authority != "localhost") {
+      .... error ....
+    }
+    ```
+[2026-08-20 20:56Z, 2mo ago] lrhn left inline review comment on pkgs/package_config/test/parse_test.dart:
+    Use `example.com` for example domains.
+[2026-08-20 20:57Z, 2mo ago] lrhn left inline review comment on pkgs/package_config/lib/src/package_config_json.dart:
+    Should probably apply to package root (`lib/` dir) as well. Nothing here prevents that string from being `//example.com/badness/`.
+    (There should be a check later, that the package URI root is inside the package root, but let's not rely on that being enough. Security in depth.)
+[2026-08-20 21:03Z, 2mo ago] lrhn left inline review comment on pkgs/package_config/lib/src/package_config_json.dart:
+    Should probably only apply if `.isScheme('file')`.
+    
+    The current configuration allows non-`file` schemes.
+    If we shouldn't allow that, we should also check for it.
+[2026-08-20 21:04Z, 2mo ago] lrhn left inline review comment on pkgs/package_config/lib/src/package_config_json.dart:
+    The `SimplePackage.validate` should validate all the constraints again. (Or instead, depends on whether it's a config parsing error or a data logic error.)
+[2026-08-20 21:04Z, 2mo ago] lrhn reviewed [COMMENTED]
+[2026-08-21 06:44Z, 2mo ago] jonasfj left inline review comment (reply) on pkgs/package_config/lib/src/package_config_json.dart:
+    I think we should allow `../foo` relative paths, without `file:` prefix.
+[2026-08-21 07:35Z, 2mo ago] Jonas Finnemann Jensen pushed commit d0b6c65 'Forbid UNC paths in package root URIs'
+[2026-08-21 07:58Z, 2mo ago] jonasfj renamed 'Forbid non-local file paths in rootUri to mitigate UNC path injection' -> '[package_config] Forbid UNC paths in rootUri to mitigate UNC path injection'
+[2026-08-21 08:03Z, 2mo ago] Jonas Finnemann Jensen pushed commit 90019e7 'Move UNC validation into SimplePackage.validate for security in depth'
+[2026-08-21 08:16Z, 2mo ago] Jonas Finnemann Jensen pushed commit d468e60 'Add packageUri UNC tests and update CHANGELOG'
+[2026-08-21 08:25Z, 2mo ago] Jonas Finnemann Jensen pushed commit 31233d0 'Fix changelog wording'
+[2026-08-21 08:38Z, 2mo ago] jonasfj review_requested lrhn
+[2026-08-26 11:21Z, 2mo ago] lrhn left inline review comment on pkgs/package_config/lib/src/package_config.dart:
+    "must not evaluate to" -> "must not be" (the root URI is what it is - the representation is just a way to serialize it).
+    
+    For someone not on Windows, that's a confusing error message. "That's _not_ a Windows UNC path, this is Unix. Also, what is a Windows UNC path?"
+    (Not that most Windows users would know that either.)
+    
+    I'd start the text with the requirement, not the violation:
+    ```dart
+       "Package root URIs with the 'file:' scheme must be local paths, "
+       "with no authority and a path not starting with '//'. "
+       "Was: '$root` which has a non-trivial authority part.",
+    ```
+[2026-08-26 11:39Z, 2mo ago] lrhn left inline review comment on pkgs/package_config/lib/src/package_config.dart:
+    What is the actual restriction here?
+    
+    It's not a _windows_ restriction, it applies to all platforms, and it should be expressed in a way that can be understood without converting to a windows path.
+    
+    A root URI that is a file URI must:
+    * Not have a non-empty authority part. 
+    * Not have a path that starts with `//`.
+    
+    A `file:` URI always has an authority part, but it should be empty, meaning an empty host, a default/empty port and no user-id, so `.authority.isEmpty`.
+    
+    Then it must not have a path that starts with `//`, because that will be converted to a Windows path starting with `\\`, so `!root.path.startsWith('//')`.
+    
+    Aka: it must start with `file:///` and not be followed by `/`. It's probably a `_SimpleUri`, so doing `toString()` is free, so we can introduce a central check for that:
+    ```dart
+      bool hasSimpleFilePath(Uri uri) =>
+        !uri.isScheme('file) ||
+            uri.authority.isEmpty && !uri.path.startsWith('//');
+    ```
+    and do;
+    ```dart
+      if (!fatalError && !hasSimpleFilePath(root)) {
+        // Badness. 
+        fatalError = true;
+      }
+    ```
+    
+    (Do we need to check for  a path of `/%2f...` or `/%5c...`, the escapes for `/` and `\`? Doesn't seem so, they generate an "invalid character in path" error from `_toWindowsFilePath`.).
+    
+    The URI must probably also not have an empty path, `file://` is a valid URI with an empty authority and empty path, but we already checked above that it `isAbsoluteDirectoryUri`, so that should be covered.
+[2026-08-26 11:41Z, 2mo ago] lrhn left inline review comment on pkgs/package_config/lib/src/package_config.dart:
+    Doing same check a second time. Have a helper function with proper docs that implements a specified behavior.
+    (And tested!)
+[2026-08-26 11:41Z, 2mo ago] lrhn left inline review comment on pkgs/package_config/lib/src/package_config.dart:
+    Same error too. Probably have a function for that too.
+    
+    Except it's probably not needed. The `packageUriRoot` _must_ be inside the `root` (line 854), so it's probably guaranteed to have same scheme, authority and path start. But I guess the root path could be `file:///` and the package root `file:////bananas/`, in which case we do need to check that it doesn't start with `//`. That can _only_ happen if the root URI has `/` as path.
+    
+    But we should check that `isUriPrefix` remembers to check the authority.
+[2026-08-26 11:55Z, 2mo ago] lrhn left inline review comment on pkgs/package_config/CHANGELOG.md:
+    > - Forbids a non-empty authority or a path starting with `//` in
+    >   `rootUri` and `packageUri` to mitigate UNC path injection.
+    >  (...)
+[2026-08-26 11:59Z, 2mo ago] lrhn left inline review comment on pkgs/package_config/test/parse_test.dart:
+    Test the helper function directly as well, with more tricky cases, on top of testing that  the function gets called in the right places.
+    
+    Tricky cases include:
+    * `file://localhost/bananas` - it may be the default host, but `toFilePath` doesn't treat it the same as no host.
+    * `file://:1234/bananas`
+    * `file://me@/bananas`
+    * `file:///` with package-root-URL `//bananas/are/great/`
+    * `file://bananas`
+[2026-08-26 11:59Z, 2mo ago] lrhn reviewed [COMMENTED]

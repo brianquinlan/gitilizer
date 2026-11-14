@@ -1,0 +1,176 @@
+# ISSUE dart-lang/sdk#48056: Disabled CA certificates on android are trusted by Dart
+url: https://github.com/dart-lang/sdk/issues/48056
+state: open
+author: brianquinlan (association with repo: MEMBER)
+created: 2022-01-04T20:55:26Z (4.8y ago)
+last updated: 2026-10-22T08:18:34Z (3d ago)
+labels: ['area-vm', 'P3', 'library-io', 'os-android', 'triaged']
+assignees: ['brianquinlan']
+reactions: {'+1': 11}
+repository: dart-lang/sdk — The Dart SDK, including the VM, JS and Wasm compilers, analysis, core libraries, and more. (stars: 11317, open issues: 8499, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['author', 'assignee', 'commenter', 'mentioned']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: julemand101 commented 3d ago
+- last_human_actor_is_me: False
+- my_last_activity: labeled 3.9y ago
+- mentions_of_me: [{'by': 'aam', 'informational_cc': False, 'line': 'I recommend opening new issue for the issue you see, since this one is specifically about handling of disabled certs on Android, and providing more details along the lines @brianquinlan suggested.'}, {'by': 'komaxx', 'informational_cc': False, 'line': 'Hi @brianquinlan'}]
+- days_since_update: 3.5
+- days_since_created: 1754.9
+
+## Related issues and PRs
+- issue flutter/flutter#26359 'App ignores proxy settings': open, by christian-muertz, updated 9mo ago, labels ['c: new feature', 'framework', 'engine', 'dependency: dart', 'P2', 'team-engine', 'triaged-engine']
+- issue dart-lang/sdk#50434 'HttpClient should honor the system configured proxy': open, by brianquinlan, updated 2.5y ago, assignees ['brianquinlan'], labels ['area-vm', 'P3', 'library-io', 'triaged']
+- issue dart-lang/sdk#50435 'HttpClient should honor user-installed certificates on Android': open, by brianquinlan, updated 16mo ago, assignees ['brianquinlan'], labels ['area-vm', 'P3', 'library-io', 'os-android', 'triaged']
+- issue dart-lang/sdk#64644 '[dart:io] Distrust eight compromised intermediate CA keys': closed (completed), by DubaiChewyCookie, updated 2d ago, assignees ['mraleph'], labels ['area-vm', 'triaged']
+
+## Description
+On Android OS, the list of Root Certificates loaded by the DartSDK SecurityContext is loaded from the directory /system/etc/security/cacerts.
+
+The Root Certificate files placed in this path will match the System Certificates in the Trusted credentials on the Android OS. 
+
+However, even if Certificate is set to Disable on the Android OS, the Root Certificate file will not be removed from /system/etc/security/cacerts. So even if a user sets any Root Certificate to be untrusted, the DartSDK will ignore that setting and trust it.
+
+Steps to reproduce:
+
+1. On AndroidOS, disable the System Root Certificate DigiCert High Assurance EV Root CA in Trusted credentials.
+2. Using the `http` package of DartSDK, connect to the server where DigiCert High Assurance EV Root CA will be the RootCA. An example of the code is shown below.
+```
+dart
+// RootCA for www.intellilink.co.jp FQDN is DigiCert High Assurance EV Root CA
+http.get(Uri.parse('https://www.intellilink.co.jp'));
+```
+3. For the reasons explained above, DartSDK trusts the Root Certificate with the disabled setting and establishes communication with it. Note that NET::ERR_CERT_AUTHORITY_INVALID is generated when you connect to https://www.intellilink.co.jp with Google Chrome, which confirms that the above disabled setting is working.
+
+## Activity (26 events, oldest first)
+[2022-01-04 20:55Z, 4.8y ago] brianquinlan (ME) opened this issue
+[2022-01-04 20:55Z, 4.8y ago] brianquinlan (ME) labeled 'library-io'
+[2022-01-04 20:55Z, 4.8y ago] brianquinlan (ME) labeled 'os-android'
+[2022-01-04 21:31Z, 4.8y ago] a-siva labeled 'area-library'
+[2022-03-23 13:10Z, 4.6y ago] acoutts commented:
+    Could this also mean if a user has explicitly added a new certificate to their system, dart wouldn't trust it?
+    One issue I'm seeing in the wild is users on corporate public wifi networks are getting certificate errors in my flutter app but they are clearly able to use the internet otherwise to contact our support team, which means their device must trust the root CA being used but the flutter app is not.
+[2022-10-30 10:22Z, 4.0y ago] komaxx commented:
+    @acoutts
+    Yes, many corporate Wifi network setups will not work with Dart/Flutter (at least with Android devices).
+    In one app, we've built a workaround where a required certificate would be installed into the app per MDM additionally to installing it in the OS itself.
+    That is brittle workaround, though. 
+    
+    We've also tried to pipe all traffic not through `dart.http` but wrote native plugin code for that instead. This will fail for everything that you don't control directly, though, like image loading or video streaming.
+    
+    In the end, we scrapped the Flutter project for all business apps, and started re-implementing natively.
+    
+    I wish Flutter/Dart would put a clear warning on their pages, like: _Corporate networks are not supported_.
+[2022-10-31 19:56Z, 4.0y ago] brianquinlan (ME) assigned brianquinlan
+[2022-10-31 19:57Z, 4.0y ago] brianquinlan (ME) labeled 'P2'
+[2022-10-31 19:57Z, 4.0y ago] brianquinlan (ME) unlabeled 'P2'
+[2022-10-31 19:57Z, 4.0y ago] brianquinlan (ME) labeled 'P1'
+[2022-11-02 00:09Z, 4.0y ago] brianquinlan (ME) commented:
+    Hey @komaxx,
+    
+    I'd like to understand your use case (and I'm not familiar with how typical corporate networks do security).
+    
+    So the corporate network that you are trying to access requires a client certificate. When you were explicitly setting the certificate in your app, were you using [`SecurityContext.useCertificateChainBytes`](https://api.dart.dev/stable/2.18.4/dart-io/SecurityContext/useCertificateChainBytes.html)?
+    
+    Would [`getCertificateChain`](https://developer.android.com/reference/android/security/KeyChain#getCertificateChain(android.content.Context,%20java.lang.String) have provided the certificate that you needed?
+    
+    What did your native plugin do? Provide the needed certificate, do the entire HTTP transport or something else?
+    
+    Thanks for your help!
+[2022-11-02 15:57Z, 4.0y ago] aam commented:
+    > Could this also mean if a user has explicitly added a new certificate to their system, dart wouldn't trust it?
+    
+    It depends on how and kind of a certificate was added to the system.
+    Generally speaking, by default dart app will pick up _trusted_root_certs_ from the system, so if a user adds new new trusted root cert to the system, dart app will use it. Dart developer can also allows force use of trusted roots certs that are built-in into the dart vm(via [`SecurityContext(withTrustedRoots:true)`](https://api.flutter.dev/flutter/dart-io/SecurityContext/SecurityContext.html)). Dart developer can also explicitly specify certificates that should be used(via [`SecurityContext.setTrustedCertificates`](https://api.flutter.dev/flutter/dart-io/SecurityContext/setTrustedCertificates.html)
+    
+    > One issue I'm seeing in the wild is users on corporate public wifi networks are getting certificate errors in my flutter app but they are clearly able to use the internet otherwise to contact our support team, which means their device must trust the root CA being used but the flutter app is not.
+    
+    I recommend opening new issue for the issue you see, since this one is specifically about handling of disabled certs on Android, and providing more details along the lines @brianquinlan suggested.
+[2022-11-02 16:29Z, 4.0y ago] brianquinlan (ME) commented:
+    Hey @aam,
+    
+    Maybe I'm misunderstanding but Dart is loading certs from [`/system/etc/security/cacerts`](https://github.com/dart-lang/sdk/blob/main/runtime/bin/security_context_android.cc#L50).
+    
+    I think that user-add certificates go in `/data/misc/keystore/user_0/` (or in a database in new Android versions), which we don't consider.
+    
+    Good point about the new issue - if this is looking like a client certificate issue then I'll file a new issue just about that.
+[2022-11-02 16:47Z, 4.0y ago] aam commented:
+    > I think that user-add certificates go in `/data/misc/keystore/user_0/` (or in a database in new Android versions), 
+    
+    Ah, I see. If that's the case, then you are right, we are not going to pick those certificates up automatically at the moment
+[2022-11-07 09:07Z, 4.0y ago] komaxx commented:
+    Hi @brianquinlan 
+    
+    Happy to help! 
+    Here's what I've encountered as a common corporate network setup: (Android) devices are controlled via some sort of MDM (Knox, MobileIron, ..). Via these MDMs, self-signed certificates are installed on the phones. In the settings app on the phone, these will then show up as user-added certificates.
+    Also Wifi connections are often set-up to use a man-in-the-middle proxy (for "security") which uses again a self-signed certificate for TLS.
+    
+    For the **browser**, everything works then out-of-the-box: Browser apps by default trust user-added certificates.
+    
+    For **native Android** apps, there is only a small change necessary: One just has to add a security config XML file that enables user-installed certificates as trust-anchors (see: https://developer.android.com/training/articles/security-config). Proxy settings are honored automatically.
+    
+    For **Flutter apps**, we're now in hot water: 
+    - First, Flutter will not respect the phones proxy settings (see: https://github.com/flutter/flutter/issues/26359) 
+    - Then, when a workaround for that was made, the user-installed certificates will not be accepted. For this, we could not find a simple solution, as there seems to be no easy way to read user-certificates from the system. 
+    
+    With one customer we could build a scheme where the PEM of the used self-signed certificate would be transported to the app via MDM. Then, we simply registered an `HttpOverride` and created a `HttpClient` that would ch …[1080 more chars]
+[2022-11-10 18:32Z, 4.0y ago] brianquinlan (ME) commented:
+    Based on the discussion, I've filed two new bugs:
+    - [HttpClient should honor the system configured proxy](https://github.com/dart-lang/sdk/issues/50434)
+    - [HttpClient should honor user-installed certificates on Android](https://github.com/dart-lang/sdk/issues/50435)
+[2022-11-10 18:32Z, 4.0y ago] brianquinlan (ME) unlabeled 'P1'
+[2022-12-17 02:23Z, 3.9y ago] brianquinlan (ME) labeled 'library-io-triaged'
+[2022-12-17 02:23Z, 3.9y ago] brianquinlan (ME) labeled 'P3'
+[2022-12-20 19:33Z, 3.8y ago] a-siva labeled 'triaged'
+[2022-12-20 19:33Z, 3.8y ago] a-siva unlabeled 'library-io-triaged'
+[2023-06-02 09:56Z, 3.4y ago] tomekit commented:
+    We're facing similar issue where Dart/Flutter doesn't respect configured user managed trusted CA. 
+    
+    In more detail, we're getting:
+    ```HandshakeException: Handshake error in client (OS Error: \n\tCERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate(handshake.cc:393```
+    
+    On Android we've installed CA and tested on Android 11, Android 13 and Android 14 without success:
+    
+    ![Screenshot from 2023-06-02 11-50-25](https://github.com/dart-lang/sdk/assets/7759113/75e9894d-4d36-4def-8b49-ee16ac17e559)
+    
+    ![Screenshot from 2023-06-02 11-50-49](https://github.com/dart-lang/sdk/assets/7759113/d7c624d9-4cd9-406a-9152-066e5c2ef522)
+    
+    Are there any plans to address the issue, so Flutter correctly recognizes the user managed CA installed on the system?
+    
+    This is a deal breaker for many corporate apps / use cases, where CA is managed by the IT department and installed on the user's end device.
+    
+    Related: https://stackoverflow.com/questions/78384421/flutter-user-trusted-credentials-arent-trusted-on-android
+[2024-04-21 23:10Z, 2.5y ago] lrhn labeled 'area-vm'
+[2024-04-21 23:10Z, 2.5y ago] lrhn unlabeled 'area-core-library'
+[2026-10-22 08:13Z, 3d ago] acn-masatadakurihara commented:
+    ### Security impact: eMudhra intermediate CA compromise (October 2026)
+    
+    Hi Dart team,
+    
+    I'd like to raise a security-related concern in connection with this issue, following the recent **eMudhra intermediate CA private key compromise**, disclosed on October 20, 2026.
+    
+    Incident details:
+    https://emudhra.we-have-a-problem.com/
+    
+    Eight intermediate CA private keys were compromised, potentially allowing attackers to impersonate HTTPS services.
+    
+    Major browsers and operating systems have deployed mitigations through certificate revocation or blocklists. However, some non-browser TLS clients may remain vulnerable because they do not enforce these mechanisms.
+    
+    ### Potential impact on Dart/Flutter for Android
+    
+    As described in this issue, Dart's `SecurityContext` on Android loads trusted CA certificates from `/system/etc/security/cacerts`, rather than fully relying on Android's platform trust evaluation.
+    
+    This raises a related concern:
+    
+    **Does Dart's `HttpClient` honor Android's certificate revocation and blocklist mechanisms, including the mitigations deployed for the compromised eMudhra intermediates?**
+    
+    Even if Android has blocked these certificates, Dart applications using `dart:io` might still accept certificate chains involving the compromised intermediates if the relevant revocation or blocklist checks are not enforced.
+    
+    ### Questions
+    
+    1. Does `dart:io` / `HttpClient` on Android honor certificate revocation and blocklists distributed through Android platform security updates or Goo …[1149 more chars]
+[2026-10-22 08:18Z, 3d ago] julemand101 commented:
+    @acn-masatadakurihara see also: https://github.com/dart-lang/sdk/issues/64644

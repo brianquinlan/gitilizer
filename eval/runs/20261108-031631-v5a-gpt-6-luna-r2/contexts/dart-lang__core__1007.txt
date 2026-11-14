@@ -1,0 +1,65 @@
+# PULL REQUEST dart-lang/core#1007: Treat a trailing dot parent as the current directory in isWithin
+url: https://github.com/dart-lang/core/pull/1007
+state: open
+author: hamed75kazemii (association with repo: FIRST_TIME_CONTRIBUTOR)
+created: 2026-10-10T19:06:14Z (15d ago)
+last updated: 2026-10-22T10:11:46Z (3d ago)
+labels: ['package:path']
+assignees: []
+requested reviewers: []
+requested teams: ['dart-ecosystem-team']
+branch: hamed75kazemii:fix-iswithin-trailing-dot -> main
+repository: dart-lang/core — This repository is home to core Dart packages. (stars: 75, open issues: 252, archived: False)
+
+## Derived signals (computed from the data below)
+- type: pull_request
+- my_roles: ['requested_reviewer_via_team(dart-ecosystem-team)']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: hamed75kazemii review_requested 15d ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: []
+- days_since_update: 3.4
+- days_since_created: 15.0
+- other_reviews: {}
+- review_decision: REVIEW_REQUIRED
+- unresolved_review_threads: 0
+- draft: False
+- merged: False
+- mergeable_state: blocked
+- size: +33/-0 in 3 files
+- last_commit: 15d ago
+
+## Changed files (3)
+pkgs/path/CHANGELOG.md (+2/-0), pkgs/path/lib/src/context.dart (+22/-0), pkgs/path/test/posix_test.dart (+9/-0)
+
+## Related issues and PRs
+- issue dart-lang/core#537 [linked: closes/closed-by] '`isWithin` has surprising behavior when `base` ends with `/.` and `child` starts with `.`': open, by sigurdm, updated 58d ago, labels ['type-bug', 'package:path']
+
+## Description
+## Summary
+- `isWithin('/dir/.', '/dir/.file')` was false because the fast path matched the parent's trailing `.` against the first character of `.file`.
+- A lone `.` component means the current directory, so `/dir/.` is the same directory as `/dir` and contains `/dir/.file`. A name such as `.bar` is unchanged.
+- Covered with posix cases, and checked the same behavior on the Windows style.
+
+Fixes #537
+
+## Test plan
+- [x] Local checks: trailing-dot parent contains `.file` and `file`, equals `/dir`, and `foo/./bar` is still not a parent of `foo/.bar/baz` (posix and Windows)
+- [ ] `dart test test/posix_test.dart --name isWithin` inside `pkgs/path` (pub.dev was unreachable from this environment)
+
+
+Made with [Cursor](https://cursor.com)
+
+## Activity (5 events, oldest first)
+[2026-10-10 19:02Z, 15d ago] hamed pushed commit 3f95c96 'Treat a trailing dot parent as the current directory in isWithin.'
+[2026-10-10 19:06Z, 15d ago] hamed75kazemii opened this PR
+[2026-10-10 19:06Z, 15d ago] hamed75kazemii review_requested dart-ecosystem-team
+[2026-10-10 19:06Z, 15d ago] github-actions[bot] labeled 'package:path'
+[2026-10-10 19:06Z, 15d ago] google-cla[bot] commented:
+    Thanks for your pull request! It looks like this may be your first contribution to a Google open source project. Before we can look at your pull request, you'll need to sign a Contributor License Agreement (CLA).
+    
+    View this [failed invocation](https://github.com/dart-lang/core/pull/1007/checks?check_run_id=114290261978) of the CLA check for more information.
+    
+    For the most up to date status, view the checks section at the bottom of the pull request.

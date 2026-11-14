@@ -18,6 +18,8 @@ export function classifyOpenAI(e: unknown): Classified {
   const { code = "", type = "" } = e.error;
   const text = e.message;
   if (status === 401) return new Classified("key_invalid", text);
+  // OpenAI's filter sometimes refuses an ordinary issue; like a refusal, it fails that item only (RANK-6).
+  if (status === 400 && (code === "invalid_prompt" || /flagged as potentially violating|usage policy/i.test(e.body))) return new Classified("blocked", text);
   if (status === 403) return new Classified("permission_denied", text);
   if (status === 404 || code === "model_not_found") return new Classified("model_not_found", text);
   if (status === 429 && (CREDIT_CODES.test(code) || CREDIT_CODES.test(type))) return new Classified("credits_exhausted", text);
@@ -64,12 +66,24 @@ export class OpenAILLM implements LLM {
       });
       if (!res.ok) throw await httpError("OpenAI", res);
       const data = await res.json() as any;
-      const content = (data.output ?? []).filter((o: any) => o.type === "message").flatMap((o: any) => o.content ?? []);
-      if (content.some((c: any) => c.type === "refusal")) throw new Classified("blocked", "OpenAI refused to answer");
+      const messages: any[] = (data.output ?? []).filter((o: any) => o.type === "message");
+      if (messages.some((m) => (m.content ?? []).some((c: any) => c.type === "refusal"))) throw new Classified("blocked", "OpenAI refused to answer");
       if (data.status === "incomplete") throw new InvalidOutput(`output for ${schema.name} was cut off (${data.incomplete_details?.reason ?? "incomplete"})`);
-      const text = content.filter((c: any) => c.type === "output_text").map((c: any) => c.text).join("");
-      const parsed = schema.zod.safeParse(JSON.parse(text));
-      if (!parsed.success) throw new InvalidOutput(`output didn't match ${schema.name}: ${parsed.error.message.slice(0, 300)}`);
+      // With no reasoning, a model sometimes sends a garbled draft as one message and the answer as the next, so
+      // the last message that parses is the answer (found with gpt-6-luna on 2026-11-07).
+      let parsed: { success: true; data: T } | null = null;
+      let problem = "no output";
+      for (const m of [...messages].reverse()) {
+        const text = (m.content ?? []).filter((c: any) => c.type === "output_text").map((c: any) => c.text).join("");
+        try {
+          const r = schema.zod.safeParse(JSON.parse(text));
+          if (r.success) { parsed = { success: true, data: r.data }; break; }
+          problem = r.error.message.slice(0, 300);
+        } catch (e) {
+          problem = String(e).slice(0, 300);
+        }
+      }
+      if (!parsed) throw new InvalidOutput(`output didn't match ${schema.name}: ${problem}`);
       const u = data.usage ?? {};
       return {
         result: parsed.data,

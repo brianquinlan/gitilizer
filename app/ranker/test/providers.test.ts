@@ -97,6 +97,18 @@ describe("OpenAILLM", () => {
     expect(body.text.format).toMatchObject({ type: "json_schema", name: "ItemAssessment", strict: true });
   });
 
+  it("reads the last message that parses when a garbled draft comes first", async () => {
+    const { f } = fakeFetch([json({
+      status: "completed",
+      output: [
+        { type: "message", content: [{ type: "output_text", text: '{"actionable":true,"next_action":"Review. JSON.' }] },
+        { type: "message", content: [{ type: "output_text", text: JSON.stringify(assessment) }] },
+      ],
+      usage: {},
+    })]);
+    expect((await new OpenAILLM({ model: "m", apiKey: "k", fetch: f }).generate("s", "u", ASSESSMENT)).result).toEqual(assessment);
+  });
+
   it("reports a refusal as blocked and an incomplete answer as invalid output", async () => {
     const refusal = fakeFetch([json({ status: "completed", output: [{ type: "message", content: [{ type: "refusal", refusal: "no" }] }] })]);
     await expect(new OpenAILLM({ model: "m", apiKey: "k", fetch: refusal.f }).generate("s", "u", ASSESSMENT)).rejects.toMatchObject({ code: "blocked" });
@@ -115,6 +127,7 @@ describe("OpenAILLM", () => {
     expect(e(429, { code: "project_spend_limit_exceeded" }).code).toBe("credits_exhausted");
     expect(e(429, { message: "Rate limit reached for requests" }, 7)).toMatchObject({ code: "rate_limited", retryAfter: 7 });
     expect(e(503, { code: "server_is_overloaded" }).code).toBe("unavailable");
+    expect(e(400, { code: "invalid_prompt", message: "Invalid prompt: your prompt was flagged as potentially violating our usage policy." }).code).toBe("blocked");
   });
 
   it("treats a network failure as unavailable", () => {

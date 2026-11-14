@@ -1,0 +1,110 @@
+# PULL REQUEST googleapis/google-cloud-dart#345: feat(dns): initial support
+url: https://github.com/googleapis/google-cloud-dart/pull/345
+state: open (draft)
+author: brianquinlan (association with repo: MEMBER)
+created: 2026-09-10T18:31:05Z (45d ago)
+last updated: 2026-09-10T22:12:51Z (45d ago)
+labels: []
+assignees: []
+requested reviewers: []
+branch: brianquinlan:dns -> main
+reactions: {'eyes': 1}
+repository: googleapis/google-cloud-dart — [Experimental] Google Cloud Dart Client Libraries (stars: 23, open issues: 58, archived: False)
+
+## Derived signals (computed from the data below)
+- type: pull_request
+- my_roles: ['author', 'watches_repo']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: brianquinlan convert to draft 45d ago
+- last_human_actor_is_me: True
+- my_last_activity: convert to draft 45d ago
+- mentions_of_me: []
+- days_since_update: 44.9
+- days_since_created: 45.0
+- other_reviews: {'gemini-code-assist[bot]': 'COMMENTED 45d ago'}
+- review_decision: REVIEW_REQUIRED
+- unresolved_review_threads: 5
+- draft: True
+- merged: False
+- mergeable_state: dirty
+- size: +9938/-0 in 17 files
+- last_commit: 45d ago
+
+## Changed files (17)
+DEVELOPER_GUIDE.md (+3/-0), README.md (+1/-0), generated/google_cloud_dns_v1/.gitattributes (+8/-0), generated/google_cloud_dns_v1/CHANGELOG.md (+5/-0), generated/google_cloud_dns_v1/LICENSE (+201/-0), generated/google_cloud_dns_v1/README.md (+38/-0), generated/google_cloud_dns_v1/dart_test.yaml (+22/-0), generated/google_cloud_dns_v1/example/main.dart (+55/-0), generated/google_cloud_dns_v1/lib/dns.dart (+36/-0), generated/google_cloud_dns_v1/lib/src/api.g.dart (+9230/-0), generated/google_cloud_dns_v1/lib/testing.dart (+30/-0), generated/google_cloud_dns_v1/pubspec.yaml (+36/-0), generated/google_cloud_dns_v1/skills/google_cloud_dns_v1-setup/SKILL.md (+108/-0), generated/google_cloud_dns_v1/skills/google_cloud_dns_v1-tests/SKILL.md (+102/-0), generated/google_cloud_dns_v1/test/dns_test.dart (+44/-0) … and 2 more
+
+## Description
+(empty)
+
+## Activity (10 events, oldest first)
+[2026-09-10 18:27Z, 45d ago] Brian Quinlan pushed commit 7835462 'feat(dns): initial support'
+[2026-09-10 18:29Z, 45d ago] Brian Quinlan pushed commit 5ee2d63 'Fixes'
+[2026-09-10 18:31Z, 45d ago] brianquinlan (ME) opened this PR
+[2026-09-10 18:33Z, 45d ago] gemini-code-assist[bot] reviewed [COMMENTED]:
+    ## Code Review
+    
+    This pull request introduces the new `google_cloud_dns_v1` package, updating the workspace configuration, developer guides, and adding initial implementation files, examples, and tests. The review feedback highlights several critical issues: a compile-time error in the example code due to unsafe handling of the nullable `response.managedZones` list, a potential test failure in `dns_test.dart` for the same nullable field, and multiple runtime failures in the documentation examples where `Policies_UpdateRequest` is instantiated without its required `project` and `policy` parameters.
+[2026-09-10 18:33Z, 45d ago] gemini-code-assist[bot] left inline review comment on generated/google_cloud_dns_v1/example/main.dart:
+    ![high](https://www.gstatic.com/codereviewagent/high-priority.svg)
+    
+    The `response.managedZones` field is nullable (`List<ManagedZone>?`). Accessing `.isEmpty` directly or iterating over it without a null check will cause a compile-time error under sound null safety. Use a local variable with a null check to safely handle the nullable list.
+    
+    ```suggestion
+        final zones = response.managedZones;
+        if (zones == null || zones.isEmpty) {
+          print('  (none)');
+        } else {
+          for (final zone in zones) {
+            print('  - ${zone.name} (${zone.dnsName})');
+          }
+        }
+    ```
+[2026-09-10 18:33Z, 45d ago] gemini-code-assist[bot] left inline review comment on generated/google_cloud_dns_v1/test/dns_test.dart:
+    ![medium](https://www.gstatic.com/codereviewagent/medium-priority.svg)
+    
+    Since `response.managedZones` is nullable, it can be `null` if the project has no managed zones (which is often the case for a newly created test project). Expecting it to be strictly a `List<ManagedZone>` will cause the test to fail. Update the assertion to allow `null` or a `List<ManagedZone>`.
+    
+    ```dart
+          expect(response.managedZones, anyOf(isNull, isA<List<ManagedZone>>()));
+    ```
+[2026-09-10 18:33Z, 45d ago] gemini-code-assist[bot] left inline review comment on generated/google_cloud_dns_v1/skills/google_cloud_dns_v1-setup/SKILL.md:
+    ![medium](https://www.gstatic.com/codereviewagent/medium-priority.svg)
+    
+    The `Policies_UpdateRequest` requires path parameters such as `project` and `policy` to be specified. Calling `Policies_UpdateRequest()` without these parameters will fail at runtime. Please update the example to include these fields or add a comment indicating they are required.
+    
+    ```suggestion
+        final response = await client.update(
+          Policies_UpdateRequest(
+            project: 'my-project',
+            policy: 'my-policy',
+          ),
+        );
+    ```
+[2026-09-10 18:33Z, 45d ago] gemini-code-assist[bot] left inline review comment on generated/google_cloud_dns_v1/skills/google_cloud_dns_v1-setup/SKILL.md:
+    ![medium](https://www.gstatic.com/codereviewagent/medium-priority.svg)
+    
+    The `Policies_UpdateRequest` requires path parameters such as `project` and `policy` to be specified. Calling `Policies_UpdateRequest()` without these parameters will fail at runtime. Please update the example to include these fields or add a comment indicating they are required.
+    
+    ```suggestion
+        final response = await client.update(
+          Policies_UpdateRequest(
+            project: 'my-project',
+            policy: 'my-policy',
+          ),
+        );
+    ```
+[2026-09-10 18:33Z, 45d ago] gemini-code-assist[bot] left inline review comment on generated/google_cloud_dns_v1/skills/google_cloud_dns_v1-tests/SKILL.md:
+    ![medium](https://www.gstatic.com/codereviewagent/medium-priority.svg)
+    
+    The `Policies_UpdateRequest` requires path parameters such as `project` and `policy` to be specified. Calling `Policies_UpdateRequest()` without these parameters will fail at runtime. Please update the example to include these fields or add a comment indicating they are required.
+    
+    ```suggestion
+      await service.update(
+        Policies_UpdateRequest(
+          project: 'my-project',
+          policy: 'my-policy',
+        ),
+      );
+    ```
+[2026-09-10 22:12Z, 45d ago] brianquinlan (ME) convert to draft
