@@ -65,7 +65,7 @@ The ranking agent is the AI that reads each issue and PR and gives it a score. Y
 | Claude | Anthropic | No free tier: Anthropic bills your account for each item ranked. |
 | OpenAI | OpenAI | No free tier: OpenAI bills your account for each item ranked. |
 
-Gitilizer chooses the model for each agent. Whichever you choose, it sends one request for each new or changed item, and one for every item once a day so that scores that depend on age stay current. Settings shows a typical monthly cost for every 100 issues and PRs.
+Gitilizer chooses the model for each agent. Whichever you choose, it sends one request for each new or changed item, and one for every item once a day so that scores that depend on age stay current. Gitilizer recommends Gemini: it ranked best in our tests, at the lowest cost. Claude and OpenAI rank about as well and cost more for each item, so they suit you best if you or your company already has an API account with Anthropic or OpenAI.
 
 **Switching agents.** In Settings, choose another agent in **Ranking agent**, add its key if you haven't before, and save. Gitilizer keeps the keys of the agents you aren't using, so you can switch back without pasting a key again, until you choose **Remove**. Scores from different agents don't line up exactly, so when you switch with **Save changes**, Gitilizer asks whether to rank everything again now (**Switch and re-rank**), or rank new and changed items now and the rest at the daily re-rank, within 24 hours (**Switch**).
 
@@ -93,13 +93,13 @@ A key with billing turned on has much higher limits, so it rarely runs out, and 
 
 ## Claude API keys
 
-Create a key in the [Claude Console](https://platform.claude.com/settings/keys) and add credits to your account there. Gitilizer ranks with `claude-haiku-5-5`, Anthropic's smallest current model. If your key belongs to a workspace that limits which models it can use, allow that one.
+Create a key in the [Claude Console](https://platform.claude.com/settings/keys) and add credits to your account there. A Claude Pro subscription doesn't cover this: Anthropic bills API usage separately, to a Console account. Gitilizer ranks with `claude-sonnet-5-5`. If your key belongs to a workspace that limits which models it can use, allow that one.
 
 When your credits run out, or you reach a spend limit you set, Gitilizer pauses ranking and shows **"Your Anthropic credits have run out"**. It tries again every 15 minutes, so ranking resumes soon after you add credits. A new account's usage tier also limits how many requests a minute it can make; Gitilizer slows down by itself when it reaches that limit.
 
 ## OpenAI API keys
 
-Create a key in the [OpenAI dashboard](https://platform.openai.com/api-keys) and add credits to your account there. Gitilizer ranks with `gpt-6-luna`, OpenAI's smallest current model. If your key or its project limits which models it can use, allow that one.
+Create a key in the [OpenAI dashboard](https://platform.openai.com/api-keys) and add credits to your account there. A ChatGPT Plus subscription doesn't cover this: OpenAI bills API usage separately, to an API account. Gitilizer ranks with `gpt-6.1-sol`. If your key or its project limits which models it can use, allow that one.
 
 When your credits run out, or you reach a spend or usage limit, Gitilizer pauses ranking and shows **"Your OpenAI credits have run out"**. It tries again every 15 minutes, so ranking resumes soon after you add credits.
 

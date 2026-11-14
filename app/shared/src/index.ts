@@ -115,43 +115,35 @@ export type RankingAgent = z.infer<typeof RankingAgent>;
 export const AgentKeyKind = z.enum(["gemini_key", "anthropic_key", "openai_key"]);
 export type AgentKeyKind = z.infer<typeof AgentKeyKind>;
 
-/** What the interface says about each agent (SET-1, SET-4, SET-32, SET-38, SET-41, WEL-5). */
+/** What the interface says about each agent (SET-1, SET-4, SET-32, SET-38, WEL-5). */
 export const AGENT_INFO: Record<RankingAgent, {
   name: string;
   vendor: string;
   kind: AgentKeyKind;
-  /** The second line of a choice in the Settings picker (SET-38). */
-  tag: string;
+  /** The agent Gitilizer recommends: it ranked best in evaluation at the lowest cost (PRD Q-85). */
+  recommended: boolean;
+  /** Has a free tier ("Free tier available"); the others are "Pay as you go". */
   free: boolean;
   setup: { text: string; href: string };
   /** Where the developer manages the key, in notification and Validate text. */
   console: string;
   /** Anchor of the agent's section in the user guide (SET-32). */
   docs: string;
-  billing: string;
-  /** "About {cost} a month for every 100 issues and PRs…" until the figures are measured (PRD Q-86). */
-  cost: string;
 }> = {
   gemini: {
-    name: "Gemini", vendor: "Google", kind: "gemini_key", tag: "Google · free tier", free: true,
+    name: "Gemini", vendor: "Google", kind: "gemini_key", recommended: true, free: true,
     setup: { text: "Get an API key", href: "https://aistudio.google.com/apikey" },
     console: "Google AI Studio", docs: "gemini-api-keys",
-    billing: "Free tier, with a small daily quota. A key with billing turned on avoids pauses.",
-    cost: "About {cost} a month for every 100 issues and PRs, with billing turned on.",
   },
   claude: {
-    name: "Claude", vendor: "Anthropic", kind: "anthropic_key", tag: "Anthropic · paid", free: false,
+    name: "Claude", vendor: "Anthropic", kind: "anthropic_key", recommended: false, free: false,
     setup: { text: "Get an API key", href: "https://platform.claude.com/settings/keys" },
     console: "the Claude Console", docs: "claude-api-keys",
-    billing: "No free tier. Anthropic bills your account for every issue and PR ranked.",
-    cost: "About {cost} a month for every 100 issues and PRs.",
   },
   openai: {
-    name: "OpenAI", vendor: "OpenAI", kind: "openai_key", tag: "OpenAI · paid", free: false,
+    name: "OpenAI", vendor: "OpenAI", kind: "openai_key", recommended: false, free: false,
     setup: { text: "Get an API key", href: "https://platform.openai.com/api-keys" },
     console: "the OpenAI dashboard", docs: "openai-api-keys",
-    billing: "No free tier. OpenAI bills your account for every issue and PR ranked.",
-    cost: "About {cost} a month for every 100 issues and PRs.",
   },
 };
 

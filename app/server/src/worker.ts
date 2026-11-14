@@ -7,7 +7,7 @@ import type { Ctx } from "./context.ts";
 import { completeJob, failJob, reapLeases, type ClaimedJob } from "./jobs.ts";
 import { log } from "./log.ts";
 
-/** Gemini ranks with the lowest thinking level its models allow (PRD RANK-11); Claude and OpenAI with none (RANK-19). */
+/** Gemini ranks with the lowest thinking level its models allow (PRD RANK-11); Claude without thinking and OpenAI at its own lowest effort (RANK-19). */
 export const THINKING_LEVEL = "low";
 const LEASE_SECONDS = 120;
 /**

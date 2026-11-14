@@ -33,14 +33,14 @@ describe("ClaudeLLM", () => {
       content: [{ type: "text", text: JSON.stringify(assessment) }], stop_reason: "end_turn",
       usage: { input_tokens: 4900, output_tokens: 120, output_tokens_details: { thinking_tokens: 0 } },
     })]);
-    const llm = new ClaudeLLM({ model: "claude-haiku-5-5", apiKey: "sk-ant-x", fetch: f });
+    const llm = new ClaudeLLM({ model: "claude-sonnet-5-5", apiKey: "sk-ant-x", fetch: f });
     const r = await llm.generate("system", "user", ASSESSMENT);
     expect(r.result).toEqual(assessment);
     expect(r.usage).toEqual({ prompt_tokens: 4900, output_tokens: 120, thinking_tokens: 0 });
     const body = JSON.parse(String(calls[0].init.body));
     expect(calls[0].url).toBe("https://api.anthropic.com/v1/messages");
     expect((calls[0].init.headers as any)["x-api-key"]).toBe("sk-ant-x");
-    expect(body).toMatchObject({ model: "claude-haiku-5-5", system: "system", messages: [{ role: "user", content: "user" }] });
+    expect(body).toMatchObject({ model: "claude-sonnet-5-5", system: "system", messages: [{ role: "user", content: "user" }] });
     expect(body.output_config.format.schema.additionalProperties).toBe(false);
     expect(body.thinking).toBeUndefined();
   });
@@ -88,12 +88,12 @@ describe("OpenAILLM", () => {
       output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(assessment) }] }],
       usage: { input_tokens: 4800, output_tokens: 60, output_tokens_details: { reasoning_tokens: 0 } },
     })]);
-    const r = await new OpenAILLM({ model: "gpt-6-luna", apiKey: "sk-proj-x", fetch: f }).generate("system", "user", ASSESSMENT);
+    const r = await new OpenAILLM({ model: "gpt-6.1-sol", apiKey: "sk-proj-x", fetch: f }).generate("system", "user", ASSESSMENT);
     expect(r.result).toEqual(assessment);
     expect(r.usage).toEqual({ prompt_tokens: 4800, output_tokens: 60, thinking_tokens: 0 });
     const body = JSON.parse(String(calls[0].init.body));
     expect(calls[0].url).toBe("https://api.openai.com/v1/responses");
-    expect(body).toMatchObject({ model: "gpt-6-luna", instructions: "system", input: "user", reasoning: { effort: "none" }, store: false });
+    expect(body).toMatchObject({ model: "gpt-6.1-sol", instructions: "system", input: "user", reasoning: { effort: "low" }, store: false });
     expect(body.text.format).toMatchObject({ type: "json_schema", name: "ItemAssessment", strict: true });
   });
 
@@ -137,18 +137,18 @@ describe("OpenAILLM", () => {
 
 describe("agents", () => {
   it("picks the agent from a model's name", () => {
-    expect(agentForModel("claude-haiku-5-5")).toBe("claude");
-    expect(agentForModel("gpt-6-luna")).toBe("openai");
+    expect(agentForModel("claude-sonnet-5-5")).toBe("claude");
+    expect(agentForModel("gpt-6.1-sol")).toBe("openai");
     expect(agentForModel("gemini-3.8-flash")).toBe("gemini");
   });
 
   it("checks a key by looking up the model, without using tokens", async () => {
-    const ok = fakeFetch([json({ id: "claude-haiku-5-5" })]);
-    expect((await checkAgentKey("claude", "k", "claude-haiku-5-5", ok.f)).result).toBe("ok");
-    expect(ok.calls[0].url).toBe("https://api.anthropic.com/v1/models/claude-haiku-5-5");
+    const ok = fakeFetch([json({ id: "claude-sonnet-5-5" })]);
+    expect((await checkAgentKey("claude", "k", "claude-sonnet-5-5", ok.f)).result).toBe("ok");
+    expect(ok.calls[0].url).toBe("https://api.anthropic.com/v1/models/claude-sonnet-5-5");
     const results = [];
     for (const [status, body] of [[401, {}], [404, {}], [429, { error: { code: "insufficient_quota" } }], [503, {}]] as const) {
-      results.push((await checkAgentKey("openai", "k", "gpt-6-luna", fakeFetch([json(body, status)]).f)).result);
+      results.push((await checkAgentKey("openai", "k", "gpt-6.1-sol", fakeFetch([json(body, status)]).f)).result);
     }
     expect(results).toEqual(["not_accepted", "permission_denied", "no_credits", "unreachable"]);
     expect((await checkAgentKey("openai", "k", "m", fakeFetch([new TypeError("fetch failed")]).f)).result).toBe("unreachable");

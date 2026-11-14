@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-14 (Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -449,13 +449,19 @@ fields instead of the whole Settings page.
   list (`SET-5`). If any fails, nothing is saved and the developer stays on
   Warm Welcome with the failure under its field ([Q-82](#q-82)).
 - **WEL-5** Between the two fields, under the label "Ranking agent", three tiles
-  must offer the agents, as in Figma: "Gemini" ("Google", "Free tier
-  available"), "Claude" ("Anthropic", "Pay as you go") and "OpenAI" ("OpenAI",
-  "Pay as you go"). Gemini is chosen at first. Under the tiles is the hint "Not
-  sure? Gemini's free tier is the easiest way to try Gitilizer." Choosing a tile
-  changes the second field's label, setup link and guidance text to that agent's
-  (`SET-1`, `SET-4`, `SET-32`) and clears a value typed for another agent, with
-  its Validate result. "Save" saves the chosen agent as the one in use.
+  must offer the agents, as in Figma. Gemini comes first, across the full
+  width, and is the one Gitilizer recommends: "Gemini" ("Google"), the pills
+  "Recommended" and "Free tier available", and the line "Ranked best in our
+  tests, at the lowest cost." Under it, the label "Or use an API account you
+  already have" introduces two tiles side by side, "Claude" ("Anthropic", "Pay
+  as you go") and "OpenAI" ("OpenAI", "Pay as you go"), followed by the note
+  "Choose one if you or your company already has an API account with Anthropic
+  or OpenAI." The labels say "API account" because a Claude Pro or ChatGPT Plus
+  subscription doesn't cover API usage.
+  Gemini is chosen at first. Choosing a tile changes the second field's label,
+  setup link and guidance text to that agent's (`SET-1`, `SET-4`, `SET-32`) and
+  clears a value typed for another agent, with its Validate result. "Save" saves
+  the chosen agent as the one in use.
 
 ---
 
@@ -686,8 +692,7 @@ for the ranking agent the developer chooses.
   masked. Each card has its title and status chip, then the field, then the
   guidance text under it, with no description between the title and the
   field: the guidance text already says what the credential is for. The
-  Ranking agent card also has the agent picker above its field (`SET-38`) and
-  the billing and cost notes below it (`SET-41`).
+  Ranking agent card also has the agent picker above its field (`SET-38`).
 - **SET-2** Each credential must have a "Validate" button that checks the value typed in the field, without saving it, and shows the result under the field (`SET-28`).
 - **SET-21** "Validate" must be disabled while its field is empty. That includes when the field shows a saved credential: a saved credential appears as dots, can't be shown or edited, and can't be validated again until it is replaced. The eye icon shows only a value typed during this visit. (Figma shows both Validate buttons disabled, because both credentials are saved.)
 - **SET-3** Each credential card must show a status chip (`SET-30`).
@@ -741,13 +746,19 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   notification about it is active; "Expires soon" (amber) while the GitHub
   token's expiry warning is active. On the Ranking agent card, the chip is about
   the key of the agent chosen in the picker.
-- **SET-38** The Ranking agent card must have a picker with three choices, as in
-  Figma: "Gemini" ("Google · free tier"), "Claude" ("Anthropic · paid") and
-  "OpenAI" ("OpenAI · paid"). It starts on the agent in use. Choosing another
-  shows that agent's field, setup link, guidance text, notes and status chip in
-  the card, and clears a value typed for the previous agent, with its Validate
-  result or field error. The new choice takes effect only when Settings is saved
-  (`SET-14`, `SET-40`).
+- **SET-38** The Ranking agent card must have a picker with three choices, laid
+  out as on Warm Welcome (`WEL-5`) and as in Figma. "Gemini" ("Google") comes
+  first, across the full width, with the pills "Recommended" and "Free tier
+  available" and the line "Ranked best in our tests, at the lowest cost." Under
+  the label "Or use an API account you already have" are "Claude"
+  ("Anthropic") and "OpenAI" ("OpenAI"), side by side, each with the pill "Pay
+  as you go". The
+  card says nothing else about what an agent costs or how well it ranks,
+  because such details go out of date ([Q-86](#q-86)). The picker starts on the
+  agent in use. Choosing another shows that agent's field, setup link, guidance
+  text and status chip in the card, and clears a value typed for the previous
+  agent, with its Validate result or field error. The new choice takes effect
+  only when Settings is saved (`SET-14`, `SET-40`).
 - **SET-39** Gitilizer must keep a saved key for each agent, so the developer
   can switch back without pasting it again. Under the guidance text, for each
   agent other than the chosen one that has a saved key, the card shows "Your
@@ -778,18 +789,8 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   new agent's key was saved before; ends any pause caused by the previous agent
   (`RANK-20`), so waiting items are ranked with the new one; and clears the
   notifications about the previous agent (`NOTIF-23`).
-- **SET-41** Under the field, the Ranking agent card must show two notes about
-  the chosen agent, "Billing" and "Typical cost", as in Figma:
-
-  | Agent | Billing | Typical cost |
-  |---|---|---|
-  | Gemini | Free tier, with a small daily quota. A key with billing turned on avoids pauses. | About {cost} a month for every 100 issues and PRs, with billing turned on. |
-  | Claude | No free tier. Anthropic bills your account for every issue and PR ranked. | About {cost} a month for every 100 issues and PRs. |
-  | OpenAI | No free tier. OpenAI bills your account for every issue and PR ranked. | About {cost} a month for every 100 issues and PRs. |
-
-  Each {cost} is a fixed figure that Gitilizer updates when prices or models
-  change, not a calculation for the developer's own list. **TODO:** the
-  figures ([Q-86](#q-86)).
+- **SET-41** Removed on 2026-11-14. The Ranking agent card no longer shows
+  "Billing" and "Typical cost" notes ([Q-86](#q-86)).
 
 ### Additional repositories
 
@@ -971,10 +972,10 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   daily re-rank (`RANK-9`) uses whichever model is available, so over time items
   are scored again by the primary model as its quota allows.
 - **RANK-18** Each call to the ranking agent scores exactly one item.
-- **RANK-19** With Claude, Gitilizer must rank with `claude-haiku-5-5`, and with
-  OpenAI with `gpt-6-luna`, with thinking turned down as far as the model
-  allows, as for Gemini (`RANK-11`). They are each provider's cheapest current
-  model, chosen before measuring; evaluation (`RANK-7`) may change them
+- **RANK-19** With Claude, Gitilizer must rank with `claude-sonnet-5-5`,
+  without thinking, and with OpenAI with `gpt-6.1-sol`, at its lowest reasoning
+  effort, "low". Evaluation (`RANK-7`) chose them: they rank about as well as
+  Gemini, where each provider's cheapest model ranks clearly worse
   ([Q-85](#q-85)). Neither has a free tier or a daily quota per model, so there
   are no backup models: when credits run out, ranking pauses (`RANK-20`) with
   the "Your {provider} credits have run out" error. The same model makes the
@@ -1081,9 +1082,7 @@ Gitilizer keeps:
 
 New questions are marked **TODO:** where they come up and listed here.
 
-| ID | Question | Suggested answer | Where |
-|---|---|---|---|
-| <a id="q-86"></a>Q-86 | The "Typical cost" figures | Measure them in the development environment: ranking calls per item per month (at least 30, from the daily re-rank, `RANK-9`, plus changes and Icebox checks), times the tokens per call, times each provider's price. Recording each call's token counts makes this exact. | `SET-41` |
+There are none at the moment.
 
 Q-58 to Q-63 were found by building the prototype described in the [design
 doc](DESIGN.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers
@@ -1179,7 +1178,8 @@ environment; Q-84 to Q-86 came from adding Claude and OpenAI.
 | <a id="q-82"></a>Q-82 | Entering credentials on Warm Welcome, and what Save does when one fails | Warm Welcome has both fields itself, instead of a "Go to Settings" button, so setup is less overwhelming. Save validates any value not yet validated and saves nothing unless both pass. Saving in Settings still doesn't validate. | `WEL-2` to `WEL-4`, `SET-29` |
 | <a id="q-83"></a>Q-83 | Hiding whole repositories | Settings has an Excluded repositories list of repositories and owners (organizations or personal accounts). Nothing from them appears, even when the developer is assigned, asked to review or mentioned. Exclusions are part of the GitHub searches, so they don't use up the 1,000-result window. An additional repository inside an excluded owner still appears; the same repository can't be in both lists. Excluding by author, per-repository rules for each inclusion reason, and a filter language were considered and not chosen for now. | `SET-33` to `SET-37`, `LIST-1`, `SCAN-1`, `ICE-11` |
 | <a id="q-84"></a>Q-84 | Ranking agents other than Gemini | The developer chooses one ranking agent, Gemini, Claude or OpenAI, and gives Gitilizer its API key. Gitilizer keeps the keys of the others, so switching back is easy, and switching asks whether to re-rank now. A primary agent with backups, and any OpenAI-compatible endpoint, were considered and not chosen for now. | `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`, `NOTIF-23` |
-| <a id="q-85"></a>Q-85 | Which Claude and OpenAI models rank | `claude-haiku-5-5` and `gpt-6-luna` for now: each provider's cheapest current model, at $0.10 per million input tokens and $0.50 per million output tokens on 2026-11-07. To be measured with the evaluation harness, against `gemini-3.8-flash` at low thinking, for both ranking and the Icebox check (`ICE-13`), before release. | `RANK-19` |
+| <a id="q-85"></a>Q-85 | Which Claude and OpenAI models rank | `claude-sonnet-5-5` and `gpt-6.1-sol`. Changed on 2026-11-14 from `claude-haiku-5-5` and `gpt-6-luna`, each provider's cheapest model, after evaluation: over ten prompts the cheapest models' mean Kendall tau was 0.52 and 0.57, against 0.69 for each of the chosen models and 0.72 for `gemini-3.8-flash` at low thinking, which also costs less than either (`eval/prompt-variants-2026-11-07.md`). That is why Gemini is the recommended agent (`WEL-5`, `SET-38`). The Icebox check (`ICE-13`) hasn't been measured with them yet. | `RANK-19` |
+| <a id="q-86"></a>Q-86 | The "Typical cost" figures | Not shown. Settings no longer has billing and cost notes (`SET-41`): figures and billing details go out of date as prices and models change. Gitilizer says only that Gemini ranked best in its tests at the lowest cost and has a free tier, and that Claude and OpenAI are pay as you go. The documentation behind "Learn more" still covers what each agent costs (`SET-32`). | `SET-38`, `WEL-5` |
 
 ---
 
@@ -1538,3 +1538,31 @@ Found while building excluded repositories, by testing GitHub's issue search, an
   says "an API key for Gemini, Claude or OpenAI" instead of "a Gemini API key"
   (`AUTH-4`). Masked credentials in the Settings frames fit on one line, and
   Warm Welcome's Validate results use the words in `SET-28`.
+
+### Thirty-second revision (2026-11-14)
+
+- Gemini is now the recommended ranking agent. On Warm Welcome and in the
+  Settings picker it comes first, across the full width, with "Recommended",
+  "Free tier available" and "Ranked best in our tests, at the lowest cost."
+  Claude and OpenAI follow under "Or use an API account you already have", each
+  with "Pay as you go" (`WEL-5`, `SET-38`). Warm Welcome's "Not sure?" hint is
+  replaced by a note about who Claude and OpenAI are for.
+- Removed the "Billing" and "Typical cost" notes from the Ranking agent card
+  (`SET-41`, `SET-1`), because they go out of date. Q-86 is answered: the
+  figures aren't shown.
+- Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol` instead of
+  `claude-haiku-5-5` and `gpt-6-luna`, which ranked clearly worse in evaluation
+  (`RANK-19`, Q-85).
+- Changed Figma: the Ranking agent card in
+  [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802),
+  [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509),
+  [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237)
+  and
+  [Settings · Switch ranking agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631);
+  the agent tiles in
+  [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832);
+  and the
+  [Settings / Ranking agent option](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2497)
+  and
+  [Warm Welcome / Ranking agent tile](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2522)
+  components.

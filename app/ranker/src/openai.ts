@@ -39,8 +39,8 @@ export class OpenAILLM implements LLM {
   constructor(opts: ProviderOptions) {
     this.model = opts.model;
     this.apiKey = opts.apiKey ?? process.env.OPENAI_API_KEY ?? "";
-    // "none" is the lowest reasoning effort the current models allow (RANK-19).
-    this.effort = opts.thinkingLevel ?? "none";
+    // "low" is the lowest reasoning effort gpt-6.1-sol allows; it refuses "none" (RANK-19).
+    this.effort = opts.thinkingLevel ?? "low";
     this.maxRetries = opts.maxRetries ?? 6;
     this.timeoutMs = opts.timeoutMs ?? null;
     this.f = opts.fetch ?? fetch;

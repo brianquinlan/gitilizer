@@ -120,7 +120,7 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 |---|---|
 | `GITILIZER_MODEL` | The primary Gemini model to rank with; the backup models stay the same (also read from `.env`). |
 | `GITILIZER_MODELS` | The whole fallback list, comma-separated, primary first (default `gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite`). |
-| `GITILIZER_CLAUDE_MODEL`, `GITILIZER_OPENAI_MODEL` | The model Claude or OpenAI ranks with (default `claude-haiku-5-5` and `gpt-6-luna`). |
+| `GITILIZER_CLAUDE_MODEL`, `GITILIZER_OPENAI_MODEL` | The model Claude or OpenAI ranks with (default `claude-sonnet-5-5` and `gpt-6.1-sol`). |
 | `LOG_LEVEL` | How much the server logs: `debug` (the default in local mode: every ranked item), `info`, `warn` or `error`. |
 | `CREDENTIAL_KEY` | Overrides the saved encryption key. If you change it, credentials saved with the old key can no longer be read; use `--reset`. |
 | `DATABASE_URL` | Uses a real Postgres server instead of PGlite, for example `postgres://localhost/gitilizer`. |

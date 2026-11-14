@@ -35,8 +35,6 @@ export function CredentialField(props: {
   check: Check; onCheck: (c: Check) => void;
   /** A problem found when saving, such as a ranking agent with no key (SET-27). */
   error?: string;
-  /** Shown between the Validate result and the guidance text: the ranking agent's notes (SET-41). */
-  notes?: ReactNode;
 }) {
   const { kind, value, check, onCheck } = props;
   const id = credentialFieldId(kind);
@@ -81,7 +79,6 @@ export function CredentialField(props: {
         : check && <span className={`result ${check.ok ? "" : "bad"}`} role="status">
             {check.ok ? <CheckCircleIcon /> : <XCircleIcon />} {checkMessage(kind, check)}
           </span>}
-      {props.notes}
       <p className="fine">
         {props.guidance} <a className="fine-link" href={props.learnMore} target="_blank" rel="noreferrer">Learn more <ExternalIcon /></a>
       </p>
