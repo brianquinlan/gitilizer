@@ -112,7 +112,9 @@ export class RankingWorker {
       this.stats.failed[c.code] = (this.stats.failed[c.code] ?? 0) + 1;
       // Expected, short-lived failures are counted in the summary; the rest need a look.
       const expected = ["rate_limited", "unavailable", "daily_quota"].includes(c.code);
-      log[expected ? "debug" : "warn"]("worker", "job failed", { item: job.itemKey, agent: job.agent, model: job.model, code: c.code, message: c.message.slice(0, 300) });
+      // The stack says where an unclassified failure came from, which the message alone often doesn't.
+      const stack = ["internal", "unknown"].includes(c.code) && e instanceof Error ? e.stack?.slice(0, 2000) : undefined;
+      log[expected ? "debug" : "warn"]("worker", "job failed", { item: job.itemKey, agent: job.agent, model: job.model, code: c.code, message: c.message.slice(0, 300), stack });
       try {
         await failJob(this.ctx, job.id, { code: c.code, message: c.message.slice(0, 500), retryAfterSeconds: c.retryAfter });
       } catch (dbError) {
