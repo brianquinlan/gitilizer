@@ -12,7 +12,8 @@
 # real one). SIGN_IN_ALLOWLIST is never written to the repository: it is read from your shell, or from the
 # service's current setting.
 #
-# The Gitilizer GitHub App ("Connect GitHub") is optional: add GITHUB_APP_CLIENT_ID and GITHUB_APP_SLUG, and
+# The Gitilizer GitHub App ("Connect GitHub") is optional: add GITHUB_APP_CLIENT_ID and GITHUB_APP_SLUG (the
+# app's URL name, or its whole public link), and
 # GITHUB_APP_ID if its private key is stored, after infra/github-app-secrets.sh. Like the other IDs they are
 # kept from the service's current settings when left out. Without them the service offers the token only.
 source "$(dirname "$0")/config.sh"
@@ -63,6 +64,7 @@ secrets+=",GOOGLE_CLIENT_SECRET=$env-google-client-secret:latest,GITHUB_CLIENT_S
 # The Gitilizer GitHub App (DEPLOYMENT.md, "The Gitilizer GitHub App").
 app_client=${GITHUB_APP_CLIENT_ID:-$(setting GITHUB_APP_CLIENT_ID)}
 app_slug=${GITHUB_APP_SLUG:-$(setting GITHUB_APP_SLUG)}
+app_slug=${app_slug%/}; app_slug=${app_slug##*/} # the app's public link works too: keep its last part
 app_id=${GITHUB_APP_ID:-$(setting GITHUB_APP_ID)}
 if [[ -n $app_client || -n $app_slug ]]; then
   [[ -n $app_client && -n $app_slug ]] || { echo "Set both GITHUB_APP_CLIENT_ID and GITHUB_APP_SLUG."; exit 2; }

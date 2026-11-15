@@ -248,7 +248,8 @@ Then, for each app:
 
 1. On its page, note the **Client ID** (starts `Iv`) and the **App ID**, and
    the app's URL name: the last part of its public page,
-   `https://github.com/apps/<slug>`.
+   `https://github.com/apps/<slug>`. Either the slug or the whole link will do
+   as `GITHUB_APP_SLUG`.
 2. "Generate a new client secret", and store it with
    `bash infra/github-app-secrets.sh`, which asks for both environments'
    secrets without showing them.
