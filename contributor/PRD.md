@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); Q-93 to Q-96 are open); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; Q-93, Q-95 and Q-96 are open); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -131,7 +131,7 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
 | Prioritization prompt | Optional free text that the developer gives one additional repository, telling the ranking agent what matters in it, for example "Security issues only". |
 | Excluded repository | A repository, or an owner (an organization or a personal account), that the developer added under Excluded repositories in Settings. None of its items appear, whatever their inclusion reason. |
 | Ranking agent | The AI that scores items with the developer's own API key: Gemini (Google), Claude (Anthropic) or OpenAI. The developer chooses one and gives Gitilizer its API key, on Warm Welcome (Gemini only) or in Settings. Until they do, basic ranking scores their items. This document also calls it "the agent". |
-| Basic ranking | How Gitilizer scores the items of a developer who hasn't given it a ranking agent's API key: with a small model, using Gitilizer's own key and at its cost (`RANK-21`). It orders the top of the list well and the rest less precisely, and gives no reasoning. The interface calls it "basic ranking". |
+| Basic ranking | How Gitilizer scores the items of a developer who hasn't given it a ranking agent's API key: with a small model, using Gitilizer's own key and at its cost (`RANK-21`). It orders the top of the list well and the rest less precisely, and gives no reasoning. A developer can also choose it in Settings (`SET-38`). The interface calls it "basic ranking". |
 | Ranking prompt | The instructions the ranking agent follows for every item. The developer can replace the default in Settings. |
 | Collaborator | A GitHub user whose items and comments the developer wants scored higher. |
 | Scan | A backend job that reads the developer's items from GitHub and finds new, changed and removed items. |
@@ -179,7 +179,8 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Settings with errors | [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237): a failed Validate, a ranking agent chosen without its API key, a duplicate repository, an excluded repository that can't be found, an exclusion that is already an additional repository, a prompt that's too long, a duplicate collaborator, and the save buttons disabled | [Saving](#saving) |
 | Switching ranking agent | [Settings · Switch ranking agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631) | [Connections](#connections) |
 | GitHub card | Connected with the Gitilizer app: in [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802). Its other states: [Settings · GitHub card · Reconnect needed](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2937), [Settings · GitHub card · Missing permission](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2955), [Settings · GitHub card · Token in use](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-3015), [Settings · GitHub card · Not set](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=397-2761) | [Connecting GitHub](#connecting-github) |
-| Ranking agent choices | [Settings / Ranking agent option](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2497). [Warm Welcome / Ranking agent tile](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2522) is no longer used on Warm Welcome (`WEL-5`); it is kept until Settings is settled ([Q-94](#q-94)) | [Connections](#connections) |
+| Ranking agent choices | [Settings / Ranking agent option](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2497), whose "No key" variant is basic ranking | [Connections](#connections) |
+| Ranking agent card on basic ranking | [Settings · Ranking agent card · Basic ranking](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=406-2736) | [Connections](#connections) |
 
 ### Live reorder prototype
 
@@ -212,7 +213,7 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 | # | Condition | Screen |
 |---|---|---|
 | 1 | Not signed in | [Sign-in](#sign-in), for every URL. After signing in, the developer returns to the URL they asked for. |
-| 2 | Signed in, and the developer hasn't yet completed setup. Setup is complete once GitHub is connected (with the Gitilizer app or a PAT) and the developer has chosen how their items are ranked: with "Continue with basic ranking" or "Save and start" on Warm Welcome (`WEL-4`), or by saving a ranking agent's API key in Settings | [Warm Welcome](#warm-welcome) |
+| 2 | Signed in, and the developer hasn't yet completed setup. Setup is complete once GitHub is connected (with the Gitilizer app or a PAT) and the developer has chosen how their items are ranked: with "Continue with basic ranking" or "Save and start" on Warm Welcome (`WEL-4`), or by saving Settings with "Basic ranking", or a ranking agent that has a key, chosen (`SET-38`) | [Warm Welcome](#warm-welcome) |
 | 3 | Signed in, anything else | The screen the developer navigated to. The default is the [Prioritized list](#prioritized-list). |
 
 - **NAV-1** The rules above must be evaluated on every page load and whenever
@@ -771,22 +772,16 @@ Settings is one page. The left column has links to its sections (Connections, Ad
 ### Connections
 
 A GitHub connection is required. An API key for a ranking agent is optional:
-without one, Gitilizer ranks with basic ranking (`RANK-21`).
-
-**TODO ([Q-94](#q-94)):** the rest of this section is still written for a
-developer who has a key. The section's description ("Gitilizer needs a GitHub
-connection, and an API key for the ranking agent you choose, before it can scan
-and rank your inbox."), the Ranking agent card's picker and status chip
-(`SET-30`, `SET-38`), and the error for an agent chosen without a key
-(`SET-27`) don't yet allow for basic ranking. Until Q-94 is answered, a
-developer chooses basic ranking only on Warm Welcome (`WEL-4`), and Settings
-can't be saved without a key for the chosen agent, so a developer who connects
-with a PAT must also give a key.
+without one, Gitilizer ranks with basic ranking (`RANK-21`), which the developer
+can also choose here (`SET-38`, [Q-94](#q-94)). The section's description says
+so: "Gitilizer needs a GitHub connection to scan your inbox. An API key for
+ranking is optional." The section's heading has no "Required" badge.
 
 - **SET-1** Connections has two cards, in this order: "GitHub", where the
   developer connects GitHub with the Gitilizer app or enters a personal access
-  token (`SET-42`, `SET-47`), and "Ranking agent", where they enter an API key
-  for their ranking agent. The token field is labeled "Personal access token"
+  token (`SET-42`, `SET-47`), and "Ranking agent", where they choose a ranking
+  agent and enter its API key, or choose basic ranking (`SET-38`). The token
+  field is labeled "Personal access token"
   and the key field "{agent} API key" (for example "Gemini API key"). Each field
   is masked. Each card has its title and status chip, then its content, with a
   field's guidance text under the field and no description between the title and
@@ -853,20 +848,30 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   soon" (amber) while the GitHub token's expiry warning is active; "Needs
   attention" (amber) while a "Gitilizer can't read {permission} in {account}"
   warning is active (`SET-47`). On the Ranking agent card, the chip is about the
-  key of the agent chosen in the picker.
-- **SET-38** The Ranking agent card must have a picker with three choices, laid
-  out as in Figma. "Gemini" ("Google") comes
-  first, across the full width, with the pills "Recommended" and "Free tier
-  available" and the line "Ranked best in our tests, at the lowest cost." Under
-  the label "Or use an API account you already have" are "Claude"
-  ("Anthropic") and "OpenAI" ("OpenAI"), side by side, each with the pill "Pay
-  as you go". The
-  card says nothing else about what an agent costs or how well it ranks,
-  because such details go out of date ([Q-86](#q-86)). The picker starts on the
-  agent in use. Choosing another shows that agent's field, setup link, guidance
-  text and status chip in the card, and clears a value typed for the previous
-  agent, with its Validate result or field error. The new choice takes effect
-  only when Settings is saved (`SET-14`, `SET-40`).
+  key of the agent chosen in the picker. With "Basic ranking" chosen, it shows
+  "Basic" (grey).
+- **SET-38** The Ranking agent card must have a picker with four choices, laid
+  out as in Figma. "Gemini" ("Google") comes first, across the full width, with
+  the pills "Recommended" and "Free tier available" and the line "Ranked best
+  in our tests, at the lowest cost." Under the label "Or use an API account you
+  already have" are "Claude" ("Anthropic") and "OpenAI" ("OpenAI"), side by
+  side, each with the pill "Pay as you go". Under the label "Or rank without a
+  key" is "Basic ranking" ("Built in"), across the full width, with the pill
+  "No key needed" and the line "Good for your top items, less precise below
+  them, with no explanation for each rank." ([Q-94](#q-94)). The card says
+  nothing else about what a choice costs or how well it ranks, because such
+  details go out of date ([Q-86](#q-86)). The picker starts on the choice in
+  use: the developer's ranking agent, or "Basic ranking" for a developer on
+  basic ranking (`RANK-21`). For a developer who hasn't completed setup, it
+  starts on Gemini. Choosing an agent shows that agent's field, setup link,
+  guidance text and status chip in the card, and clears a value typed for the
+  previous agent, with its Validate result or field error. Choosing "Basic
+  ranking" shows no field: in its place is the text "Gitilizer ranks your list
+  itself, so there is nothing to set up.", with "Compare with your own key ↗"
+  inline at its end, which opens, in a new tab, the documentation about basic
+  ranking (`FOOT-3`), as in [Settings · Ranking agent card · Basic
+  ranking](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=406-2736).
+  The new choice takes effect only when Settings is saved (`SET-14`, `SET-40`).
 - **SET-39** Gitilizer must keep a saved key for each agent, so the developer
   can switch back without pasting it again. Under the guidance text, for each
   agent other than the chosen one that has a saved key, the card shows "Your
@@ -875,7 +880,8 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   key" link. Choosing it removes the line at once, and choosing that agent
   before saving then shows "Not set" and an empty field; the key is deleted
   when Settings is saved, and "Cancel" keeps it. The key of the agent in use
-  can't be removed, only replaced.
+  can't be removed, only replaced. A developer on basic ranking has no agent in
+  use, so every saved key has the link.
 - **SET-40** Choosing "Save changes" after choosing a different agent must first
   ask the developer to confirm, in a dialog as in Figma, when the chosen agent
   has a saved or typed key (otherwise `SET-27`'s error shows instead) and at
@@ -897,6 +903,10 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   new agent's key was saved before; ends any pause caused by the previous agent
   (`RANK-20`), so waiting items are ranked with the new one; and clears the
   notifications about the previous agent (`NOTIF-23`).
+
+  Choosing "Basic ranking", or choosing an agent while on basic ranking, is a
+  switch too. The dialog then says "basic ranking" where it would name an
+  agent, so its title can be "Switch ranking to basic ranking?".
 - **SET-41** Removed on 2026-11-14. The Ranking agent card no longer shows
   "Billing" and "Typical cost" notes ([Q-86](#q-86)).
 
@@ -1109,8 +1119,9 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 - **SET-27** Settings must show problems next to the field they belong to, as in [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237):
   - The field gets a red border, and a one-line message in red appears under it, for example "northstar/web is already in your list.", "Enter a repository as owner/name or paste its GitHub URL.", "northstar/web is one of your additional repositories. Remove it there first to exclude it.", "jordanlee is already a collaborator." or "A prompt can be at most 20,000 characters. This one has 21,345."
   - A ranking agent chosen without a saved or typed key is an error under its
-    field when the developer saves: "Add a {agent} API key, or choose an agent
-    you've already set up." ("an OpenAI API key" for OpenAI). Nothing is saved.
+    field when the developer saves: "Add a {agent} API key, or choose basic
+    ranking." ("an OpenAI API key" for OpenAI). Nothing is saved. Basic ranking
+    needs no key.
   - Repository, exclusion and collaborator errors appear when the developer chooses "Add repository", "Exclude" or "Add collaborator", and nothing is added. A prompt's error appears as soon as it goes over its limit, and a character count appears once a ranking prompt passes 18,000 characters.
   - While any error is showing, "Save changes" and "Save and re-rank" are disabled.
   - If the server finds a problem when saving, it is shown the same way, and the page scrolls to the first one.
@@ -1219,8 +1230,9 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
   developer switches agents (`SET-40`). Short-lived problems, such as rate
   limits, don't pause ranking: Gitilizer waits and retries (`RANK-6`).
 - **RANK-21** A developer who has completed setup without saving a ranking
-  agent's API key gets **basic ranking** ([Q-91](#q-91)): Gitilizer scores
-  their items itself, with Google's `gemini-decision-1` through the Gemini
+  agent's API key, or who chooses "Basic ranking" in Settings (`SET-38`), gets
+  **basic ranking** ([Q-91](#q-91)): Gitilizer scores their items itself, with
+  Google's `gemini-decision-1` through the Gemini
   Decisions API, using Gitilizer's own API key and at Gitilizer's cost. The key
   must be on a paid tier, so that Google doesn't use what it is sent to improve
   its products (`PRIV-2`). Basic ranking follows the rules above as a ranking
@@ -1236,9 +1248,9 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
   ground truth's first five, and the loss is in the order of the rest of the
   list ([evaluation](../eval/decision-model-2026-11-15.md)). Basic ranking
   isn't a backup: a developer whose own key stops working sees the error for it
-  (`RANK-20`), and Gitilizer doesn't rank for them meanwhile. Saving a ranking
-  agent's key later switches the developer to that agent, as `SET-40`
-  describes, with basic ranking as the previous agent. **TODO
+  (`RANK-20`), and Gitilizer doesn't rank for them meanwhile, unless they
+  choose basic ranking in Settings. Moving between basic ranking and a ranking
+  agent is a switch, as `SET-40` describes. **TODO
   ([Q-93](#q-93)):** what basic ranking leaves out to keep its cost within the
   budget (`PLAT-4`), and what the developer sees when Gitilizer's own limits
   hold it up. Until that is answered, the daily re-rank (`RANK-9`) and "Save
@@ -1353,7 +1365,6 @@ New questions are marked **TODO:** where they come up and listed here.
 | ID | Question | What is known | Where |
 |---|---|---|---|
 | <a id="q-93"></a>Q-93 | What basic ranking leaves out to keep its cost down, and what the developer sees when it is held up | Basic ranking costs Gitilizer about US$0.0006 an item. A 390-item list costs about US$0.23 for its first sync, and about US$7 a month if every item is ranked again daily (`RANK-9`). Hosting already takes about half of the US$200 budget, so the rest covers only a dozen or so such developers with the daily re-rank. Candidates: no daily re-rank; "Save and re-rank" and a custom ranking prompt only with the developer's own key (custom prompts haven't been tried with this model); a limit on items for each developer. Also undecided: what the developer sees while ranking waits on Google's limits for Gitilizer's key (50,000 requests a day until the billing account reaches Google's second usage tier). | `RANK-21`, `RANK-9`, `SET-15`, `PLAT-4`, `NFR-1` |
-| <a id="q-94"></a>Q-94 | Settings for a developer without a key | Settings still requires a key for the chosen agent. Undecided: how the Ranking agent card and its status chip show basic ranking; how a developer goes back to basic ranking; whether a developer who connects with a PAT can use basic ranking (today they can't, because Settings can't be saved without a key); and whether the Warm Welcome / Ranking agent tile component is still needed. | [Connections](#connections), `SET-27`, `SET-30`, `SET-38` |
 | <a id="q-95"></a>Q-95 | Telling a developer on basic ranking what they are missing, after setup | Warm Welcome says it once (`WEL-3`). Undecided: whether the Prioritized list says that ranking is basic, for example with a chip beside Sync now or a note during the first sync, and whether it says that private repositories aren't included while the Gitilizer app is installed on no account. | `WEL-3`, `WEL-6`, [Prioritized list](#prioritized-list) |
 | <a id="q-96"></a>Q-96 | A free-tier Gemini key whose quota for the primary model is used up | Warm Welcome says that Gemini ranked best and that Google's free tier costs nothing. A first sync can use up a free-tier key's daily quota for `gemini-3.8-flash`, after which Gitilizer ranks with the backup models (`RANK-13`). In evaluation those scored Kendall tau 0.58 and 0.40, against 0.55 to 0.58 for basic ranking. Candidates: fall back to basic ranking in place of the backup models; or leave it, and say so in the documentation. | `RANK-13`, `WEL-3` |
 
@@ -1461,6 +1472,7 @@ the ranking agent's API key optional.
 | <a id="q-90"></a>Q-90 | Organizations that use single sign-on, with the Gitilizer app | Out of scope for now: the trial of the app didn't reach such an organization. Gitilizer shows no message of its own for it, and the documentation tells developers to use a personal access token there. Revisit once it has been tried. | `SET-49`, `FOOT-3`, [Non-goals](#non-goals) |
 | <a id="q-91"></a>Q-91 | Trying Gitilizer without an API key | A ranking agent's API key is optional. A developer who connects GitHub and gives no key gets basic ranking: Gitilizer scores their items with Google's `gemini-decision-1`, with its own key and at its own cost, because having to create a key before seeing anything was thought likely to turn new developers away. Evaluation found that basic ranking orders the top of the list about as well as `gemini-3.8-flash` and the rest less precisely (Kendall tau 0.55 against 0.71), at about an eighth of the cost for each item, and that it gives no reasoning (`eval/decision-model-2026-11-15.md`). | `RANK-21`, `RANK-1`, `RANK-2`, `LIST-24`, `PRIV-0`, `PRIV-2`, `PLAT-4`, [Which screen is shown](#which-screen-is-shown), [Non-goals](#non-goals) |
 | <a id="q-92"></a>Q-92 | Warm Welcome for a setup without a key | Two steps. First "Connect GitHub", with "Advanced setup" leading to Settings for a personal access token, Claude or OpenAI. Then, with GitHub connected, an optional Gemini API key marked "Recommended" and "Free tier available", and one button: "Continue with basic ranking" while the field is empty, "Save and start" once it has a key. The link for adding private repositories stays in the second step. The text calls a Gemini key free, which earlier wording avoided (`SET-4`), because a developer who thinks a key costs money is unlikely to add one; the link is still "Get an API key ↗". Showing the choice as two tiles or as a comparison table, and leaving the key out of setup altogether, were considered and not chosen. | `WEL-2` to `WEL-6`, `NAV-5` |
+| <a id="q-94"></a>Q-94 | Settings for a developer without a key | "Basic ranking" is a fourth choice in the Ranking agent card's picker, last, under "Or rank without a key". It needs no key, so a developer who connects with a PAT can use it, and going back to basic ranking is choosing it and saving, which is a switch like any other. The card's chip then reads "Basic". Two alternatives were considered and not chosen: showing only the optional Gemini key, as on Warm Welcome, with Claude and OpenAI behind a link, which hides the agents that "Advanced setup" promises; and a status row above the three agents. The Warm Welcome / Ranking agent tile component is gone. | [Connections](#connections), `SET-1`, `SET-27`, `SET-30`, `SET-38` to `SET-40`, `RANK-21` |
 
 ---
 
@@ -1954,4 +1966,33 @@ Found while building excluded repositories, by testing GitHub's issue search, an
   Key
   entered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=401-2927)
   shows "Save and start". The frame "Warm Welcome · Personal access token" is
+  removed.
+
+### Thirty-fifth revision (2026-11-15, second round)
+
+- Settings for a developer without a key ([Q-94](#q-94), now answered). The
+  Ranking agent card's picker has a fourth choice, "Basic ranking", which needs
+  no key (`SET-38`). Its chip reads "Basic" (`SET-30`), and moving to or from it
+  is a switch like any other (`SET-39`, `SET-40`, `RANK-21`). So a developer
+  who connects with a PAT can use basic ranking, and saving Settings with it
+  chosen completes setup ([Which screen is shown](#which-screen-is-shown)).
+- The Connections description is "Gitilizer needs a GitHub connection to scan
+  your inbox. An API key for ranking is optional.", and the heading's
+  "Required" badge is gone ([Connections](#connections), `SET-1`). The error
+  for an agent chosen without a key now ends "or choose basic ranking."
+  (`SET-27`).
+- Changed Figma: [Settings / Ranking agent
+  option](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2497)
+  has a "No key" variant; the pickers in
+  [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802),
+  [Settings / Page
+  content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509),
+  [Settings ·
+  Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237)
+  and [Settings · Switch ranking
+  agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631)
+  have the "Basic ranking" choice, the new description and no "Required"
+  badge; the new frame [Settings · Ranking agent card · Basic
+  ranking](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=406-2736)
+  shows it chosen. The component "Warm Welcome / Ranking agent tile" is
   removed.
