@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; Q-93, Q-95 and Q-96 are open); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; Q-97 is open); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -82,8 +82,10 @@ These are out of scope for the first release.
   other than basic ranking (`RANK-21`, [Q-91](#q-91)).
 - Ranking with more than one agent at a time, such as a backup agent that takes
   over when the first can't rank, and ranking agents other than Gemini, Claude
-  and OpenAI, including any OpenAI-compatible endpoint ([Q-84](#q-84)). The
-  design should still allow other providers to be added later.
+  and OpenAI, including any OpenAI-compatible endpoint ([Q-84](#q-84)). The one
+  exception is basic ranking, which takes over when a Gemini key's daily quota
+  is used up (`RANK-13`). The design should still allow other providers to be
+  added later.
 - Choosing the model. Gitilizer chooses one for each ranking agent (`SET-22`).
 - Review requests made to a GitHub team the developer belongs to, and the ranking agent's "review teams" setting. Only review requests made to the developer personally count. **Revisit after the first release** (see [Q-43](#q-43)).
 - Showing the agent's next action for an item ([Q-31](#q-31)).
@@ -113,6 +115,15 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
 - **METRIC-2** Metrics should use what Google Cloud already provides (for example Cloud Monitoring dashboards) rather than a custom admin screen.
 - **METRIC-3** The owner must also be able to see the health of the system, without writing queries and including for past days: the latency of API calls (by endpoint, median and 95th percentile), how long the app takes to load and show a usable list in developers' browsers, the HTTP status codes returned for page loads and API calls, and the error rates in `NFR-6`.
 - **METRIC-4** The owner must be alerted by email, without having to look at the dashboard, when gitilizer.com stops responding, when more than 5% of API calls fail for 10 minutes, or when no scan has finished for any developer in 30 minutes. Alerts should use Cloud Monitoring.
+- **METRIC-5** The owner must be able to see, without writing queries and
+  including for past days, how much ranking each way of ranking does. One chart
+  shows the number of items ranked each day for developers with a Gemini key,
+  with a Claude key, with an OpenAI key, and on basic ranking. A second chart
+  shows, for developers with a Gemini key, the number ranked each day at each
+  step of `RANK-13`: by `gemini-3.8-flash`, by the backup model and by basic
+  ranking. Every ranking of an item counts, re-rankings included (`RANK-16`).
+  The first chart counts by the developer's choice, so basic ranking done for a
+  Gemini key's developer counts there under the Gemini key.
 
 ---
 
@@ -137,7 +148,7 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
 | Scan | A backend job that reads the developer's items from GitHub and finds new, changed and removed items. |
 | Ranking | A backend job that asks the ranking agent to score items. |
 | Sync | A scan, followed by ranking of any new and changed items. "Sync now" starts one. |
-| Full re-rank | Ranking every item again, started by "Save and re-rank" in Settings, and once a day (`RANK-9`). |
+| Full re-rank | Ranking every item again, started by "Save and re-rank" in Settings, and once a day (`RANK-9`). Basic ranking never does one (`RANK-21`). |
 | Icebox check | A short question to the agent, with its own prompt, asking whether a change to an item in the Icebox should bring it back (`ICE-6`). |
 | Notification | An error or warning shown in the bell's popover. |
 | PAT | A GitHub personal access token. The interface calls it a "GitHub personal access token", as GitHub does, or a "personal access token" where GitHub is already clear, and never a "GitHub token" or "scanning token". Where the interface mentions both credentials, the GitHub one comes first. |
@@ -309,7 +320,7 @@ Figma: [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Git
   opens, `WEL-3`); and what each [notification](#catalogue) means. It must also
   explain the limits of a
   free-tier Gemini API key: the small daily quota, how Gitilizer then falls back
-  to smaller models and finally pauses ranking (`RANK-13` to `RANK-15`), and how
+  to a smaller model and finally to basic ranking (`RANK-13`), and how
   to get a key with billing turned on, with a link to Google's instructions.
 - **FOOT-4** The user documentation must have a privacy section that explains, in plain language:
   - what Gitilizer stores about a developer ([Data and privacy](#data-and-privacy)), and that credentials are encrypted and never shown again (`PRIV-1`);
@@ -443,8 +454,7 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 | Error | Gemini connection | Your Gemini API key can't use the Gemini API | New and changed issues and PRs aren't being ranked. The key may be restricted to other Google APIs, or its project may not allow the Gemini API. Create a new key in Google AI Studio and add it in Settings. | Any other 403 `PERMISSION_DENIED`. | A new key is saved, or a Gemini request succeeds. |
 | Error | Gemini connection | Your Gemini credits have run out | New and changed issues and PRs aren't being ranked. Add credits or turn on auto-reload in Google AI Studio. | 402. | A Gemini request succeeds, or a new key is saved. |
 | Error | Gemini connection | Your Gemini project needs billing | New and changed issues and PRs aren't being ranked. The key's Google Cloud project needs a working billing account, or has a past-due balance. Fix billing in the Google Cloud console. | 400 `FAILED_PRECONDITION` about billing, or 403 for an unpaid balance. | A Gemini request succeeds, or a new key is saved. |
-| Warning | Gemini connection | Gitilizer is using a backup Gemini model | Your daily quota for {primary model} is used up, so new and changed issues and PRs are being ranked with {backup model} until it resets at {time}, in about {duration}. Rankings may be less accurate until then. To avoid this, turn on billing in Google AI Studio. | 429 for a per-day quota on any model except the last one in `RANK-13`. Only one is active at a time; it names the model now in use. | The primary model's quota resets. |
-| Error | Gemini connection | Your Gemini daily quota is used up | Your daily quota is used up for every Gemini model Gitilizer can use, so new and changed issues and PRs aren't being ranked. Ranking resumes automatically when the quota resets at {time}, in about {duration}. To avoid this, use an API key with billing turned on. | 429 for a per-day quota on every model in `RANK-13`. Google resets daily quotas at midnight Pacific time. | A Gemini request succeeds. |
+| Warning | Gemini connection | Gitilizer is using a backup Gemini model | Your daily quota for {primary model} is used up, so new and changed issues and PRs are being ranked with {backup model} until it resets at {time}, in about {duration}. Rankings may be less accurate until then. To avoid this, turn on billing in Google AI Studio. | 429 for a per-day quota on either of the developer's models in `RANK-13`. Only one is active at a time; it names what is now in use: the backup model, or "basic ranking" once the backup model's quota is used up too. | The primary model's quota resets. |
 | Warning (short-lived) | Gemini connection | Gemini is limiting requests from your key | Ranking is slower than usual and catches up automatically. Other apps that use this key count toward the same limit. | 429 for a per-minute limit, for more than 15 minutes (`NOTIF-21`). | Gemini requests succeed without 429s for 15 minutes. |
 | Warning (short-lived) | Gemini connection | Gemini isn't responding | New and changed issues and PRs aren't being ranked. Gitilizer keeps retrying automatically. If this continues, check the [Google AI Studio status page](https://aistudio.google.com/status). | 500, 503 or 504 responses, no answer within 90 seconds, or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | A Gemini request succeeds. |
 | Error | Gemini connection | The Gemini model Gitilizer uses isn't available | New and changed issues and PRs aren't being ranked. This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page. | 404 `model_not_found`. | A Gemini request succeeds. |
@@ -549,8 +559,8 @@ Claude or OpenAI, sets up in Settings instead.
 
   Adding private repositories isn't part of setup. The list starts with the
   developer's public items, and private ones join it once the Gitilizer app is
-  installed on their accounts (`SET-45`). **TODO ([Q-95](#q-95)):** whether the
-  Prioritized list reminds the developer of this, and that ranking is basic.
+  installed on their accounts (`SET-45`). Nothing after setup reminds the
+  developer of this, or that ranking is basic ([Q-95](#q-95)).
 
 ---
 
@@ -640,10 +650,10 @@ Figma: [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 - **LIST-28** The button must be disabled while a sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), and enabled again as soon as the sync finishes (`LIST-32`). There is no other minimum interval between manual syncs.
 - **LIST-32** A sync counts as finished, and the icon stops turning, when the
   scan has finished and every new and changed item (after "Save and re-rank",
-  every item) has been ranked, has failed, or is waiting because ranking is
-  paused (`RANK-20`). Waiting items are shown with "–" (`LIST-30`), and the
-  error that paused ranking explains the wait, so the icon doesn't keep turning
-  until, for example, midnight Pacific time or until the developer adds credits.
+  every item it can reach, `RANK-13`) has been ranked, has failed, or is waiting
+  because ranking is paused (`RANK-20`). Waiting items are shown with "–"
+  (`LIST-30`), and the error that paused ranking explains the wait, so the icon
+  doesn't keep turning until, for example, the developer adds credits.
 - **LIST-33** While a sync is in progress, text next to the button must show how far it has got (GitHub issue #5), as in [Inbox controls · Sync Progress](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=325-6832).
   - While a full scan is finding items: "Finding issues and PRs… {n} so far", where {n} is the number of distinct open items found so far that aren't in the Icebox, at most 1,000 (`LIST-19`). It goes up as each search finishes. Until the first search finishes, the text is "Finding issues and PRs…".
   - Once every search has finished, and for the whole of an incremental scan: "{n} left to rank", where {n} counts the items the sync will rank that haven't been ranked yet, including any still being downloaded, plus the Icebox checks it hasn't made yet (`ICE-6`). An item whose ranking failed (`LIST-30`) is done. {n} may go up during a sync as linked items are found (`RANK-10`).
@@ -904,9 +914,11 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   (`RANK-20`), so waiting items are ranked with the new one; and clears the
   notifications about the previous agent (`NOTIF-23`).
 
-  Choosing "Basic ranking", or choosing an agent while on basic ranking, is a
-  switch too. The dialog then says "basic ranking" where it would name an
-  agent, so its title can be "Switch ranking to basic ranking?".
+  Choosing an agent while on basic ranking is a switch too: the dialog names
+  "basic ranking" as the previous agent. Choosing "Basic ranking" saves without
+  the dialog, because basic ranking never ranks everything again (`RANK-21`):
+  new and changed items are ranked with it, and the rest keep their scores
+  until they change on GitHub.
 - **SET-41** Removed on 2026-11-14. The Ranking agent card no longer shows
   "Billing" and "Typical cost" notes ([Q-86](#q-86)).
 
@@ -1113,7 +1125,18 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 ### Saving
 
 - **SET-14** Changes must take effect only when the developer chooses "Save changes" or "Save and re-rank". Both save everything on the page, credentials included. "Cancel" discards unsaved changes (`NAV-9`).
-- **SET-15** "Save changes" must save without re-ranking: items already ranked keep their scores until they change on GitHub. New items, such as those from a newly added repository, are ranked as usual. "Save and re-rank" must save and then re-rank every item (a full re-rank, shown as in `LIVE-24`). It counts as a sync: Sync now turns and is disabled until every item has been ranked, and the progress text shows how many are left (`LIST-16`, `LIST-33`). Each button has the explanatory note shown in Figma next to it, without an estimate of how many items will be re-ranked.
+- **SET-15** "Save changes" must save without re-ranking: items already ranked
+  keep their scores until they change on GitHub. New items, such as those from
+  a newly added repository, are ranked as usual. "Save and re-rank" must save
+  and then re-rank every item (a full re-rank, shown as in `LIVE-24`). It counts
+  as a sync: Sync now turns and is disabled until every item has been ranked,
+  and the progress text shows how many are left (`LIST-16`, `LIST-33`). Each
+  button has the explanatory note shown in Figma next to it, without an estimate
+  of how many items will be re-ranked. While "Basic ranking" is the choice in
+  the picker (`SET-38`), "Save and re-rank" is disabled, and hovering over it
+  shows "Re-ranking everything needs your own API key." ([Q-93](#q-93)), as in
+  [Settings · Save buttons · Basic
+  ranking](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=408-2736).
 - **SET-26** Leaving Settings with unsaved changes (through a link, the browser's Back button or closing the tab) must ask the developer to confirm.
 
 - **SET-27** Settings must show problems next to the field they belong to, as in [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237):
@@ -1182,7 +1205,12 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
   automatically. An item that still can't be ranked is shown as in `LIST-30`.
 - **RANK-7** Changes to the default prompt or model should be measured with the evaluation harness before they ship.
 - **RANK-8** The default prompt should score a draft PR lower than the same PR ready for review. (`prompts/v4.md` already scores the developer's own drafts low; extend that to other people's drafts, and measure it as in `RANK-7`.)
-- **RANK-9** Every item must be ranked again at least once every 24 hours, so scores that depend on age stay current. This is a bulk re-rank (`LIVE-24`). It happens out of sight: it isn't a sync, so Sync now doesn't turn and stays enabled while it runs (`LIST-16`).
+- **RANK-9** Every item of a developer who has a ranking agent must be ranked
+  again at least once every 24 hours, so scores that depend on age stay
+  current. This is a bulk re-rank (`LIVE-24`). It happens out of sight: it
+  isn't a sync, so Sync now doesn't turn and stays enabled while it runs
+  (`LIST-16`). A developer on basic ranking has no daily re-rank
+  ([Q-93](#q-93)): their items keep their scores until they change on GitHub.
 - **RANK-10** When a scan sees a change to an item, Gitilizer must also rank again the items in the developer's list that it links to. For example, an issue drops when a PR that fixes it is opened, although the issue itself hasn't changed.
 - **RANK-11** At most 4 requests to the ranking agent may run at once for one
   developer. With Gemini, ranking uses `gemini-3.8-flash` with thinking turned
@@ -1193,25 +1221,33 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 - **RANK-12** Gitilizer must work with a Gemini API key on Google's free tier.
 - **RANK-13** With Gemini, Gitilizer must rank with `gemini-3.8-flash` (the
   primary model). When Google reports that the developer's daily quota for the
-  model in use is used up, Gitilizer must switch to the next model in this
-  order: `gemini-3.8-flash`, then `gemini-3.5-flash-lite`, then
-  `gemini-3.1-flash-lite`. It returns to the primary model when that model's
-  quota resets, at midnight Pacific time. For as long as a backup model is in
-  use, the developer sees the "Gitilizer is using a backup Gemini model"
-  warning, even if that is most of every day on the free tier. This works
-  because Google sets quotas separately for each model: running out on one
-  doesn't block the others. **TODO ([Q-96](#q-96)):** the backup models rank
-  about as well as basic ranking or worse, so once a free-tier key's quota for
-  the primary model is used up, it may not give the better ranking that Warm
-  Welcome promises (`WEL-3`).
+  model in use is used up, Gitilizer must switch to the next step in this
+  order: `gemini-3.8-flash`, then `gemini-3.5-flash-lite` (the backup model),
+  then basic ranking, which Gitilizer runs with its own key (`RANK-21`,
+  [Q-96](#q-96)). It returns to the primary model when that model's quota
+  resets, at midnight Pacific time. For as long as the backup model or basic
+  ranking is in use, the developer sees the "Gitilizer is using a backup Gemini
+  model" warning, even if that is most of every day on the free tier. This
+  works because Google sets quotas separately for each model: running out on
+  one doesn't block the other. Evaluation chose the order. The backup model
+  ranks about as well as basic ranking (Kendall tau 0.58, against 0.55 to
+  0.58), on the developer's own quota, and writes its reasoning.
+  `gemini-3.1-flash-lite`, which was a second backup model until 2026-11-15,
+  ranked worse than basic ranking (0.40). Basic ranking steps in only for new
+  and changed items: a full re-rank (`RANK-9`, `SET-15`) uses the developer's
+  own models, and the items it can't reach before their quota is used up keep
+  their scores until a later daily re-rank.
 - **RANK-14** Per-minute limits must not cause a switch: Gitilizer waits and retries, as for "Gemini is limiting requests from your key".
-- **RANK-15** When the daily quota is used up for all three models, ranking must pause until the quotas reset, and the developer sees the "Your Gemini daily quota is used up" error.
+- **RANK-15** Removed on 2026-11-15. Ranking no longer pauses when a Gemini
+  key's daily quota is used up, because basic ranking takes over (`RANK-13`),
+  so the "Your Gemini daily quota is used up" error is gone ([Q-96](#q-96)).
 - **RANK-16** Each item's score must record which agent and model produced it.
 - **RANK-17** Scores from different models, and after a switch (`SET-40`) from
   different agents, share one list. The primary model's quota goes to new and
   changed items first, because they are most likely to be near the top; the
-  daily re-rank (`RANK-9`) uses whichever model is available, so over time items
-  are scored again by the primary model as its quota allows.
+  daily re-rank (`RANK-9`) uses whichever of the developer's own models is
+  available, never basic ranking, so over time items are scored again by the
+  primary model as its quota allows.
 - **RANK-18** Each call to the ranking agent scores exactly one item.
 - **RANK-19** With Claude, Gitilizer must rank with `claude-sonnet-5-5`,
   without thinking, and with OpenAI with `gpt-6.1-sol`, at its lowest reasoning
@@ -1221,9 +1257,9 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
   are no backup models: when credits run out, ranking pauses (`RANK-20`) with
   the "Your {provider} credits have run out" error. The same model makes the
   Icebox check (`ICE-6`), measured against its labelled examples (`ICE-13`).
-- **RANK-20** Ranking is paused while every Gemini model's daily quota is used
-  up (`RANK-15`), and while an error notification says that the agent's key,
-  credits, billing or model doesn't work (the "isn't valid", "disabled", "can't
+- **RANK-20** Ranking is paused while an error notification says that the
+  agent's key, credits, billing or model doesn't work (the "isn't valid",
+  "disabled", "can't
   use", "credits have run out", "needs billing" and "isn't available" rows of
   the [catalogue](#catalogue)). Items to rank wait (`LIST-30`) and are ranked
   when the condition clears, as the catalogue's last column says, or when the
@@ -1247,14 +1283,17 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
   at about an eighth of the cost for each item. Its first five items were the
   ground truth's first five, and the loss is in the order of the rest of the
   list ([evaluation](../eval/decision-model-2026-11-15.md)). Basic ranking
-  isn't a backup: a developer whose own key stops working sees the error for it
-  (`RANK-20`), and Gitilizer doesn't rank for them meanwhile, unless they
-  choose basic ranking in Settings. Moving between basic ranking and a ranking
-  agent is a switch, as `SET-40` describes. **TODO
-  ([Q-93](#q-93)):** what basic ranking leaves out to keep its cost within the
-  budget (`PLAT-4`), and what the developer sees when Gitilizer's own limits
-  hold it up. Until that is answered, the daily re-rank (`RANK-9`) and "Save
-  and re-rank" (`SET-15`) apply to basic ranking as they do to an agent.
+  also takes over when a Gemini key's daily quota is used up (`RANK-13`). It
+  isn't a backup for anything else: a developer whose own key stops working
+  sees the error for it (`RANK-20`), and Gitilizer doesn't rank for them
+  meanwhile, unless they choose basic ranking in Settings. Moving between basic
+  ranking and a ranking agent is a switch, as `SET-40` describes. To keep its
+  cost within the budget (`PLAT-4`), basic ranking never ranks everything again
+  ([Q-93](#q-93)): a developer on basic ranking has no daily re-rank (`RANK-9`)
+  and can't use "Save and re-rank" (`SET-15`), and for a Gemini key it ranks
+  only new and changed items (`RANK-13`). **TODO ([Q-97](#q-97)):** what the
+  developer sees when Gitilizer's own limits with Google hold basic ranking
+  up.
 
 ---
 
@@ -1315,7 +1354,7 @@ Gitilizer keeps:
     developer's scan uses their own GitHub and ranking agent limits, so
     Gitilizer's own load is mainly scan jobs, database writes and live-update
     connections. Basic ranking is the exception: it uses Gitilizer's own limits
-    with Google ([Q-93](#q-93)).
+    with Google ([Q-97](#q-97)).
   - The design doc must show that this fits the US$200 monthly budget (`PLAT-4`). If it doesn't, the scale target or the scan intervals in `SCAN-5` will have to change.
 
 ### Performance and availability
@@ -1364,16 +1403,14 @@ New questions are marked **TODO:** where they come up and listed here.
 
 | ID | Question | What is known | Where |
 |---|---|---|---|
-| <a id="q-93"></a>Q-93 | What basic ranking leaves out to keep its cost down, and what the developer sees when it is held up | Basic ranking costs Gitilizer about US$0.0006 an item. A 390-item list costs about US$0.23 for its first sync, and about US$7 a month if every item is ranked again daily (`RANK-9`). Hosting already takes about half of the US$200 budget, so the rest covers only a dozen or so such developers with the daily re-rank. Candidates: no daily re-rank; "Save and re-rank" and a custom ranking prompt only with the developer's own key (custom prompts haven't been tried with this model); a limit on items for each developer. Also undecided: what the developer sees while ranking waits on Google's limits for Gitilizer's key (50,000 requests a day until the billing account reaches Google's second usage tier). | `RANK-21`, `RANK-9`, `SET-15`, `PLAT-4`, `NFR-1` |
-| <a id="q-95"></a>Q-95 | Telling a developer on basic ranking what they are missing, after setup | Warm Welcome says it once (`WEL-3`). Undecided: whether the Prioritized list says that ranking is basic, for example with a chip beside Sync now or a note during the first sync, and whether it says that private repositories aren't included while the Gitilizer app is installed on no account. | `WEL-3`, `WEL-6`, [Prioritized list](#prioritized-list) |
-| <a id="q-96"></a>Q-96 | A free-tier Gemini key whose quota for the primary model is used up | Warm Welcome says that Gemini ranked best and that Google's free tier costs nothing. A first sync can use up a free-tier key's daily quota for `gemini-3.8-flash`, after which Gitilizer ranks with the backup models (`RANK-13`). In evaluation those scored Kendall tau 0.58 and 0.40, against 0.55 to 0.58 for basic ranking. Candidates: fall back to basic ranking in place of the backup models; or leave it, and say so in the documentation. | `RANK-13`, `WEL-3` |
+| <a id="q-97"></a>Q-97 | What the developer sees when basic ranking is held up by Gitilizer's own limits | Gitilizer's key has its own limits with Google (50,000 requests a day until the billing account reaches Google's second usage tier), and basic ranking also serves Gemini keys whose quota is used up (`RANK-13`). Undecided: what the developer sees while their items wait on those limits, and whether Gitilizer stops basic ranking for the rest of a month once its budget is spent (`PLAT-4`). | `RANK-21`, `PLAT-4`, `NFR-1` |
 
 Q-58 to Q-63 were found by building the prototype described in the [design
 doc](DESIGN.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers
 and the new Figma designs; Q-77 to Q-79 came from bringing the prototype in line
 with this document; Q-80 came from the decision to have a development
 environment; Q-84 to Q-86 came from adding Claude and OpenAI; Q-87 to Q-90 came
-from connecting GitHub with the Gitilizer app; Q-91 to Q-96 came from making
+from connecting GitHub with the Gitilizer app; Q-91 to Q-97 came from making
 the ranking agent's API key optional.
 
 ### Answered questions
@@ -1442,7 +1479,7 @@ the ranking agent's API key optional.
 | <a id="q-60"></a>Q-60 | Bulk re-ranks | Applied once when finished, without row indicators. The first sync is the exception: its items appear as they are ranked, still without indicators. | `LIVE-24`, `LIST-15` |
 | <a id="q-61"></a>Q-61 | A bell that swings for days | Stops once the popover has been opened; a new error starts it again. | `NOTIF-17` |
 | <a id="q-62"></a>Q-62 | "N issues" includes PRs | "{N} issues and PRs". Figma updated. | `LIST-27` |
-| <a id="q-63"></a>Q-63 | The free tier | Gitilizer must work on it. It falls back from `gemini-3.8-flash` to `gemini-3.5-flash-lite` to `gemini-3.1-flash-lite` as each daily quota runs out, with a warning, and an error when all are used up. Items waiting for quota are shown at the end with "–". One item per call. | `RANK-12` to `RANK-18`, `LIST-30` |
+| <a id="q-63"></a>Q-63 | The free tier | Gitilizer must work on it. It falls back from `gemini-3.8-flash` to `gemini-3.5-flash-lite` to `gemini-3.1-flash-lite` as each daily quota runs out, with a warning, and an error when all are used up. Items waiting for quota are shown at the end with "–". One item per call. Changed on 2026-11-15: `gemini-3.5-flash-lite` is the only backup model, and basic ranking takes over after it in place of pausing ([Q-96](#q-96)). | `RANK-12` to `RANK-18`, `LIST-30` |
 | <a id="q-64"></a>Q-64 | After saving | Back to the Prioritized list when the save succeeds. | `NAV-8` |
 | <a id="q-65"></a>Q-65 | Team mentions | Left out. | `LIST-1`, [Non-goals](#non-goals) |
 | <a id="q-66"></a>Q-66 | The 1,000-item limit | Prioritized list only; no notice; a dropped item slides off the bottom like an item moving to a later page. | `LIST-19`, `LIVE-26` |
@@ -1472,7 +1509,10 @@ the ranking agent's API key optional.
 | <a id="q-90"></a>Q-90 | Organizations that use single sign-on, with the Gitilizer app | Out of scope for now: the trial of the app didn't reach such an organization. Gitilizer shows no message of its own for it, and the documentation tells developers to use a personal access token there. Revisit once it has been tried. | `SET-49`, `FOOT-3`, [Non-goals](#non-goals) |
 | <a id="q-91"></a>Q-91 | Trying Gitilizer without an API key | A ranking agent's API key is optional. A developer who connects GitHub and gives no key gets basic ranking: Gitilizer scores their items with Google's `gemini-decision-1`, with its own key and at its own cost, because having to create a key before seeing anything was thought likely to turn new developers away. Evaluation found that basic ranking orders the top of the list about as well as `gemini-3.8-flash` and the rest less precisely (Kendall tau 0.55 against 0.71), at about an eighth of the cost for each item, and that it gives no reasoning (`eval/decision-model-2026-11-15.md`). | `RANK-21`, `RANK-1`, `RANK-2`, `LIST-24`, `PRIV-0`, `PRIV-2`, `PLAT-4`, [Which screen is shown](#which-screen-is-shown), [Non-goals](#non-goals) |
 | <a id="q-92"></a>Q-92 | Warm Welcome for a setup without a key | Two steps. First "Connect GitHub", with "Advanced setup" leading to Settings for a personal access token, Claude or OpenAI. Then, with GitHub connected, an optional Gemini API key marked "Recommended" and "Free tier available", and one button: "Continue with basic ranking" while the field is empty, "Save and start" once it has a key. The link for adding private repositories stays in the second step. The text calls a Gemini key free, which earlier wording avoided (`SET-4`), because a developer who thinks a key costs money is unlikely to add one; the link is still "Get an API key ↗". Showing the choice as two tiles or as a comparison table, and leaving the key out of setup altogether, were considered and not chosen. | `WEL-2` to `WEL-6`, `NAV-5` |
+| <a id="q-93"></a>Q-93 | What basic ranking leaves out to keep its cost down | It never ranks everything again. A developer on basic ranking has no daily re-rank, so their scores change only when items change on GitHub, and "Save and re-rank" is disabled while "Basic ranking" is chosen, with the hover text "Re-ranking everything needs your own API key." That leaves the first sync (about US$0.23 for a 390-item list) and new and changed items (about US$0.0006 each); the daily re-rank alone would have cost about US$7 a month for such a list. A custom ranking prompt stays available, though it hasn't been tried with this model, and there is no limit on items beyond `LIST-19`. What the developer sees when Gitilizer's own limits hold basic ranking up is now [Q-97](#q-97). | `RANK-9`, `RANK-21`, `SET-15`, `SET-40`, `PLAT-4` |
 | <a id="q-94"></a>Q-94 | Settings for a developer without a key | "Basic ranking" is a fourth choice in the Ranking agent card's picker, last, under "Or rank without a key". It needs no key, so a developer who connects with a PAT can use it, and going back to basic ranking is choosing it and saving, which is a switch like any other. The card's chip then reads "Basic". Two alternatives were considered and not chosen: showing only the optional Gemini key, as on Warm Welcome, with Claude and OpenAI behind a link, which hides the agents that "Advanced setup" promises; and a status row above the three agents. The Warm Welcome / Ranking agent tile component is gone. | [Connections](#connections), `SET-1`, `SET-27`, `SET-30`, `SET-38` to `SET-40`, `RANK-21` |
+| <a id="q-95"></a>Q-95 | Telling a developer on basic ranking what they are missing, after setup | Nothing does. Warm Welcome says once that ranking is basic without a key (`WEL-3`), and shows that private repositories haven't been added (`WEL-6`), which is clear enough. The Prioritized list has no chip or note about either. | `WEL-3`, `WEL-6` |
+| <a id="q-96"></a>Q-96 | A free-tier Gemini key whose quota for the primary model is used up | Gitilizer ranks with `gemini-3.5-flash-lite` next, on the developer's own quota, and then with basic ranking, at its own cost. Basic ranking takes the place of `gemini-3.1-flash-lite` and of pausing. In evaluation `gemini-3.5-flash-lite` scored Kendall tau 0.58 and basic ranking 0.55 to 0.58, against 0.40 for `gemini-3.1-flash-lite`, so a list with a key is never ranked worse than basic ranking would rank it. Basic ranking steps in for new and changed items only; a full re-rank waits for the developer's quota. The "Your Gemini daily quota is used up" error is gone. | `RANK-13`, `RANK-15`, `RANK-17`, `RANK-20`, [Catalogue](#catalogue), `METRIC-5` |
 
 ---
 
@@ -1996,3 +2036,28 @@ Found while building excluded repositories, by testing GitHub's issue search, an
   ranking](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=406-2736)
   shows it chosen. The component "Warm Welcome / Ranking agent tile" is
   removed.
+
+### Thirty-sixth revision (2026-11-15, third round)
+
+- What basic ranking leaves out ([Q-93](#q-93), answered): it never ranks
+  everything again. A developer on basic ranking has no daily re-rank
+  (`RANK-9`), and "Save and re-rank" is disabled while "Basic ranking" is
+  chosen, with a hover text (`SET-15`). Choosing "Basic ranking" saves without
+  the switch dialog (`SET-40`).
+- Nothing after setup reminds a developer that ranking is basic or that private
+  repositories are missing ([Q-95](#q-95), answered; `WEL-6`).
+- A Gemini key whose quota is used up ([Q-96](#q-96), answered): Gitilizer
+  ranks with `gemini-3.5-flash-lite` and then with basic ranking, in place of
+  `gemini-3.1-flash-lite` and of pausing (`RANK-13`, `RANK-17`, `RANK-20`,
+  `RANK-21`; `RANK-15` removed). The "Your Gemini daily quota is used up" error
+  is gone from the [catalogue](#catalogue), and the backup-model warning also
+  covers basic ranking. Also `FOOT-3`, `LIST-32`, the non-goals and the
+  glossary.
+- New `METRIC-5`: the owner can see how much ranking is done with Gemini,
+  Claude and OpenAI keys and by basic ranking, and, for Gemini keys, at each
+  step from `gemini-3.8-flash` down to basic ranking.
+- One question is open: what the developer sees when Gitilizer's own limits
+  hold basic ranking up ([Q-97](#q-97)).
+- Changed Figma: the new frame [Settings · Save buttons · Basic
+  ranking](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=408-2736)
+  shows "Save and re-rank" disabled, with its hover text.
