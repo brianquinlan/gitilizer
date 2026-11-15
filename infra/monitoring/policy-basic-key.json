@@ -1,0 +1,29 @@
+{
+  "displayName": "Gitilizer: basic ranking can't use its key",
+  "documentation": {
+    "content": "Google isn't accepting Gitilizer's own Gemini API key (BASIC_RANKING_API_KEY), or it isn't set, so nothing is ranked for developers without a key of their own, and they see \"Basic ranking is paused\". This isn't a quota or spending limit, which pause basic ranking as designed. Look at the worker's ERROR lines for the code, then check the key in Google AI Studio and the prod-basic-ranking-key secret: DEPLOYMENT.md, \"The basic ranking key\".",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "The key was refused in the last 15 minutes",
+      "conditionThreshold": {
+        "filter": "metric.type=\"logging.googleapis.com/user/basic_key_refused\" AND resource.type=\"cloud_run_revision\" AND resource.label.service_name=monitoring.regex.full_match(\"gitilizer-(api|worker)\")",
+        "aggregations": [
+          {
+            "alignmentPeriod": "900s",
+            "perSeriesAligner": "ALIGN_SUM",
+            "crossSeriesReducer": "REDUCE_SUM"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "0s"
+      }
+    }
+  ],
+  "notificationChannels": [
+    "CHANNEL"
+  ]
+}

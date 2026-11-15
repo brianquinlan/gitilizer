@@ -9,9 +9,9 @@ import { z } from "zod";
 import {
   CSRF_HEADER, CredentialKind, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, MAX_COLLABORATORS, MAX_PROMPT_LENGTH,
   MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, SettingsUpdate, SetupRequest, Sort, credentialControlId, exclusionErrors, parseExclusion, parseLogin,
-  parseRepo, repoControlId, type CheckResult, type CredentialChip, type FieldError, type Me, type RankingAgent, type SettingsResponse, type SetupResponse,
+  parseRepo, repoControlId, type CheckResult, type CredentialChip, type FieldError, type Me, type RankingChoice, type SettingsResponse, type SetupResponse,
 } from "@gitilizer/shared";
-import { agentInUse, keyKindFor, rankedBy, switchAgent } from "./agents.ts";
+import { agentInUse, completeSetupIfReady, keyKindOf, rankedBy, rankingChosen, switchAgent } from "./agents.ts";
 import type { Ctx } from "./context.ts";
 import { exclusionRows, lookUpExclusion, removeExcluded } from "./exclusions.ts";
 import { checkValue, credentialStatus, removeCredential, saveCredential } from "./credentials.ts";
@@ -178,7 +178,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     const status = (kind: CredentialKind) => credentialStatus(ctx, u.id, kind);
     return {
       user: { id: u.id, name: u.name, email: u.email, avatarUrl: u.avatar_url, provider: u.provider, githubLogin: u.github_login },
-      // NAV-1, NAV-2: Warm Welcome until both credentials have been entered once.
+      // NAV-1, NAV-2: Warm Welcome until GitHub is connected and the developer has chosen how items are ranked.
       screen: u.setup_completed_at ? "app" : "welcome",
       credentials: {
         github_pat: await status("github_pat"), gemini_key: await status("gemini_key"),
@@ -186,6 +186,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       },
       github: await githubSummary(u.id, u.github_login),
       rankingAgent: await agentInUse(db, u.id),
+      rankingChosen: Boolean(u.ranking_chosen_at ?? u.setup_completed_at),
       firstSyncDone: u.first_sync_done,
       sync: await syncState(ctx, u.id),
     };
@@ -342,19 +343,18 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       sortIcebox: s.sort_icebox ?? DEFAULT_SORT_ICEBOX,
       defaultPrompt: ctx.config.defaultPrompt,
       rankingAgent: await agentInUse(db, userId),
+      rankingChosen: Boolean(await db.one(`select 1 as chosen from users where id = $1 and coalesce(ranking_chosen_at, setup_completed_at) is not null`, [userId])),
       rankedBy: await rankedBy(db, userId),
     };
   });
 
   /**
-   * After credentials are saved: clear their notifications (NOTIF-13, SET-5); the save that leaves the
-   * GitHub token and the ranking agent's key saved completes setup (NAV-8).
+   * After credentials are saved: clear their notifications (NOTIF-13, SET-5). Connecting GitHub completes
+   * setup for a developer who has already chosen how their items are ranked (WEL-2, NAV-8).
    */
   const credentialsSaved = async (userId: string, kinds: CredentialKind[]) => {
     for (const kind of kinds) await clearForCredential(ctx, userId, kind);
-    const agentKey = keyKindFor(await agentInUse(db, userId));
-    const both = (await connectionMethod(db, userId)) !== null && (await credentialStatus(ctx, userId, agentKey)).set;
-    if (both) await db.query(`update users set setup_completed_at = now() where id = $1 and setup_completed_at is null`, [userId]);
+    await completeSetupIfReady(db, userId);
   };
 
   // --- Connecting GitHub with the Gitilizer app (design: GitHub connection) ------
@@ -376,12 +376,12 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     const next = SettingsUpdate.parse(req.body);
     const errors = settingsErrors(next);
     // SET-27, SET-38: the chosen agent needs a key, saved or typed, and its key can't be removed (SET-39).
+    // Basic ranking needs none, and with it no agent is in use, so every saved key can go.
     const current = await agentInUse(db, userId);
-    const agent: RankingAgent = next.rankingAgent ?? current;
-    const agentKind = keyKindFor(agent);
-    const typedAgentKey = Boolean(next.credentials?.[agentKind]?.trim());
-    const removals = next.removeCredentials.filter((k) => k !== agentKind && k !== keyKindFor(current));
-    if (!typedAgentKey && !(await credentialStatus(ctx, userId, agentKind)).set) {
+    const agent: RankingChoice = next.rankingAgent ?? current;
+    const agentKind = keyKindOf(agent);
+    const removals = next.removeCredentials.filter((k) => k !== agentKind && k !== keyKindOf(current));
+    if (agent !== "basic" && agentKind && !next.credentials?.[agentKind]?.trim() && !(await credentialStatus(ctx, userId, agentKind)).set) {
       errors.push({ field: credentialControlId(agentKind), message: MESSAGES.agentKeyMissing(agent) });
     }
     if (errors.length) return reply.code(422).send({ errors });
@@ -438,6 +438,8 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     // waiting and new items with the new agent.
     if (agent !== current) await switchAgent(ctx, userId, agent);
     for (const kind of removals) await clearForCredential(ctx, userId, kind);
+    // Saving Settings chooses how items are ranked: basic ranking, or an agent that now has a key ("Which screen is shown").
+    await rankingChosen(db, userId);
 
     for (const name of prevRepos) {
       if (!repos.some((r) => r.name.toLowerCase() === name.toLowerCase())) await clear(ctx, userId, ["repo_inaccessible"], name);
@@ -445,7 +447,8 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     await credentialsSaved(userId, creds.map(([kind]) => kind));
     await removeExcluded(ctx, userId); // SET-37: excluded items leave at once, without waiting for a scan
     if ((prev?.custom_prompt ?? null) !== prompt) await clear(ctx, userId, ["prompt_failing"]);
-    if (next.rerank) await queueFullRerank(ctx, userId, "rerank"); // SET-15, LIVE-24
+    // SET-15, LIVE-24. Basic ranking never ranks everything again (RANK-21): its "Save and re-rank" is disabled, and ignored here.
+    if (next.rerank && agent !== "basic") await queueFullRerank(ctx, userId, "rerank");
     scheduler.trigger(userId, "settings"); // SCAN-5: saving settings starts a sync
     await pushSync(ctx, userId, { now: true }); // "Save and re-rank" is a sync from the start (LIST-16)
     return { ok: true };
@@ -466,39 +469,32 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     return checkValue(ctx, kind, value);
   });
 
-  // Warm Welcome's Save (WEL-4, design D-12). Every typed value is checked here, even one the developer has
-  // already validated, and nothing is saved unless every check passes.
+  // Warm Welcome's button (WEL-4, design D-12): "Save and start" with a Gemini key, typed or already saved, or
+  // "Continue with basic ranking" with none. A typed key is checked here, even one the developer has already
+  // validated, and nothing is saved unless it passes.
   app.post("/api/setup", async (req, reply) => {
     const userId = uid(req);
-    const { credentials, rankingAgent } = SetupRequest.parse(req.body);
+    const { credentials } = SetupRequest.parse(req.body);
     const u = await db.one(`select setup_completed_at from users where id = $1`, [userId]);
     if (u.setup_completed_at) return bad(reply, 409, "Setup is already complete."); // NAV-2
-    // The GitHub connection and the chosen agent's key (WEL-4, WEL-5); a value typed for another agent is ignored.
-    // With the Gitilizer app connected no token is needed, but a typed one is still checked and replaces it.
-    const connected = (await connectionMethod(db, userId)) === "app" && !credentials.github_pat?.trim();
-    const needed: CredentialKind[] = connected ? [keyKindFor(rankingAgent)] : ["github_pat", keyKindFor(rankingAgent)];
-    const typed = (Object.entries(credentials) as [CredentialKind, string | undefined][])
-      .filter(([kind]) => needed.includes(kind))
-      .map(([kind, v]) => [kind, v?.trim() ?? ""] as const)
-      .filter(([, v]) => v.length > 0);
-    for (const kind of needed) {
-      if (!typed.some(([k]) => k === kind) && !(await credentialStatus(ctx, userId, kind)).set) {
-        return bad(reply, 422, "Both credentials are needed.");
-      }
-    }
-    const checked = await Promise.all(typed.map(async ([kind, value]) => [kind, await checkValue(ctx, kind, value)] as const));
+    // Step 2 comes after GitHub is connected (WEL-2): by the Gitilizer app, or by a token saved in Settings.
+    if ((await connectionMethod(db, userId)) === null) return bad(reply, 422, "Connect GitHub first.");
+    const typed = credentials.gemini_key?.trim() ?? "";
     const results: SetupResponse["results"] = {};
-    for (const [kind, r] of checked) results[kind] = r as CheckResult;
-    if (!checked.every(([, r]) => r.ok)) return { ok: false, results } satisfies SetupResponse;
-
+    if (typed) {
+      results.gemini_key = (await checkValue(ctx, "gemini_key", typed)) as CheckResult;
+      if (!results.gemini_key.ok) return { ok: false, results } satisfies SetupResponse;
+    }
+    const rankingAgent: RankingChoice = typed || (await credentialStatus(ctx, userId, "gemini_key")).set ? "gemini" : "basic";
     await db.tx(async (t) => {
       await t.query(`update users set ranking_agent = $2 where id = $1`, [userId, rankingAgent]);
-      for (const [kind, value] of typed) await saveCredential(ctx, userId, kind, value, t);
+      if (typed) await saveCredential(ctx, userId, "gemini_key", typed, t);
     });
-    await credentialsSaved(userId, typed.map(([kind]) => kind));
+    await rankingChosen(db, userId);
+    await credentialsSaved(userId, typed ? ["gemini_key"] : []);
     scheduler.trigger(userId, "credentials"); // SET-5: saving a credential starts a sync
     await pushSync(ctx, userId, { now: true });
-    return { ok: true, results } satisfies SetupResponse;
+    return { ok: true, results, rankingAgent } satisfies SetupResponse;
   });
 
   // --- Immediate feedback in Settings (SET-8, SET-19) -------------------------
@@ -619,8 +615,12 @@ export function buildInternalApp(ctx: Ctx): FastifyInstance {
     if (req.headers.authorization !== `Bearer ${ctx.config.workerToken}`) return reply.code(401).send({ error: "bad token" });
   });
   // Product metrics (PRD METRIC-1): users, users who finished setup, daily/weekly/monthly actives, deleted accounts.
+  // And how much ranking each way of ranking did on each of the last 30 days (METRIC-5).
   app.get("/internal/metrics", async () => {
-    return ctx.db.one(`
+    const ranking = await ctx.db.query(
+      `select to_char(day, 'YYYY-MM-DD') as day, choice, agent, model, items from ranking_volume
+       where day > current_date - 30 order by day desc, choice, agent, model`);
+    const counts = await ctx.db.one(`
       select (select count(*) from users)::int as users,
              (select count(*) from users where setup_completed_at is not null)::int as setup_completed,
              (select count(distinct user_id) from user_activity where day = current_date)::int as daily_active,
@@ -628,6 +628,7 @@ export function buildInternalApp(ctx: Ctx): FastifyInstance {
              (select count(distinct user_id) from user_activity where day > current_date - 30)::int as monthly_active,
              (select count(*) from deleted_users)::int as deleted_accounts,
              (select count(*) from deleted_users where deleted_at > now() - interval '30 days')::int as deleted_last_30_days`);
+    return { ...counts, ranking };
   });
   return app;
 }

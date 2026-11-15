@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { parseLogin, parseRepo, type SettingsUpdate } from "@gitilizer/shared";
+import { CATALOGUE, parseLogin, parseRepo, type SettingsUpdate } from "@gitilizer/shared";
 import { Allowlist, loadAllowlist, type SignInIdentity } from "../src/allowlist.ts";
 import { buildApp, settingsErrors } from "../src/app.ts";
 import { pgText } from "../src/db.ts";
@@ -243,38 +243,68 @@ describe("scan and rank cycle", () => {
     expect(hub.lists[0].upserts.length).toBe(n);
   });
 
-  it("falls back to the backup models as daily quotas run out, then pauses (RANK-13 to RANK-15)", async () => {
+  it("falls back to the backup model as daily quotas run out, then to basic ranking for new and changed items (RANK-13)", async () => {
     store.touch("dart-lang/native#3752");
     store.touch("dart-lang/native#3763");
     store.touch("dart-lang/http#2026");
     await scan(ctx, userId, "test");
     let [job] = await claimJobs(ctx, 1, 60);
-    expect(job.model).toBe(MODELS[0]);
+    expect(job).toMatchObject({ choice: "gemini", agent: "gemini", model: MODELS[0] });
     await failJob(ctx, job.id, { code: "daily_quota", message: "GenerateRequestsPerDayPerProjectPerModel-FreeTier" });
     expect(await codes()).toEqual(["gemini_backup_model"]);
-    const note = (await shownNotifications(ctx, userId))[0];
+    let note = (await shownNotifications(ctx, userId))[0];
     expect(note.params).toMatchObject({ primaryModel: MODELS[0], model: MODELS[1] });
+    expect(CATALOGUE.gemini_backup_model.heading(note.params)).toBe("Gitilizer is using a backup Gemini model");
     [job] = await claimJobs(ctx, 1, 60);
     expect(job.model).toBe(MODELS[1]);
     await rank(job);
     expect(await codes()).toEqual(["gemini_backup_model"]); // still on the backup
     [job] = await claimJobs(ctx, 1, 60);
     await failJob(ctx, job.id, { code: "daily_quota", message: "per day" });
+    // Both of the developer's models are out of quota: basic ranking, with Gitilizer's own key, is the step in use.
+    expect(await codes()).toEqual(["gemini_backup_model"]);
+    note = (await shownNotifications(ctx, userId))[0];
+    expect(note.params).toMatchObject({ basic: "true" });
+    expect(CATALOGUE.gemini_backup_model.heading(note.params)).toBe("Gitilizer is using basic ranking");
+    expect(CATALOGUE.gemini_backup_model.body(note.params, Date.now())[0].text).toMatch(/^Your Gemini daily quota is used up, so new and changed issues and PRs are being ranked with basic ranking until it resets at /);
     [job] = await claimJobs(ctx, 1, 60);
-    expect(job.model).toBe(MODELS[2]);
-    await failJob(ctx, job.id, { code: "daily_quota", message: "per day" });
-    expect(await codes()).toEqual(["gemini_daily_quota"]);
+    expect(job).toMatchObject({ choice: "gemini", agent: "basic", model: "gemini-decision-1", apiKey: "basic-key-1234567890" });
+    await completeJob(ctx, job.id, { priority: 0.6, actionable: true, next_action: "", reasoning: "" });
+    expect(await ctx.db.one(`select ranked_agent, ranked_model, reasoning from user_items where user_id = $1 and item_key = $2`, [userId, job.itemKey]))
+      .toEqual({ ranked_agent: "basic", ranked_model: "gemini-decision-1", reasoning: "" });
+    expect((await listRows(ctx.db, userId)).filter((r) => r.waiting)).toHaveLength(0);
+
+    // A full re-rank uses only the developer's own models: with none left, its jobs go and the items keep their scores (RANK-17).
+    hub.lists.length = 0;
+    expect(await queueFullRerank(ctx, userId, "rerank")).toBeGreaterThan(20);
+    const claimed = await claimJobs(ctx, 50, 60);
+    expect(claimed.every((j) => j.agent === "basic" && j.reason !== "rerank")).toBe(true);
+    for (const j of claimed) await rank(j);
+    expect(await ctx.db.query(`select 1 from rank_jobs where user_id = $1 and state in ('queued', 'leased')`, [userId])).toHaveLength(0);
+    expect(await ctx.db.query(`select 1 from rank_batches where user_id = $1 and finished_at is null`, [userId])).toHaveLength(0);
+    expect((await syncState(ctx, userId)).running).toBe(false);
+
+    // Google refuses Gitilizer's own key too: the item waits, and "Basic ranking is paused" replaces the backup-model warning (RANK-22).
+    store.touch("dart-lang/http#2026");
+    await scan(ctx, userId, "test");
+    [job] = await claimJobs(ctx, 1, 60);
+    await failJob(ctx, job.id, { code: "daily_quota", message: "CreateDecisionRequestsPerDay" });
+    expect(await codes()).toEqual(["basic_paused"]);
+    note = (await shownNotifications(ctx, userId))[0];
+    expect(note.params).toMatchObject({ ownQuota: "true" });
+    expect(CATALOGUE.basic_paused.body(note.params, Date.now()).map((x) => x.text).join("")).toMatch(
+      /^Your Gemini daily quota is used up, and so is Gitilizer's own ranking quota, so new and changed issues and PRs aren't being ranked\. Ranking resumes automatically when the quota resets at .* To avoid this, use an API key with billing turned on\.$/,
+    );
     expect(await claimJobs(ctx, 5, 60)).toHaveLength(0);
-    const waiting = (await listRows(ctx.db, userId)).filter((r) => r.waiting);
-    expect(waiting.length).toBe(2);
-    // Midnight Pacific: every quota resets and the primary model comes back.
+    expect((await listRows(ctx.db, userId)).filter((r) => r.waiting)).toHaveLength(1);
+    // Midnight Pacific: the developer's own quota resets, the primary model comes back and nothing waits for basic ranking.
     await ctx.db.query(`update gemini_quota set exhausted_until = now() - interval '1 second'`);
-    await ctx.db.query(`update users set ranking_paused_until = now() - interval '1 second'`);
     await refreshQuotas(ctx);
     expect(await codes()).toEqual([]);
     expect((await listRows(ctx.db, userId)).filter((r) => r.waiting)).toHaveLength(0);
     [job] = await claimJobs(ctx, 1, 60);
-    expect(job.model).toBe(MODELS[0]);
+    expect(job).toMatchObject({ agent: "gemini", model: MODELS[0] });
+    await ctx.db.query(`delete from basic_pause`);
     await rankAll();
   });
 
@@ -423,10 +453,11 @@ describe("HTTP API", () => {
   });
 });
 
-describe("Warm Welcome's Save (WEL-4, POST /api/setup)", () => {
+describe("Warm Welcome's button (WEL-4, POST /api/setup)", () => {
   let ctx: Ctx;
   let app: ReturnType<typeof buildApp>;
   let cookie = "";
+  let userId = "";
   const call = (method: string, url: string, payload?: unknown) =>
     app.inject({ method: method as any, url, headers: { "x-gitilizer": "1", cookie }, payload: payload as any });
   const saved = async () => (await ctx.db.query(`select kind from credentials order by kind`)).map((r) => r.kind);
@@ -436,39 +467,52 @@ describe("Warm Welcome's Save (WEL-4, POST /api/setup)", () => {
     app = buildApp(ctx, new Scheduler(ctx), null);
     const r = await app.inject({ method: "POST", url: "/api/auth/dev", headers: { "x-gitilizer": "1" }, payload: { name: "Sam", email: "sam@example.com" } });
     cookie = String(r.headers["set-cookie"]).split(";")[0];
+    userId = (await call("GET", "/api/me")).json().user.id;
   });
 
-  it("needs both credentials", async () => {
-    expect((await call("POST", "/api/setup", { credentials: { github_pat: "ghp_x", gemini_key: "  " } })).statusCode).toBe(422);
+  it("needs GitHub connected first: the button is on step 2 (WEL-2)", async () => {
+    expect((await call("POST", "/api/setup", { credentials: { gemini_key: "AIza-x" } })).statusCode).toBe(422);
     expect(await saved()).toEqual([]);
+    // A connection, here a token as "Advanced setup" would save it, without a choice of ranking yet.
+    const { ciphertext, nonce } = ctx.cipher.encrypt(userId, "ghp_secret-value-123");
+    await ctx.db.query(`insert into credentials (user_id, kind, ciphertext, nonce) values ($1, 'github_pat', $2, $3)`, [userId, ciphertext, nonce]);
+    expect((await call("GET", "/api/me")).json()).toMatchObject({ screen: "welcome", rankingChosen: false, github: { method: "pat" } });
   });
 
-  it("saves nothing when one credential fails, and says which (Q-82)", async () => {
-    const r = await call("POST", "/api/setup", { credentials: { github_pat: "ghp_x", gemini_key: "bad-key" } });
+  it("saves nothing when the typed key fails, and says so (Q-82)", async () => {
+    const r = await call("POST", "/api/setup", { credentials: { gemini_key: "bad-key" } });
     expect(r.statusCode).toBe(200);
-    expect(r.json()).toEqual({
-      ok: false,
-      results: { github_pat: { ok: true, code: "ok", login: "brianquinlan" }, gemini_key: { ok: false, code: "not_accepted" } },
-    });
-    expect(await saved()).toEqual([]);
-    expect((await call("GET", "/api/me")).json().screen).toBe("welcome");
+    expect(r.json()).toEqual({ ok: false, results: { gemini_key: { ok: false, code: "not_accepted" } } });
+    expect(await saved()).toEqual(["github_pat"]);
+    expect((await call("GET", "/api/me")).json()).toMatchObject({ screen: "welcome", rankingChosen: false });
   });
 
-  it("checks a value saved from Settings no more, and completes setup when both pass (NAV-8)", async () => {
-    const check = vi.spyOn(ctx, "validateKey");
-    await call("PUT", "/api/settings", { additionalRepos: [], collaborators: [], customPrompt: null, rerank: false, credentials: { gemini_key: "AIza-saved" } });
-    expect((await call("GET", "/api/me")).json().screen).toBe("welcome");
-    const r = await call("POST", "/api/setup", { credentials: { github_pat: " ghp_x " } });
-    expect(r.json()).toEqual({ ok: true, results: { github_pat: { ok: true, code: "ok", login: "brianquinlan" } } });
-    expect(check).not.toHaveBeenCalled();
+  it("checks and saves a typed key, and completes setup with Gemini (\"Save and start\")", async () => {
+    const r = await call("POST", "/api/setup", { credentials: { gemini_key: " AIza-x " } });
+    expect(r.json()).toEqual({ ok: true, results: { gemini_key: { ok: true, code: "ok" } }, rankingAgent: "gemini" });
     expect(await saved()).toEqual(["gemini_key", "github_pat"]);
     const me = (await call("GET", "/api/me")).json();
-    expect(me.screen).toBe("app");
-    expect(me.credentials.github_pat).toMatchObject({ set: true, chip: "connected" });
+    expect(me).toMatchObject({ screen: "app", rankingAgent: "gemini", rankingChosen: true });
+    expect(me.credentials.gemini_key).toMatchObject({ set: true, chip: "connected" });
   });
 
   it("is refused once setup is complete (NAV-2)", async () => {
-    expect((await call("POST", "/api/setup", { credentials: { github_pat: "ghp_y", gemini_key: "AIza-y" } })).statusCode).toBe(409);
+    expect((await call("POST", "/api/setup", { credentials: { gemini_key: "AIza-y" } })).statusCode).toBe(409);
+    expect((await call("POST", "/api/setup", {})).statusCode).toBe(409);
+  });
+
+  it("uses a key already saved from Settings without checking it again", async () => {
+    const other = await app.inject({ method: "POST", url: "/api/auth/dev", headers: { "x-gitilizer": "1" }, payload: { name: "Kim", email: "kim@example.com" } });
+    const headers = { "x-gitilizer": "1", cookie: String(other.headers["set-cookie"]).split(";")[0] };
+    const id = (await app.inject({ method: "GET", url: "/api/me", headers })).json().user.id;
+    for (const kind of ["github_pat", "gemini_key"]) {
+      const { ciphertext, nonce } = ctx.cipher.encrypt(id, "saved-secret-value-123");
+      await ctx.db.query(`insert into credentials (user_id, kind, ciphertext, nonce) values ($1, $2, $3, $4)`, [id, kind, ciphertext, nonce]);
+    }
+    const check = vi.spyOn(ctx, "validateKey");
+    const r = await app.inject({ method: "POST", url: "/api/setup", headers, payload: {} });
+    expect(r.json()).toEqual({ ok: true, results: {}, rankingAgent: "gemini" });
+    expect(check).not.toHaveBeenCalled();
   });
 });
 

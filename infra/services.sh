@@ -16,6 +16,9 @@
 # app's URL name, or its whole public link), and
 # GITHUB_APP_ID if its private key is stored, after infra/github-app-secrets.sh. Like the other IDs they are
 # kept from the service's current settings when left out. Without them the service offers the token only.
+#
+# Basic ranking needs Gitilizer's own Gemini API key: run infra/basic-ranking-secret.sh first (DEPLOYMENT.md,
+# "The basic ranking key"). A server from this release on doesn't start without it.
 source "$(dirname "$0")/config.sh"
 
 env=${1:?"dev or prod"}
@@ -60,6 +63,11 @@ else
 fi
 secrets="DATABASE_URL=$env-database-url:latest,CREDENTIAL_KEY=$env-credential-key:latest,WORKER_TOKEN=$env-worker-token:latest"
 secrets+=",GOOGLE_CLIENT_SECRET=$env-google-client-secret:latest,GITHUB_CLIENT_SECRET=$env-github-client-secret:latest"
+
+# Gitilizer's own Gemini API key, for basic ranking (DEPLOYMENT.md, "The basic ranking key").
+gcloud secrets describe "$env-basic-ranking-key" >/dev/null 2>&1 \
+  || { echo "No secret $env-basic-ranking-key: run infra/basic-ranking-secret.sh $env first."; exit 2; }
+secrets+=",BASIC_RANKING_API_KEY=$env-basic-ranking-key:latest"
 
 # The Gitilizer GitHub App (DEPLOYMENT.md, "The Gitilizer GitHub App").
 app_client=${GITHUB_APP_CLIENT_ID:-$(setting GITHUB_APP_CLIENT_ID)}

@@ -1,5 +1,6 @@
 // npm run evaluate -- [--strategy pointwise|listwise|recency] [--model M] [--thinking low|…]
 //   --model claude-sonnet-5-5 or gpt-6.1-sol (with --thinking low) evaluates Claude or OpenAI (ANTHROPIC_API_KEY, OPENAI_API_KEY in .env).
+//   --model gemini-decision-1 evaluates basic ranking (BASIC_RANKING_API_KEY, or GEMINI_API_KEY).
 //   [--prompt prompts/v4.md] [--no-signals] [--trials 3] [--now ISO] [--label L] [--workers 6]
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -32,9 +33,9 @@ if (!["pointwise", "listwise", "recency"].includes(strategy)) throw new Error(`u
 // Gemini takes minimal to high; OpenAI takes none to max; Claude ranks without thinking.
 if (a.thinking && !["none", "minimal", "low", "medium", "high", "xhigh", "max"].includes(a.thinking)) throw new Error(`unknown thinking level ${a.thinking}`);
 const model = a.model || process.env.GITILIZER_MODEL || DEFAULT_MODEL;
-// The model's name picks the agent: claude-… is Claude, gpt-… is OpenAI, anything else Gemini.
+// The model's name picks the agent: claude-… is Claude, gpt-… is OpenAI, gemini-decision-… is basic ranking, anything else Gemini.
 const agent = agentForModel(model);
-const keyVar = { gemini: "GEMINI_API_KEY", claude: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY" }[agent];
+const keyVar = { gemini: "GEMINI_API_KEY", claude: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY", basic: process.env.BASIC_RANKING_API_KEY ? "BASIC_RANKING_API_KEY" : "GEMINI_API_KEY" }[agent];
 if (strategy !== "recency" && !process.env[keyVar]) {
   console.error(`${keyVar} is not set (put it in .env)`);
   process.exit(1);

@@ -1,0 +1,6 @@
+# Not a quota or spending limit, which pause basic ranking as designed (RANK-22): the key itself is missing,
+# invalid, leaked or without access to the model. The "basic ranking can't use its key" alert watches it.
+description: 'Times basic ranking couldn''t use Gitilizer''s own API key, by error code (RANK-21)'
+filter: 'resource.type="cloud_run_revision" AND severity>=ERROR AND jsonPayload.component="worker" AND jsonPayload.message="basic ranking can''t use its key"'
+metricDescriptor: { metricKind: DELTA, valueType: INT64, labels: [{ key: code }] }
+labelExtractors: { code: EXTRACT(jsonPayload.code) }

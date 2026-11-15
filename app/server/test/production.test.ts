@@ -16,6 +16,7 @@ const DEPLOYED = {
   GITILIZER_ENV: "production", NODE_ENV: "production", DATABASE_URL: "postgresql://u:p@/db?host=/cloudsql/x",
   CREDENTIAL_KEY: Buffer.alloc(32, 9).toString("base64"), WORKER_TOKEN: "w".repeat(32), PUBLIC_URL: "https://gitilizer.com",
   GOOGLE_CLIENT_ID: "g-id", GOOGLE_CLIENT_SECRET: "g-secret", GITHUB_CLIENT_ID: "h-id", GITHUB_CLIENT_SECRET: "h-secret",
+  BASIC_RANKING_API_KEY: "AIza-gitilizers-own",
 };
 
 describe("startup checks for the deployed environments", () => {
@@ -23,6 +24,14 @@ describe("startup checks for the deployed environments", () => {
     const c = loadConfig(DEPLOYED, ["node", "main.ts"]);
     expect(c).toMatchObject({ devSignIn: false, secure: true, publicUrl: "https://gitilizer.com", localMode: false, scheduler: true });
     expect(c.oauth.google).toEqual({ clientId: "g-id", clientSecret: "g-secret" });
+    expect(c.basic).toEqual({ key: "AIza-gitilizers-own", model: "gemini-decision-1" });
+    expect(c.models).toEqual(["gemini-3.8-flash", "gemini-3.5-flash-lite"]); // RANK-13: basic ranking comes after these
+  });
+
+  it("ranks for basic ranking with the key in .env on a developer's computer, but never when deployed (RANK-21)", () => {
+    expect(loadConfig({ GEMINI_API_KEY: "AIza-mine" }, ["node", "main.ts"]).basic.key).toBe("AIza-mine");
+    expect(loadConfig({ GEMINI_API_KEY: "AIza-mine", BASIC_RANKING_API_KEY: "AIza-basic" }, ["node", "main.ts"]).basic.key).toBe("AIza-basic");
+    expect(() => loadConfig({ ...DEPLOYED, BASIC_RANKING_API_KEY: undefined, GEMINI_API_KEY: "AIza-mine" }, ["node", "main.ts"])).toThrow(/BASIC_RANKING_API_KEY is missing/);
   });
 
   it("refuses to start rather than fall back to PGlite, the built-in key, the stub or fixtures", () => {

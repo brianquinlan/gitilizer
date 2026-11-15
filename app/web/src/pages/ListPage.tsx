@@ -1,7 +1,7 @@
 // Prioritized list and Icebox (PRD "Prioritized list", "Live updates", "Icebox").
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  AGENT_INFO, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, reasonLabel, type Sort, type SortColumn, type SyncEvent,
+  choiceName, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, reasonLabel, type Sort, type SortColumn, type SyncEvent,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
 import { BoxIcon, ChevronLeft, ChevronRight, DownToLineIcon, InfoIcon, IssueIcon, PrIcon, RefreshIcon, SortIcon, XIcon } from "../icons.tsx";
@@ -59,7 +59,7 @@ export function ListPage({ view }: { view: View }) {
           <Link to="/icebox" aria-current={view === "icebox" ? "page" : undefined}><BoxIcon /> Icebox</Link>
         </nav>
         <span className="spacer" />
-        <SyncButton sync={sync} agent={me ? AGENT_INFO[me.rankingAgent].name : "Gemini"} />
+        <SyncButton sync={sync} agent={me ? choiceName(me.rankingAgent) : "Gemini"} />
       </div>
 
       <div className={`table ${view === "icebox" ? "icebox" : ""} ${reducedMotion() ? "reduced" : ""}`} role="table" aria-label={view === "prioritized" ? "Prioritized issues" : "Icebox"}>

@@ -157,7 +157,8 @@ const serverEnv = {
 if (!serverEnv.GITILIZER_MODEL) delete serverEnv.GITILIZER_MODEL;
 if (!serverEnv.GITILIZER_MODELS) delete serverEnv.GITILIZER_MODELS;
 // A GitHub App of your own for "Connect GitHub" (LOCAL_DEVELOPMENT.md). Your shell's values win over .env.
-for (const k of ["GITHUB_APP_CLIENT_ID", "GITHUB_APP_CLIENT_SECRET", "GITHUB_APP_SLUG", "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY"]) {
+// And a key of its own for basic ranking; without one, GEMINI_API_KEY ranks for it too.
+for (const k of ["GITHUB_APP_CLIENT_ID", "GITHUB_APP_CLIENT_SECRET", "GITHUB_APP_SLUG", "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY", "BASIC_RANKING_API_KEY", "GITILIZER_BASIC_MODEL"]) {
   if (!serverEnv[k] && dotenv[k]) serverEnv[k] = dotenv[k];
 }
 if (fixtures) {
@@ -175,8 +176,13 @@ if (fixtures) {
 console.log(`Gitilizer local mode (${fixtures ? "fixtures: no GitHub or ranking agent calls" : "real GitHub and ranking agents"})`);
 console.log(`Data: ${dataDir}`);
 const anyAgentKey = serverEnv.LOCAL_GEMINI_API_KEY || serverEnv.LOCAL_ANTHROPIC_API_KEY || serverEnv.LOCAL_OPENAI_API_KEY;
-if (!fixtures && (!serverEnv.LOCAL_GITHUB_TOKEN || !anyAgentKey)) {
-  console.log("GITHUB_TOKEN, or GEMINI_API_KEY, ANTHROPIC_API_KEY or OPENAI_API_KEY, isn't in .env. Enter what's missing in Settings when the app opens.");
+if (!fixtures && !serverEnv.LOCAL_GITHUB_TOKEN) {
+  console.log("GITHUB_TOKEN isn't in .env. Connect GitHub when the app opens: \"Advanced setup\" takes a personal access token.");
+}
+if (!fixtures && !anyAgentKey) {
+  console.log(serverEnv.BASIC_RANKING_API_KEY
+    ? "No ranking agent's key is in .env: Warm Welcome offers a Gemini key, or basic ranking with BASIC_RANKING_API_KEY."
+    : "No ranking agent's key is in .env, and no BASIC_RANKING_API_KEY, so basic ranking can't rank either. Add a key when the app opens.");
 }
 
 run("api", process.execPath, [tsxCli, join("app", "server", "src", "main.ts"), ...(fixtures ? ["--fixtures"] : []), "--local"], { env: serverEnv });

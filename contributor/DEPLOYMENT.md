@@ -61,12 +61,13 @@ A service's settings are environment variables on its Cloud Run service. Secrets
 | `CREDENTIAL_KEY` | Secret `dev-credential-key` | Secret `prod-credential-key` | Encrypts stored GitHub tokens and Gemini keys. **Never destroy a version**: without it every stored credential is unreadable. |
 | `WORKER_TOKEN` | Secret `dev-worker-token` | Secret `prod-worker-token` | Protects `/internal/metrics`, which listens only inside the container. |
 | `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_SECRET` | Secrets `dev-*-client-secret` | Secrets `prod-*-client-secret` | |
+| `BASIC_RANKING_API_KEY` | Secret `dev-basic-ranking-key` | Secret `prod-basic-ranking-key` | Gitilizer's own Gemini API key, on a paid tier: [The basic ranking key](#the-basic-ranking-key). |
 | `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_SLUG` | Development's app | Production's app | Optional, not secret: [The Gitilizer GitHub App](#the-gitilizer-github-app). Without them the service offers a personal access token only. |
 | `GITHUB_APP_CLIENT_SECRET` | Secret `dev-github-app-client-secret` | Secret `prod-github-app-client-secret` | Needed with the two above. |
 | `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` | Optional; secret `dev-github-app-private-key` | Optional; secret `prod-github-app-private-key` | Only for the "waiting for an owner to approve" rows in Settings. |
 | `SCHEDULER`, `WORKER` | Not set (on) | Not set (on) | `off` leaves that part to another service ([Splitting production](#splitting-production)). |
 
-**A deployed server refuses to start rather than run unsafely.** With `GITILIZER_ENV` set, a missing `DATABASE_URL`, `CREDENTIAL_KEY`, `WORKER_TOKEN`, `PUBLIC_URL` (or one that isn't `https://`), a missing Google or GitHub client, `NODE_ENV` other than `production`, or local mode, fixtures or the development sign-in form stops it, and the log names every problem. On a computer, the same gaps fall back to PGlite, a built-in key and the development sign-in form; deployed, they never do. A revision that fails to start never gets traffic: Cloud Run keeps serving the previous one.
+**A deployed server refuses to start rather than run unsafely.** With `GITILIZER_ENV` set, a missing `DATABASE_URL`, `CREDENTIAL_KEY`, `WORKER_TOKEN`, `BASIC_RANKING_API_KEY`, `PUBLIC_URL` (or one that isn't `https://`), a missing Google or GitHub client, `NODE_ENV` other than `production`, or local mode, fixtures or the development sign-in form stops it, and the log names every problem. On a computer, the same gaps fall back to PGlite, a built-in key and the development sign-in form; deployed, they never do. A revision that fails to start never gets traffic: Cloud Run keeps serving the previous one.
 
 ## How a change reaches development
 
@@ -274,11 +275,58 @@ app's callback URL doesn't match `PUBLIC_URL`. `the app's connection has
 ended` (component `github`) is logged once when a developer's connection can
 no longer be renewed, with GitHub's reason.
 
+## The basic ranking key
+
+Basic ranking ranks for developers who haven't added an API key, and for new and
+changed items when a developer's free-tier Gemini quota is used up ([Basic
+ranking](DESIGN.md#ranking-worker)). It calls Google's Gemini API with a key of
+Gitilizer's own, `BASIC_RANKING_API_KEY`, at Gitilizer's cost. Each environment
+has its own key, so development can't use up production's quota.
+
+1. Create the key in [Google AI Studio](https://aistudio.google.com/apikey), in
+   a Google Cloud project **with billing turned on**. This is required, not a
+   matter of limits: Google may use what a free-tier key sends to improve its
+   products, and basic ranking sends developers' issues and PRs (PRD `PRIV-2`).
+   A project of its own for each environment keeps the quotas and the bills
+   apart from everything else.
+2. Store it: `bash infra/basic-ranking-secret.sh` asks for both keys, or `bash
+   infra/basic-ranking-secret.sh dev` for one.
+3. Give it to the service: `bash infra/services.sh dev`, then `prod`. This keeps
+   the image each service runs.
+
+**Do steps 1 to 3 before deploying the first release that has basic ranking.**
+From that release on, a deployed server doesn't start without the key
+([Settings](#settings)), so a merge to `main` before development has it leaves
+the previous revision serving and the build failing. The earlier code ignores
+the setting, so adding it first is safe.
+
+**What it costs, and its limits.** About US$0.0006 an item, so US$10 ranks about
+17,000 items; [the dashboard](#monitoring-and-alerts) shows how many are ranked
+each day. Google limits the key's requests each minute and each day by the
+project's usage tier, shown in [AI
+Studio](https://aistudio.google.com/rate-limit).
+
+**Keeping it within the budget.** Whether basic ranking stops when a month's
+budget is spent is your configuration with Google, not a rule of the application
+(PRD `RANK-22`). A Cloud Billing budget only sends email; it doesn't stop
+spending. To stop it, set a limit that makes Google refuse requests, such as a
+lower requests-per-day quota for the model on the key's project. Whenever Google
+refuses the key for a quota or a spending limit, basic ranking pauses, the
+developers with items waiting see "Basic ranking is paused", and Gitilizer asks
+again every 15 minutes, so it resumes by itself when the limit ends or you raise
+it.
+
+**If the key itself stops working** (deleted, restricted, leaked and disabled by
+Google), basic ranking pauses the same way and the "basic ranking can't use its
+key" alert emails you. Create a new key and add it as a new version of the
+secret ([Changing a setting or a secret](#changing-a-setting-or-a-secret)), with
+`BASIC_RANKING_API_KEY=<env>-basic-ranking-key:latest`.
+
 ## Monitoring and alerts
 
 `infra/monitoring.sh` sets these up and can be run again after changing them (the definitions are in `infra/monitoring/`).
 
-- **Dashboard** "Gitilizer" in Cloud Monitoring: requests by status, latency, open requests (about one per open tab), CPU, scans by outcome and duration, ranking time and failures, the browser's time to a usable list, errors logged, and Cloud SQL CPU and connections.
+- **Dashboard** "Gitilizer" in Cloud Monitoring: requests by status, latency, open requests (about one per open tab), CPU, scans by outcome and duration, ranking time and failures, the browser's time to a usable list, errors logged, Cloud SQL CPU and connections, and how many items are ranked each day (`METRIC-5`): one chart by the developer's choice (a Gemini, Claude or OpenAI key, or basic ranking), and one for Gemini keys by step (the primary model, the backup model, and basic ranking, which shows as `gemini-decision-1`). Cloud Monitoring keeps these for about six weeks; `GET /internal/metrics` and the `ranking_volume` table have every day for 13 months.
 - **Alerts, by email to the owner** (`METRIC-4`):
 
   | Alert | When |
@@ -287,6 +335,7 @@ no longer be renewed, with GitHub's reason.
   | More than 5% of requests failing | 5xx above 5% of `gitilizer-api`'s requests for 10 minutes. |
   | No scans finishing | No scan finished for 3 hours. Background scans run every 2 hours, so at today's scale a shorter window would raise false alarms; tighten it to the design's 30 minutes once someone always has the app open. |
   | gitilizer-api is busy | CPU above 60% for an hour: [time to split production](#splitting-production). |
+  | Basic ranking can't use its key | Google refused Gitilizer's own key for a reason other than a quota or spending limit, or the key isn't set: [The basic ranking key](#the-basic-ranking-key). |
 
 - **Logs.** Each line is JSON with `severity`, `component` and `message` ([Logging](DESIGN.md#logging)). In Logs Explorer, `resource.labels.service_name="gitilizer-api" AND severity>=WARNING` is the place to start; `jsonPayload.user="<account ID>"` follows one developer.
 - **Budget.** A US$200 monthly budget on the project emails the owner at 50%, 90% and 100% (Billing → Budgets & alerts).
@@ -311,6 +360,7 @@ Everything in Google Cloud is created by the scripts in `infra/`, run from the r
 | `inventory.sh` | Lists everything in the project into `gcp-inventory.txt`. Changes nothing. |
 | `foundation.sh` | APIs, Artifact Registry, service accounts and their permissions, Cloud SQL and its databases, the generated secrets and who can read them. Removes Editor from the default service accounts. It sets up the database users itself, with SQL sent over HTTPS (`gcloud sql instances execute-sql`) as `postgres`, whose generated password is kept in the regional secret `sql-admin-password`: each user owns its own database, can't connect to the other's, and isn't a member of `cloudsqlsuperuser`. |
 | `oauth-secrets.sh` | Asks for the four OAuth client secrets and stores them, without showing them. |
+| `basic-ranking-secret.sh [dev\|prod]` | Asks for Gitilizer's own Gemini API keys for basic ranking and stores them, without showing them. |
 | `github-app-secrets.sh [dev\|prod key.pem]` | Asks for the two Gitilizer GitHub Apps' client secrets and stores them; with an environment and a `.pem` file, stores that app's private key. |
 | `certificate.sh` | The load balancer's addresses and certificate; prints the GoDaddy records and the certificate's state. |
 | `services.sh dev\|prod [sha\|placeholder]` | Creates or reconfigures `gitilizer-dev` or `gitilizer-api` with all its settings, and lets its deployer deploy it. |
@@ -354,7 +404,7 @@ Every `infra/` script reads it. The names of the services, the database, the sec
 
 **3. Certificate.** `bash infra/certificate.sh`. Add the `_acme-challenge` CNAME it prints at your DNS provider, and run it again until the certificate is `ACTIVE`.
 
-**4. Sign-in apps.** Create a Google OAuth client and a GitHub OAuth app for each environment, as in [Sign-in apps](#sign-in-apps), with your domain in the callback URLs (`https://example.com/api/auth/google/callback` and so on). For Google, set up the consent screen first (Google Auth Platform: branding, audience published, the `openid`, `email` and `profile` scopes), and verify your domain in Search Console. Then run `bash infra/oauth-secrets.sh` to store the four client secrets, and `bash infra/foundation.sh` again so each environment can read its own.
+**4. Sign-in apps.** Create a Google OAuth client and a GitHub OAuth app for each environment, as in [Sign-in apps](#sign-in-apps), with your domain in the callback URLs (`https://example.com/api/auth/google/callback` and so on). For Google, set up the consent screen first (Google Auth Platform: branding, audience published, the `openid`, `email` and `profile` scopes), and verify your domain in Search Console. Then run `bash infra/oauth-secrets.sh` to store the four client secrets, and `bash infra/foundation.sh` again so each environment can read its own. Create the two [basic ranking keys](#the-basic-ranking-key) and store them with `bash infra/basic-ranking-secret.sh`.
 
 **5. Development.**
 

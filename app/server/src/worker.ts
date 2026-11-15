@@ -1,5 +1,6 @@
 // The ranking worker (design: Ranking worker). It claims jobs from the queue,
-// asks the developer's ranking agent with their own key, and stores the answer.
+// asks the developer's ranking agent with their own key, or basic ranking with
+// Gitilizer's (PRD RANK-21), and stores the answer.
 // It runs in every API process; the queue is in Postgres, so several processes
 // share the work without coordinating.
 import { FakeLLM, classifyFor, createLLM, iceboxCheck, scoreItem, type LLM } from "@gitilizer/ranker";
@@ -35,6 +36,8 @@ export class RankingWorker {
   private readonly llm: (job: ClaimedJob) => LLM;
   /** Counts for the once-a-minute summary line (design: Logging). */
   private stats = { done: 0, failed: {} as Record<string, number>, ms: [] as number[] };
+  /** Items ranked since the last summary, by "choice agent model" (METRIC-5). */
+  private volume = new Map<string, number>();
   private summaryTimer: NodeJS.Timeout | null = null;
 
   constructor(private ctx: Ctx, opts: WorkerOptions = {}) {
@@ -51,16 +54,17 @@ export class RankingWorker {
 
   start() {
     this.running = true;
-    this.summaryTimer = setInterval(() => this.summarize(), 60_000);
+    this.summaryTimer = setInterval(() => { this.summarize(); void this.flushVolume(); }, 60_000);
     void this.loop();
   }
 
   async stop() {
     this.running = false;
     if (this.summaryTimer) clearInterval(this.summaryTimer);
-    this.summarize();
     this.wake?.();
     while (this.inFlight > 0) await new Promise((r) => setTimeout(r, 50));
+    this.summarize();
+    await this.flushVolume();
   }
 
   /** Claims and runs jobs until there are none, then waits a moment. */
@@ -102,9 +106,13 @@ export class RankingWorker {
         this.record(started);
         log.debug("worker", "icebox check", { item: job.itemKey, bringBack: d.bring_back, ms: Date.now() - started });
       } else {
-        const a = await scoreItem(job, llm);
+        const scored = await scoreItem(job, llm);
+        // Basic ranking stores a score and whether the item is actionable, and no text (RANK-2), whatever the model sent.
+        const a = job.agent === "basic" ? { ...scored, next_action: "", reasoning: "" } : scored;
         await completeJob(this.ctx, job.id, a);
         this.record(started);
+        const series = `${job.choice} ${job.agent} ${job.model}`;
+        this.volume.set(series, (this.volume.get(series) ?? 0) + 1);
         log.debug("worker", "ranked", { item: job.itemKey, model: job.model, priority: a.priority, ms: Date.now() - started });
       }
     } catch (e) {
@@ -136,5 +144,29 @@ export class RankingWorker {
     const pct = (p: number) => (sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))] : null);
     log.info("worker", "ranking summary", { done, failed, p50Ms: pct(50), p95Ms: pct(95) });
     this.stats = { done: 0, failed: {}, ms: [] };
+  }
+
+  /**
+   * How much ranking each way of ranking did (METRIC-5): added to today's rows
+   * in `ranking_volume`, and logged as one line per series for the dashboard's
+   * charts. `choice` is the developer's; `agent` and `model` are what scored
+   * the items, so a Gemini key's fallback to basic ranking shows as its own series.
+   */
+  async flushVolume() {
+    const volume = this.volume;
+    this.volume = new Map();
+    for (const [series, items] of volume) {
+      const [choice, agent, model] = series.split(" ");
+      log.info("worker", "ranking volume", { choice, agent, model, items });
+      try {
+        await this.ctx.db.query(
+          `insert into ranking_volume (day, choice, agent, model, items) values (current_date, $1, $2, $3, $4)
+           on conflict (day, choice, agent, model) do update set items = ranking_volume.items + excluded.items`,
+          [choice, agent, model, items],
+        );
+      } catch (e) {
+        log.error("worker", "couldn't record ranking volume", { error: String(e) });
+      }
+    }
   }
 }

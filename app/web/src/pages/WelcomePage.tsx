@@ -1,98 +1,65 @@
 // Warm Welcome (PRD "Warm Welcome", WEL-1..6). Figma: "Warm Welcome", "Warm Welcome · Connected" and
-// "Warm Welcome · Personal access token".
-// Setup happens here: the GitHub connection, the ranking agent and its key. "Connect GitHub" saves the
-// connection on its own (SET-43); a typed token and the key are checked and saved together by POST /api/setup
-// (design D-12).
+// "Warm Welcome · Connected · Key entered".
+// Setup takes two steps. Step 1 connects GitHub: "Connect GitHub" saves the connection on its own
+// (SET-43), and "Advanced setup" opens Settings for everything else. Step 2 offers a Gemini API key and one
+// button: with a key it is checked and saved, and Gemini ranks; without one, basic ranking does
+// (RANK-21). POST /api/setup does either (design D-12).
 import { useRef, useState } from "react";
-import { AGENT_INFO, RankingAgent, type CredentialKind, type SetupRequest, type SetupResponse } from "@gitilizer/shared";
+import { AGENT_INFO, BASIC_INFO, type SetupRequest, type SetupResponse } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
-import { AgentPicker } from "../components/AgentPicker.tsx";
 import { DOCS_URL } from "../components/Chrome.tsx";
 import { CredentialField, passed, type Check } from "../components/CredentialField.tsx";
 import { AccessNote, Avatar, ConnectLink, ConnectResult, useConnectResult } from "../components/GitHubConnection.tsx";
 import { CheckCircleIcon, ExternalIcon, InboxIcon } from "../icons.tsx";
-import { navigate } from "../router.tsx";
+import { Link, navigate } from "../router.tsx";
 import { useStore } from "../store.tsx";
 
-const EMPTY = { github_pat: "", gemini_key: "", anthropic_key: "", openai_key: "" };
+const GEMINI = AGENT_INFO.gemini;
 
 export function WelcomePage() {
   const { me, refreshMe } = useStore();
-  // WEL-5: Gemini is chosen at first.
-  const [agent, setAgent] = useState<RankingAgent>("gemini");
-  const [values, setValues] = useState<Record<CredentialKind, string>>(EMPTY);
-  const [checks, setChecks] = useState<Record<CredentialKind, Check>>({ github_pat: null, gemini_key: null, anthropic_key: null, openai_key: null });
+  const [key, setKey] = useState("");
+  const [check, setCheck] = useState<Check>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const latest = useRef(values);
-  latest.current = values;
-  // WEL-6: the token field shows only when asked for, or when this environment has no Gitilizer app.
-  const [useToken, setUseToken] = useState<boolean | null>(null);
+  const latest = useRef(key);
+  latest.current = key;
   const connectResult = useConnectResult();
   if (!me) return null;
-  const connected = me.github.method === "app";
-  const tokenShowing = useToken ?? (!me.github.app || me.github.method === "pat");
+  // WEL-2: step 2 once GitHub is connected, with the Gitilizer app or with a token saved in Settings.
+  const connected = me.github.method !== null;
+  const saved = me.credentials.gemini_key.set;
+  // WEL-4: the button's label follows the key field; a saved key counts as a value.
+  const hasKey = key.trim() !== "" || saved;
 
-  const info = AGENT_INFO[agent];
-  const KINDS: CredentialKind[] = tokenShowing ? ["github_pat", info.kind] : [info.kind];
-  // Choosing another agent clears what was typed for the previous one, with its Validate result (WEL-5).
-  const pick = (next: RankingAgent) => {
-    if (next === agent) return;
-    setValues((v) => ({ ...v, [info.kind]: "" }));
-    setChecks((c) => ({ ...c, [info.kind]: null }));
-    setAgent(next);
-  };
-  const present = (k: CredentialKind) => values[k].trim() !== "" || me.credentials[k].set;
-  const checking = KINDS.some((k) => checks[k] === "checking");
-  // WEL-4: GitHub connected or a token, and the key. While the token field shows, it is the one that counts.
-  const canSave = (tokenShowing || connected) && KINDS.every(present) && !checking && !saving;
-  // Going back from the token field discards a typed token (WEL-6).
-  const showToken = (on: boolean) => {
-    setValues((v) => ({ ...v, github_pat: "" }));
-    setChecks((c) => ({ ...c, github_pat: null }));
-    setUseToken(on);
-  };
-
-  // WEL-4: every typed value is checked (the server checks again, D-12); nothing is saved unless all pass.
-  const save = async () => {
-    const typed = KINDS.filter((k) => values[k].trim());
-    const pending = typed.filter((k) => !passed(checks[k]));
-    const sent = { ...values };
+  const finish = async () => {
+    const typed = key.trim();
+    const sent = key;
     setSaving(true);
     setSaveError(null);
-    setChecks((c) => ({ ...c, ...Object.fromEntries(pending.map((k) => [k, "checking"])) }));
+    if (typed && !passed(check)) setCheck("checking");
     try {
-      const body: SetupRequest = { credentials: Object.fromEntries(typed.map((k) => [k, values[k]])), rankingAgent: agent };
+      const body: SetupRequest = { credentials: typed ? { gemini_key: typed } : {} };
       const r = await api.post<SetupResponse>("/api/setup", body);
       if (r.ok) {
         await refreshMe();
         navigate("/"); // the first-sync state of the Prioritized list
         return;
       }
-      // Results for values that have since changed in the field are dropped.
-      const same = typed.filter((k) => latest.current[k] === sent[k]);
-      setChecks((c) => ({ ...c, ...Object.fromEntries(same.map((k) => [k, r.results[k] ?? null])) }));
+      // A result for a value that has since changed in the field is dropped.
+      if (latest.current === sent) setCheck(r.results.gemini_key ?? null);
     } catch (e) {
-      setChecks((c) => ({ ...c, ...Object.fromEntries(pending.map((k) => [k, null])) }));
+      setCheck((c) => (c === "checking" ? null : c));
       if (e instanceof ApiError && e.status === 409) { // setup was completed in another tab (NAV-2)
         await refreshMe();
         navigate("/");
         return;
       }
-      setSaveError("Couldn't save your credentials. Try again.");
+      setSaveError("Couldn't finish setup. Try again.");
     } finally {
       setSaving(false);
     }
   };
-
-  const field = (kind: CredentialKind) => ({
-    kind,
-    saved: me.credentials[kind].set,
-    value: values[kind],
-    onChange: (v: string) => setValues((s) => ({ ...s, [kind]: v })),
-    check: checks[kind],
-    onCheck: (c: Check) => setChecks((s) => ({ ...s, [kind]: c })),
-  });
 
   return (
     <div className="panel welcome">
@@ -100,32 +67,17 @@ export function WelcomePage() {
         <div className="symbol"><InboxIcon /></div>
         <div>
           <h1>Welcome to your prioritized inbox</h1>
-          <p className="intro">{tokenShowing ? "Add your GitHub personal access token" : "Connect GitHub"}, then choose the AI that ranks your issues and PRs and add its API key.</p>
+          <p className="intro">Connect GitHub to get started. Add a free Gemini API key for the best ranking, or skip it for now.</p>
         </div>
-        <div className="welcome-fields">
-          {tokenShowing ? (
-            <div className="credential-field">
-              <CredentialField {...field("github_pat")} label="GitHub personal access token"
-                setup={{ text: "Create a token", href: "https://github.com/settings/personal-access-tokens/new" }}
-                guidance="Gitilizer only needs read access to issues, PRs and metadata for the repositories you want to scan."
-                learnMore={`${DOCS_URL}#github-personal-access-tokens`} />
-              {me.github.app && (
-                <button type="button" className="link-btn underlined" onClick={() => showToken(false)}>
-                  {connected ? `Keep @${me.github.login} connected` : "Use Connect GitHub instead"}
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="credential-field github-connection">
-              <div className="field-label">
-                <label>GitHub</label>
-                <a href={`${DOCS_URL}#connecting-github`} target="_blank" rel="noreferrer">What Gitilizer can read <ExternalIcon /></a>
-              </div>
-              {connected ? (
+        {connected ? (
+          <>
+            <div className="welcome-fields">
+              <div className="credential-field github-connection">
+                <div className="field-label"><label>GitHub</label></div>
                 <div className="connected-box">
                   <div className="who">
                     <Avatar url={me.github.avatarUrl} login={me.github.login} size={28} />
-                    <span className="name">Connected as <strong>@{me.github.login}</strong></span>
+                    <span className="name">{me.github.login ? <>Connected as <strong>@{me.github.login}</strong></> : "Connected with a personal access token"}</span>
                     <span className="state"><CheckCircleIcon /> Connected</span>
                   </div>
                   <div className="lines">
@@ -136,34 +88,49 @@ export function WelcomePage() {
                     )}
                   </div>
                 </div>
-              ) : (
+              </div>
+              <div className="credential-field">
+                <CredentialField kind={GEMINI.kind} label={`${GEMINI.name} API key`} setup={GEMINI.setup}
+                  pills={<><span className="pill recommended">Recommended</span><span className="pill free">Free tier available</span></>}
+                  placeholder="Paste your key, or leave blank"
+                  guidance={BASIC_INFO.welcomeGuidance} learnMore={`${DOCS_URL}#${BASIC_INFO.docs}`} learnMoreText={BASIC_INFO.compareWelcome}
+                  saved={saved} value={key} onChange={setKey} check={check} onCheck={setCheck} />
+              </div>
+            </div>
+            <div className="welcome-save">
+              <div className="welcome-finish">
+                <button className="btn primary" onClick={finish} disabled={saving || check === "checking"} aria-describedby={hasKey ? undefined : "finish-note"}>
+                  {hasKey ? "Save and start" : "Continue with basic ranking"}
+                </button>
+                {!hasKey && <span className="save-note" id="finish-note">You can add a key anytime in Settings.</span>}
+              </div>
+              {saveError && <p className="field-error" role="alert">{saveError}</p>}
+            </div>
+          </>
+        ) : (
+          <div className="welcome-fields">
+            <div className="credential-field github-connection">
+              <div className="field-label">
+                <label>GitHub</label>
+                <a href={`${DOCS_URL}#connecting-github`} target="_blank" rel="noreferrer">What Gitilizer can read <ExternalIcon /></a>
+              </div>
+              {me.github.app ? (
                 <>
                   <ConnectLink next="/" kind="dark">Connect GitHub</ConnectLink>
                   <ConnectResult result={connectResult} />
+                  <AccessNote />
                 </>
+              ) : (
+                // A server without the Gitilizer app, such as a developer's own: only a token can connect it.
+                <p className="fine">This server has no Gitilizer GitHub app to connect with. Add a personal access token in Advanced setup.</p>
               )}
-              <AccessNote more={connected ? "You can add private repositories now, or later in Settings." : undefined} />
-              <button type="button" className="link-btn underlined" onClick={() => showToken(true)}>
-                {connected ? "Use a personal access token instead" : "Or use a personal access token"}
-              </button>
             </div>
-          )}
-          <fieldset className="agent-choice">
-            <legend>Ranking agent</legend>
-            <AgentPicker agent={agent} onPick={pick} idPrefix="tile" tiles />
-            <p className="fine">Choose one if you or your company already has an API account with Anthropic or OpenAI.</p>
-          </fieldset>
-          <div className="credential-field">
-            <CredentialField key={agent} {...field(info.kind)} label={`${info.name} API key`} setup={info.setup}
-              guidance={`Used by ${info.name} to score and prioritize your issues and PRs.`}
-              learnMore={`${DOCS_URL}#${info.docs}`} />
+            <div className="welcome-advanced">
+              <span>Using Claude, OpenAI or a personal access token?</span>
+              <Link to="/settings#connections">Advanced setup</Link>
+            </div>
           </div>
-        </div>
-        <div className="welcome-save">
-          <button className="btn primary" onClick={save} disabled={!canSave}>Save</button>
-          {saveError && <p className="field-error" role="alert">{saveError}</p>}
-          <p className="save-note">You can change these later in Settings.</p>
-        </div>
+        )}
       </div>
     </div>
   );

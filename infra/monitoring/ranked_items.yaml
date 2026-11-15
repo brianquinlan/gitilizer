@@ -1,0 +1,8 @@
+# One line a minute from each worker for each series it ranked, with the count in `items`: the sum of this
+# distribution is the number of items ranked. The dashboard's two ranking-volume charts read it (METRIC-5).
+description: 'Items ranked, from the workers'' "ranking volume" log lines, by the developer''s choice and the agent and model that scored them (METRIC-5)'
+filter: 'resource.type="cloud_run_revision" AND jsonPayload.component="worker" AND jsonPayload.message="ranking volume"'
+metricDescriptor: { metricKind: DELTA, valueType: DISTRIBUTION, unit: '1', labels: [{ key: choice }, { key: agent }, { key: model }] }
+valueExtractor: EXTRACT(jsonPayload.items)
+labelExtractors: { choice: EXTRACT(jsonPayload.choice), agent: EXTRACT(jsonPayload.agent), model: EXTRACT(jsonPayload.model) }
+bucketOptions: { exponentialBuckets: { numFiniteBuckets: 20, growthFactor: 2, scale: 1 } }

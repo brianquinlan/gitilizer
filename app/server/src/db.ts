@@ -49,6 +49,7 @@ create table if not exists users (
   ranking_paused_until timestamptz,
   ranking_paused_code text,
   ranking_agent text not null default 'gemini',
+  ranking_chosen_at timestamptz,
   last_full_scan_at timestamptz,
   setup_completed_at timestamptz,
   unique (provider, provider_user_id)
@@ -219,6 +220,21 @@ create table if not exists gemini_quota (
   exhausted_until timestamptz not null,
   primary key (user_id, model)
 );
+-- Basic ranking is paused for everyone while Google refuses Gitilizer's own key (RANK-22): one row at most.
+create table if not exists basic_pause (
+  id int primary key check (id = 1),
+  paused_until timestamptz not null,
+  reset_at timestamptz
+);
+-- Items ranked each day, by the developer's choice and the agent and model that scored them (METRIC-5).
+create table if not exists ranking_volume (
+  day date not null,
+  choice text not null,
+  agent text not null,
+  model text not null,
+  items int not null default 0,
+  primary key (day, choice, agent, model)
+);
 create table if not exists deleted_users (
   id text primary key,
   deleted_at timestamptz not null default now()
@@ -309,6 +325,13 @@ drop index if exists rank_jobs_one_queued;
 create unique index if not exists rank_jobs_one_open on rank_jobs(user_id, item_key, kind) where state in ('queued', 'leased');
 create index if not exists rank_jobs_claim on rank_jobs(state, not_before, priority);
 alter table notifications add column if not exists seen_at timestamptz;
+alter table users add column if not exists ranking_chosen_at timestamptz;
+update users set ranking_chosen_at = setup_completed_at where ranking_chosen_at is null and setup_completed_at is not null;
+update users u set ranking_chosen_at = now() where ranking_chosen_at is null and exists (
+  select 1 from credentials c where c.user_id = u.id
+    and c.kind = case u.ranking_agent when 'gemini' then 'gemini_key' when 'claude' then 'anthropic_key' when 'openai' then 'openai_key' end);
+delete from notifications where code = 'gemini_daily_quota';
+update users set ranking_paused_until = null, ranking_paused_code = null where ranking_paused_code = 'daily_quota';
 `;
 
 function wrapPg(pool: pg.Pool | pg.PoolClient, isClient = false): Db {

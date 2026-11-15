@@ -111,6 +111,31 @@ export type CredentialKind = z.infer<typeof CredentialKind>;
 export const RankingAgent = z.enum(["gemini", "claude", "openai"]);
 export type RankingAgent = z.infer<typeof RankingAgent>;
 
+/** How a developer's items are ranked: by one of the agents, with their key, or by basic ranking, with Gitilizer's (PRD RANK-21, SET-38). */
+export const RankingChoice = z.enum(["gemini", "claude", "openai", "basic"]);
+export type RankingChoice = z.infer<typeof RankingChoice>;
+
+/** What the interface says about basic ranking (SET-38, WEL-3, WEL-4). */
+export const BASIC_INFO = {
+  name: "Basic ranking",
+  vendor: "Built in",
+  pill: "No key needed",
+  line: "Good for your top items, less precise below them, with no explanation for each rank.",
+  /** In place of a key field in Settings (SET-38). */
+  nothingToSetUp: "Gitilizer ranks your list itself, so there is nothing to set up.",
+  compareSettings: "Compare with your own key",
+  /** Under the key field on Warm Welcome (WEL-3). */
+  welcomeGuidance: "Gemini ranked best in our tests, and Google's free tier costs nothing. Without a key you get basic ranking: good for your top items, less precise below them, with no explanation for each rank.",
+  compareWelcome: "Compare",
+  /** Beside "Save and re-rank" while basic ranking is chosen (SET-15). */
+  noRerank: "Re-ranking everything needs your own API key.",
+  /** Anchor of its section in the user guide (FOOT-3). */
+  docs: "basic-ranking",
+} as const;
+
+/** The name of a ranking choice as the interface writes it mid-sentence (SET-40). */
+export const choiceName = (c: RankingChoice): string => (c === "basic" ? "basic ranking" : AGENT_INFO[c].name);
+
 /** The credentials that are a ranking agent's API key. */
 export const AgentKeyKind = z.enum(["gemini_key", "anthropic_key", "openai_key"]);
 export type AgentKeyKind = z.infer<typeof AgentKeyKind>;
@@ -259,8 +284,10 @@ export const Me = z.object({
     /** Whether this environment offers the Gitilizer app, and GitHub's page for installing it on an account (SET-45). */
     app: z.boolean(), installUrl: z.string().nullable(),
   }),
-  /** The agent that ranks the developer's list (SET-38). */
-  rankingAgent: RankingAgent,
+  /** The agent that ranks the developer's list, or basic ranking (SET-38, RANK-21). */
+  rankingAgent: RankingChoice,
+  /** Whether the developer has chosen how their items are ranked, on Warm Welcome or in Settings ("Which screen is shown"). */
+  rankingChosen: z.boolean(),
   firstSyncDone: z.boolean(),
   sync: SyncEvent,
 });
@@ -327,9 +354,11 @@ export type Settings = z.infer<typeof Settings>;
 
 export const SettingsResponse = Settings.extend({
   defaultPrompt: z.string(),
-  rankingAgent: RankingAgent,
-  /** Items in the Prioritized list scored by each agent, for the switch dialog's {n} (SET-40). */
-  rankedBy: z.record(RankingAgent, z.number().int()),
+  rankingAgent: RankingChoice,
+  /** Whether the developer has chosen how their items are ranked; until then the picker starts on Gemini (SET-38). */
+  rankingChosen: z.boolean(),
+  /** Items in the Prioritized list scored by each agent and by basic ranking, for the switch dialog's {n} (SET-40). */
+  rankedBy: z.record(RankingChoice, z.number().int()),
 });
 export type SettingsResponse = z.infer<typeof SettingsResponse>;
 
@@ -343,11 +372,11 @@ export const SettingsUpdate = z.object({
   credentials: z.object({
     github_pat: z.string().optional(), gemini_key: z.string().optional(), anthropic_key: z.string().optional(), openai_key: z.string().optional(),
   }).optional(),
-  /** The agent chosen in the picker (SET-38); unchanged when absent. */
-  rankingAgent: RankingAgent.optional(),
+  /** The choice in the picker (SET-38); unchanged when absent. */
+  rankingAgent: RankingChoice.optional(),
   /** Saved keys of agents not in use that the developer removed (SET-39). */
   removeCredentials: z.array(AgentKeyKind).default([]),
-  /** "Save and re-rank" (SET-15). */
+  /** "Save and re-rank" (SET-15). Ignored while basic ranking is the choice, which never ranks everything again (RANK-21). */
   rerank: z.boolean(),
 });
 export type SettingsUpdate = z.infer<typeof SettingsUpdate>;
@@ -440,7 +469,7 @@ export const MESSAGES = {
   promptEmpty: "Enter a prompt, or choose Restore default.",
   agentKeyMissing: (agent: RankingAgent) => {
     const name = AGENT_INFO[agent].name;
-    return `Add ${/^[AEIOU]/.test(name) ? "an" : "a"} ${name} API key, or choose an agent you've already set up.`;
+    return `Add ${/^[AEIOU]/.test(name) ? "an" : "a"} ${name} API key, or choose basic ranking.`;
   },
 };
 
@@ -487,23 +516,21 @@ export const CheckResult = z.object({
 });
 export type CheckResult = z.infer<typeof CheckResult>;
 
-/** POST /api/setup: Warm Welcome's Save, with the values typed there (WEL-4). */
+/**
+ * POST /api/setup: Warm Welcome's button (WEL-4). With a Gemini key, typed here
+ * or already saved, setup finishes with Gemini; with none, with basic ranking.
+ */
 export const SetupRequest = z.object({
-  credentials: z.object({
-    github_pat: z.string().max(500).optional(), gemini_key: z.string().max(500).optional(),
-    anthropic_key: z.string().max(500).optional(), openai_key: z.string().max(500).optional(),
-  }),
-  /** The agent chosen on Warm Welcome (WEL-5). */
-  rankingAgent: RankingAgent.default("gemini"),
+  credentials: z.object({ gemini_key: z.string().max(500).optional() }).default({}),
 });
 export type SetupRequest = z.infer<typeof SetupRequest>;
 
-/** A check result for each typed value; with ok: false nothing was saved (WEL-4). */
+/** The check result for a typed key; with ok: false nothing was saved (WEL-4). */
 export const SetupResponse = z.object({
   ok: z.boolean(),
-  results: z.object({
-    github_pat: CheckResult.optional(), gemini_key: CheckResult.optional(), anthropic_key: CheckResult.optional(), openai_key: CheckResult.optional(),
-  }),
+  results: z.object({ gemini_key: CheckResult.optional() }),
+  /** How the developer's items are now ranked, when ok. */
+  rankingAgent: RankingChoice.optional(),
 });
 export type SetupResponse = z.infer<typeof SetupResponse>;
 

@@ -27,8 +27,10 @@ export function EyeToggle({ show, onToggle }: { show: boolean; onToggle: () => v
 
 export function CredentialField(props: {
   kind: CredentialKind; label: string; setup: { text: string; href: string };
-  /** The guidance text; "Learn more ↗" follows it inline (SET-20, SET-32). */
-  guidance: ReactNode; learnMore: string;
+  /** The guidance text; "Learn more ↗" follows it inline (SET-20, SET-32), or "Compare ↗" on Warm Welcome (WEL-3). */
+  guidance: ReactNode; learnMore: string; learnMoreText?: string;
+  /** Pills beside the label, and the empty field's text, on Warm Welcome (WEL-3). */
+  pills?: ReactNode; placeholder?: string;
   /** A credential is saved: it shows as dots and can only be replaced (SET-21). */
   saved: boolean;
   value: string; onChange: (v: string) => void;
@@ -60,7 +62,7 @@ export function CredentialField(props: {
   return (
     <>
       <div className="field-label">
-        <label htmlFor={id}>{props.label}</label>
+        <span className="label-pills"><label htmlFor={id}>{props.label}</label>{props.pills}</span>
         <a href={props.setup.href} target="_blank" rel="noreferrer">{props.setup.text} <ExternalIcon /></a>
       </div>
       <div className="field-row">
@@ -68,7 +70,7 @@ export function CredentialField(props: {
           {/* PRIV-1: a saved value is never sent back, so it shows as dots and can only be replaced. */}
           <input id={id} type={show ? "text" : "password"} autoComplete="off" spellCheck={false}
                  aria-invalid={Boolean(props.error)} aria-describedby={props.error ? `${id}-error` : undefined}
-                 placeholder={props.saved ? "•••• •••• •••• •••• ••••" : "Paste it here"}
+                 placeholder={props.saved ? "•••• •••• •••• •••• ••••" : props.placeholder ?? "Paste it here"}
                  value={value} onChange={(e) => { props.onChange(e.target.value); onCheck(null); }} />
           {value && <EyeToggle show={show} onToggle={() => setShow(!show)} />}
         </div>
@@ -80,7 +82,7 @@ export function CredentialField(props: {
             {check.ok ? <CheckCircleIcon /> : <XCircleIcon />} {checkMessage(kind, check)}
           </span>}
       <p className="fine">
-        {props.guidance} <a className="fine-link" href={props.learnMore} target="_blank" rel="noreferrer">Learn more <ExternalIcon /></a>
+        {props.guidance} <a className="fine-link" href={props.learnMore} target="_blank" rel="noreferrer">{props.learnMoreText ?? "Learn more"} <ExternalIcon /></a>
       </p>
     </>
   );

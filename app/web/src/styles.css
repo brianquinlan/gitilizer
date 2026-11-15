@@ -178,7 +178,14 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .welcome-fields { width: 100%; display: grid; gap: 20px; text-align: left; }
 .credential-field { display: grid; gap: 8px; }
 .welcome .field-label label { font-weight: 600; color: var(--ink); }
-.welcome-save { width: 100%; display: grid; gap: 12px; justify-items: center; }
+.welcome-save { width: 100%; display: grid; gap: 12px; justify-items: start; }
+/* WEL-4: one button, with its note beside it while the key field is empty. */
+.welcome-finish { display: flex; align-items: center; gap: 14px; text-align: left; }
+/* WEL-2: step 1's last line, under a rule, with "Advanced setup" at its right. */
+.welcome-advanced { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 16px; font-size: 13px; color: var(--muted); }
+.welcome-advanced a { text-decoration: none; white-space: nowrap; }
+/* WEL-3: "Recommended" and "Free tier available" beside the key's label. */
+.label-pills { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .welcome-save .btn.primary { height: 40px; min-width: 88px; padding: 0 20px; justify-content: center; font-weight: 600; }
 /* WEL-3: the credential fields and the save note use the same type as in Settings. */
 .welcome-save .save-note { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.5; }
@@ -339,24 +346,15 @@ input.invalid, textarea.invalid, .secret.invalid input { border-color: var(--err
 .agent-name { font-weight: 600; font-size: 14px; color: var(--ink); }
 .agent-vendor { font-size: 12px; color: var(--muted); }
 .agent-pills { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.agent-option .pill { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-.agent-option .pill.recommended { background: var(--accent-tint); color: var(--accent); }
-.agent-option .pill.free { background: var(--ok-tint); color: var(--ok); }
-.agent-option .pill.paid { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+.pill { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.recommended { background: var(--accent-tint); color: var(--accent); }
+.pill.free { background: var(--ok-tint); color: var(--ok); }
+.pill.paid { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
 .agent-note { font-size: 12.5px; color: #454c57; }
 .agent-existing { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }
 .agent-others { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.agent-picker.tiles .agent-option { padding: 14px; gap: 8px; }
-.agent-picker.tiles .agent-name { font-size: 15px; }
-.agent-picker.tiles .agent-note { font-size: 13px; }
-.agent-picker.tiles .agent-existing { font-size: 13px; font-weight: 500; color: var(--ink); }
-/* Warm Welcome's panel is narrow, so the vendor goes under the name in the two smaller tiles. */
-.agent-picker.tiles .agent-others .agent-head { flex-wrap: wrap; row-gap: 4px; }
-.agent-picker.tiles .agent-others .agent-vendor { order: 3; flex-basis: 100%; }
 .other-key { margin: 0; }
 .link-btn.inline { padding: 0; font-size: inherit; text-decoration: underline; color: var(--ink); }
-.agent-choice { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
-.agent-choice legend { font-size: 13px; font-weight: 600; padding: 0; margin-bottom: 8px; }
 .switch-dialog { width: 500px; }
 
 /* Connecting GitHub with the Gitilizer app (WEL-6, SET-42 to SET-47), as in Figma "Warm Welcome",

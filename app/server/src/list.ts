@@ -28,7 +28,7 @@ function toRow(r: any): ItemRow {
     mentionHandle: r.mention_handle,
     status: r.status,
     iceboxedAt: r.iceboxed_at ? new Date(r.iceboxed_at).toISOString() : null,
-    reasoning: r.reasoning ?? null,
+    reasoning: r.reasoning || null, // basic ranking stores none, so the rank isn't clickable (LIST-24)
     score: r.score === null || r.score === undefined ? null : Number(r.score),
     rankFailed: Boolean(r.rank_failed),
     waiting: Boolean(r.waiting),

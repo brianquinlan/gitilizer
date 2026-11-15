@@ -248,15 +248,18 @@ export class Scheduler {
       }
     }
     // Hourly: re-rank, as one bulk batch per developer, items not ranked in the last 24 hours (RANK-9, LIVE-24),
-    // and delete item data no developer has had for 30 days (PRIV-5).
+    // and delete item data no developer has had for 30 days (PRIV-5). The daily re-rank uses only a developer's
+    // own models (RANK-17): none for basic ranking, and none while every model of a Gemini key is out of quota.
     if (Date.now() - this.lastAgeingPass > 3_600_000) {
       this.lastAgeingPass = Date.now();
       const due = await db.query(
         `select distinct ui.user_id from user_items ui join users u on u.id = ui.user_id
          where ui.status = 'active' and ui.ranked_at < now() - interval '24 hours'
            and u.last_seen_at > now() - make_interval(days => $1)
+           and u.ranking_agent <> 'basic'
+           and not (u.ranking_agent = 'gemini' and (select count(*) from gemini_quota q where q.user_id = u.id and q.exhausted_until > now() and q.model = any($2)) >= $3)
            and not exists (select 1 from rank_batches b where b.user_id = ui.user_id and b.reason = 'ageing' and b.finished_at is null)`,
-        [config.inactiveDays],
+        [config.inactiveDays, config.models, config.models.length],
       );
       for (const r of due) await queueFullRerank(this.ctx, r.user_id, "ageing", 24);
       await deleteOldItems(this.ctx);
@@ -272,4 +275,5 @@ export async function deleteOldItems(ctx: Ctx) {
   await ctx.db.query(`delete from rank_batches where finished_at < now() - interval '30 days'`);
   // METRIC-1 needs past days and months, not years (design: Data model).
   await ctx.db.query(`delete from user_activity where day < current_date - interval '13 months'`);
+  await ctx.db.query(`delete from ranking_volume where day < current_date - interval '13 months'`);
 }
