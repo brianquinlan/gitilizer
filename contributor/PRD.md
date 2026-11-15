@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Gitilizer's own quota is used up, `RANK-22`; Q-97 is open); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -455,7 +455,7 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 | Error | Gemini connection | Your Gemini credits have run out | New and changed issues and PRs aren't being ranked. Add credits or turn on auto-reload in Google AI Studio. | 402. | A Gemini request succeeds, or a new key is saved. |
 | Error | Gemini connection | Your Gemini project needs billing | New and changed issues and PRs aren't being ranked. The key's Google Cloud project needs a working billing account, or has a past-due balance. Fix billing in the Google Cloud console. | 400 `FAILED_PRECONDITION` about billing, or 403 for an unpaid balance. | A Gemini request succeeds, or a new key is saved. |
 | Warning | Gemini connection | Gitilizer is using a backup Gemini model | Your daily quota for {primary model} is used up, so new and changed issues and PRs are being ranked with {backup model} until it resets at {time}, in about {duration}. Rankings may be less accurate until then. To avoid this, turn on billing in Google AI Studio. | 429 for a per-day quota on either of the developer's models in `RANK-13`. Only one is active at a time; it names what is now in use: the backup model, or "basic ranking" once the backup model's quota is used up too. | The primary model's quota resets. |
-| Warning | Ranking | Basic ranking is paused | Gitilizer's own ranking quota is used up, so new and changed issues and PRs aren't being ranked. Ranking resumes automatically when the quota resets at {time}, in about {duration}. To rank without waiting, add your own API key in Settings. For a developer with a Gemini key, it begins "Your Gemini daily quota is used up, and so is Gitilizer's own ranking quota," and ends "To avoid this, use an API key with billing turned on."; it then replaces the backup-model warning. | 429 for a per-day quota on Gitilizer's own key (`RANK-22`), for a developer who has an item waiting for basic ranking. Google resets daily quotas at midnight Pacific time. | A basic ranking request succeeds, or the developer switches to a ranking agent (`SET-40`). |
+| Warning | Ranking | Basic ranking is paused | Gitilizer's own ranking quota is used up, so new and changed issues and PRs aren't being ranked. Ranking resumes automatically when the quota resets at {time}, in about {duration}. To rank without waiting, add your own API key in Settings. When the limit isn't a daily quota, so Gitilizer doesn't know when it ends, the second sentence is "Ranking resumes automatically when more quota is available." For a developer with a Gemini key, it begins "Your Gemini daily quota is used up, and so is Gitilizer's own ranking quota," and ends "To avoid this, use an API key with billing turned on."; it then replaces the backup-model warning. | Google refuses Gitilizer's own key because a quota or spending limit is used up (`RANK-22`), for a developer who has an item waiting for basic ranking. Google resets daily quotas at midnight Pacific time. | A basic ranking request succeeds, or the developer switches to a ranking agent (`SET-40`). |
 | Warning (short-lived) | Gemini connection | Gemini is limiting requests from your key | Ranking is slower than usual and catches up automatically. Other apps that use this key count toward the same limit. | 429 for a per-minute limit, for more than 15 minutes (`NOTIF-21`). | Gemini requests succeed without 429s for 15 minutes. |
 | Warning (short-lived) | Gemini connection | Gemini isn't responding | New and changed issues and PRs aren't being ranked. Gitilizer keeps retrying automatically. If this continues, check the [Google AI Studio status page](https://aistudio.google.com/status). | 500, 503 or 504 responses, no answer within 90 seconds, or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | A Gemini request succeeds. |
 | Error | Gemini connection | The Gemini model Gitilizer uses isn't available | New and changed issues and PRs aren't being ranked. This is a problem with Gitilizer, not with your key. Report it using the GitHub link at the bottom of the page. | 404 `model_not_found`. | A Gemini request succeeds. |
@@ -1295,17 +1295,21 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
   and can't use "Save and re-rank" (`SET-15`), and for a Gemini key it ranks
   only new and changed items (`RANK-13`). It pauses when Gitilizer's own quota
   is used up (`RANK-22`).
-- **RANK-22** When Google reports that the daily quota of Gitilizer's own key
-  is used up, basic ranking must pause until the quota resets, at midnight
-  Pacific time. Every developer with an item waiting for it sees the "Basic
-  ranking is paused" warning ([catalogue](#catalogue)): developers on basic
-  ranking, and developers with a Gemini key whose own quota is used up too
-  (`RANK-13`), for whom it replaces the backup-model warning. Their items wait
-  as in `RANK-20`: shown with "–" (`LIST-30`), and ranked when basic ranking
-  resumes or when the developer switches to a ranking agent (`SET-40`).
-  Per-minute limits on Gitilizer's key don't pause basic ranking: Gitilizer
-  waits and retries (`RANK-6`). **TODO ([Q-97](#q-97)):** whether basic ranking
-  also stops when Gitilizer's budget for a month is spent (`PLAT-4`).
+- **RANK-22** When Google refuses Gitilizer's own key because a quota or a
+  spending limit is used up, basic ranking must pause until Google accepts its
+  requests again. The limit can be Google's daily quota for the key, which
+  resets at midnight Pacific time, or one the owner sets with Google to keep
+  within the budget (`PLAT-4`). Whether and when basic ranking stops for the
+  budget is the owner's configuration, not a rule of the application
+  ([Q-97](#q-97)). Every developer with an item waiting for basic ranking sees
+  the "Basic ranking is paused" warning ([catalogue](#catalogue)): developers
+  on basic ranking, and developers with a Gemini key whose own quota is used up
+  too (`RANK-13`), for whom it replaces the backup-model warning. Their items
+  wait as in `RANK-20`: shown with "–" (`LIST-30`), and ranked when basic
+  ranking resumes or when the developer switches to a ranking agent (`SET-40`).
+  While it is paused, Gitilizer tries basic ranking again every 15 minutes, so
+  it resumes soon after the limit ends. Per-minute limits on Gitilizer's key
+  don't pause basic ranking: Gitilizer waits and retries (`RANK-6`).
 
 ---
 
@@ -1413,9 +1417,7 @@ Gitilizer keeps:
 
 New questions are marked **TODO:** where they come up and listed here.
 
-| ID | Question | What is known | Where |
-|---|---|---|---|
-| <a id="q-97"></a>Q-97 | Whether basic ranking stops when Gitilizer's budget for a month is spent | Decided on 2026-11-15: when Google's daily quota for Gitilizer's own key is used up, basic ranking pauses and the developer sees the "Basic ranking is paused" warning, worded like the earlier "Your Gemini daily quota is used up" error (`RANK-22`). Undecided: whether Gitilizer also stops basic ranking for the rest of a month once its budget is spent (`PLAT-4`), which would use the same warning. | `RANK-22`, `PLAT-4` |
+There are none at the moment.
 
 Q-58 to Q-63 were found by building the prototype described in the [design
 doc](DESIGN.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers
@@ -1525,6 +1527,7 @@ the ranking agent's API key optional.
 | <a id="q-94"></a>Q-94 | Settings for a developer without a key | "Basic ranking" is a fourth choice in the Ranking agent card's picker, last, under "Or rank without a key". It needs no key, so a developer who connects with a PAT can use it, and going back to basic ranking is choosing it and saving, which is a switch like any other. The card's chip then reads "Basic". Two alternatives were considered and not chosen: showing only the optional Gemini key, as on Warm Welcome, with Claude and OpenAI behind a link, which hides the agents that "Advanced setup" promises; and a status row above the three agents. The Warm Welcome / Ranking agent tile component is gone. | [Connections](#connections), `SET-1`, `SET-27`, `SET-30`, `SET-38` to `SET-40`, `RANK-21` |
 | <a id="q-95"></a>Q-95 | Telling a developer on basic ranking what they are missing, after setup | Nothing does. Warm Welcome says once that ranking is basic without a key (`WEL-3`), and shows that private repositories haven't been added (`WEL-6`), which is clear enough. The Prioritized list has no chip or note about either. | `WEL-3`, `WEL-6` |
 | <a id="q-96"></a>Q-96 | A free-tier Gemini key whose quota for the primary model is used up | Gitilizer ranks with `gemini-3.5-flash-lite` next, on the developer's own quota, and then with basic ranking, at its own cost. Basic ranking takes the place of `gemini-3.1-flash-lite` and of pausing. In evaluation `gemini-3.5-flash-lite` scored Kendall tau 0.58 and basic ranking 0.55 to 0.58, against 0.40 for `gemini-3.1-flash-lite`, so a list with a key is never ranked worse than basic ranking would rank it. Basic ranking steps in for new and changed items only; a full re-rank waits for the developer's quota. The "Your Gemini daily quota is used up" error is gone. | `RANK-13`, `RANK-15`, `RANK-17`, `RANK-20`, [Catalogue](#catalogue), `METRIC-5` |
+| <a id="q-97"></a>Q-97 | What the developer sees when basic ranking is held up by Gitilizer's own limits, and whether it stops when the budget is spent | Basic ranking pauses whenever Google refuses Gitilizer's own key for a quota or spending limit, and developers with items waiting see the "Basic ranking is paused" warning, worded like the earlier "Your Gemini daily quota is used up" error. Whether basic ranking stops when a month's budget is spent isn't a rule of the application: the owner decides it in their budget configuration with Google, and the same pause and warning cover it. | `RANK-22`, [Catalogue](#catalogue), `PLAT-4` |
 
 ---
 
@@ -2083,3 +2086,13 @@ Found while building excluded repositories, by testing GitHub's issue search, an
   quota is used up" error that the third round removed.
 - [Q-97](#q-97) stays open, narrowed to whether basic ranking also stops when
   Gitilizer's budget for a month is spent.
+
+### Thirty-eighth revision (2026-11-15, fifth round)
+
+- [Q-97](#q-97) is answered, so no question is open. Whether basic ranking
+  stops when a month's budget is spent is the owner's configuration with
+  Google, not a rule of the application. `RANK-22` now pauses basic ranking
+  whenever Google refuses Gitilizer's own key for a quota or spending limit,
+  whatever set the limit, and tries again every 15 minutes; the warning leaves
+  out the time when Gitilizer doesn't know when the limit ends
+  ([catalogue](#catalogue)).
