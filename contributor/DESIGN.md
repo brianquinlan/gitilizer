@@ -643,8 +643,9 @@ Details that need more than markup:
   of four: the recommended agent first, across the full width, the other two in
   a row under "Or use an API account you already have", and "Basic ranking"
   across the full width under "Or rank without a key". Arrow keys move between
-  the choices. The agents' names, links, documentation anchors and pills come
-  from `AGENT_INFO` in `app/shared`, and basic ranking's texts from
+  the choices, and a notification's link to the card (`ranking-agent`) puts
+  focus on the checked one. The agents' names, links, documentation anchors and
+  pills come from `AGENT_INFO` in `app/shared`, and basic ranking's texts from
   `BASIC_INFO`. Choosing an agent remounts the key field, so a typed value, its
   Validate result and any error go with the previous choice. Choosing "Basic
   ranking" shows no field: the card has the "nothing to set up" text with
@@ -802,8 +803,9 @@ the key is Gitilizer's and one refusal concerns every developer who uses it:
   once, and clears the developer's warning; a Gemini developer gets the
   backup-model warning back.
 - **The warning also clears** when the developer's own Gemini quota resets, when
-  they switch to a ranking agent, and, in the periodic pass, when they have no
-  open job left, for example because the waiting item was closed.
+  they save a new Gemini key, which has its own quota (`NOTIF-13`), when they
+  switch to a ranking agent, and, in the periodic pass, when they have no open
+  job left, for example because the waiting item was closed.
 - **A per-minute limit or an outage** (`rate_limited`, `unavailable`) waits and
   retries with no notification: there is nothing for the developer to do.
 - **A key Google no longer accepts**, or none configured, pauses the same way
@@ -812,7 +814,7 @@ the key is Gitilizer's and one refusal concerns every developer who uses it:
 - **Item-level failures** (`blocked`, `invalid_output`, `unknown`) retry and
   then fail the item as for an agent (`RANK-6`).
 
-**Pauses** (`RANK-20`). A key-level code pauses ranking for the developer: `ranking_paused_until` is set, queued jobs stay queued, the items waiting are published with `waiting: true` and shown with "–" (`LIST-30`), and `syncState()` stops counting them, so Sync now stops turning (`LIST-32`). An invalid or leaked key, or one without permission, pauses until a new key is saved. Credits and billing can be fixed outside Gitilizer, so they pause for 15 minutes; the next job then tries again, and the error clears when it succeeds ([D-16](#d-16)). A missing model pauses for an hour. Saving a new key for the agent in use ends the pause at once.
+**Pauses** (`RANK-20`). A key-level code pauses ranking for the developer: `ranking_paused_until` is set, queued jobs stay queued, the items waiting are published with `waiting: true` and shown with "–" (`LIST-30`), and `syncState()` stops counting them, so Sync now stops turning (`LIST-32`). An invalid or leaked key, or one without permission, pauses until a new key is saved. Credits and billing can be fixed outside Gitilizer, so they pause for 15 minutes; the next job then tries again, and the error clears when it succeeds ([D-16](#d-16)). A missing model pauses for an hour. Saving a new key for the agent in use ends the pause at once, and the waiting items are published again without their "–" once the save has committed, as after a switch.
 
 **Switching agents** (`SET-40`, `NOTIF-23`). Saving Settings with a different agent sets `users.ranking_agent`, ends any pause and makes queued jobs ready, and clears every notification of the previous agent. Jobs already leased finish with the agent they were claimed with; a result is stored with that agent's name, and a failure is re-queued without pausing the new agent or raising a notification for the old one. The sync that the save starts ranks new and changed items with the new agent; the rest are scored again by the daily re-rank, or at once after "Switch and re-rank". `rankedBy` counts active items by `ranked_agent` for the dialog's {n}. Basic ranking is switched to and from the same way; switching to it also deletes the developer's queued bulk re-rank jobs, since basic ranking never ranks everything again (`RANK-21`). A job that basic ranking ran for a Gemini key counts as the current agent's while Gemini is still the choice.
 
