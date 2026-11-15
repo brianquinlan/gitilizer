@@ -29,7 +29,7 @@ export type RepoInfo =
 
 export interface GitHubApi {
   /** The PAT's user, the token's expiry time if GitHub sent one, and the kind of token. */
-  viewer(): Promise<{ login: string; tokenExpiresAt: string | null; tokenType: "classic" | "fine-grained" }>;
+  viewer(): Promise<{ login: string; id: number | null; avatarUrl: string | null; tokenExpiresAt: string | null; tokenType: "classic" | "fine-grained" | "app" }>;
   /**
    * Items matching a GitHub issue-search query, newest `updated_at` first,
    * up to `limit` (at most 1,000, the most GitHub returns; SCAN-1). `ssoOrgs`
@@ -62,7 +62,9 @@ export type AccountInfo =
 /** A classified GitHub failure (PRD notification catalogue). */
 export type GitHubProblemCode =
   | "expired" | "invalid" | "org_blocks_token" | "rate_limited" | "unavailable"
-  | "permission" | "sso" | "not_found" | "unexpected";
+  | "permission" | "sso" | "not_found" | "unexpected"
+  /** The Gitilizer app's connection can't be renewed: access was removed, or it lapsed (PRD SET-46). */
+  | "connection_ended";
 
 export class GitHubProblem extends Error {
   constructor(

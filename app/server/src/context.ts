@@ -43,6 +43,12 @@ export type Config = {
   publicUrl: string;
   /** Google and GitHub sign-in apps (design: Sign-in and sessions). null when a provider isn't configured. */
   oauth: { google: OAuthClient | null; github: OAuthClient | null };
+  /**
+   * The Gitilizer GitHub App, which developers connect to give Gitilizer read access (design: GitHub connection).
+   * null when it isn't configured: then only a personal access token can be used. `appId` and `privateKey` are
+   * optional; with them Gitilizer can see installation requests waiting for an owner (PRD Q-89).
+   */
+  githubApp: GitHubAppConfig | null;
   /** The development sign-in stub, POST /api/auth/dev: local mode, fixture mode and tests only, never deployed. */
   devSignIn: boolean;
   /** The deployed environments: HTTPS-only `__Host-` cookies, HSTS. Set by GITILIZER_ENV. */
@@ -54,6 +60,7 @@ export type Config = {
 };
 
 export type OAuthClient = { clientId: string; clientSecret: string };
+export type GitHubAppConfig = OAuthClient & { slug: string; appId: string | null; privateKey: string | null };
 
 type Subscriber = { reply: FastifyReply; userId: string };
 
@@ -156,7 +163,7 @@ export type Ctx = {
   cipher: CredentialCipher;
   hub: Hub;
   config: Config;
-  /** GitHub client for a PAT (or the fixture store in fixture mode). */
+  /** GitHub client for a token, a PAT or the Gitilizer app's (or the fixture store in fixture mode). */
   github(pat: string): GitHubApi;
   /** Checks a ranking agent's API key without using request quota or tokens (SET-28). */
   validateKey(kind: AgentKeyKind, key: string): Promise<CheckResult>;

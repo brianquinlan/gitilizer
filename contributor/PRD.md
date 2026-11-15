@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-14 (Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -51,9 +51,11 @@ Developers who work across many GitHub repositories get a steady stream of assig
 
 Gitilizer is a web application, at [gitilizer.com](https://gitilizer.com), that shows a developer one ordered list of the open GitHub items that involve them. An AI agent ranks every item, so the item that most deserves the developer's attention is at the top. The list keeps itself up to date as items change on GitHub, without the developer reloading the page.
 
-The developer supplies their own credentials: a GitHub personal access token
-(PAT), which Gitilizer uses to read their items, and an API key for the ranking
+The developer gives Gitilizer its access. They connect their GitHub account,
+which Gitilizer uses to read their items, and supply an API key for the ranking
 agent they choose (Gemini, Claude or OpenAI), which Gitilizer uses to rank them.
+Connecting GitHub takes one click with the Gitilizer app; a GitHub personal
+access token (PAT) works too ([Connecting GitHub](#connecting-github)).
 
 ### Goals
 
@@ -82,7 +84,15 @@ These are out of scope for the first release.
 - Review requests made to a GitHub team the developer belongs to, and the ranking agent's "review teams" setting. Only review requests made to the developer personally count. **Revisit after the first release** (see [Q-43](#q-43)).
 - Showing the agent's next action for an item ([Q-31](#q-31)).
 - Mentions of a GitHub team the developer belongs to (`@org/team`). Only mentions of the developer by name count ([Q-65](#q-65)).
-- More than one GitHub token per developer, for example one per organization ([Q-40](#q-40)). Revisit if developers ask for it.
+- More than one GitHub connection per developer, for example a token for each
+  organization, or the Gitilizer app and a token together ([Q-40](#q-40),
+  [Q-87](#q-87)). Revisit if developers ask for it.
+- Organizations that use single sign-on, with the Gitilizer app. Gitilizer
+  doesn't yet detect or explain it when such an organization keeps the app's
+  connection out, so its private items may be missing without a message. The
+  documentation tells developers to use a personal access token for these
+  organizations, which Gitilizer does handle ([Q-90](#q-90)). Revisit once the
+  app has been tried with one.
 - Layouts for screens narrower than 1024 px, including phones, and touch input ([Q-54](#q-54)).
 - Languages other than English, and a dark theme. Either may come later ([Q-56](#q-56)).
 
@@ -92,7 +102,9 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
 
 - **METRIC-1** The owner must be able to see, without writing queries, at least:
   - the total number of users (everyone who has ever signed in);
-  - the number of users who have completed setup (entered both credentials, see [Which screen is shown](#which-screen-is-shown));
+  - the number of users who have completed setup (connected GitHub and saved a
+    ranking agent's API key, see [Which screen is
+    shown](#which-screen-is-shown));
   - the number of active users per day, per week and per month, including for past days;
   - the number of accounts that have been deleted (`SET-17`), in total and per month.
 - **METRIC-2** Metrics should use what Google Cloud already provides (for example Cloud Monitoring dashboards) rather than a custom admin screen.
@@ -125,6 +137,8 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
 | Icebox check | A short question to the agent, with its own prompt, asking whether a change to an item in the Icebox should bring it back (`ICE-6`). |
 | Notification | An error or warning shown in the bell's popover. |
 | PAT | A GitHub personal access token. The interface calls it a "GitHub personal access token", as GitHub does, or a "personal access token" where GitHub is already clear, and never a "GitHub token" or "scanning token". Where the interface mentions both credentials, the GitHub one comes first. |
+| GitHub connection | How Gitilizer reads the developer's items on GitHub: the Gitilizer app or a PAT. A developer has one at a time. |
+| Gitilizer app | Gitilizer's GitHub App, which has read-only access. The developer connects it to their GitHub account in one click, and installs it on the accounts and organizations whose private repositories Gitilizer should read. The interface calls it "the Gitilizer app". |
 
 ---
 
@@ -147,7 +161,7 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Popover with several errors | [Notifications · Multiple active errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=223-1808) | [Popover](#popover) |
 | Popover with a warning | [Notifications · Warning being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=227-1824) | [Popover](#popover) |
 | Popover with no notifications | [Notifications · Resolved and empty](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=200-2743) | [Popover](#popover) |
-| Warm Welcome | [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832) | [Warm Welcome](#warm-welcome) |
+| Warm Welcome | [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832) (before GitHub is connected), [Warm Welcome · Connected](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=395-2871), [Warm Welcome · Personal access token](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=395-2929) | [Warm Welcome](#warm-welcome) |
 | Prioritized list | [Issue inbox - Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2562) | [Prioritized list](#prioritized-list) |
 | Prioritized list, empty | [Issue inbox · No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-897) | [Empty, loading and first-sync states](#empty-loading-and-first-sync-states) |
 | Prioritized list, first sync | [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689), using [Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433) on the Animations page (present it to see the pulse) | [Empty, loading and first-sync states](#empty-loading-and-first-sync-states) |
@@ -160,6 +174,7 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), including the Ranking agent card, Additional repositories, Excluded repositories, Collaborators, Delete account, and the save and cancel buttons | [Settings](#settings) |
 | Settings with errors | [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237): a failed Validate, a ranking agent chosen without its API key, a duplicate repository, an excluded repository that can't be found, an exclusion that is already an additional repository, a prompt that's too long, a duplicate collaborator, and the save buttons disabled | [Saving](#saving) |
 | Switching ranking agent | [Settings · Switch ranking agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631) | [Connections](#connections) |
+| GitHub card | Connected with the Gitilizer app: in [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802). Its other states: [Settings · GitHub card · Reconnect needed](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2937), [Settings · GitHub card · Missing permission](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2955), [Settings · GitHub card · Token in use](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-3015), [Settings · GitHub card · Not set](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=397-2761) | [Connecting GitHub](#connecting-github) |
 | Ranking agent choices | [Settings / Ranking agent option](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2497), [Warm Welcome / Ranking agent tile](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2522) | [Connections](#connections), [Warm Welcome](#warm-welcome) |
 
 ### Live reorder prototype
@@ -193,10 +208,12 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 | # | Condition | Screen |
 |---|---|---|
 | 1 | Not signed in | [Sign-in](#sign-in), for every URL. After signing in, the developer returns to the URL they asked for. |
-| 2 | Signed in, and the developer hasn't yet completed setup, meaning they haven't yet saved both a GitHub PAT and an API key for the ranking agent they chose | [Warm Welcome](#warm-welcome) |
+| 2 | Signed in, and the developer hasn't yet completed setup, meaning they haven't yet both connected GitHub (with the Gitilizer app or a PAT) and saved an API key for the ranking agent they chose | [Warm Welcome](#warm-welcome) |
 | 3 | Signed in, anything else | The screen the developer navigated to. The default is the [Prioritized list](#prioritized-list). |
 
-- **NAV-1** The rules above must be evaluated on every page load and whenever the condition changes, for example when the developer saves both credentials on Warm Welcome or the Settings page.
+- **NAV-1** The rules above must be evaluated on every page load and whenever
+  the condition changes, for example when the developer completes setup on Warm
+  Welcome.
 - **NAV-2** Once setup is complete, Warm Welcome is never shown again. If ranking or scanning can't work later (for example because a key is invalid or has expired), the developer sees the Prioritized list with an error notification.
 
 ### Routes
@@ -210,7 +227,10 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 - **NAV-6** The developer switches between the Prioritized list and the Icebox with the "Prioritized" / "Icebox" toggle above the table.
 - **NAV-7** The Gitilizer symbol and wordmark in the app bar must link to the Prioritized list.
 - **NAV-8** After a successful "Save changes" or "Save and re-rank", the developer must be taken to the Prioritized list. If something can't be saved (for example a prompt that's too long), they stay on Settings with the problems shown next to the fields (`SET-27`). Saving in Settings doesn't validate credentials (`SET-29`); saving on Warm Welcome does (`WEL-4`). The save that completes setup also goes to the list, which then shows the [first-sync state](#empty-loading-and-first-sync-states).
-- **NAV-9** "Cancel" in Settings must discard unsaved changes and take the developer back to the Prioritized list. Under the rules in [Which screen is shown](#which-screen-is-shown), a developer who hasn't yet entered both credentials sees Warm Welcome instead, and the same applies after saving (`NAV-8`).
+- **NAV-9** "Cancel" in Settings must discard unsaved changes and take the
+  developer back to the Prioritized list. Under the rules in [Which screen is
+  shown](#which-screen-is-shown), a developer who hasn't yet completed setup
+  sees Warm Welcome instead, and the same applies after saving (`NAV-8`).
 
 ---
 
@@ -222,7 +242,12 @@ Figma: [Sign in](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?n
 - **AUTH-2** The developer must be able to sign in with Google or with GitHub ("Continue with Google", "Continue with GitHub"). The design must allow more providers to be added later.
 - **AUTH-3** The first successful sign-in must create a Gitilizer account.
 - **AUTH-4** The sign-in page must show the product introduction (headline, description and a static preview of the list), the sign-in buttons, the "Sign in first. Connect your tools next." explanation and the [footer](#footer). It has no app bar.
-- **AUTH-5** Signing in with GitHub must not give Gitilizer access to the developer's items. Scanning always uses the PAT the developer enters on Warm Welcome or in Settings.
+- **AUTH-5** Signing in with GitHub must not give Gitilizer access to the
+  developer's items. Scanning always uses the developer's GitHub connection: the
+  Gitilizer app, which the developer connects as a separate step on Warm Welcome
+  or in Settings, or the PAT they enter there (`SET-42`). So a developer who
+  signs in with Google connects GitHub in the same way, and the GitHub account
+  that is connected need not be the one that signed in.
 - **AUTH-6** The account's display name, email and avatar must come from the sign-in provider.
 - **AUTH-7** Each sign-in provider account is a separate Gitilizer account. A person who signs in with Google one day and GitHub the next has two accounts, each with its own credentials, settings and list, even if both providers report the same email address.
 - **AUTH-8** A session must last 30 days and be extended each time it is used, so a developer who visits at least once every 30 days stays signed in.
@@ -263,16 +288,23 @@ Figma: [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Git
   - "Documentation": the user documentation, hosted in the GitHub repository (`https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md`);
   - "GitHub": the project's GitHub page, [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer), which is also the project's landing page.
 - **FOOT-3** The user documentation must exist at launch. At least, it must
-  explain the two kinds of GitHub token and how to create one with the right
-  permissions (the page that the GitHub token's "Learn more" opens, `SET-20`),
+  explain how connecting GitHub works: what the Gitilizer app can read, how to
+  add private repositories and why an organization's owner may have to approve
+  that, how to remove Gitilizer's access on GitHub, and when a personal access
+  token is the better choice, which includes an organization that uses single
+  sign-on, [Q-90](#q-90) (the page that "What Gitilizer can read" opens,
+  `SET-48`); the two kinds of GitHub token and how to create one with the right
+  permissions (the page that the GitHub token's "Learn more" opens, `SET-20`);
   how to create an API key for each ranking agent and what each costs (the pages
-  that the ranking agent's "Learn more" opens, `SET-32`), and what each
+  that the ranking agent's "Learn more" opens, `SET-32`); and what each
   [notification](#catalogue) means. It must also explain the limits of a
   free-tier Gemini API key: the small daily quota, how Gitilizer then falls back
   to smaller models and finally pauses ranking (`RANK-13` to `RANK-15`), and how
   to get a key with billing turned on, with a link to Google's instructions.
 - **FOOT-4** The user documentation must have a privacy section that explains, in plain language:
   - what Gitilizer stores about a developer ([Data and privacy](#data-and-privacy)), and that credentials are encrypted and never shown again (`PRIV-1`);
+  - what the Gitilizer app can read on GitHub, and that it can't change anything
+    there (`SET-44`, `SET-45`);
   - when it is deleted: an item's data 30 days after no developer has it (`PRIV-5`), everything about a developer immediately when they delete their account (`SET-17`), and copies in backups within 6 months (`PRIV-4`);
   - what Gitilizer sends to the developer's ranking agent, with the developer's
     own key: the content of the developer's own issues and PRs, including
@@ -338,7 +370,13 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
   - the **severity** label, "ERROR" or "WARNING";
   - the **heading**, which names the problem, for example "Your GitHub personal access token has expired";
   - the **body**, which describes the consequence and how to fix it.
-- **NOTIF-9** A mention of the Settings page in a body must be a link that opens Settings in the same tab, scrolled to the control that fixes the problem, with keyboard focus on it. For example, a GitHub token error focuses the personal access token field, and "Gitilizer can't access {repo}" focuses that repository's row. A mention of an external resource (for example githubstatus.com or the Google AI Studio status page) must be a link that opens in a new tab.
+- **NOTIF-9** A mention of the Settings page in a body must be a link that opens
+  Settings in the same tab, scrolled to the control that fixes the problem, with
+  keyboard focus on it. For example, a GitHub token error focuses the personal
+  access token field, "Your GitHub connection has ended" focuses "Reconnect
+  GitHub", and "Gitilizer can't access {repo}" focuses that repository's row. A
+  mention of an external resource (for example githubstatus.com or the Google AI
+  Studio status page) must be a link that opens in a new tab.
 - **NOTIF-10** The developer can't dismiss notifications. A notification stays until its condition is resolved.
 - **NOTIF-19** Notifications must be listed errors first, then warnings, and oldest first within each severity.
 - **NOTIF-20** The popover must close on a click outside it, on Esc and when the developer follows a link in it. Keyboard focus must move into the popover when it opens, and return to the bell when it closes. The popover is at most 480 px tall and scrolls beyond that.
@@ -347,16 +385,24 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 
 - **NOTIF-11** The backend must create a notification when it detects one of the conditions in the [catalogue](#catalogue), and store it for the developer with its first-detected time. Only one notification of each type (and, where the heading has one, each `{org}` or `{repo}`) can be active at a time.
 - **NOTIF-12** "Can't connect to Gitilizer" is the exception. The web app must detect it and show it itself, because the backend can't be reached.
-- **NOTIF-13** A notification must be removed as soon as the developer has plausibly fixed the problem. For example, saving a new PAT must clear every PAT-related notification at once. If the problem comes back with the new PAT, the notification is shown again with a new first-detected time.
+- **NOTIF-13** A notification must be removed as soon as the developer has
+  plausibly fixed the problem. For example, saving a new PAT, or connecting
+  GitHub again (`SET-43`), must clear every notification about the GitHub
+  connection at once. If the problem comes back, the notification is shown again
+  with a new first-detected time.
 - **NOTIF-14** A notification whose condition clears without the developer doing anything (a rate limit resets, GitHub recovers) must be removed when the backend next observes that the condition is gone.
 - **NOTIF-15** The web app must update the bell and the popover without a page reload when notifications are added or removed.
 - **NOTIF-16** Before setup is complete, no notification is shown for a missing
-  PAT or ranking agent API key, because Warm Welcome covers that case. After
-  setup, a missing credential is an error ("No GitHub personal access token is
-  set" or "No {agent} API key is set"). Settings can remove only the key of an
-  agent that isn't in use (`SET-39`), so this can happen only through a fault.
+  GitHub connection or ranking agent API key, because Warm Welcome covers that
+  case. After setup, a missing one is an error ("GitHub isn't connected" or "No
+  {agent} API key is set"). Settings can replace the GitHub connection but not
+  remove it (`SET-42`), and can remove only the key of an agent that isn't in
+  use (`SET-39`), so this can happen only through a fault.
 - **NOTIF-21** Short-lived problems (rows marked "short-lived" in the catalogue: rate limits, "isn't responding", "limiting requests") often fix themselves after a retry. Gitilizer must retry them without telling the developer for 15 minutes, and then show them as **warnings**. The first-detected time is when the problem started, not when the warning appeared. If one lasts long enough to stop the list updating, "Your issues haven't updated since {time}" (an error, after 3 hours) covers it.
-- **NOTIF-22** The PAT expiry warning must first appear 7 days before the PAT expires. Its body counts down the days ("will expire in 3 days", as in Figma's example).
+- **NOTIF-22** The PAT expiry warning must first appear 7 days before the PAT
+  expires. Its body counts down the days ("will expire in 3 days", as in Figma's
+  example). A connection made with the Gitilizer app renews itself, so it has no
+  expiry warning (`SET-46`).
 - **NOTIF-23** Notifications about a ranking agent appear only for the agent in
   use. Switching agents (`SET-40`) clears every notification about the previous
   one, as saving a new key does (`NOTIF-13`).
@@ -367,15 +413,17 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 
 | Severity | Summary | Heading | Consequence and fix | Detected when | Clears when |
 |---|---|---|---|---|---|
-| Error | GitHub connection | Your GitHub personal access token has expired | Scanning is paused. Replace your personal access token in Settings. | GitHub returns 401 after the expiry date that GitHub sent in the `GitHub-Authentication-Token-Expiration` header of earlier responses. | A new PAT is saved. |
-| Error | GitHub connection | Your GitHub personal access token isn't valid | Scanning is paused. The token may have been revoked, deleted or mistyped. Replace your personal access token in Settings. | Any other 401, or GitHub's temporary 403 after repeated failed authentication. | A new PAT is saved. |
-| Error | GitHub connection | {org} doesn't allow this type of token | Issues and PRs from {org} are missing from your list. {org} blocks {classic / fine-grained} personal access tokens. Create the other type of token, or ask an owner of {org} to allow this one. | 403 whose message says the organization "forbids access via a personal access token (classic)" or "…with fine-grained permissions". | A new PAT is saved, or a request to {org} succeeds. |
-| Error | GitHub connection | Your GitHub personal access token can't read {permission} | Some of your issues and PRs can't be read, so your list may be incomplete. Give the token read access to {permission}, or create a new token and add it in Settings. The documentation lists the permissions Gitilizer needs. | 403 "Resource not accessible by personal access token"; the `X-Accepted-GitHub-Permissions` header names the permission. | A new PAT is saved, or a request that needs {permission} succeeds. |
-| Error | GitHub connection | Your token isn't authorized for {org} | Issues and PRs from {org} are missing from your list. {org} uses single sign-on, so the token must be authorized for it. Authorize it in your GitHub personal access token settings, then choose Sync now. | 403 with an `X-GitHub-SSO` header, or `X-GitHub-SSO: partial-results` on a search. | A new PAT is saved, or a request to {org} succeeds. |
+| Error | GitHub connection | Your GitHub personal access token has expired | Scanning is paused. Replace your personal access token in Settings. | GitHub returns 401 after the expiry date that GitHub sent in the `GitHub-Authentication-Token-Expiration` header of earlier responses. | A new PAT is saved, or GitHub is connected with the Gitilizer app. |
+| Error | GitHub connection | Your GitHub personal access token isn't valid | Scanning is paused. The token may have been revoked, deleted or mistyped. Replace your personal access token in Settings. | Any other 401, or GitHub's temporary 403 after repeated failed authentication. | A new PAT is saved, or GitHub is connected with the Gitilizer app. |
+| Error | GitHub connection | {org} doesn't allow this type of token | Issues and PRs from {org} are missing from your list. {org} blocks {classic / fine-grained} personal access tokens. Create the other type of token, or ask an owner of {org} to allow this one. | 403 whose message says the organization "forbids access via a personal access token (classic)" or "…with fine-grained permissions". | A new PAT is saved, GitHub is connected with the Gitilizer app, or a request to {org} succeeds. |
+| Error | GitHub connection | Your GitHub personal access token can't read {permission} | Some of your issues and PRs can't be read, so your list may be incomplete. Give the token read access to {permission}, or create a new token and add it in Settings. The documentation lists the permissions Gitilizer needs. | 403 "Resource not accessible by personal access token"; the `X-Accepted-GitHub-Permissions` header names the permission. | A new PAT is saved, GitHub is connected with the Gitilizer app, or a request that needs {permission} succeeds. |
+| Error | GitHub connection | Your token isn't authorized for {org} | Issues and PRs from {org} are missing from your list. {org} uses single sign-on, so the token must be authorized for it. Authorize it in your GitHub personal access token settings, then choose Sync now. | 403 with an `X-GitHub-SSO` header, or `X-GitHub-SSO: partial-results` on a search. | A new PAT is saved, GitHub is connected with the Gitilizer app, or a request to {org} succeeds. |
+| Error | GitHub connection | Your GitHub connection has ended | Scanning is paused. Access was removed on GitHub, or Gitilizer hasn't been opened for six months. Reconnect GitHub in Settings. | With the Gitilizer app connected: GitHub refuses to renew the connection, or answers 401 after renewing it (`SET-46`). | GitHub is connected again, or a PAT is saved. |
+| Warning | GitHub connection | Gitilizer can't read {permission} in {account} | Private issues and PRs from {account} may be missing from your list. {account} hasn't approved the Gitilizer app's access to {permission}. Review it on GitHub. | With the Gitilizer app connected: the app's installation on {account} lacks one of the permissions in `SET-44`, or GitHub answers 403 "Resource not accessible by integration" for a repository of {account}. | The installation has the permission, the app is removed from {account}, or a PAT is saved. |
 | Error | GitHub connection | GitHub sent an unexpected response | Your list may be missing recent changes. Gitilizer keeps retrying automatically. If this continues, report it using the GitHub link at the bottom of the page. | Any other 4xx, a GraphQL `errors` array, or a response that can't be parsed, after retries. | A scan succeeds. |
-| Warning (short-lived) | GitHub connection | GitHub's rate limit has been reached | Scanning is paused until {time}, when GitHub resets the limit, and then resumes automatically. Other tools that use the same token count toward the same limit. | 403 or 429 with `x-ratelimit-remaining: 0`, or a secondary rate limit message, for more than 15 minutes (`NOTIF-21`). | A GitHub request succeeds. |
+| Warning (short-lived) | GitHub connection | GitHub's rate limit has been reached | Scanning is paused until {time}, when GitHub resets the limit, and then resumes automatically. Other tools that read GitHub as you count toward the same limit. | 403 or 429 with `x-ratelimit-remaining: 0`, or a secondary rate limit message, for more than 15 minutes (`NOTIF-21`). | A GitHub request succeeds. |
 | Warning (short-lived) | GitHub connection | GitHub isn't responding | Scanning is paused. Gitilizer keeps retrying automatically. If this continues, check [githubstatus.com](https://www.githubstatus.com). | 5xx responses, timeouts or connection failures that continue after retries for more than 15 minutes (`NOTIF-21`). | A scan succeeds. |
-| Error | Additional repositories | Gitilizer can't access {repo} | Issues and PRs from {repo} are missing from your list. Check the name in Settings, or give your token access to {repo}. | 404 on `GET /repos/{repo}`, or 422 on a search that uses `repo:`. | The repository is removed in Settings, a new PAT is saved, or a request to {repo} succeeds. |
+| Error | Additional repositories | Gitilizer can't access {repo} | Issues and PRs from {repo} are missing from your list. Check the name in Settings, or make sure your GitHub connection can read {repo}. | 404 on `GET /repos/{repo}`, or 422 on a search that uses `repo:`. | The repository is removed in Settings, a new PAT is saved, GitHub is connected again, or a request to {repo} succeeds. |
 | Error | Gemini connection | Your Gemini API key isn't valid | New and changed issues and PRs aren't being ranked. Create a new key in Google AI Studio and add it in Settings. | 400 `API_KEY_INVALID`, or 401. | A new key is saved. |
 | Error | Gemini connection | Google has disabled your Gemini API key | Google reported the key as leaked, so it no longer works. New and changed issues and PRs aren't being ranked. Create a new key in Google AI Studio and add it in Settings. | 403 "Your API key was reported as leaked". | A new key is saved. |
 | Error | Gemini connection | Your Gemini API key can't use the Gemini API | New and changed issues and PRs aren't being ranked. The key may be restricted to other Google APIs, or its project may not allow the Gemini API. Create a new key in Google AI Studio and add it in Settings. | Any other 403 `PERMISSION_DENIED`. | A new key is saved, or a Gemini request succeeds. |
@@ -406,7 +454,7 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 | Error | Gitilizer | Can't connect to Gitilizer | Your list won't update until the connection comes back. Check your internet connection. | The web app's requests to the Gitilizer API fail. Detected in the browser. | A request succeeds. |
 | Error | Gitilizer | Gitilizer couldn't finish scanning | Your list may be missing recent changes. Gitilizer tries again at the next scan. If this continues, report it using the GitHub link at the bottom of the page. | The backend's own scan job fails for a reason other than GitHub. | A scan succeeds. |
 | Error | Gitilizer | Your issues and PRs haven't updated since {time} | No scan has finished in 3 hours, so your list may be missing recent changes. Try Sync now. If this continues, report it using the GitHub link at the bottom of the page. | No scan has succeeded for 3 hours. This catches failures the other rows miss. | A scan succeeds. |
-| Warning | GitHub connection | Your GitHub personal access token will expire soon | Your GitHub personal access token will expire in {n} days. Create a new one and add it to Settings. | The stored expiry date is 7 days away or less (`NOTIF-22`). | A PAT with a later expiry date is saved. |
+| Warning | GitHub connection | Your GitHub personal access token will expire soon | Your GitHub personal access token will expire in {n} days. Create a new one and add it to Settings. | The stored expiry date is 7 days away or less (`NOTIF-22`). | A PAT with a later expiry date is saved, or GitHub is connected with the Gitilizer app. |
 
 Not in the catalogue, by decision:
 
@@ -418,50 +466,83 @@ Not in the catalogue, by decision:
 
 ## Warm Welcome
 
-Figma: [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832)
+Figma: [Warm Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832), [Warm Welcome · Connected](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=395-2871), [Warm Welcome · Personal access token](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=395-2929)
 
-Setup happens on Warm Welcome itself, so a new developer can start with two
-fields instead of the whole Settings page.
+Setup happens on Warm Welcome itself, so a new developer can start with one
+button and one field instead of the whole Settings page.
 
 - **WEL-1** Warm Welcome must be shown under the conditions in [Which screen is shown](#which-screen-is-shown). It is therefore always the first screen after a developer's first sign-in.
 - **WEL-2** It must show the app bar, the footer and a panel with the title
-  "Welcome to your prioritized inbox", the text "Add your GitHub personal access
-  token, then choose the AI that ranks your issues and PRs and add its API
-  key.", the GitHub field, the ranking agent choice (`WEL-5`), the field for the
-  chosen agent's key, a "Save" button and the note "You can change these later
-  in Settings."
-- **WEL-3** The two fields, "GitHub personal access token" and "{agent} API key"
-  (for example "Gemini API key"), must work as in Settings: masked, with the eye
-  icon, a "Validate" button and its results (`SET-1`, `SET-2`, `SET-21`,
-  `SET-28`), the links "Create a token ↗" and "Get an API key ↗" (`SET-4`), and
-  the guidance text shown in Figma with "Learn more ↗" inline at its end
-  (`SET-20`, `SET-32`). A credential already saved from Settings appears as
-  dots, as it does there. The links, guidance text and Validate results use the
-  same typeface, style and size as in Settings, and so does the note under
-  "Save", which matches the notes beside the Settings save buttons; only the
-  field labels are bolder, because the fields have no card titles above them.
-- **WEL-4** "Save" must be disabled until both fields have a value, typed or
-  already saved. Choosing it validates each typed value that hasn't passed
-  Validate as typed, showing progress and results under its field as Validate
-  does (`SET-28`). If every typed value passes, both credentials are saved,
-  setup is complete, and the developer goes to the
-  [first-sync state](#empty-loading-and-first-sync-states) of the Prioritized
-  list (`SET-5`). If any fails, nothing is saved and the developer stays on
-  Warm Welcome with the failure under its field ([Q-82](#q-82)).
-- **WEL-5** Between the two fields, under the label "Ranking agent", three tiles
-  must offer the agents, as in Figma. Gemini comes first, across the full
-  width, and is the one Gitilizer recommends: "Gemini" ("Google"), the pills
-  "Recommended" and "Free tier available", and the line "Ranked best in our
-  tests, at the lowest cost." Under it, the label "Or use an API account you
-  already have" introduces two tiles side by side, "Claude" ("Anthropic", "Pay
-  as you go") and "OpenAI" ("OpenAI", "Pay as you go"), followed by the note
-  "Choose one if you or your company already has an API account with Anthropic
-  or OpenAI." The labels say "API account" because a Claude Pro or ChatGPT Plus
-  subscription doesn't cover API usage.
-  Gemini is chosen at first. Choosing a tile changes the second field's label,
-  setup link and guidance text to that agent's (`SET-1`, `SET-4`, `SET-32`) and
-  clears a value typed for another agent, with its Validate result. "Save" saves
-  the chosen agent as the one in use.
+  "Welcome to your prioritized inbox", the text "Connect GitHub, then choose the
+  AI that ranks your issues and PRs and add its API key.", the GitHub connection
+  (`WEL-6`), the ranking agent choice (`WEL-5`), the field for the chosen
+  agent's key, a "Save" button and the note "You can change these later in
+  Settings." While the personal access token field is showing (`WEL-6`), the
+  text is "Add your GitHub personal access token, then choose the AI that ranks
+  your issues and PRs and add its API key."
+- **WEL-3** The fields, "{agent} API key" (for example "Gemini API key") and,
+  when it is showing, "GitHub personal access token", must work as in Settings:
+  masked, with the eye icon, a "Validate" button and its results (`SET-1`,
+  `SET-2`, `SET-21`, `SET-28`), the links "Get an API key ↗" and "Create a
+  token ↗" (`SET-4`), and the guidance text shown in Figma with "Learn more ↗"
+  inline at its end (`SET-20`, `SET-32`). A credential already saved from
+  Settings appears as dots, as it does there. The links, guidance text and
+  Validate results use the same typeface, style and size as in Settings, and so
+  does the note under "Save", which matches the notes beside the Settings save
+  buttons; only the field labels are bolder, because the fields have no card
+  titles above them.
+- **WEL-4** "Save" must be disabled until both are true: GitHub is connected or
+  the token field has a value, and the agent's key field has a value. A value
+  can be typed or already saved. While the token field is showing, it is that
+  field that must have a value, even when GitHub is already connected (`WEL-6`).
+  Choosing "Save" validates each typed value that hasn't passed Validate as
+  typed, showing progress and results under its field as Validate does
+  (`SET-28`). If every typed value passes, the typed credentials are saved,
+  setup is complete, and the developer goes to the [first-sync
+  state](#empty-loading-and-first-sync-states) of the Prioritized list
+  (`SET-5`). If any fails, nothing typed is saved and the developer stays on
+  Warm Welcome with the failure under its field ([Q-82](#q-82)). A connection
+  made with "Connect GitHub" is saved as soon as GitHub returns (`SET-43`), not
+  by "Save".
+- **WEL-5** Between the GitHub connection and the key field, under the label
+  "Ranking agent", three tiles must offer the agents, as in Figma. Gemini comes
+  first, across the full width, and is the one Gitilizer recommends: "Gemini"
+  ("Google"), the pills "Recommended" and "Free tier available", and the line
+  "Ranked best in our tests, at the lowest cost." Under it, the label "Or use an
+  API account you already have" introduces two tiles side by side, "Claude"
+  ("Anthropic", "Pay as you go") and "OpenAI" ("OpenAI", "Pay as you go"),
+  followed by the note "Choose one if you or your company already has an API
+  account with Anthropic or OpenAI." The labels say "API account" because a
+  Claude Pro or ChatGPT Plus subscription doesn't cover API usage. Gemini is
+  chosen at first. Choosing a tile changes the key field's label, setup link and
+  guidance text to that agent's (`SET-1`, `SET-4`, `SET-32`) and clears a value
+  typed for another agent, with its Validate result. "Save" saves the chosen
+  agent as the one in use.
+- **WEL-6** The GitHub connection comes first, under the label "GitHub", with
+  the link "What Gitilizer can read ↗" (`SET-48`) at the right. It has three
+  states, as in Figma:
+  - **Before connecting.** A dark, full-width "Connect GitHub" button with the
+    GitHub icon, which starts the connection (`SET-43`); the note "Read-only
+    access to your issues and pull requests. Gitilizer can't change anything on
+    GitHub."; and the link "Or use a personal access token", which shows the
+    token field instead.
+  - **Connected**, when the developer returns from GitHub. A box with the
+    account's avatar, "Connected as @{login}" and a green check mark with
+    "Connected"; under a rule, "Public repositories" with "Included", and
+    "Private repositories" with the link "Add on GitHub ↗" (`SET-45`). The note
+    gains "You can add private repositories now, or later in Settings.", and the
+    link becomes "Use a personal access token instead", which shows the token
+    field.
+  - **Personal access token.** The "GitHub personal access token" field
+    (`WEL-3`), with a link under its guidance text that goes back and discards a
+    typed token: "Use Connect GitHub instead", to the first state, or, when
+    GitHub is already connected, "Keep @{login} connected", to the second. A
+    saved connection stays in use until a token is saved (`SET-42`). Connecting
+    a different account is done in Settings ("Reconnect", `SET-47`).
+
+  Adding private repositories isn't part of setup. The list starts with the
+  developer's public items, and private ones join it once the Gitilizer app is
+  installed on their accounts (`SET-45`).
 
 ---
 
@@ -682,19 +763,28 @@ Settings is one page. The left column has links to its sections (Connections, Ad
 
 ### Connections
 
-Both credentials are required: a GitHub personal access token, and an API key
-for the ranking agent the developer chooses.
+Both are required: a GitHub connection, and an API key for the ranking agent
+the developer chooses. The section's description says so: "Gitilizer needs a
+GitHub connection, and an API key for the ranking agent you choose, before it
+can scan and rank your inbox."
 
-- **SET-1** The developer must be able to enter a GitHub personal access token
-  and an API key for their ranking agent, in that order. The cards are titled
-  "GitHub" and "Ranking agent", and their fields are labeled "Personal access
-  token" and "{agent} API key" (for example "Gemini API key"). Each field is
-  masked. Each card has its title and status chip, then the field, then the
-  guidance text under it, with no description between the title and the
-  field: the guidance text already says what the credential is for. The
+- **SET-1** Connections has two cards, in this order: "GitHub", where the
+  developer connects GitHub with the Gitilizer app or enters a personal access
+  token (`SET-42`, `SET-47`), and "Ranking agent", where they enter an API key
+  for their ranking agent. The token field is labeled "Personal access token"
+  and the key field "{agent} API key" (for example "Gemini API key"). Each field
+  is masked. Each card has its title and status chip, then its content, with a
+  field's guidance text under the field and no description between the title and
+  the content: the guidance text already says what the credential is for. The
   Ranking agent card also has the agent picker above its field (`SET-38`).
-- **SET-2** Each credential must have a "Validate" button that checks the value typed in the field, without saving it, and shows the result under the field (`SET-28`).
-- **SET-21** "Validate" must be disabled while its field is empty. That includes when the field shows a saved credential: a saved credential appears as dots, can't be shown or edited, and can't be validated again until it is replaced. The eye icon shows only a value typed during this visit. (Figma shows both Validate buttons disabled, because both credentials are saved.)
+- **SET-2** Each credential field must have a "Validate" button that checks the
+  value typed in the field, without saving it, and shows the result under the
+  field (`SET-28`).
+- **SET-21** "Validate" must be disabled while its field is empty. That includes
+  when the field shows a saved credential: a saved credential appears as dots,
+  can't be shown or edited, and can't be validated again until it is replaced.
+  The eye icon shows only a value typed during this visit. (Figma shows Validate
+  disabled, because the credential is saved.)
 - **SET-3** Each credential card must show a status chip (`SET-30`).
 - **SET-4** "Get an API key ↗" must open the chosen agent's API key page
   (Google AI Studio for Gemini, the Claude Console for Claude, the OpenAI
@@ -703,7 +793,8 @@ for the ranking agent the developer chooses.
   Gemini key's cost depends on whether its project has billing turned on, and
   Claude and OpenAI have no free tier, as the documentation behind "Learn
   more" explains (`SET-32`).
-- **SET-5** Saving a credential must clear the related notifications (`NOTIF-13`) and start a sync.
+- **SET-5** Saving a credential, or connecting GitHub (`SET-43`), must clear the
+  related notifications (`NOTIF-13`) and start a sync.
 - **SET-6** For a PAT, the backend must record the expiry date from GitHub's `GitHub-Authentication-Token-Expiration` header, if it sends one, for the expiry warning.
 - **SET-20** "Learn more ↗" at the end of the GitHub token's guidance text, inline with it, must open, in a new tab, the documentation page about GitHub tokens (`FOOT-3`). That page explains:
   - that Gitilizer accepts both kinds of personal access token and recommends a fine-grained one;
@@ -740,12 +831,14 @@ for the ranking agent the developer chooses.
 GitHub answers an expired token the same way as a mistyped one, and sends the expiry date only with successful responses, so Validate can tell an expired typed token apart only if GitHub's answer changes. Until then it shows "GitHub didn't accept this token…" ([Q-78](#q-78)). The "Your GitHub personal access token has expired" notification is unaffected, because by then Gitilizer has seen the expiry date.
 
 - **SET-29** Saving in Settings doesn't validate credentials (Warm Welcome does, `WEL-4`). A saved credential that doesn't work shows up as a [notification](#catalogue) when Gitilizer first uses it.
-- **SET-30** The status chip on each credential card must show one of: "Not set"
-  (grey) when no credential is saved; "Connected" (green) when one is saved and
-  no error notification about it is active; "Not working" (red) while an error
-  notification about it is active; "Expires soon" (amber) while the GitHub
-  token's expiry warning is active. On the Ranking agent card, the chip is about
-  the key of the agent chosen in the picker.
+- **SET-30** The status chip on each card must show one of: "Not set" (grey)
+  when nothing is saved or connected; "Connected" (green) when a credential is
+  saved, or GitHub is connected, and no error notification about it is active;
+  "Not working" (red) while an error notification about it is active; "Expires
+  soon" (amber) while the GitHub token's expiry warning is active; "Needs
+  attention" (amber) while a "Gitilizer can't read {permission} in {account}"
+  warning is active (`SET-47`). On the Ranking agent card, the chip is about the
+  key of the agent chosen in the picker.
 - **SET-38** The Ranking agent card must have a picker with three choices, laid
   out as on Warm Welcome (`WEL-5`) and as in Figma. "Gemini" ("Google") comes
   first, across the full width, with the pills "Recommended" and "Free tier
@@ -791,6 +884,114 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
   notifications about the previous agent (`NOTIF-23`).
 - **SET-41** Removed on 2026-11-14. The Ranking agent card no longer shows
   "Billing" and "Typical cost" notes ([Q-86](#q-86)).
+
+### Connecting GitHub
+
+Figma: the GitHub card in [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), [Settings · GitHub card · Reconnect needed](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2937), [Settings · GitHub card · Missing permission](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2955), [Settings · GitHub card · Token in use](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-3015)
+
+The developer gives Gitilizer read access to GitHub in one of two ways. The
+Gitilizer app is the default: one click, nothing to create or renew, and
+read-only. A personal access token remains for developers whose private
+repositories are in an organization that won't install the app ([Q-87](#q-87)).
+
+- **SET-42** A developer has one GitHub connection at a time: the Gitilizer app
+  or a PAT. Connecting the app, or saving a token, replaces the connection in
+  use, and Gitilizer deletes the one it replaces ([Q-88](#q-88)): the app's
+  connection replaces a saved token as soon as GitHub returns (`SET-43`), and a
+  token replaces the app's connection when it is saved. So after connecting the
+  app, the token field is empty. Nothing in Settings removes a connection
+  without replacing it.
+- **SET-43** "Connect GitHub", on Warm Welcome (`WEL-6`) and in the GitHub card,
+  and "Reconnect" and "Reconnect GitHub" in the card (`SET-46`, `SET-47`), must
+  open GitHub's authorization page for the Gitilizer app in the same tab. When
+  the developer approves, GitHub returns them to the screen they started from
+  with the connection saved: it needs no "Save" or "Save changes". The
+  connection is to the GitHub account that approved, whichever account the
+  developer signed in with (`AUTH-5`). Saving it clears the notifications about
+  the GitHub connection (`NOTIF-13`) and, once setup is complete, starts a sync
+  (`SET-5`). Leaving Settings this way with unsaved changes asks the developer
+  to confirm, as any other way of leaving does (`SET-26`). If the developer
+  cancels on GitHub, or the connection fails, they return to the same screen
+  with nothing changed and a message under the button: "GitHub wasn't
+  connected." in grey after a cancel, "Couldn't connect GitHub. Try again." in
+  red otherwise. (Figma doesn't draw these two messages.)
+- **SET-44** The Gitilizer app must ask GitHub for read access to issues, pull
+  requests and repository metadata, and nothing else. It can't change anything
+  on GitHub, and it can't read a repository's code, except the changes in a pull
+  request, which are part of the pull request. Wherever the interface offers the
+  connection it says so: "Read-only access to your issues and pull requests.
+  Gitilizer can't change anything on GitHub."
+- **SET-45** With the app connected, Gitilizer reads the developer's items in
+  every public repository, in any account, with nothing installed. It reads
+  private repositories only in the accounts (the developer's own, or
+  organizations) where the app is installed, and there only the repositories the
+  installation covers. "Add or change private repositories ↗" in the card, and
+  "Add on GitHub ↗" on Warm Welcome, open GitHub's page for installing the app,
+  in a new tab. An organization the developer doesn't own needs an owner's
+  approval, which GitHub asks for on the developer's behalf. Gitilizer reads
+  what is installed again at each scan, and also when Settings opens or its tab
+  becomes visible again, so the card is up to date when the developer comes back
+  from GitHub. Items that have become readable join the list at the next scan.
+- **SET-46** A connection made with the app renews itself, so the developer
+  never sees an expiry warning (`NOTIF-22`). It ends only when the developer
+  removes Gitilizer's access on GitHub, or when Gitilizer hasn't scanned for
+  them for about six months, which happens only to a developer who stays away
+  that long (`SCAN-5`). Scanning then pauses, the "Your GitHub connection has
+  ended" error shows ([catalogue](#catalogue)), and in place of the account the
+  card shows "Your GitHub connection has ended", "Access was removed on GitHub,
+  or Gitilizer hasn't been opened for six months. Your list and settings are
+  kept, and scanning starts again when you reconnect." and a "Reconnect GitHub"
+  button, as in Figma.
+- **SET-47** With the app connected, the GitHub card must show, as in Figma: its
+  status chip (`SET-30`); the account's avatar, "@{login}" and "Connected with
+  the Gitilizer app · Read-only"; a "Reconnect" button, which runs the
+  connection again (`SET-43`), for example to connect a different account; a
+  list titled "What Gitilizer can read"; the link "Add or change private
+  repositories ↗" (`SET-45`); and the link "Use a personal access token
+  instead", which shows the token field (`SET-1`) in the card. The list has a
+  row "Public repositories" with "Every public repository, in any account", and
+  a row for each account where the app is installed, with the account's name and
+  "Private repositories: all" or "Private repositories: {n} selected". A row has
+  a green check mark, or an amber warning mark when something needs the
+  developer:
+  - the account hasn't approved one of the app's permissions (`SET-44`): "Pull
+    requests aren't shared, so its private PRs are missing" (or "Issues aren't
+    shared, so its private issues are missing"), with the link "Review on
+    GitHub ↗". The "Gitilizer can't read {permission} in {account}" warning
+    shows too ([catalogue](#catalogue));
+  - the developer has asked for the app to be installed on an organization, and
+    an owner hasn't approved it yet: "Private repositories: waiting for an owner
+    to approve" ([Q-89](#q-89)). GitHub reports these requests only to the
+    Gitilizer app itself, so the row shows where Gitilizer holds the app's
+    private key ([design D-19](DESIGN.md#d-19)); elsewhere it is left out, and
+    the documentation explains the wait.
+
+  With a token in use, the card has the token field as before and, under a rule,
+  "No token to create or renew: connect with one click instead." and a "Connect
+  GitHub" button, as in Figma.
+
+  With nothing connected (the "Not set" chip, which after setup only a fault can
+  cause, `NOTIF-16`), the card has what Warm Welcome has before connecting
+  (`WEL-6`): the "Connect GitHub" button, the note and "Or use a personal access
+  token", as in Figma.
+
+  While the token field shows in place of a connection, a link under its
+  guidance text puts the card back as it was and discards a typed token, without
+  leaving Settings: "Keep @{login} connected", or "Use Connect GitHub instead"
+  when nothing is connected. When the connection has ended (`SET-46`), its
+  message stays above the token field. (Figma doesn't draw the token field in
+  these cases.)
+- **SET-48** "What Gitilizer can read ↗", on Warm Welcome (`WEL-6`), must open,
+  in a new tab, the documentation about connecting GitHub (`FOOT-3`).
+- **SET-49** Text that tells the developer about their token must fit the
+  connection in use. With the Gitilizer app connected, the hover texts in
+  `SET-8` and `SET-36` say "or Gitilizer can't read it" where they say "or your
+  token can't read it", and `SET-8`'s ends "Check the name, and that the
+  Gitilizer app is installed on its owner's account and includes this
+  repository." The catalogue's rows about a personal access token, and `SET-8`'s
+  states for a blocked token and for single sign-on, apply only to a token. With
+  the app, an organization that uses single sign-on has no message of its own
+  for now ([Non-goals](#non-goals), [Q-90](#q-90)).
 
 ### Additional repositories
 
@@ -911,7 +1112,17 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 ### Finding items
 
 - **SCAN-0** Scanning and ranking must continue while no browser is open, so the list is up to date when the developer comes back.
-- **SCAN-1** A scan must find every open item that matches `LIST-1`, reading GitHub with the developer's PAT, and keep the 1,000 most recently updated (`LIST-19`). Each GitHub search must be sorted by most recently updated and needs only its first 1,000 results: any item among the developer's 1,000 most recently updated is also among the first 1,000 results of every search it matches. So searches never need to be split, even when GitHub reports more than 1,000 results. That holds only if excluded items (`SET-34`) are left out by the searches themselves, not removed from their results, so they never take up any of a search's first 1,000 results. The search for an additional repository carries no exclusions (`SET-35`), and exclusions GitHub couldn't find (`SET-36`) aren't added to any search.
+- **SCAN-1** A scan must find every open item that matches `LIST-1`, reading
+  GitHub with the developer's GitHub connection (`SET-42`), and keep the 1,000
+  most recently updated (`LIST-19`). Each GitHub search must be sorted by most
+  recently updated and needs only its first 1,000 results: any item among the
+  developer's 1,000 most recently updated is also among the first 1,000 results
+  of every search it matches. So searches never need to be split, even when
+  GitHub reports more than 1,000 results. That holds only if excluded items
+  (`SET-34`) are left out by the searches themselves, not removed from their
+  results, so they never take up any of a search's first 1,000 results. The
+  search for an additional repository carries no exclusions (`SET-35`), and
+  exclusions GitHub couldn't find (`SET-36`) aren't added to any search.
 - **SCAN-2** A scan must find items that have changed since the last scan, and items that no longer match (closed, merged, unassigned, a repository archived, removed or excluded). Items that no longer match leave the list as in `LIVE-15`, and leave the Icebox as in `ICE-11`.
 - **SCAN-3** A scan must collect what the ranking agent needs to judge each new or changed item: the item, its comments, timeline and reviews, and the issues and PRs it links to.
 - **SCAN-4** Two scans for the same developer must never run at the same time. A sync requested while one is running joins it.
@@ -998,19 +1209,27 @@ Gitilizer keeps:
 | Data | Notes |
 |---|---|
 | Account | Sign-in provider and provider user ID, name, email, avatar URL. |
-| Credentials | GitHub PAT (with its expiry date, if known), an API key for each ranking agent the developer has saved one for, and which agent is in use. |
+| Credentials | The GitHub connection: a PAT (with its expiry date, if known), or what GitHub issues for the Gitilizer app's connection, with the connected account's login. An API key for each ranking agent the developer has saved one for, and which agent is in use. |
 | Settings | Additional repositories with their prioritization prompts, excluded repositories, collaborators, custom ranking prompt, sort preferences. |
 | Item data | The GitHub data needed to rank and show each item. |
 | Item state | For each developer and item: inclusion reasons, score, rank, the agent's output, when it was last ranked, and whether and when it was moved to the Icebox. |
 | Notifications | Active notifications with their first-detected time. |
 
-- **PRIV-0** Gitilizer must read GitHub only with the developer's PAT and call
-  the ranking agent only with the developer's API key. Gitilizer's own
-  credentials are used only for sign-in.
+- **PRIV-0** Gitilizer must read GitHub only as the developer: with the
+  developer's PAT, or with the access the developer gave the Gitilizer app,
+  which is limited to what both the developer and the app may read (`SET-44`,
+  `SET-45`). It must call the ranking agent only with the developer's API key.
+  Gitilizer's own credentials are used only for sign-in and to make and renew
+  the app's connection, never to read a developer's items.
 - **PRIV-1** Credentials must be encrypted at rest, must never be sent back to the browser after they are saved, must never be written to logs and must never be included in a ranking prompt.
 - **PRIV-2** Only the context of the developer's own items may be sent to the
   ranking agent in use, using the developer's own key.
-- **PRIV-3** Deleting an account (`SET-17`) must delete all of the data above for that developer. Cached item data shared with other developers may be kept only while another developer still needs it.
+- **PRIV-3** Deleting an account (`SET-17`) must delete all of the data above
+  for that developer. Cached item data shared with other developers may be kept
+  only while another developer still needs it. For a connection made with the
+  Gitilizer app, Gitilizer should also ask GitHub to revoke the developer's
+  authorization of the app. It must not remove the app's installations, which
+  belong to their accounts and may serve other developers.
 - **PRIV-5** An item's GitHub data, and each developer's record of it (its score and the agent's output), must be deleted 30 days after no developer has the item in their Prioritized list or Icebox any more, whatever the reason: closed or merged, no longer matching `LIST-1`, past the 1,000-item limit, or every developer who had it deleted their account.
 - **PRIV-4** Database backups must be kept for 6 months, so a deleted account's data stays in backups for up to 6 months; credentials stay encrypted there (`PRIV-1`). If a backup is ever restored, every account deleted after that backup was taken must be deleted again.
 
@@ -1088,7 +1307,8 @@ Q-58 to Q-63 were found by building the prototype described in the [design
 doc](DESIGN.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers
 and the new Figma designs; Q-77 to Q-79 came from bringing the prototype in line
 with this document; Q-80 came from the decision to have a development
-environment; Q-84 to Q-86 came from adding Claude and OpenAI.
+environment; Q-84 to Q-86 came from adding Claude and OpenAI; Q-87 to Q-90 came
+from connecting GitHub with the Gitilizer app.
 
 ### Answered questions
 
@@ -1101,7 +1321,7 @@ environment; Q-84 to Q-86 came from adding Claude and OpenAI.
 | <a id="q-5"></a>Q-5 | Footer URLs | "Documentation" opens the user documentation in the GitHub repository; "GitHub" opens the repository, which is the project's landing page. | `FOOT-2`, `FOOT-3` |
 | <a id="q-6"></a>Q-6 | Routes | As suggested; moving between screens doesn't reload the page. | `NAV-3`, `NAV-4` |
 | <a id="q-7"></a>Q-7 | Getting back to the list | The Gitilizer logo links to the Prioritized list. (Whether saving Settings also goes back is [Q-64](#q-64).) | `NAV-7` |
-| <a id="q-8"></a>Q-8 | When Warm Welcome is shown | Until the developer has saved both credentials, usually on Warm Welcome itself. After that, problems appear as error notifications on the Prioritized list. | `NAV-2`, `WEL-4` |
+| <a id="q-8"></a>Q-8 | When Warm Welcome is shown | Until the developer has connected GitHub and saved the ranking agent's API key (until 2026-11-14, "saved both credentials"; [Q-87](#q-87)), usually on Warm Welcome itself. After that, problems appear as error notifications on the Prioritized list. | `NAV-2`, `WEL-4` |
 | <a id="q-9"></a>Q-9 | Google and GitHub sign-in for one person | Two separate accounts. | `AUTH-7` |
 | <a id="q-10"></a>Q-10 | Failed sign-in | A notice above the buttons with four messages; "Cancelled" is grey, the errors are red. | `AUTH-10` to `AUTH-15` |
 | <a id="q-11"></a>Q-11 | Sessions | 30 days, extended while used. Signing out ends only the current browser's session. | `AUTH-8`, `AUTH-9` |
@@ -1133,7 +1353,7 @@ environment; Q-84 to Q-86 came from adding Claude and OpenAI.
 | <a id="q-37"></a>Q-37 | The eye icon | Shows only a value typed in this visit; a saved credential can only be replaced. | `SET-21` |
 | <a id="q-38"></a>Q-38 | Validate states | Red ✗ and red text for a failure; messages as proposed; saving doesn't validate. | `SET-28` to `SET-30` |
 | <a id="q-39"></a>Q-39 | Model | Gitilizer chooses; Settings doesn't show it. | `SET-22` |
-| <a id="q-40"></a>Q-40 | Token kinds | Accept both, recommend fine-grained, explain in the documentation behind "Learn more". One token per developer. | `SET-20`, [Non-goals](#non-goals) |
+| <a id="q-40"></a>Q-40 | Token kinds | Accept both, recommend fine-grained, explain in the documentation behind "Learn more". One token per developer. Changed on 2026-11-14: a token is now the alternative to the Gitilizer app, and a developer has one or the other ([Q-87](#q-87)). | `SET-20`, [Non-goals](#non-goals) |
 | <a id="q-41"></a>Q-41 | Additional repositories | `owner/name` or a URL; duplicates and bad formats are errors; at most 25; prompts up to 500 characters and not editable; states "Checking…", "Access confirmed" and "Can't access", with the reason on hover. | `SET-7` to `SET-9` |
 | <a id="q-42"></a>Q-42 | Collaborators | As suggested: tooltip on the error icon, "@" removed, duplicates rejected, at most 50. Generic avatar drawn in Figma. | `SET-19`, `SET-25` |
 | <a id="q-43"></a>Q-43 | Review teams | Out of scope for now; listed in non-goals to revisit. | [Non-goals](#non-goals) |
@@ -1175,11 +1395,15 @@ environment; Q-84 to Q-86 came from adding Claude and OpenAI.
 | <a id="q-79"></a>Q-79 | Sync now while items wait for quota | The sync counts as finished; the quota error explains the wait. | `LIST-32` |
 | <a id="q-80"></a>Q-80 | Who can sign in to the development environment | `dev.gitilizer.com`, with real GitHub and Gemini and each developer's own credentials. Only accounts on an allowlist can sign in: Google accounts by email, GitHub accounts by username or ID, kept in a setting the owner can change without a release. | `NFR-12`, `AUTH-10` |
 | <a id="q-81"></a>Q-81 | Progress during a sync, and whether bulk re-ranks are syncs | Show progress next to Sync now: the items found so far while searching, then the items left to rank. "Save and re-rank" is a sync, because the developer asked for it and otherwise sees nothing happen for minutes; the daily re-rank isn't, so it never disables Sync now. GitHub issue #5. | `LIST-16`, `LIST-32`, `LIST-33`, `SET-15`, `RANK-9` |
-| <a id="q-82"></a>Q-82 | Entering credentials on Warm Welcome, and what Save does when one fails | Warm Welcome has both fields itself, instead of a "Go to Settings" button, so setup is less overwhelming. Save validates any value not yet validated and saves nothing unless both pass. Saving in Settings still doesn't validate. | `WEL-2` to `WEL-4`, `SET-29` |
+| <a id="q-82"></a>Q-82 | Entering credentials on Warm Welcome, and what Save does when one fails | Warm Welcome has both fields itself, instead of a "Go to Settings" button, so setup is less overwhelming. Save validates any value not yet validated and saves nothing unless both pass. Saving in Settings still doesn't validate. Changed on 2026-11-14: in place of the GitHub field is the "Connect GitHub" button, with the token field behind a link ([Q-87](#q-87)). | `WEL-2` to `WEL-4`, `WEL-6`, `SET-29` |
 | <a id="q-83"></a>Q-83 | Hiding whole repositories | Settings has an Excluded repositories list of repositories and owners (organizations or personal accounts). Nothing from them appears, even when the developer is assigned, asked to review or mentioned. Exclusions are part of the GitHub searches, so they don't use up the 1,000-result window. An additional repository inside an excluded owner still appears; the same repository can't be in both lists. Excluding by author, per-repository rules for each inclusion reason, and a filter language were considered and not chosen for now. | `SET-33` to `SET-37`, `LIST-1`, `SCAN-1`, `ICE-11` |
 | <a id="q-84"></a>Q-84 | Ranking agents other than Gemini | The developer chooses one ranking agent, Gemini, Claude or OpenAI, and gives Gitilizer its API key. Gitilizer keeps the keys of the others, so switching back is easy, and switching asks whether to re-rank now. A primary agent with backups, and any OpenAI-compatible endpoint, were considered and not chosen for now. | `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`, `NOTIF-23` |
 | <a id="q-85"></a>Q-85 | Which Claude and OpenAI models rank | `claude-sonnet-5-5` and `gpt-6.1-sol`. Changed on 2026-11-14 from `claude-haiku-5-5` and `gpt-6-luna`, each provider's cheapest model, after evaluation: over ten prompts the cheapest models' mean Kendall tau was 0.52 and 0.57, against 0.69 for each of the chosen models and 0.72 for `gemini-3.8-flash` at low thinking, which also costs less than either (`eval/prompt-variants-2026-11-07.md`). That is why Gemini is the recommended agent (`WEL-5`, `SET-38`). The Icebox check (`ICE-13`) hasn't been measured with them yet. | `RANK-19` |
 | <a id="q-86"></a>Q-86 | The "Typical cost" figures | Not shown. Settings no longer has billing and cost notes (`SET-41`): figures and billing details go out of date as prices and models change. Gitilizer says only that Gemini ranked best in its tests at the lowest cost and has a free tier, and that Claude and OpenAI are pay as you go. The documentation behind "Learn more" still covers what each agent costs (`SET-32`). | `SET-38`, `WEL-5` |
+| <a id="q-87"></a>Q-87 | Connecting GitHub without creating a token | The developer connects GitHub with the Gitilizer app, a GitHub App with read-only access to issues, pull requests and metadata: one click, nothing to create or renew. Public repositories need nothing installed; private ones need the app installed on their account. Signing in still gives Gitilizer no access, so developers who sign in with Google or with GitHub connect in the same way. A personal access token stays as the alternative, for private repositories in an organization that won't install the app. A trial on 2026-11-14 found that the app reads the same public and private items as a token, with only those three permissions, and that it shares the developer's GitHub rate limit with their tokens. | `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, [Catalogue](#catalogue) |
+| <a id="q-88"></a>Q-88 | What happens to the connection that is replaced, when the developer switches between the Gitilizer app and a token | It is deleted. Gitilizer keeps one GitHub credential per developer, and Settings never has a second, unused connection to explain. Connecting the app again is one click; a token can be pasted again. | `SET-42` |
+| <a id="q-89"></a>Q-89 | Showing an organization that is waiting for an owner to approve the app | Shown in the GitHub card where GitHub reports the request. The design doc found that it reports them only to the Gitilizer app itself, which needs the app's private key ([design D-19](DESIGN.md#d-19)); an environment without the key leaves the row out, and the documentation explains the wait. | `SET-47` |
+| <a id="q-90"></a>Q-90 | Organizations that use single sign-on, with the Gitilizer app | Out of scope for now: the trial of the app didn't reach such an organization. Gitilizer shows no message of its own for it, and the documentation tells developers to use a personal access token there. Revisit once it has been tried. | `SET-49`, `FOOT-3`, [Non-goals](#non-goals) |
 
 ---
 
@@ -1566,3 +1790,76 @@ Found while building excluded repositories, by testing GitHub's issue search, an
   and
   [Warm Welcome / Ranking agent tile](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2522)
   components.
+
+### Thirty-third revision (2026-11-14, second round)
+
+- GitHub connection ([Q-87](#q-87)). The developer connects GitHub in one click
+  with the Gitilizer app, a GitHub App with read-only access to issues, pull
+  requests and metadata, in place of creating a personal access token; the token
+  stays as the alternative. New section [Connecting GitHub](#connecting-github),
+  `SET-42` to `SET-49`: one connection at a time, how connecting runs, what the
+  app may read, public repositories with nothing installed and private ones
+  where the app is installed, a connection that renews itself and how it ends,
+  the GitHub card's states, and wording that fits the connection in use.
+- Signing in still gives Gitilizer no access (`AUTH-5`), so the connection is a
+  separate step, the same for Google and GitHub sign-ins. Setup is complete when
+  GitHub is connected and the agent's key is saved ([Which screen is
+  shown](#which-screen-is-shown), `WEL-4`, `METRIC-1`).
+- Warm Welcome starts with a "Connect GitHub" button; the token field is behind
+  "Or use a personal access token" (`WEL-2` to `WEL-4`, new `WEL-6`; `WEL-5`'s
+  wording).
+- Settings: the GitHub card and its chips (`SET-1`, `SET-2`, `SET-5`, `SET-21`,
+  `SET-30`); the section's description says "a GitHub connection".
+- Notifications: two new rows, "Your GitHub connection has ended" and "Gitilizer
+  can't read {permission} in {account}"; the rate limit and "can't access
+  {repo}" rows no longer assume a token; what clears the token rows (`NOTIF-9`,
+  `NOTIF-13`, `NOTIF-16`, `NOTIF-22`).
+- Privacy and documentation: Gitilizer reads GitHub only as the developer
+  (`PRIV-0`); what is stored for the connection; deleting an account should also
+  remove Gitilizer's access on GitHub (`PRIV-3`); the documentation explains
+  connecting GitHub (`FOOT-3`, `FOOT-4`). Also the overview, non-goals, glossary
+  and `SCAN-1`.
+- Three more questions, answered the same day: the connection that is replaced
+  is deleted ([Q-88](#q-88)); an organization that is waiting for approval is
+  shown ([Q-89](#q-89)); and organizations that use single sign-on are out of
+  scope with the app for now ([Q-90](#q-90), [Non-goals](#non-goals)). Q-8, Q-40
+  and Q-82 note what changed.
+- Changed Figma: [Warm
+  Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832)
+  now has the "Connect GitHub" button, with the new frames [Warm Welcome ·
+  Connected](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=395-2871)
+  and [Warm Welcome · Personal access
+  token](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=395-2929);
+  the GitHub card in
+  [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802)
+  and [Settings / Page
+  content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
+  is connected with the Gitilizer app, with the new frames [Settings · GitHub
+  card · Reconnect
+  needed](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2937),
+  [Settings · GitHub card · Missing
+  permission](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2955)
+  and [Settings · GitHub card · Token in
+  use](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-3015);
+  the Connections description in those and in [Settings ·
+  Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237)
+  and [Settings · Switch ranking
+  agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631),
+  whose GitHub cards still show a token in use, which is one of the card's
+  states.
+- After review, the same day: Warm Welcome no longer hides a saved connection
+  (the Connected state's link is "Use a personal access token instead", and the
+  token field's link goes back, `WEL-4`, `WEL-6`); the GitHub card with nothing
+  connected, and going back from its token field (`SET-47`); the card is read
+  again when Settings regains focus (`SET-45`); every token row of the catalogue
+  also clears when the Gitilizer app is connected; deleting an account revokes
+  the authorization, not installations (`PRIV-3`); `SET-49`'s wording; `NAV-1`
+  and `NAV-9`. Figma: "Save" is disabled in Warm Welcome before connecting, the
+  new frame [Settings · GitHub card · Not
+  set](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=397-2761),
+  and the "Connect GitHub" offer on the token cards in Settings · Errors and
+  Settings · Switch ranking agent.
+- While building it, the same day: GitHub reports a request that is waiting for
+  an owner only to the Gitilizer app itself, so that row shows where Gitilizer
+  holds the app's private key and is left out elsewhere (`SET-47`,
+  [Q-89](#q-89), [design D-19](DESIGN.md#d-19)).

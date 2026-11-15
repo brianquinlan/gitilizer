@@ -10,7 +10,7 @@ import { CredentialCipher } from "./crypto.ts";
 import { openDb } from "./db.ts";
 import { loadAllowlist } from "./allowlist.ts";
 import { buildApp, buildInternalApp } from "./app.ts";
-import { Hub, type Config, type Ctx, type OAuthClient } from "./context.ts";
+import { Hub, type Config, type Ctx, type GitHubAppConfig, type OAuthClient } from "./context.ts";
 import { FixtureGitHub, FixtureStore } from "./github/fixtures.ts";
 import { OctokitGitHub } from "./github/octokit.ts";
 import { localUserId, seedLocalCredentials } from "./local.ts";
@@ -41,6 +41,15 @@ const ENVIRONMENTS = ["development", "production"];
 
 function oauthClient(id: string | undefined, secret: string | undefined): OAuthClient | null {
   return id?.trim() && secret?.trim() ? { clientId: id.trim(), clientSecret: secret.trim() } : null;
+}
+
+/** The Gitilizer GitHub App: its client ID and secret and its URL name; the app ID and private key are optional. */
+function githubApp(e: Record<string, string | undefined>): GitHubAppConfig | null {
+  const client = oauthClient(e.GITHUB_APP_CLIENT_ID, e.GITHUB_APP_CLIENT_SECRET);
+  const slug = e.GITHUB_APP_SLUG?.trim();
+  if (!client || !slug) return null;
+  const privateKey = e.GITHUB_APP_PRIVATE_KEY?.trim().replace(/\\n/g, "\n") || null;
+  return { ...client, slug, appId: e.GITHUB_APP_ID?.trim() || null, privateKey };
 }
 
 export function loadConfig(e: Record<string, string | undefined> = env, argv: string[] = process.argv): Config {
@@ -83,6 +92,7 @@ export function loadConfig(e: Record<string, string | undefined> = env, argv: st
       google: oauthClient(e.GOOGLE_CLIENT_ID, e.GOOGLE_CLIENT_SECRET),
       github: oauthClient(e.GITHUB_CLIENT_ID, e.GITHUB_CLIENT_SECRET),
     },
+    githubApp: githubApp(e),
     // The stub signs anyone in as anyone, so it exists only on a developer's own computer.
     devSignIn: !deployed && (local || githubMode === "fixtures" || argv.includes("--dev-sign-in") || e.DEV_SIGN_IN === "1"),
     secure: deployed,

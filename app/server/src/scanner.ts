@@ -2,8 +2,9 @@
 import { log } from "./log.ts";
 import { EXPIRY_WARNING_DAYS, type NotificationCode, type Reason, type RemovalReason } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
-import { getCredential } from "./credentials.ts";
+import { getGitHubToken, listInstallations, syncPermissionWarnings } from "./connection.ts";
 import { pgJson, pgText } from "./db.ts";
+import type { GitHubMethod } from "@gitilizer/shared";
 import { GitHubProblem, type GitHubApi, type SearchHit } from "./github/types.ts";
 import { firstSyncBatch, pushSync, queueRankJobs, updateUnranked, type QueuedJob } from "./jobs.ts";
 import { publish } from "./list.ts";
@@ -43,7 +44,7 @@ export function discoveryQueries(login: string, repos: string[], since: string |
 
 /** Cleared by a successful scan. */
 const SCAN_CLEARS: NotificationCode[] = [
-  "github_missing", "github_expired", "github_invalid", "github_rate_limited", "github_unavailable", "github_unexpected",
+  "github_missing", "github_expired", "github_invalid", "github_connection_ended", "github_rate_limited", "github_unavailable", "github_unexpected",
   "scan_failed", "stale",
 ];
 /** Started by the developer: always a full scan (design: Scheduler). */
@@ -108,24 +109,36 @@ export async function scan(
     await pushSync(ctx, userId, { now: true });
   };
 
-  const pat = await getCredential(ctx, userId, "github_pat");
-  if (!pat) {
-    if (u.setup_completed_at) await raise(ctx, userId, "github_missing"); // NOTIF-16
-    await finish("skipped", "no_token");
-    return { outcome: "skipped" };
-  }
-  const gh = ctx.github(pat);
+  let method: GitHubMethod = "pat";
   try {
+    // The developer's GitHub connection: a token, or the Gitilizer app's, renewed if it is about to expire.
+    const connection = await getGitHubToken(ctx, userId);
+    if (!connection) {
+      if (u.setup_completed_at) await raise(ctx, userId, "github_missing"); // NOTIF-16
+      await finish("skipped", "no_token");
+      return { outcome: "skipped" };
+    }
+    method = connection.method;
     // Incremental scans overlap the last one by 2 minutes (design: Scanner, step 2).
     const since = full ? null : new Date(Date.parse(lastOk.t) - 120_000).toISOString().replace(/\.\d+Z$/, "Z");
-    const queued = await scanWith(ctx, gh, userId, scanId, since);
+    let queued: number;
+    try {
+      queued = await scanWith(ctx, ctx.github(connection.token), userId, scanId, since, method, connection.token);
+    } catch (e) {
+      if (!(e instanceof GitHubProblem) || e.code !== "invalid" || method !== "app") throw e;
+      // GitHub refused the app's token, perhaps because another process renewed it mid-scan: take the
+      // renewed one, or renew, and try once more (design: GitHub connection).
+      const again = await getGitHubToken(ctx, userId, { stale: connection.token });
+      if (!again) throw e;
+      queued = await scanWith(ctx, ctx.github(again.token), userId, scanId, since, method, again.token);
+    }
     await clear(ctx, userId, SCAN_CLEARS);
     await finish("ok", null, queued);
     await markFirstSyncIfDone(ctx, userId);
     return { outcome: "ok", kind, queued };
   } catch (e) {
     if (e instanceof GitHubProblem) {
-      await reportGitHubProblem(ctx, userId, e);
+      await reportGitHubProblem(ctx, userId, e, method);
       await finish("error", e.code);
       return { outcome: "error", kind, errorCode: e.code };
     }
@@ -138,9 +151,20 @@ export async function scan(
 }
 
 /** Raises the notification for a GitHub failure (PRD catalogue). */
-export async function reportGitHubProblem(ctx: Ctx, userId: string, p: GitHubProblem) {
+export async function reportGitHubProblem(ctx: Ctx, userId: string, p: GitHubProblem, method: GitHubMethod = "pat") {
   const org = p.details.org ?? "";
+  // With the Gitilizer app, a refused or unrenewable token is the connection having ended (SET-46).
+  if (method === "app" && (p.code === "connection_ended" || p.code === "invalid" || p.code === "expired")) return raise(ctx, userId, "github_connection_ended");
+  // What an account hasn't approved shows as a warning from its installation, not as a token error (SET-47).
+  if (method === "app" && p.code === "permission") return;
+  // The messages about single sign-on and token policies tell the developer to change a token. With the app
+  // there is none to change, and no message of its own for now (SET-49, Q-90): the scan carries on without.
+  if (method === "app" && (p.code === "sso" || p.code === "org_blocks_token")) {
+    log.info("scan", "an organization didn't answer the Gitilizer app", { user: userId, code: p.code, org });
+    return;
+  }
   switch (p.code) {
+    case "connection_ended": return raise(ctx, userId, "github_connection_ended");
     case "expired": return raise(ctx, userId, "github_expired");
     case "invalid": return raise(ctx, userId, "github_invalid");
     case "rate_limited": return raise(ctx, userId, "github_rate_limited", p.details.resetAt ? { resetAt: p.details.resetAt } : {});
@@ -160,16 +184,30 @@ export async function reportGitHubProblem(ctx: Ctx, userId: string, p: GitHubPro
 /** Problems that affect only part of the list; the scan carries on (catalogue). */
 const PARTIAL = new Set(["permission", "sso", "org_blocks_token"]);
 
-async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, scanId: number, since: string | null): Promise<number> {
+async function scanWith(
+  ctx: Ctx, gh: GitHubApi, userId: string, scanId: number, since: string | null, method: GitHubMethod = "pat", token = "",
+): Promise<number> {
   const db = ctx.db;
   const full = since === null;
   const viewer = await gh.viewer();
   await db.query(`update users set github_login = $2 where id = $1`, [userId, viewer.login]);
   await db.query(
     `update credentials set token_login = $3, token_type = $4, expires_at = coalesce($5, expires_at) where user_id = $1 and kind = $2`,
-    [userId, "github_pat", viewer.login, viewer.tokenType, viewer.tokenExpiresAt],
+    [userId, method === "app" ? "github_app" : "github_pat", viewer.login, method === "app" ? "app" : viewer.tokenType, method === "app" ? null : viewer.tokenExpiresAt],
   );
-  if (viewer.tokenExpiresAt) {
+  if (method === "app") {
+    // No expiry to warn about (NOTIF-22). Where the app is installed is read at each scan (SET-45).
+    await clear(ctx, userId, ["github_expiring"]);
+    if (full) {
+      try {
+        await syncPermissionWarnings(ctx, userId, await listInstallations(ctx, token, viewer.login));
+      } catch (e) {
+        // A refused token ends this attempt (the scan renews it and tries again); anything else only delays the warnings.
+        if (!(e instanceof GitHubProblem) || e.code === "invalid") throw e;
+        log.warn("scan", "installations couldn't be read", { user: userId, code: e.code });
+      }
+    }
+  } else if (viewer.tokenExpiresAt) {
     const days = Math.ceil((Date.parse(viewer.tokenExpiresAt) - Date.now()) / 86_400_000);
     if (days <= EXPIRY_WARNING_DAYS) await raise(ctx, userId, "github_expiring", { days: String(Math.max(days, 0)) });
     else await clear(ctx, userId, ["github_expiring"]);
@@ -216,7 +254,7 @@ async function scanWith(ctx: Ctx, gh: GitHubApi, userId: string, scanId: number,
         await raise(ctx, userId, "repo_inaccessible", { repo: q.repo }, q.repo);
         continue;
       }
-      if (PARTIAL.has(e.code)) { partial.add(e.code); await reportGitHubProblem(ctx, userId, e); continue; }
+      if (PARTIAL.has(e.code)) { partial.add(e.code); await reportGitHubProblem(ctx, userId, e, method); continue; }
       throw e;
     }
     for (const h of hits) {

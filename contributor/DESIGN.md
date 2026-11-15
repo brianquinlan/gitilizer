@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype follows the 2026-11-01 PRD except where [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) says otherwise. |
 | **Author** | brian@sweetapp.com (drafted with Claude) |
-| **Last updated** | 2026-11-14 (Gemini is the recommended agent: one `AgentPicker` component for Warm Welcome and Settings, PRD `WEL-5` and `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (OpenAI answers whose first message is a garbled draft, and prompts its content filter refuses; prompt v5 measured for all three agents); 2026-11-07 (ranking agents, PRD `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`: Claude and OpenAI clients in the ranker, called with `fetch`, [D-15](#d-15); `users.ranking_agent`, `user_items.ranked_agent` and `rank_jobs.agent`; a key per agent, kept while another is in use; per-agent error codes and notifications; ranking pauses for every key-level failure, and tries again every 15 minutes after credits or billing fail, [D-16](#d-16); switching agents); 2026-11-07 (only the newest release running claims scans and ranking jobs, because Cloud Run kept the previous revision working for over 15 minutes after a release: `releases` and `processes`, [D-14](#d-14); repositories show their owner's avatar, `SET-8` and `SET-36`, from the `owner` in GitHub's repository response; excluded repositories, `SET-33` to `SET-37`: the `excluded_repos` table, exclusions stored by GitHub ID, negated qualifiers on the personal searches, the reason searches again for additional repositories inside an excluded owner, and the `excluded` leave reason; [D-13](#d-13)); 2026-11-06 (a worker that can't reach the database to record a failure logs it and leaves the job to its lease, instead of stopping the process); 2026-11-04 (the eye button's icon and label name what a click does, with no `aria-pressed`, `SET-21`; "PRs" and "issues and PRs" in the UI text, and the missing GitHub permission named in lowercase, `SET-28`; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles, `SET-1`; rank reasoning popup holds updates and returns focus, `LIVE-27`, `LIST-24`; credentials entered and checked on Warm Welcome, `WEL-2` to `WEL-4`, `POST /api/setup`, D-12; rank reasoning popup, `LIST-24`, not clipped on short pages; sync progress, `LIST-33`; "Save and re-rank" is a sync; a Gemini request can't outlive its ranking lease, and expired leases are logged, GitHub issue #3); 2026-11-03 (relative times, `LIST-22`); 2026-11-02 (production: Google and GitHub sign-in, several processes on one database, the container image, pipeline and infrastructure scripts; D-10 and D-11) |
+| **Last updated** | 2026-11-14 (GitHub connection, PRD `SET-42` to `SET-49`, `WEL-6`: a GitHub App whose user tokens the scanner reads GitHub with, beside the PAT, [GitHub connection](#github-connection), [D-17](#d-17) to [D-19](#d-19); `credentials` gains the `github_app` kind with its refresh token; `GET /api/connect/github/start` and `callback`, `GET /api/github/connection`; the codes `github_connection_ended` and `github_app_permission`; the `GITHUB_APP_*` settings); 2026-11-14 (Gemini is the recommended agent: one `AgentPicker` component for Warm Welcome and Settings, PRD `WEL-5` and `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (OpenAI answers whose first message is a garbled draft, and prompts its content filter refuses; prompt v5 measured for all three agents); 2026-11-07 (ranking agents, PRD `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`: Claude and OpenAI clients in the ranker, called with `fetch`, [D-15](#d-15); `users.ranking_agent`, `user_items.ranked_agent` and `rank_jobs.agent`; a key per agent, kept while another is in use; per-agent error codes and notifications; ranking pauses for every key-level failure, and tries again every 15 minutes after credits or billing fail, [D-16](#d-16); switching agents); 2026-11-07 (only the newest release running claims scans and ranking jobs, because Cloud Run kept the previous revision working for over 15 minutes after a release: `releases` and `processes`, [D-14](#d-14); repositories show their owner's avatar, `SET-8` and `SET-36`, from the `owner` in GitHub's repository response; excluded repositories, `SET-33` to `SET-37`: the `excluded_repos` table, exclusions stored by GitHub ID, negated qualifiers on the personal searches, the reason searches again for additional repositories inside an excluded owner, and the `excluded` leave reason; [D-13](#d-13)); 2026-11-06 (a worker that can't reach the database to record a failure logs it and leaves the job to its lease, instead of stopping the process); 2026-11-04 (the eye button's icon and label name what a click does, with no `aria-pressed`, `SET-21`; "PRs" and "issues and PRs" in the UI text, and the missing GitHub permission named in lowercase, `SET-28`; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles, `SET-1`; rank reasoning popup holds updates and returns focus, `LIVE-27`, `LIST-24`; credentials entered and checked on Warm Welcome, `WEL-2` to `WEL-4`, `POST /api/setup`, D-12; rank reasoning popup, `LIST-24`, not clipped on short pages; sync progress, `LIST-33`; "Save and re-rank" is a sync; a Gemini request can't outlive its ranking lease, and expired leases are logged, GitHub issue #3); 2026-11-03 (relative times, `LIST-22`); 2026-11-02 (production: Google and GitHub sign-in, several processes on one database, the container image, pipeline and infrastructure scripts; D-10 and D-11) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Google Cloud project** | `gitilizer` |
 | **Source** | [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer) |
@@ -23,25 +23,26 @@ Questions about the design itself are marked the same way as in the PRD: **TODO:
 4. [The ranking agent](#the-ranking-agent)
 5. [Hosting on Google Cloud](#hosting-on-google-cloud)
 6. [Sign-in and sessions](#sign-in-and-sessions)
-7. [Repository layout](#repository-layout)
-8. [Data model](#data-model)
-9. [HTTP API](#http-api)
-10. [Live updates](#live-updates)
-11. [Web app](#web-app)
-12. [Scanner](#scanner)
-13. [Scheduler](#scheduler)
-14. [Ranking worker](#ranking-worker)
-15. [Notifications](#notifications)
-16. [Security](#security)
-17. [Scale](#scale)
-18. [Testing](#testing)
-19. [Logging](#logging)
-20. [Deployment](#deployment)
-21. [Prototype status](#prototype-status)
-22. [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd)
-23. [Findings from the prototype](#findings-from-the-prototype)
-24. [Local development](#local-development)
-25. [Open questions](#open-questions)
+7. [GitHub connection](#github-connection)
+8. [Repository layout](#repository-layout)
+9. [Data model](#data-model)
+10. [HTTP API](#http-api)
+11. [Live updates](#live-updates)
+12. [Web app](#web-app)
+13. [Scanner](#scanner)
+14. [Scheduler](#scheduler)
+15. [Ranking worker](#ranking-worker)
+16. [Notifications](#notifications)
+17. [Security](#security)
+18. [Scale](#scale)
+19. [Testing](#testing)
+20. [Logging](#logging)
+21. [Deployment](#deployment)
+22. [Prototype status](#prototype-status)
+23. [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd)
+24. [Findings from the prototype](#findings-from-the-prototype)
+25. [Local development](#local-development)
+26. [Open questions](#open-questions)
 
 ---
 
@@ -227,7 +228,7 @@ Internet egress to browsers is charged the same with or without the load balance
 | Redirect URL | `https://gitilizer.com/api/auth/google/callback` | `https://gitilizer.com/api/auth/github/callback` |
 | Account key | `sub` | Numeric user `id` |
 
-GitHub sign-in uses an OAuth app with only the `user:email` scope, decided in [D-4](#d-4). GitHub now recommends GitHub Apps for new integrations, and a GitHub App can also sign people in, but its user tokens expire after 8 hours and it adds an app installation concept that sign-in doesn't need. Since Gitilizer discards the token right after sign-in and never uses it to read items (`AUTH-5`), the simpler OAuth app is enough.
+GitHub sign-in uses an OAuth app with only the `user:email` scope, decided in [D-4](#d-4). GitHub now recommends GitHub Apps for new integrations, and a GitHub App can also sign people in, but its user tokens expire after 8 hours and it adds an app installation concept that sign-in doesn't need. Since Gitilizer discards the token right after sign-in and never uses it to read items (`AUTH-5`), the simpler OAuth app is enough. Reading items is a separate step with its own GitHub App, which a developer who signed in with Google uses too ([GitHub connection](#github-connection), [D-17](#d-17)).
 
 **How a sign-in runs** (`app/server/src/auth.ts`). `start` makes a random `state`, PKCE verifier and (for Google) nonce, stores them in `oauth_states`, puts the state in a `__Host-gitilizer_oauth` cookie for 10 minutes, and redirects to the provider. The callback accepts the state only if it is in the table, under 10 minutes old, for this provider and the same as the cookie (so a sign-in finishes only in the browser that started it), and deletes it. Google's ID token comes straight from its token endpoint over TLS, so its issuer, audience, expiry and nonce are checked without verifying its signature, as OpenID Connect allows. GitHub's profile comes from `GET /user`, and a private email from `GET /user/emails` (the primary, verified address; GitHub's no-reply address if there is none). After that, `next` (a path on this site only) is where the browser goes. Each failure becomes one of the categories below.
 
@@ -241,7 +242,7 @@ GitHub sign-in uses an OAuth app with only the `user:email` scope, decided in [D
 - **Allowlist (development only, `NFR-12`, [Q-80](PRD.md#q-80)).** `SIGN_IN_ALLOWLIST` lists who may sign in, as `google:<email>`, `github:<username>` or `github-id:<number>` entries separated by spaces ([DEPLOYMENT.md](DEPLOYMENT.md#who-can-sign-in-to-development) explains how to change it). It is a setting on the Cloud Run service, not a file in the repository, so testers' addresses stay out of Git and changing the list needs no release.
   - **Matching.** Google accounts match by email, ignoring case, and only when the ID token's `email_verified` is true. GitHub accounts match by username, ignoring case, or by numeric ID. Anyone can claim a username after its owner renames, so the ID is the safer entry. Both come from `GET /user` with the sign-in token, which needs no scope.
   - **At sign-in.** `completeSignIn()` (`app/server/src/signin.ts`) checks the list before it creates or updates anything. A refused sign-in creates no account, settings or session; it redirects to `/sign-in?error=not_allowed` and logs `sign-in refused` with the provider only, because the logs name people only by account ID ([Logging](#logging)).
-  - **On every request.** The session lookup already joins `users`, and the list is in memory, so checking the account again costs nothing. A changed setting starts a new revision, so someone removed from the list is signed out at their next request: their sessions are deleted and the API answers 401 `not_allowed`, which the web app turns into the same notice. Their account and data stay. The check needs the GitHub username from sign-in, which `users.sign_in_login` keeps (`github_login` is the PAT's account, which may differ).
+  - **On every request.** The session lookup already joins `users`, and the list is in memory, so checking the account again costs nothing. A changed setting starts a new revision, so someone removed from the list is signed out at their next request: their sessions are deleted and the API answers 401 `not_allowed`, which the web app turns into the same notice. Their account and data stay. The check needs the GitHub username from sign-in, which `users.sign_in_login` keeps (`github_login` is the connected account, which may differ).
   - **Failing closed.** With `GITILIZER_ENV=development` the server refuses to start without a list, and any entry it can't read stops it too, naming the entry. A lost or mistyped setting therefore leaves the previous revision serving rather than opening development to everyone. Without `GITILIZER_ENV=development` and without a list, everyone can sign in. Local mode ignores the list.
 - **Failed sign-in (`AUTH-10` to `AUTH-14`).** The callback sorts every failure into one of five categories and redirects to `/sign-in?error={cancelled|provider_unavailable|expired|not_allowed|gitilizer_error}`:
   - `cancelled`: the provider returned `error=access_denied`;
@@ -251,6 +252,156 @@ GitHub sign-in uses an OAuth app with only the `user:email` scope, decided in [D
   - `gitilizer_error`: anything else, including other provider error codes and Gitilizer's own failures.
 
   The provider's `error`, `error_description` and `error_uri`, and any exception, are logged with the category; none of them reach the page. The sign-in page reads `error`, shows the matching message in the notice above the buttons (grey for `cancelled`, red for the others, `AUTH-15`), and removes the parameter with `history.replaceState`, so a reload shows the plain page (`AUTH-13`). An unknown value is treated as `gitilizer_error`.
+
+---
+
+## GitHub connection
+
+The scanner reads GitHub as the developer, with one of two credentials
+(`SET-42`): a personal access token the developer pasted, or a user access
+token of the **Gitilizer GitHub App**, which "Connect GitHub" obtains in one
+click. The app is the default; the token stays for developers whose private repositories are
+in an organization that won't install the app ([Q-87](PRD.md#q-87)). Everything
+after the token is the same code: the searches, snapshots and checks in
+[Scanner](#scanner) don't know which kind they were given.
+
+**Why a GitHub App, and why separate from sign-in** ([D-17](#d-17)). An OAuth
+app can only ask for the `repo` scope, which can write to every repository the
+developer can reach. A GitHub App's permissions are set on the app (issues,
+pull requests and metadata, read-only, `SET-44`), its user token reads every
+public repository with nothing installed, and private repositories are added
+account by account by installing it (`SET-45`). A spike on 2026-11-13 ran the
+scanner's ten searches and every snapshot request with such a token and with a
+PAT, and the results matched. Sign-in keeps its OAuth app: a developer who
+signs in with Google connects GitHub the same way, and the connected account
+may differ from the sign-in account (`AUTH-5`).
+
+**The app on GitHub.** One per environment, because each has its own callback
+URL ([DEPLOYMENT.md](DEPLOYMENT.md#the-gitilizer-github-app)). Repository
+permissions: Issues, Pull requests and Metadata, read-only. "Expire user
+authorization tokens" is on, "Request user authorization (OAuth) during
+installation" is off, no webhook, and it can be installed on any account. The
+server needs the app's client ID and secret and its URL name (`GITHUB_APP_SLUG`,
+for the installation link); the app ID and a private key are optional and only
+serve the pending-approval rows below. Without the client ID, secret and slug
+the server offers the token only (`Me.github.app` is false, and the web app
+shows the token field as before), so the app is not among the settings a
+deployed server refuses to start without.
+
+**Connecting** (`app/server/src/connect.ts`, `SET-43`). The same flow as
+sign-in, with three differences: it needs a session; the `oauth_states` row
+carries the `user_id` that started it, and the callback refuses a state from
+another account; and the tokens are kept.
+
+1. `GET /api/connect/github/start?next=` stores a state and PKCE verifier,
+   sets the `gitilizer_connect` cookie for 10 minutes and redirects to
+   `https://github.com/login/oauth/authorize` with the app's client ID. There
+   is no `scope`: a GitHub App's permissions aren't chosen per request.
+2. `GET /api/connect/github/callback` checks the state (issued by us, to this
+   account and this browser, under 10 minutes old, used once), exchanges the
+   code, reads `GET /user` for the account's login and numeric ID, and saves
+   the connection with `saveAppConnection()`. In one transaction that deletes
+   a saved PAT ([Q-88](PRD.md#q-88)), upserts the `github_app` row and sets
+   `users.github_login`.
+3. It then clears every notification with a GitHub connection code
+   (`NOTIF-13`), triggers a scan if setup is complete (`SET-5`), and redirects
+   to `next`: `/` from Warm Welcome, `/settings#connections` from Settings.
+
+A cancel on GitHub (`error=access_denied`) or any failure redirects to `next`
+with `?connect=cancelled` or `?connect=failed` and changes nothing; GitHub's
+own words go to the log only. Connecting doesn't complete setup: Warm
+Welcome's Save still does, and `POST /api/setup` needs no token when the app is
+connected (`WEL-4`). Saving a PAT, from Settings or Warm Welcome, deletes the
+app's row (`saveCredential()`), so there is never more than one connection; if
+both rows ever exist, the app's is used.
+
+**Storage.** The connection is a `credentials` row of kind `github_app`: the
+access token in `ciphertext`, its expiry in `expires_at`, the refresh token in
+`refresh_ciphertext` with `refresh_expires_at`, and the account's ID in
+`account_id` (for its avatar). Both tokens are encrypted like every other
+credential ([Security](#security)). `github_app` is not a `CredentialKind`: it
+has no field, Validate or `PUT /api/settings` entry, so the code that handles
+typed credentials never sees it.
+
+**Renewing** (`getGitHubToken()` in `app/server/src/connection.ts`, `SET-46`).
+The access token lasts 8 hours and the refresh token about six months; GitHub
+replaces both at each renewal, and a refresh token works once. Whoever needs to
+read GitHub asks `getGitHubToken(userId)`, which returns the stored token
+unless it expires within 5 minutes, and otherwise renews it:
+
+- Two renewals with the same refresh token would break each other: the second
+  fails, and the first has already ended the old access token. So a renewal
+  runs in a transaction that locks the row (`select … for update`), and a
+  caller that waited for the lock finds a current token and takes it. Within a
+  process, callers for the same developer also share one promise. The request
+  to GitHub is made while the lock is held, with a 10 s timeout ([D-18](#d-18)).
+- An access token can be refused before its expiry, because another process
+  renewed it mid-scan or a clock is off. On `invalid` with the app, the scan
+  calls `getGitHubToken(userId, { stale: token })` and runs once more: the
+  stored token is taken if it is no longer the refused one, and renewed if it
+  is.
+- When GitHub won't renew (the developer revoked the app, or the refresh token
+  lapsed after six months without a scan, `SCAN-5`), the row's refresh token is
+  cleared, so later scans don't ask again, and `getGitHubToken` throws the
+  problem `connection_ended`. The scanner raises `github_connection_ended`
+  and the scan ends as an error; scheduled scans continue to end that way
+  until the developer reconnects, which replaces the row. GitHub being
+  unreachable during a renewal is `unavailable`, as for any request.
+
+The app's token also carries GitHub's token-expiry header; `OctokitGitHub`
+ignores it for tokens starting `ghu_`, so the PAT expiry warning never shows
+for the app (`NOTIF-22`).
+
+**What Gitilizer can read** (`SET-45`, `SET-47`). `GET /api/github/connection`
+returns what the Settings card shows. For the app it reads
+`GET /user/installations` with the developer's token: each installation the
+developer can see, with its account, `repository_selection`, the count from
+`GET /user/installations/{id}/repositories?per_page=1` when repositories are
+selected, and which of `issues` and `pull_requests` its `permissions` lack.
+An account that installed the app before a permission was added keeps the old
+set until an owner approves, which is how a permission goes missing.
+`syncPermissionWarnings()` then keeps one `github_app_permission` warning per
+account and missing permission, and clears those that no longer apply. The
+same runs at the end of each full scan, so the warnings are right without a
+visit to Settings. The web app calls the endpoint when Settings opens and
+whenever its tab becomes visible or focused, then reloads `GET /api/me` for
+the chip.
+
+During a scan, a 403 "Resource not accessible by integration" is classified
+as `permission`, and with the app it raises nothing: the warning above
+already says which account and what, where the PAT's "missing permission"
+error would tell the developer to edit a token they don't have.
+
+**Waiting for an owner** ([Q-89](PRD.md#q-89), [D-19](#d-19)). GitHub tells
+only the app itself, not a user token, about installation requests that an
+organization's owner hasn't answered: `GET /app/installation-requests`,
+authorized with a JWT signed by the app's private key (`appJwt()`, RS256, 9
+minutes). With `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY` set, the endpoint
+adds the requests whose requester is the connected account, less any account
+that is now installed, as `pending`. Without them, or if the request fails,
+there are none, and the user guide explains the wait.
+
+**Elsewhere.**
+
+- `GET /api/me` carries `github: { method, login, avatarUrl, chip, app,
+  installUrl }`. The chip (`SET-30`) is the PAT's for a token; for the app it
+  is "Not working" while `github_connection_ended` shows, "Needs attention"
+  while a `github_app_permission` warning shows, and otherwise "Connected".
+- The check endpoints for repositories, exclusions and collaborators use
+  whichever connection there is, and answer "checking" if it can't be used.
+- Deleting the account asks GitHub to revoke the developer's authorization
+  (`DELETE /applications/{client_id}/grant`), best effort, before the rows go
+  (`PRIV-3`). Installations stay: they belong to their accounts.
+- Local mode doesn't seed a PAT from `.env` over an existing connection.
+- **Fixture mode** has a stand-in so the interface can be tried and tested
+  without GitHub: `start` connects at once as the fixtures' account, the
+  token never expires, and the card lists that account with "all". There is no
+  installation page, so those links are left out.
+- Single sign-on with the app is out of scope for now
+  ([Q-90](PRD.md#q-90)). The PAT's messages about single sign-on and token
+  policies tell the developer to change a token, so with the app those
+  problems raise nothing (`SET-49`): they are logged, and the scan carries on
+  without that organization's items.
 
 ---
 
@@ -283,10 +434,10 @@ Postgres. Times are `timestamptz`. IDs are text UUIDs unless stated.
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `users` | `id`, `provider`, `provider_user_id`, `name`, `email`, `avatar_url`, `github_login`, `sign_in_login`, `created_at`, `last_seen_at`, `setup_completed_at`, `ranking_agent` (`gemini`, `claude`, `openai`), `ranking_paused_until`, `ranking_paused_code` | Unique on `(provider, provider_user_id)` (`AUTH-7`). `github_login` comes from the PAT (`GET /user`), not from sign-in (`AUTH-5`); `sign_in_login` is the GitHub username at sign-in, kept for the development allowlist. `last_seen_at` drives [Q-47](PRD.md#q-47). `setup_completed_at` decides Warm Welcome ([Q-8](PRD.md#q-8)); see the note below. `ranking_agent` is the agent in use (`SET-38`). While `ranking_paused_until` is in the future, the developer's jobs aren't claimed (`RANK-20`); `ranking_paused_code` says why. |
+| `users` | `id`, `provider`, `provider_user_id`, `name`, `email`, `avatar_url`, `github_login`, `sign_in_login`, `created_at`, `last_seen_at`, `setup_completed_at`, `ranking_agent` (`gemini`, `claude`, `openai`), `ranking_paused_until`, `ranking_paused_code` | Unique on `(provider, provider_user_id)` (`AUTH-7`). `github_login` comes from the GitHub connection (`GET /user` with the PAT or the app's token), not from sign-in (`AUTH-5`); `sign_in_login` is the GitHub username at sign-in, kept for the development allowlist. `last_seen_at` drives [Q-47](PRD.md#q-47). `setup_completed_at` decides Warm Welcome ([Q-8](PRD.md#q-8)); see the note below. `ranking_agent` is the agent in use (`SET-38`). While `ranking_paused_until` is in the future, the developer's jobs aren't claimed (`RANK-20`); `ranking_paused_code` says why. |
 | `user_activity` | `user_id`, `day` | One row per developer per day with a visit, for `METRIC-1`; see the note below. Rows older than 13 months are deleted by the daily clean-up. |
 | `sessions` | `id` (random 32 bytes, base64url), `user_id`, `expires_at` | Sliding 30-day expiry ([Sign-in and sessions](#sign-in-and-sessions)). |
-| `credentials` | `user_id`, `kind` (`github_pat`, `gemini_key`, `anthropic_key`, `openai_key`), `ciphertext`, `nonce`, `expires_at`, `token_login`, `token_type` | AES-256-GCM ([Security](#security)). Saved from Settings without being checked (`SET-29`); Warm Welcome saves only checked values (`WEL-4`). `expires_at` from GitHub's `GitHub-Authentication-Token-Expiration` header (`SET-6`). The scanner fills in `token_login` (the PAT's account) and `token_type` (`classic` or `fine-grained`, from the token's prefix). The status chip (`SET-30`) isn't stored: it comes from the shown notifications. A key stays saved while another agent is in use, until the developer removes it (`SET-39`). |
+| `credentials` | `user_id`, `kind` (`github_pat`, `github_app`, `gemini_key`, `anthropic_key`, `openai_key`), `ciphertext`, `nonce`, `expires_at`, `token_login`, `token_type`, `refresh_ciphertext`, `refresh_nonce`, `refresh_expires_at`, `account_id` | AES-256-GCM ([Security](#security)). A developer has `github_pat` or `github_app`, never both; the last four columns are the app's refresh token and the connected account's ID ([GitHub connection](#github-connection)). Saved from Settings without being checked (`SET-29`); Warm Welcome saves only checked values (`WEL-4`). `expires_at` from GitHub's `GitHub-Authentication-Token-Expiration` header (`SET-6`). The scanner fills in `token_login` (the PAT's account) and `token_type` (`classic` or `fine-grained`, from the token's prefix). The status chip (`SET-30`) isn't stored: it comes from the shown notifications. A key stays saved while another agent is in use, until the developer removes it (`SET-39`). |
 | `settings` | `user_id`, `custom_prompt` (null = default), `sort_prioritized`, `sort_icebox` | |
 | `additional_repos` | `user_id`, `full_name`, `prioritization_prompt`, `access` (`checking`, `ok`, `not_found`, `sso_required`, `token_type_blocked`, `archived`), `owner_avatar_url`, `owner_type` (`Organization`, `User`), `position` | `access` drives the state and hover text in `SET-8`. `owner_avatar_url` and `owner_type` come from the `owner` in `GET /repos/{owner}/{name}`, for the avatar at the start of the row (`SET-8`). Called `interested_repos`, with a `filter` column, in the prototype. |
 | `excluded_repos` | `user_id`, `name`, `kind` (`repo`, `owner`), `github_id`, `owner_type` (`Organization`, `User`), `status` (`checking`, `ok`, `not_found`), `avatar_url`, `checked_at`, `position` | `SET-33` to `SET-37`. `name` is the current name, as shown; `github_id` (null until GitHub has found it) is what identifies the exclusion, because GitHub doesn't redirect a renamed account and lets someone else take the old name ([D-13](#d-13)). `owner_type` and `avatar_url` are the excluded owner's, or a repository's owner's, and pick the avatar and its shape (`SET-36`). |
@@ -305,7 +456,7 @@ Postgres. Times are `timestamptz`. IDs are text UUIDs unless stated.
 | `processes` | `id`, `release`, `started_at`, `heartbeat_at` | One row per running server process, with a heartbeat every 15 s; rows a day old are deleted. |
 | `leases` | `name`, `holder`, `expires_at` | Work one process does at a time: the scheduler's periodic pass. |
 | `relay_events` | `id`, `payload`, `created_at` | Live-update events too large for a NOTIFY payload; kept 10 minutes. |
-| `oauth_states` | `state`, `provider`, `verifier`, `nonce`, `next`, `created_at` | Sign-ins in progress, used once, valid for 10 minutes ([Sign-in and sessions](#sign-in-and-sessions)). |
+| `oauth_states` | `state`, `provider`, `verifier`, `nonce`, `next`, `user_id`, `created_at` | Sign-ins in progress, used once, valid for 10 minutes ([Sign-in and sessions](#sign-in-and-sessions)). Also GitHub connections in progress (provider `github_app`), which carry the `user_id` that started them. |
 | `deleted_users` | `id`, `deleted_at` | Only the IDs of deleted accounts. After a backup is restored, every account in this table deleted after the backup was taken is deleted again (`PRIV-4`). The table itself must be copied out before the restore and put back afterwards. |
 
 Notes on three tables:
@@ -328,7 +479,9 @@ JSON over HTTPS. Every request and response body is defined by a zod schema in `
 | `GET /api/health` | The uptime check: answers `{ ok: true }` when the database does. No session needed. |
 | `GET /docs`, `GET /docs/privacy` | Redirect to the user guide on GitHub, and to its Privacy section (`FOOT-3`, `FOOT-4`), so gitilizer.com has stable addresses for them; the Google consent screen links to `/docs/privacy`. |
 | `POST /api/auth/logout` | "Sign out" (`ACCT-3`). Ends the current session. |
-| `GET /api/me` | Account, which screen to show (`NAV-1`), the status of each credential (`SET-30`), the agent in use (`rankingAgent`), whether the first sync has finished. |
+| `GET /api/me` | Account, which screen to show (`NAV-1`), the status of each credential (`SET-30`), the GitHub connection (`github`: which method, the account, its chip, and whether this server offers the app), the agent in use (`rankingAgent`), whether the first sync has finished. |
+| `GET /api/connect/github/start?next=`, `GET /api/connect/github/callback` | "Connect GitHub" (`SET-43`): GitHub's authorization page for the Gitilizer app and back, saving the connection ([GitHub connection](#github-connection)). `start` answers 404 where the app isn't configured. |
+| `GET /api/github/connection` | What the Settings GitHub card shows (`SET-46`, `SET-47`): `{ method, login, avatarUrl, app, ended, installUrl, installations, pending }`. For the app it reads the installations from GitHub and brings the permission warnings up to date. |
 | `GET /api/list` | Every active, iceboxed and recently gone item for the developer, plus `version`. The web app sorts and pages locally. |
 | `POST /api/items/icebox`, `POST /api/items/restore` | `LIST-18`, `ICE-5`. Body `{ key }` (keys contain `/` and `#`, so they aren't path segments). Return the new `version`. |
 | `POST /api/sync` | `LIST-16`. Always returns 202; a request while a sync runs joins it (the button is disabled then, `LIST-28`, but another tab may not know yet). |
@@ -341,7 +494,7 @@ JSON over HTTPS. Every request and response body is defined by a zod schema in `
 | `PUT /api/sort` | Saves one view's sort order (`LIST-9`). |
 | `POST /api/repos/check`, `POST /api/collaborators/check` | Look up a repository (`{ access, fullName, tokenType, ownerAvatarUrl, ownerType }`) or a collaborator (`{ status, avatarUrl }`) as soon as it is added in Settings, before saving, with the saved PAT. Nothing is stored; the scan after saving records the same results ([D-6](#d-6)). |
 | `POST /api/credentials/:kind/check` | Check a typed value without saving it (`SET-2`, `SET-28`). Returns `{ ok, code, login?, expires_at?, permission? }`, where `code` selects the message. For a GitHub token: `GET /user` (login, expiry header) and one search, which shows a missing permission through `X-Accepted-GitHub-Permissions`. The first permission it names is shown in lowercase, with `pull_requests` as "PRs", because the messages use it mid-sentence ("This token can't read PRs."). For a Gemini key: `GET /v1beta/models/{model}`, which checks the key and access to the model without using the developer's request quota. For a Claude or OpenAI key: `GET /v1/models/{model}` with the model Gitilizer ranks with, which uses no tokens; a 401 is `not_accepted`, a 403 or 404 `permission_denied`, and a billing answer `no_credits`, though these endpoints don't usually report credits (`SET-28`). |
-| `POST /api/setup` | Warm Welcome's Save (`WEL-4`). Body `{ credentials: { github_pat?, gemini_key?, anthropic_key?, openai_key? }, rankingAgent }`, the typed values and the chosen agent (`WEL-5`); only the GitHub token and the chosen agent's key are checked and saved. Checks each one in parallel, with the same code as `POST /api/credentials/:kind/check`, including values the developer has already validated ([D-12](#d-12)). If every check passes and both credentials are then present, typed or already saved, it saves the typed ones in one transaction, completes setup, clears their notifications and starts a sync, as `PUT /api/settings` does. Returns `{ ok, results: { github_pat?, gemini_key? } }`, each a check result; with `ok: false` nothing is saved. 422 if a credential would still be missing; 409 once setup is complete, because Warm Welcome is never shown again (`NAV-2`). |
+| `POST /api/setup` | Warm Welcome's Save (`WEL-4`). Body `{ credentials: { github_pat?, gemini_key?, anthropic_key?, openai_key? }, rankingAgent }`, the typed values and the chosen agent (`WEL-5`); only the GitHub token and the chosen agent's key are checked and saved. With the Gitilizer app connected no token is needed; a typed one is still checked, and replaces the connection. Checks each one in parallel, with the same code as `POST /api/credentials/:kind/check`, including values the developer has already validated ([D-12](#d-12)). If every check passes and both credentials are then present, typed or already saved, it saves the typed ones in one transaction, completes setup, clears their notifications and starts a sync, as `PUT /api/settings` does. Returns `{ ok, results: { github_pat?, gemini_key? } }`, each a check result; with `ok: false` nothing is saved. 422 if a credential would still be missing; 409 once setup is complete, because Warm Welcome is never shown again (`NAV-2`). |
 | `DELETE /api/account` | `SET-17`. Sent after the confirmation dialog; requires `{ confirm: true }` so a stray request can't delete an account. |
 | `POST /api/telemetry` | Browser timings for `METRIC-3` (time to a usable list, web vitals). Accepts small JSON bodies only, rate-limited per session. |
 | `GET /internal/metrics` | `METRIC-1` counts, including deleted accounts. On the internal port, not exposed to the internet. |
@@ -441,6 +594,23 @@ Details that need more than markup:
   response's results then replace them. On success the store reloads
   `GET /api/me`, whose `screen` is now `app`, and the app navigates to `/`,
   which shows the first-sync state.
+- **Connecting GitHub** (`WEL-6`, `SET-43`, `SET-46`, `SET-47`;
+  `components/GitHubConnection.tsx`). "Connect GitHub", "Reconnect" and
+  "Reconnect GitHub" are links to `/api/connect/github/start?next=…`, not
+  buttons with handlers: the browser leaves for GitHub in the same tab, and
+  Settings' `beforeunload` guard asks first if there are unsaved changes
+  (`SET-26`). The page GitHub returns to is loaded afresh, so it shows the
+  connection from `GET /api/me`; `?connect=cancelled` or `failed` is read
+  once, shown under the button and removed with `history.replaceState`, as
+  the sign-in page does. Whether the token field shows in place of the
+  connection is local state of the page: it starts shown when a token is in
+  use or the server has no app (`me.github.app`), and the links that swap it
+  clear a typed token. Warm Welcome's Save needs the token only while its
+  field shows. The Settings card (`GitHubCard`) picks its state from
+  `me.github`, and gets its list from `GET /api/github/connection`, called on
+  mount and on `visibilitychange` and `focus`. The link control has the id
+  `github-connect`, which the connection's notifications link to (`NOTIF-9`);
+  where only a token can be used, Settings focuses the token field instead.
 - **Account menu.** Closes on a click outside, on Esc and when an item is chosen (`ACCT-4`). The action is "Sign out" everywhere (`ACCT-5`).
 - **Delete account.** A simple confirmation dialog, then `DELETE /api/account` and a redirect to `/sign-in` (`SET-17`).
 - **Switching agents** (`SET-39`, `SET-40`). "Remove {agent} key" only marks the key for removal: the line goes at once, the key goes when the page is saved, and Cancel keeps it. "Save changes" with a different agent first checks that it has a key, then opens the switch dialog when `rankedBy` for the agent in use isn't 0; "Switch" and "Switch and re-rank" send `PUT /api/settings` with `rerank` false or true.
@@ -455,7 +625,7 @@ There are two kinds of scan. A **full** scan reads every matching item and can d
 
 A scan for one developer:
 
-1. **Load context.** Decrypt the PAT. Refresh `github_login` if it is older than a day, and look up any collaborator whose status is older than a day. A full scan also looks up every exclusion, and every scan looks up any exclusion never looked up before, such as one saved while a scan was running ([D-13](#d-13)): by ID once GitHub has found it (`GET /repositories/{id}` or `GET /user/{id}`, which return the current name after a rename), and otherwise by name (`GET /repos/{owner}/{name}` or `GET /users/{login}`), storing the ID, the current name, the owner type and the avatar. A 404 makes it `not_found`; if GitHub can't be reached it keeps its last state. If a rename makes an excluded repository the same as an additional repository, in either table, the exclusion is deleted: the additional repository wins (`SET-35`), and `exclusionsFrom()` ignores such an exclusion in the meantime.
+1. **Load context.** Get the token of the developer's GitHub connection: the decrypted PAT, or the app's token, renewed first if it is about to expire ([GitHub connection](#github-connection)). Refresh `github_login` if it is older than a day, and look up any collaborator whose status is older than a day. A full scan also looks up every exclusion, and every scan looks up any exclusion never looked up before, such as one saved while a scan was running ([D-13](#d-13)): by ID once GitHub has found it (`GET /repositories/{id}` or `GET /user/{id}`, which return the current name after a rename), and otherwise by name (`GET /repos/{owner}/{name}` or `GET /users/{login}`), storing the ID, the current name, the owner type and the avatar. A 404 makes it `not_found`; if GitHub can't be reached it keeps its last state. If a rename makes an excluded repository the same as an additional repository, in either table, the exclusion is deleted: the additional repository wins (`SET-35`), and `exclusionsFrom()` ignores such an exclusion in the meantime.
 2. **Discover.** Run these GitHub searches. Each is sorted by `updated` (newest first) and reads 100 results per page. GitHub's issue search refuses a query that doesn't say whether it wants issues or PRs (422 "Query must include 'is:issue' or 'is:pull-request'"), so `OctokitGitHub.search()` runs each query below twice, with `is:issue` and with `is:pull-request`, and merges the two result lists newest first. A query that already names its kind runs once.
    - `is:open archived:false user-review-requested:{login}` (personal review requests only; no team requests, [Q-43](PRD.md#q-43));
    - `is:open archived:false` with each of `assignee:{login}`, `mentions:{login}`, `author:{login}` and `commenter:{login}`;
@@ -585,7 +755,10 @@ Each catalogue row in the PRD has a `code`, and each code has a fixed severity. 
 
 - a **persistent** problem (invalid token, leaked key) is shown at once, as an error;
 - a **short-lived** problem (`github_rate_limited`, `github_unavailable`, `gemini_rate_limited`, `gemini_unavailable`) is stored with `first_detected_at` and shown only after 15 minutes, as a **warning** (`NOTIF-21`). The popover shows `first_detected_at`, so a warning that has just appeared says "15 min ago";
-- saving a credential clears every notification with that credential's codes immediately (`NOTIF-13`);
+- saving a credential clears every notification with that credential's codes immediately (`NOTIF-13`). The GitHub connection's codes are one group whichever way GitHub is connected, so saving a token or connecting the app clears them all;
+- `github_connection_ended` (error) and `github_app_permission` (warning, one
+  per account and permission) belong to the app's connection ([GitHub
+  connection](#github-connection)); `github_missing` links to "Connect GitHub";
 - the stale-list check ("Your issues and PRs haven't updated since {time}", 3 hours) and the PAT expiry warning (7 days ahead, `NOTIF-22`) run in the scheduler loop;
 - every notification carries the `id` of the Settings control that fixes it, for the link in its body (`NOTIF-9`).
 
@@ -597,8 +770,14 @@ Changes are pushed to the browser as `notifications` events.
 
 ## Security
 
-- **Credentials.** AES-256-GCM, with a random 96-bit nonce per value and the user ID as associated data, so a ciphertext can't be moved to another user. The key comes from `CREDENTIAL_KEY` (32 bytes, base64), which the deployed environments read from Secret Manager, each its own ([D-11](#d-11)). Values are decrypted only in the scanner (PAT) and when the worker claims a job (Gemini key), and never leave the process (`PRIV-1`).
+- **Credentials.** AES-256-GCM, with a random 96-bit nonce per value and the user ID as associated data, so a ciphertext can't be moved to another user. The key comes from `CREDENTIAL_KEY` (32 bytes, base64), which the deployed environments read from Secret Manager, each its own ([D-11](#d-11)). Values are decrypted only where GitHub is read (the PAT, or the Gitilizer app's access and refresh tokens) and when the worker claims a job (the agent's key), and never leave the process (`PRIV-1`).
 - **Tokens that can write.** A classic PAT with the `repo` scope can write to every repository the developer can reach ([Q-40](PRD.md#q-40)). Gitilizer only ever sends `GET` requests and searches with it, and the Octokit wrapper rejects any other method, so a bug can't turn into a write.
+- **The Gitilizer app.** Its user tokens can't write: the app has read-only
+  permissions, so unlike a classic PAT the limit is GitHub's, not only
+  Gitilizer's. The connect flow's `state` is bound to the account and the
+  browser that started it, so a callback can't attach someone else's GitHub
+  account to a session. The app's client secret and optional private key are
+  secrets like the sign-in apps'.
 - **Operator endpoint.** `GET /internal/metrics` is on a separate port that isn't exposed to the internet and needs a bearer token.
 - **Sessions.** See [Sign-in and sessions](#sign-in-and-sessions). State-changing requests also need an `X-Gitilizer: 1` header, which a cross-site form can't send.
 - **Logging.** Log fields whose names look like secrets are replaced with `[redacted]`, and request bodies aren't logged ([Logging](#logging)).
@@ -627,6 +806,7 @@ At 10,000 visible developers scanning every 5 minutes there are about **33 scans
 |---|---|---|
 | Live-update state machine | Every PRD case: holding, pairs, page disappearing, batching above 5, bulk re-ranks, indicators, other sort orders | Vitest, pure functions (`app/web`) |
 | Scanner, queue, notifications | Discovery, the 1,000-item limit, full and incremental scans, removal reasons, Icebox checks, model fallback, the HTTP API, against a fake GitHub and in-memory Postgres | Vitest (`app/server`) |
+| GitHub connection | The connect flow against a stand-in for GitHub (state, PKCE, cancel and failures, another account's state), replacing and deleting the other connection, renewal (once for concurrent callers, rotation, a refused token, a connection that has ended), installations, permission warnings and pending requests (`test/connection.test.ts`); two processes renewing at once on a real Postgres (`test/postgres.test.ts`); the Settings card's states as static markup (`app/web`, `GitHubConnection.test.tsx`) | Vitest (`app/server`, `app/web`) |
 | Worker | The worker loop with the fake model; failures of each agent turned into pauses and notifications; claiming with each agent's key and model, and switching agents (`test/agents.test.ts`) | Vitest (`app/server`) |
 | Agent | Signals, context trimming, rewinding, the strategies, error classification for each agent, Claude's and OpenAI's requests and answers against a fake `fetch` (`test/providers.test.ts`), the Icebox check's input | Vitest with synthetic snapshots (`app/ranker`) |
 | Agent, against the Python original | The exact text built for every eval item, system prompt and request, compared with hashes of the Python agent's output (`test/golden.json`) | Vitest (`app/ranker`) |
@@ -662,7 +842,7 @@ Cloud Logging keeps logs for 30 days by default, which is enough to look into a 
 | Deployed | Automatically, after every merge to `main` whose checks pass | Deliberately: a release deploys a build that is already running in development |
 | Cloud Run | `gitilizer-dev`: one service running everything (API, scheduler, scanner, worker), scaling to zero when unused | `gitilizer-api`, one always-on instance running everything at launch ([D-10](#d-10)); later `gitilizer-api` and `gitilizer-worker`, as in [Hosting on Google Cloud](#hosting-on-google-cloud) |
 | Database | Its own database, `gitilizer_dev`, on the same Cloud SQL instance | `gitilizer` |
-| Credential key, OAuth apps | Its own (a separate secret; OAuth apps whose redirect URLs are on `dev.gitilizer.com`) | Its own |
+| Credential key, OAuth apps, Gitilizer GitHub App | Its own (a separate secret; OAuth apps and a GitHub App whose redirect URLs are on `dev.gitilizer.com`) | Its own |
 | Who can sign in | The accounts on `SIGN_IN_ALLOWLIST` ([Sign-in and sessions](#sign-in-and-sessions), PRD [Q-80](PRD.md#q-80)) | Everyone |
 | `GITILIZER_ENV` | `development` | `production` |
 
@@ -699,6 +879,7 @@ The prototype implements the slice end to end, following the PRD as revised on 2
 | Area | Status |
 |---|---|
 | Sign-in | Google (OpenID Connect) and GitHub (OAuth app) with PKCE, `state` and a nonce; the five failure categories; the development allowlist; `__Host-` cookies when deployed. Tested against stand-ins for Google and GitHub; not yet against the real ones, which need the OAuth apps ([LAUNCH_PLAN.md](LAUNCH_PLAN.md), Phase 5). On a developer's computer without OAuth apps, both buttons open the development form (name, email, and a username for GitHub), which a deployed server doesn't have. |
+| GitHub connection | Done in code and tested against a stand-in for GitHub: connecting with the Gitilizer app, renewal, the Settings card and Warm Welcome's states, the two notifications. The spike ran against the real GitHub; the implementation hasn't yet, which needs the two GitHub Apps ([DEPLOYMENT.md](DEPLOYMENT.md#the-gitilizer-github-app)). Single sign-on and organization installs are untested. |
 | Warm Welcome, screen selection | Done: the credential fields shared with Settings, Save and `POST /api/setup`, with nothing saved unless both credentials pass (`WEL-2` to `WEL-4`). |
 | App bar, account menu, footer | Done: "Sign out" in red with icons, real Documentation and GitHub URLs, and the Gitilizer symbol as the favicon (`BAR-3`). |
 | Notifications | The whole catalogue (28 codes) with its severities; short-lived problems become warnings after 15 minutes; the backup-model warning and the all-models error; `seen_at`, so the bell swings only for unseen errors and stops on every device once the popover opens; amber, still bell for warnings; links that open Settings and focus the control (`github-pat`, `gemini-key`, `repo-{owner}-{name}`, `ranking-prompt`, `add-repository`); focus moves into the popover and back to the bell. |
@@ -840,3 +1021,6 @@ Questions about the design itself; each is marked **TODO:** where it comes up. T
 | <a id="d-14"></a>D-14 | After a release, the previous revision kept running its scheduler and ranking worker for over 15 minutes, with the old code (found on 2026-11-07: it ran scans that ignored the new excluded repositories, and dropped the scan that saving Settings asked for). Which process should do background work? | Only the newest release running, by its first start in `releases`, with processes heard from in the last 60 s ([Several processes](#hosting-on-google-cloud)). Cloud Run's revision name was not used, because it changes with every setting and differs between services once production is split; the image's commit does neither. Asking Cloud Run which revision has the traffic would need more permissions for the service account. |
 | <a id="d-15"></a>D-15 | Call Claude and OpenAI through their SDKs or with plain HTTP? | Plain `fetch` (`app/ranker/src/anthropic.ts`, `openai.ts`). Each call is one POST with a JSON body, and owning it keeps the deadline, retries and error classification the same for both and visible in one place, with no new dependencies; the SDKs would add their own retries and error types to work around. Gemini stays on `@google/genai`, so its requests, and the golden tests, don't change. Checked against both APIs on 2026-11-07 with the default models. |
 | <a id="d-16"></a>D-16 | How does ranking resume after the developer adds credits outside Gitilizer, when the PRD says the error clears when a request succeeds? | Credits and billing failures pause ranking for 15 minutes, not until a new key is saved; then the next job tries again. One request every 15 minutes costs nothing while the account is empty and resumes ranking within 15 minutes of the fix. |
+| <a id="d-17"></a>D-17 | How does Gitilizer read GitHub without a token the developer creates? | A GitHub App's user access token, obtained by "Connect GitHub", separate from sign-in and beside the PAT ([GitHub connection](#github-connection)). An OAuth app would need the `repo` scope, which can write; the app is read-only, reads public repositories with nothing installed, and matched a PAT in every scanner request in the 2026-11-13 spike. Folding it into sign-in would leave Google sign-ins without it and tie the connected account to the sign-in account ([D-4](#d-4), `AUTH-5`). |
+| <a id="d-18"></a>D-18 | GitHub's refresh tokens work once, and several processes may scan for one developer. How is a token renewed safely? | Under a row lock (`select … for update`) held across the request to GitHub, with a per-process shared promise in front of it. A waiting caller takes the token the winner stored. Holding a transaction open for one HTTPS call (10 s at most) is acceptable at one renewal per developer per 8 hours; an advisory lock or a `renewing_until` column would avoid it but add a state to recover from. PGlite has one connection, so in local mode other queries wait for the renewal. |
+| <a id="d-19"></a>D-19 | Can the card show an organization that is waiting for an owner to approve the app ([Q-89](PRD.md#q-89))? | Yes, but only with the app's own credentials: `GET /app/installation-requests` needs a JWT signed with the app's private key, and a user token can't see requests. So it is optional (`GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`): without them the rows are left out, as the PRD allows. The key is one more secret to hold, used for nothing else. |

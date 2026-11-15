@@ -231,7 +231,7 @@ export class Scheduler {
       `select u.id, u.last_seen_at, u.first_sync_done, ${PRESENCE_STATE("u.id")} as presence,
               (select max(finished_at) from scans s where s.user_id = u.id) as last_finished,
               (select max(finished_at) from scans s where s.user_id = u.id and s.outcome = 'ok') as last_ok
-       from users u where exists (select 1 from credentials c where c.user_id = u.id and c.kind = 'github_pat')`,
+       from users u where exists (select 1 from credentials c where c.user_id = u.id and c.kind in ('github_pat', 'github_app'))`,
     );
     for (const u of users) {
       const state = u.presence as "visible" | "open" | "away";

@@ -2,6 +2,7 @@
 import { log } from "./log.ts";
 import { agentForKind, credentialErrorCodes, type AgentKeyKind, type CheckResult, type CredentialKind, type CredentialStatus } from "@gitilizer/shared";
 import { agentInUse, resumeRanking } from "./agents.ts";
+import { removeAppConnection } from "./connection.ts";
 import type { Ctx } from "./context.ts";
 import { GitHubProblem } from "./github/types.ts";
 
@@ -30,6 +31,8 @@ export async function saveCredential(ctx: Ctx, userId: string, kind: CredentialK
        token_login = null, token_type = null, updated_at = now()`,
     [userId, kind, ciphertext, nonce],
   );
+  // A token replaces the Gitilizer app's connection, which isn't kept (SET-42, Q-88).
+  if (kind === "github_pat") await removeAppConnection(db, userId);
   // Quotas belong to the key's Google Cloud project (design: Data model, gemini_quota).
   if (kind === "gemini_key") await db.query(`delete from gemini_quota where user_id = $1`, [userId]);
   // A new key for the agent in use ends a pause it caused (RANK-20).

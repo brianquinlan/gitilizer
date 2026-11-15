@@ -69,7 +69,8 @@ export function classify(e: any, expiresAt?: string | null): GitHubProblem {
     const org = /\/orgs\/([^/]+)\/sso/.exec(headers["x-github-sso"])?.[1] ?? "";
     return new GitHubProblem("sso", message, { status, org });
   }
-  if (status === 403 && lower.includes("resource not accessible by personal access token")) {
+  // "…by integration" is the Gitilizer app's wording: an account hasn't approved one of its permissions.
+  if (status === 403 && (lower.includes("resource not accessible by personal access token") || lower.includes("resource not accessible by integration"))) {
     // e.g. "issues=read; pull_requests=read"
     const accepted = headers["x-accepted-github-permissions"] ?? "";
     const name = accepted.split(/[;,]/)[0]?.split("=")[0]?.trim().toLowerCase() ?? "";
@@ -121,10 +122,11 @@ export class OctokitGitHub implements GitHubApi {
   private o: InstanceType<typeof GitilizerOctokit>;
   private repos = new Map<string, Promise<any>>();
   private expiresAt: string | null = null;
-  private tokenType: "classic" | "fine-grained";
+  private tokenType: "classic" | "fine-grained" | "app";
 
   constructor(token: string) {
-    this.tokenType = token.startsWith("github_pat_") ? "fine-grained" : "classic";
+    // "ghu_" is a GitHub App's user access token: the Gitilizer app's connection (design: GitHub connection).
+    this.tokenType = token.startsWith("ghu_") ? "app" : token.startsWith("github_pat_") ? "fine-grained" : "classic";
     this.o = new GitilizerOctokit({
       auth: token,
       userAgent: "gitilizer",
@@ -141,7 +143,8 @@ export class OctokitGitHub implements GitHubApi {
     try {
       const r = await this.o.request(route, { ...params, headers: { accept: FULL_MEDIA, "x-github-api-version": "2022-11-28" } });
       const exp = parseExpiry((r.headers as any)["github-authentication-token-expiration"]);
-      if (exp) this.expiresAt = exp;
+      // The app's token says it expires in 8 hours, but it renews itself, so that isn't an expiry to warn about.
+      if (exp && this.tokenType !== "app") this.expiresAt = exp;
       return r;
     } catch (e) {
       throw classify(e, this.expiresAt);
@@ -158,7 +161,10 @@ export class OctokitGitHub implements GitHubApi {
 
   async viewer() {
     const r = await this.req("GET /user");
-    return { login: r.data.login as string, tokenExpiresAt: this.expiresAt, tokenType: this.tokenType };
+    return {
+      login: r.data.login as string, id: Number(r.data.id) || null, avatarUrl: (r.data.avatar_url as string) ?? null,
+      tokenExpiresAt: this.expiresAt, tokenType: this.tokenType,
+    };
   }
 
   async search(q: string, limit: number) {

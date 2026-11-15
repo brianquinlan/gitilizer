@@ -71,6 +71,11 @@ create table if not exists credentials (
   expires_at timestamptz,
   token_login text,
   token_type text,
+  -- The Gitilizer app's connection (kind 'github_app'): its refresh token and the connected account's ID.
+  refresh_ciphertext text,
+  refresh_nonce text,
+  refresh_expires_at timestamptz,
+  account_id bigint,
   updated_at timestamptz not null default now(),
   primary key (user_id, kind)
 );
@@ -253,6 +258,8 @@ create table if not exists oauth_states (
   verifier text not null,
   nonce text not null,
   next text not null default '/',
+  -- Set for a GitHub connection (provider 'github_app'): the account that started it.
+  user_id text references users(id) on delete cascade,
   created_at timestamptz not null default now()
 );
 `;
@@ -266,6 +273,11 @@ alter table scans add column if not exists found int;
 alter table scans add column if not exists to_queue int;
 alter table credentials add column if not exists token_login text;
 alter table credentials add column if not exists token_type text;
+alter table credentials add column if not exists refresh_ciphertext text;
+alter table credentials add column if not exists refresh_nonce text;
+alter table credentials add column if not exists refresh_expires_at timestamptz;
+alter table credentials add column if not exists account_id bigint;
+alter table oauth_states add column if not exists user_id text references users(id) on delete cascade;
 alter table credentials drop column if exists validated_at;
 alter table credentials drop column if exists validation_ok;
 alter table credentials drop column if exists validation_detail;

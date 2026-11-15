@@ -1,15 +1,16 @@
 // Settings (PRD "Settings", SET-1..37). Figma: "Settings" and "Settings · Errors".
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  AGENT_INFO, MAX_COLLABORATORS, MAX_EXCLUSIONS, MAX_PROMPT_LENGTH, MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, PROMPT_COUNT_FROM, RankingAgent,
+  AGENT_INFO, GITHUB_CONNECT_ID, MAX_COLLABORATORS, MAX_EXCLUSIONS, MAX_PROMPT_LENGTH, MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, PROMPT_COUNT_FROM, RankingAgent,
   conflictFields, credentialControlId, exclusionControlId, exclusionNote, parseExclusion, parseLogin, parseRepo, repoControlId,
-  type AdditionalRepo, type AgentKeyKind, type Collaborator, type CredentialKind, type CredentialStatus, type ExcludedRepo, type FieldError,
-  type Me, type SettingsResponse,
+  type AdditionalRepo, type AgentKeyKind, type Collaborator, type CredentialKind, type CredentialStatus, type ExcludedRepo,
+  type FieldError, type Me, type SettingsResponse,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
 import { AgentPicker } from "../components/AgentPicker.tsx";
 import { DOCS_URL } from "../components/Chrome.tsx";
 import { CredentialField, type Check } from "../components/CredentialField.tsx";
+import { CHIPS, GitHubCard, useConnectResult, useGitHubConnection } from "../components/GitHubConnection.tsx";
 import {
   AlertIcon, EyeOffIcon, FolderGitIcon, GitHubIcon, ListIcon, PlugIcon, PlusIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
 } from "../icons.tsx";
@@ -43,8 +44,14 @@ export function SettingsPage() {
   }, []);
   // Links from notifications and the empty list go to a control and focus it (NOTIF-9, LIST-14).
   useEffect(() => {
-    if (server && location.hash) setTimeout(() => focusTarget(location.hash.slice(1)), 0);
+    if (!server || !location.hash) return;
+    // Where only a token can be used there is no "Connect GitHub" to go to, so its links go to the token field.
+    const id = location.hash.slice(1);
+    setTimeout(() => focusTarget(id) || (id === GITHUB_CONNECT_ID && focusTarget(credentialControlId("github_pat"))), 0);
   }, [server]);
+  // The GitHub card's details, read again whenever the tab comes back (SET-45); the chip follows.
+  const connection = useGitHubConnection(me?.github.method === "app", () => { void refreshMe().catch(() => {}); });
+  const connectResult = useConnectResult();
 
   const dirty = useMemo(() => {
     if (!server || !draft) return false;
@@ -164,13 +171,10 @@ export function SettingsPage() {
         <div className="settings-main">
           <section className="section" id="connections">
             <SectionHead n="01" title="Connections" badge="Required" />
-            <p>Gitilizer needs a GitHub token, and an API key for the ranking agent you choose, before it can scan and rank your inbox.</p>
+            <p>Gitilizer needs a GitHub connection, and an API key for the ranking agent you choose, before it can scan and rank your inbox.</p>
             <div className="stack">
-              <CredentialCard kind="github_pat" icon={<GitHubIcon />} title="GitHub" label="Personal access token"
-                setup={{ text: "Create a token", href: "https://github.com/settings/personal-access-tokens/new" }}
-                guidance={<>Grant read access to issues, PRs and metadata for the repositories you want to scan.</>}
-                learnMore={`${DOCS_URL}#github-personal-access-tokens`}
-                status={me.credentials.github_pat} value={secrets.github_pat} onChange={(v) => setSecrets({ ...secrets, github_pat: v })} />
+              <GitHubCard me={me} details={connection} result={connectResult} docs={`${DOCS_URL}#github-personal-access-tokens`}
+                value={secrets.github_pat} onChange={(v) => setSecrets((s) => ({ ...s, github_pat: v }))} />
               <AgentCard agent={agent} inUse={server.rankingAgent} credentials={me.credentials} removals={removals}
                 value={secrets[agentKind]} error={allErrors[agentField]} onPick={pick}
                 onChange={(v) => { setSecrets({ ...secrets, [agentKind]: v }); setError(agentField, null); }}
@@ -181,14 +185,14 @@ export function SettingsPage() {
           <section className="section" id="additional-repositories">
             <SectionHead n="02" title="Additional repositories" badge="Optional" />
             <p>Follow repositories beyond your assigned, created and @mention issues and PRs. Their open issues and PRs join the same list.</p>
-            <RepoList repos={draft.repos} excluded={draft.exclusions} errors={allErrors} setError={setError}
+            <RepoList repos={draft.repos} excluded={draft.exclusions} errors={allErrors} setError={setError} app={me.github.method === "app"}
                       onChange={(repos) => setDraft((d) => d && { ...d, repos: typeof repos === "function" ? repos(d.repos) : repos })} />
           </section>
 
           <section className="section" id="excluded-repositories">
             <SectionHead n="03" title="Excluded repositories" badge="Optional" />
             <p>Issues and PRs from these never appear in your list, even when you're assigned, asked to review or @-mentioned. Gitilizer doesn't scan or rank them.</p>
-            <ExclusionList items={draft.exclusions} additional={draft.repos.map((r) => r.fullName)} errors={allErrors} setError={setError}
+            <ExclusionList items={draft.exclusions} additional={draft.repos.map((r) => r.fullName)} errors={allErrors} setError={setError} app={me.github.method === "app"}
                            onChange={(x) => setDraft((d) => d && { ...d, exclusions: typeof x === "function" ? x(d.exclusions) : x })} />
           </section>
 
@@ -271,26 +275,6 @@ function FieldMessage({ id, message }: { id?: string; message?: string }) {
 // Credentials (SET-1..6, SET-20, SET-21, SET-28, SET-30)
 // ---------------------------------------------------------------------------
 
-const CHIPS: Record<CredentialStatus["chip"], [string, string]> = {
-  not_set: ["", "Not set"], connected: ["ok", "Connected"], not_working: ["bad", "Not working"], expires_soon: ["warn", "Expires soon"],
-};
-
-function CredentialCard(props: {
-  kind: CredentialKind; icon: ReactNode; title: string; label: string; guidance: ReactNode; learnMore: string;
-  setup: { text: string; href: string }; status: CredentialStatus; value: string; onChange: (v: string) => void;
-}) {
-  const [check, setCheck] = useState<Check>(null);
-  useEffect(() => setCheck(null), [props.value]);
-  const [chipClass, chipText] = CHIPS[props.status.chip];
-
-  return (
-    <div className="panel card">
-      <div className="card-head">{props.icon}<h3>{props.title}</h3><span className={`badge ${chipClass}`}>{chipText}</span></div>
-      <CredentialField kind={props.kind} label={props.label} setup={props.setup} guidance={props.guidance} learnMore={props.learnMore}
-        saved={props.status.set} value={props.value} onChange={props.onChange} check={check} onCheck={setCheck} />
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Ranking agent (SET-1, SET-4, SET-32, SET-38 to SET-40)
@@ -371,13 +355,16 @@ function OwnerAvatar({ url, type }: { url: string | null; type: "Organization" |
   return <span className="icon-slot" aria-hidden="true"><FolderGitIcon size={14} /></span>;
 }
 
-function accessView(r: AdditionalRepo): { className: string; text: string; title?: string } {
+/** `app`: GitHub is connected with the Gitilizer app, so the texts don't speak of a token (SET-49). */
+function accessView(r: AdditionalRepo, app: boolean): { className: string; text: string; title?: string } {
   const org = r.fullName.split("/")[0];
   switch (r.access) {
     case "ok": return { className: "ok", text: "Access confirmed" };
     case "checking": return { className: "", text: "Checking…" };
     case "archived": return { className: "", text: "Archived", title: `${r.fullName} is archived, so its issues and PRs aren't shown.` };
-    case "not_found": return { className: "bad", text: "Can't access", title: `GitHub says ${r.fullName} doesn't exist, or your token can't read it. Check the name, and that your token includes this repository.` };
+    case "not_found": return { className: "bad", text: "Can't access", title: app
+      ? `GitHub says ${r.fullName} doesn't exist, or Gitilizer can't read it. Check the name, and that the Gitilizer app is installed on its owner's account and includes this repository.`
+      : `GitHub says ${r.fullName} doesn't exist, or your token can't read it. Check the name, and that your token includes this repository.` };
     case "sso_required": return { className: "bad", text: "Can't access", title: `${org} uses single sign-on. Authorize your token for ${org} in your GitHub personal access token settings.` };
     case "token_type_blocked": return {
       className: "bad", text: "Can't access",
@@ -386,7 +373,8 @@ function accessView(r: AdditionalRepo): { className: string; text: string; title
   }
 }
 
-function RepoList({ repos, excluded, onChange, errors, setError }: {
+function RepoList({ repos, excluded, onChange, errors, setError, app }: {
+  app: boolean;
   repos: AdditionalRepo[]; excluded: ExcludedRepo[]; onChange: Setter<AdditionalRepo[]>; errors: Errors; setError: (f: string, m: string | null) => void;
 }) {
   const [name, setName] = useState("");
@@ -415,7 +403,7 @@ function RepoList({ repos, excluded, onChange, errors, setError }: {
   return (
     <div className="panel list-rows">
       {repos.map((r) => {
-        const a = accessView(r);
+        const a = accessView(r, app);
         const rowId = repoControlId(r.fullName);
         return (
           <div className="lr repo-row" key={r.fullName} id={rowId}>
@@ -466,10 +454,10 @@ function clearConflict(errors: Errors, setError: (f: string, m: string | null) =
   for (const field of conflictFields(errors, repo)) setError(field, null);
 }
 
-function exclusionStatus(e: ExcludedRepo): { className: string; text: string; title?: string } {
+function exclusionStatus(e: ExcludedRepo, app: boolean): { className: string; text: string; title?: string } {
   if (e.status === "checking") return { className: "", text: "Checking…" };
   if (e.status === "not_found") {
-    return { className: "bad", text: "Not found", title: `GitHub says ${e.name} doesn't exist, or your token can't read it. If the name is misspelled, remove it and add it again.` };
+    return { className: "bad", text: "Not found", title: `GitHub says ${e.name} doesn't exist, or ${app ? "Gitilizer" : "your token"} can't read it. If the name is misspelled, remove it and add it again.` };
   }
   if (e.kind === "repo") return { className: "", text: "Repository" };
   return { className: "", text: e.ownerType === "User" ? "Personal account" : "Organization" };
@@ -497,7 +485,8 @@ const showRepo = (repo: string) => (ev: React.MouseEvent<HTMLAnchorElement>) => 
   row.focus({ preventScroll: true });
 };
 
-function ExclusionList({ items, additional, onChange, errors, setError }: {
+function ExclusionList({ items, additional, onChange, errors, setError, app }: {
+  app: boolean;
   items: ExcludedRepo[]; additional: string[]; onChange: Setter<ExcludedRepo[]>; errors: Errors; setError: (f: string, m: string | null) => void;
 }) {
   const [input, setInput] = useState("");
@@ -521,7 +510,7 @@ function ExclusionList({ items, additional, onChange, errors, setError }: {
   return (
     <div className="panel list-rows">
       {items.map((e) => {
-        const st = exclusionStatus(e);
+        const st = exclusionStatus(e, app);
         const rowId = exclusionControlId(e.name);
         return (
           <div className="lr repo-row" key={e.name} id={rowId}>

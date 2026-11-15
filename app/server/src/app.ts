@@ -9,12 +9,14 @@ import { z } from "zod";
 import {
   CSRF_HEADER, CredentialKind, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, MAX_COLLABORATORS, MAX_PROMPT_LENGTH,
   MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, SettingsUpdate, SetupRequest, Sort, credentialControlId, exclusionErrors, parseExclusion, parseLogin,
-  parseRepo, repoControlId, type CheckResult, type FieldError, type Me, type RankingAgent, type SettingsResponse, type SetupResponse,
+  parseRepo, repoControlId, type CheckResult, type CredentialChip, type FieldError, type Me, type RankingAgent, type SettingsResponse, type SetupResponse,
 } from "@gitilizer/shared";
 import { agentInUse, keyKindFor, rankedBy, switchAgent } from "./agents.ts";
 import type { Ctx } from "./context.ts";
 import { exclusionRows, lookUpExclusion, removeExcluded } from "./exclusions.ts";
-import { checkValue, credentialStatus, getCredential, removeCredential, saveCredential } from "./credentials.ts";
+import { checkValue, credentialStatus, removeCredential, saveCredential } from "./credentials.ts";
+import { registerConnect } from "./connect.ts";
+import { appAvailable, connectionMethod, getGitHubToken, revokeAuthorization } from "./connection.ts";
 import type { FixtureStore } from "./github/fixtures.ts";
 import { pushSync, queueFullRerank, queueRankJobs, syncState } from "./jobs.ts";
 import { currentVersion, listRows, publish } from "./list.ts";
@@ -182,15 +184,44 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
         github_pat: await status("github_pat"), gemini_key: await status("gemini_key"),
         anthropic_key: await status("anthropic_key"), openai_key: await status("openai_key"),
       },
+      github: await githubSummary(u.id, u.github_login),
       rankingAgent: await agentInUse(db, u.id),
       firstSyncDone: u.first_sync_done,
       sync: await syncState(ctx, u.id),
     };
   });
 
+  /** The connection in use and the GitHub card's chip (SET-30, SET-42). */
+  const githubSummary = async (userId: string, login: string | null): Promise<Me["github"]> => {
+    const method = await connectionMethod(db, userId);
+    let chip: CredentialChip = "not_set";
+    if (method === "pat") chip = (await credentialStatus(ctx, userId, "github_pat")).chip;
+    else if (method === "app") {
+      const codes = new Set((await db.query(`select code from notifications where user_id = $1 and shown`, [userId])).map((n) => n.code as string));
+      chip = codes.has("github_connection_ended") ? "not_working" : codes.has("github_app_permission") ? "needs_attention" : "connected";
+    }
+    const account = method === "app" ? await db.one(`select account_id from credentials where user_id = $1 and kind = 'github_app'`, [userId]) : null;
+    return {
+      method, login: method ? login : null, chip, app: appAvailable(ctx),
+      avatarUrl: account?.account_id ? `https://avatars.githubusercontent.com/u/${account.account_id}?s=64` : null,
+      installUrl: ctx.config.githubApp ? `https://github.com/apps/${ctx.config.githubApp.slug}/installations/new` : null,
+    };
+  };
+
+  /** A GitHub client for the developer's connection, or null: for the checks Settings makes as rows are added. */
+  const githubFor = async (userId: string) => {
+    try {
+      const c = await getGitHubToken(ctx, userId);
+      return c ? ctx.github(c.token) : null;
+    } catch {
+      return null; // the connection has ended, or GitHub can't be reached: the next scan says so
+    }
+  };
+
   app.delete("/api/account", async (req, reply) => {
     // Sent after the confirmation dialog (SET-17); the body stops a stray request from deleting an account.
     z.object({ confirm: z.literal(true) }).parse(req.body);
+    await revokeAuthorization(ctx, uid(req)); // PRIV-3: the developer's authorization of the app, not its installations
     await db.tx(async (t) => {
       // Kept so a restored backup can delete the account again (PRIV-4).
       await t.query(`insert into deleted_users (id) values ($1) on conflict do nothing`, [uid(req)]);
@@ -322,9 +353,22 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   const credentialsSaved = async (userId: string, kinds: CredentialKind[]) => {
     for (const kind of kinds) await clearForCredential(ctx, userId, kind);
     const agentKey = keyKindFor(await agentInUse(db, userId));
-    const both = (await credentialStatus(ctx, userId, "github_pat")).set && (await credentialStatus(ctx, userId, agentKey)).set;
+    const both = (await connectionMethod(db, userId)) !== null && (await credentialStatus(ctx, userId, agentKey)).set;
     if (both) await db.query(`update users set setup_completed_at = now() where id = $1 and setup_completed_at is null`, [userId]);
   };
+
+  // --- Connecting GitHub with the Gitilizer app (design: GitHub connection) ------
+  registerConnect(app, ctx, {
+    cookieName, cookieOptions, uid,
+    connected: async (userId) => {
+      // As saving a token does (SET-5, NOTIF-13): its notifications clear, and a sync starts once setup is complete.
+      await credentialsSaved(userId, ["github_pat"]);
+      const u = await db.one(`select setup_completed_at from users where id = $1`, [userId]);
+      if (!u?.setup_completed_at) return;
+      scheduler.trigger(userId, "credentials");
+      await pushSync(ctx, userId, { now: true });
+    },
+  });
 
   // "Save changes" and "Save and re-rank" (SET-14, SET-15). Credentials are saved without being validated (SET-29).
   app.put("/api/settings", async (req, reply) => {
@@ -429,8 +473,10 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     const { credentials, rankingAgent } = SetupRequest.parse(req.body);
     const u = await db.one(`select setup_completed_at from users where id = $1`, [userId]);
     if (u.setup_completed_at) return bad(reply, 409, "Setup is already complete."); // NAV-2
-    // The GitHub token and the chosen agent's key (WEL-5); a value typed for another agent is ignored.
-    const needed: CredentialKind[] = ["github_pat", keyKindFor(rankingAgent)];
+    // The GitHub connection and the chosen agent's key (WEL-4, WEL-5); a value typed for another agent is ignored.
+    // With the Gitilizer app connected no token is needed, but a typed one is still checked and replaces it.
+    const connected = (await connectionMethod(db, userId)) === "app" && !credentials.github_pat?.trim();
+    const needed: CredentialKind[] = connected ? [keyKindFor(rankingAgent)] : ["github_pat", keyKindFor(rankingAgent)];
     const typed = (Object.entries(credentials) as [CredentialKind, string | undefined][])
       .filter(([kind]) => needed.includes(kind))
       .map(([kind, v]) => [kind, v?.trim() ?? ""] as const)
@@ -460,11 +506,11 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   app.post("/api/repos/check", async (req) => {
     const { fullName } = z.object({ fullName: z.string().max(200) }).parse(req.body);
     const name = parseRepo(fullName);
-    const pat = await getCredential(ctx, uid(req), "github_pat");
+    const gh = await githubFor(uid(req));
     const unchecked = { access: "checking", fullName: name ?? fullName, tokenType: null, ownerAvatarUrl: null, ownerType: null };
-    if (!name || !pat) return unchecked;
+    if (!name || !gh) return unchecked;
     try {
-      const info = await ctx.github(pat).repo(name);
+      const info = await gh.repo(name);
       const found = info.access === "ok" || info.access === "archived";
       return {
         access: info.access,
@@ -480,11 +526,11 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   app.post("/api/exclusions/check", async (req) => {
     const { name } = z.object({ name: z.string().max(200) }).parse(req.body);
     const e = parseExclusion(name);
-    const pat = await getCredential(ctx, uid(req), "github_pat");
+    const gh = await githubFor(uid(req));
     const unchecked = { name: e?.name ?? name, kind: e?.kind ?? "repo", status: "checking", ownerType: null, avatarUrl: null };
-    if (!e || !pat) return unchecked;
+    if (!e || !gh) return unchecked;
     try {
-      const r = await lookUpExclusion(ctx.github(pat), e.kind, { name: e.name });
+      const r = await lookUpExclusion(gh, e.kind, { name: e.name });
       return { name: r.name, kind: e.kind, status: r.status, ownerType: r.ownerType, avatarUrl: r.avatarUrl };
     } catch {
       return unchecked; // checked again by the next scan (SET-36)
@@ -493,10 +539,10 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   app.post("/api/collaborators/check", async (req) => {
     const { login } = z.object({ login: z.string().max(60) }).parse(req.body);
     const name = parseLogin(login);
-    const pat = await getCredential(ctx, uid(req), "github_pat");
-    if (!name || !pat) return { login: name ?? login, status: "unknown", avatarUrl: null };
+    const gh = await githubFor(uid(req));
+    if (!name || !gh) return { login: name ?? login, status: "unknown", avatarUrl: null };
     try {
-      const u = await ctx.github(pat).user(name);
+      const u = await gh.user(name);
       return u.exists ? { login: name, status: "ok", avatarUrl: u.avatarUrl } : { login: name, status: "not_found", avatarUrl: null };
     } catch {
       return { login: name, status: "unknown", avatarUrl: null }; // a generic avatar, without an error (SET-19)

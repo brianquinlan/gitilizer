@@ -122,7 +122,7 @@ export function fixtureId(name: string): number {
 export class FixtureGitHub implements GitHubApi {
   constructor(private store: FixtureStore) {}
 
-  async viewer() { return { login: this.store.login, tokenExpiresAt: null, tokenType: "fine-grained" as const }; }
+  async viewer() { return { login: this.store.login, id: null, avatarUrl: null, tokenExpiresAt: null, tokenType: "fine-grained" as const }; }
 
   async search(q: string, limit: number) {
     const hits = [...this.store.entries.values()]

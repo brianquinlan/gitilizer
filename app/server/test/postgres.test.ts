@@ -9,6 +9,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ListEvent } from "@gitilizer/shared";
 import { Hub, type Ctx } from "../src/context.ts";
+import { getGitHubToken, saveAppConnection } from "../src/connection.ts";
 import { CredentialCipher } from "../src/crypto.ts";
 import { openDb } from "../src/db.ts";
 import { FixtureGitHub, FixtureStore } from "../src/github/fixtures.ts";
@@ -123,6 +124,31 @@ describe.skipIf(!BASE)("several processes on one Postgres", () => {
     const v = await publish(scanner.ctx, "u1", ["o/r#9"]);
     expect(await until(() => got.some((g) => g.event === "list" && g.data.version === v))).toBe(true);
     expect(got.find((g) => g.data.version === v)!.data.upserts[0].key).toBe("o/r#9");
+  });
+
+  it("renews the Gitilizer app's token once when two processes need it at the same time (design: GitHub connection)", async () => {
+    // GitHub's refresh tokens work once: a second renewal with the same one would fail and end the connection.
+    let refreshes = 0;
+    const http: typeof fetch = async (_url, init) => {
+      const body = init!.body as URLSearchParams;
+      await new Promise((r) => setTimeout(r, 100));
+      if (body.get("refresh_token") !== `ghr_${refreshes}`) return new Response(JSON.stringify({ error: "bad_refresh_token" }), { status: 200 });
+      refreshes++;
+      return new Response(JSON.stringify({ access_token: `ghu_${refreshes}`, expires_in: 28800, refresh_token: `ghr_${refreshes}`, refresh_token_expires_in: 15897600 }), { status: 200 });
+    };
+    for (const p of [api, scanner]) {
+      p.ctx.http = http;
+      p.ctx.config.githubApp = { clientId: "Iv1.app", clientSecret: "s", slug: "gitilizer", appId: null, privateKey: null };
+    }
+    await saveAppConnection(api.ctx, "u1", { accessToken: "ghu_0", expiresIn: 1, refreshToken: "ghr_0", refreshExpiresIn: 15897600 }, { login: "octo", id: 42 });
+    const got = await Promise.all([getGitHubToken(api.ctx, "u1"), getGitHubToken(scanner.ctx, "u1"), getGitHubToken(api.ctx, "u1")]);
+    expect(got.map((g) => g?.token)).toEqual(["ghu_1", "ghu_1", "ghu_1"]);
+    expect(refreshes).toBe(1);
+    // Put the token back for the tests that follow.
+    await api.ctx.db.query(`delete from credentials where user_id = 'u1' and kind = 'github_app'`);
+    const { ciphertext, nonce } = api.ctx.cipher.encrypt("u1", "secret-value-123");
+    await api.ctx.db.query(`insert into credentials (user_id, kind, ciphertext, nonce) values ('u1', 'github_pat', $1, $2)`, [ciphertext, nonce]);
+    for (const p of [api, scanner]) { p.ctx.http = undefined; p.ctx.config.githubApp = null; }
   });
 
   it("starts a Sync now asked for in an API process in a scanner process, without waiting for a tick (SCAN-4)", async () => {

@@ -126,6 +126,7 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 | `DATABASE_URL` | Uses a real Postgres server instead of PGlite, for example `postgres://localhost/gitilizer`. |
 | `SIGN_IN_ALLOWLIST`, `GITILIZER_ENV` | For the hosted environments ([DEPLOYMENT.md](DEPLOYMENT.md#settings)). Local mode ignores the allowlist. Don't set `GITILIZER_ENV` on your computer: it turns on the deployed environments' startup checks, which refuse local mode. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `PUBLIC_URL` | Real Google and GitHub sign-in, if you have OAuth apps whose redirect URLs point at your computer (for example `http://localhost:8787/api/auth/github/callback`, with `PUBLIC_URL=http://localhost:8787`). Without them the sign-in buttons open the development form. |
+| `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_SLUG`, `PUBLIC_URL` | "Connect GitHub" against the real GitHub, if you have a GitHub App of your own whose callback URL points at your computer (`http://localhost:5173/api/connect/github/callback` with `PUBLIC_URL=http://localhost:5173`), registered as in [DEPLOYMENT.md](DEPLOYMENT.md#the-gitilizer-github-app). Set them in `.env` or in your shell. Without them only the token field shows; with `--fixtures`, "Connect GitHub" is a stand-in that connects at once as the fixtures' account. `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY` (the `.pem` file's contents, with `\n` for line breaks) add the pending-approval rows. |
 
 ## Troubleshooting
 
