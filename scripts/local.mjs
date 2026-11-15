@@ -156,6 +156,10 @@ const serverEnv = {
 };
 if (!serverEnv.GITILIZER_MODEL) delete serverEnv.GITILIZER_MODEL;
 if (!serverEnv.GITILIZER_MODELS) delete serverEnv.GITILIZER_MODELS;
+// A GitHub App of your own for "Connect GitHub" (LOCAL_DEVELOPMENT.md). Your shell's values win over .env.
+for (const k of ["GITHUB_APP_CLIENT_ID", "GITHUB_APP_CLIENT_SECRET", "GITHUB_APP_SLUG", "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY"]) {
+  if (!serverEnv[k] && dotenv[k]) serverEnv[k] = dotenv[k];
+}
 if (fixtures) {
   // Fixture GitHub and the fake model accept any value, so the account needs no real credentials.
   serverEnv.LOCAL_GITHUB_TOKEN = "fixture-github-token";
