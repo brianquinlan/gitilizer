@@ -82,7 +82,8 @@ export function WelcomePage() {
                   </div>
                   <div className="lines">
                     <div><span className="k">Public repositories</span><span>Included</span></div>
-                    {me.github.installUrl && (
+                    {/* The Gitilizer app's page: not for a connection made with a token (WEL-6, SET-45). */}
+                    {me.github.method === "app" && me.github.installUrl && (
                       <div><span className="k">Private repositories</span>
                         <a className="fine-link" href={me.github.installUrl} target="_blank" rel="noreferrer">Add on GitHub <ExternalIcon /></a></div>
                     )}

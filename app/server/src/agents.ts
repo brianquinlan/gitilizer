@@ -58,11 +58,21 @@ export async function resumeRanking(ctx: Ctx, userId: string, db: Db = ctx.db) {
      where id = $1 and ranking_paused_until > now() returning id`, [userId],
   );
   await db.query(`update rank_jobs set not_before = now() where user_id = $1 and state = 'queued'`, [userId]);
-  // Waiting items no longer show "–" (LIST-30). Inside a transaction the change isn't visible yet; the save publishes later.
-  if (was.length && db === ctx.db) {
-    const keys = await db.query(`select item_key from rank_jobs where user_id = $1 and kind = 'rank' and state = 'queued'`, [userId]);
-    await publish(ctx, userId, keys.map((k) => k.item_key));
-  }
+  // Waiting items no longer show "–" (LIST-30). Inside a transaction the change isn't visible yet: the caller
+  // publishes them once it has committed.
+  if (was.length && db === ctx.db) await publishQueued(ctx, userId);
+  return was.length > 0;
+}
+
+/** Tells open tabs about the items with a queued ranking job, whose "–" depends on whether ranking is paused (LIST-30). */
+export async function publishQueued(ctx: Ctx, userId: string) {
+  const keys = await ctx.db.query(`select item_key from rank_jobs where user_id = $1 and kind = 'rank' and state = 'queued'`, [userId]);
+  await publish(ctx, userId, keys.map((k) => k.item_key));
+}
+
+/** Whether the developer's ranking is paused now (RANK-20, RANK-22). */
+export async function rankingPaused(db: Db, userId: string): Promise<boolean> {
+  return Boolean(await db.one(`select 1 as paused from users where id = $1 and ranking_paused_until > now()`, [userId]));
 }
 
 /**

@@ -36,7 +36,7 @@ export class RankingWorker {
   private readonly llm: (job: ClaimedJob) => LLM;
   /** Counts for the once-a-minute summary line (design: Logging). */
   private stats = { done: 0, failed: {} as Record<string, number>, ms: [] as number[] };
-  /** Items ranked since the last summary, by "choice agent model" (METRIC-5). */
+  /** Items ranked since the last summary, keyed by the JSON of [choice, agent, model] (METRIC-5). */
   private volume = new Map<string, number>();
   private summaryTimer: NodeJS.Timeout | null = null;
 
@@ -111,7 +111,7 @@ export class RankingWorker {
         const a = job.agent === "basic" ? { ...scored, next_action: "", reasoning: "" } : scored;
         await completeJob(this.ctx, job.id, a);
         this.record(started);
-        const series = `${job.choice} ${job.agent} ${job.model}`;
+        const series = JSON.stringify([job.choice, job.agent, job.model]);
         this.volume.set(series, (this.volume.get(series) ?? 0) + 1);
         log.debug("worker", "ranked", { item: job.itemKey, model: job.model, priority: a.priority, ms: Date.now() - started });
       }
@@ -156,7 +156,7 @@ export class RankingWorker {
     const volume = this.volume;
     this.volume = new Map();
     for (const [series, items] of volume) {
-      const [choice, agent, model] = series.split(" ");
+      const [choice, agent, model] = JSON.parse(series) as [string, string, string];
       log.info("worker", "ranking volume", { choice, agent, model, items });
       try {
         await this.ctx.db.query(

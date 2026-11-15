@@ -11,7 +11,7 @@ import { shownNotifications } from "../src/notify.ts";
 import { scan } from "../src/scanner.ts";
 import { Scheduler } from "../src/scheduler.ts";
 import { RankingWorker } from "../src/worker.ts";
-import { addUser, makeCtx } from "./helpers.ts";
+import { addUser, makeCtx, type RecordingHub } from "./helpers.ts";
 import type { FixtureStore } from "../src/github/fixtures.ts";
 
 /** A developer on basic ranking: GitHub connected, no key of their own. */
@@ -174,6 +174,8 @@ describe("ranking with basic ranking (RANK-21)", () => {
 
 describe("choosing basic ranking in Settings (SET-15, SET-38 to SET-40)", () => {
   let ctx: Ctx;
+  let store: FixtureStore;
+  let hub: RecordingHub;
   let app: FastifyInstance;
   let cookie = "";
   let userId = "";
@@ -182,7 +184,7 @@ describe("choosing basic ranking in Settings (SET-15, SET-38 to SET-40)", () => 
   const page = { additionalRepos: [], excludedRepos: [], collaborators: [], customPrompt: null, rerank: false };
 
   beforeAll(async () => {
-    ({ ctx } = await makeCtx());
+    ({ ctx, store, hub } = await makeCtx());
     app = buildApp(ctx, new Scheduler(ctx), null);
     const r = await app.inject({ method: "POST", url: "/api/auth/dev", headers: { "x-gitilizer": "1" }, payload: { name: "Ana", email: "ana@example.com" } });
     cookie = String(r.headers["set-cookie"]).split(";")[0];
@@ -221,5 +223,29 @@ describe("choosing basic ranking in Settings (SET-15, SET-38 to SET-40)", () => 
   it("lets every saved key be removed, because no agent is in use (SET-39)", async () => {
     expect((await call("PUT", "/api/settings", { ...page, removeCredentials: ["gemini_key"] })).statusCode).toBe(200);
     expect((await call("GET", "/api/me")).json().credentials.gemini_key.set).toBe(false);
+  });
+
+  it("clears \"Basic ranking is paused\" at once when a Gemini developer saves a new key, and the waiting item loses its \"–\" (NOTIF-13)", async () => {
+    // A Gemini key out of quota, with basic ranking paused too (RANK-22).
+    expect((await call("PUT", "/api/settings", { ...page, rankingAgent: "gemini", credentials: { gemini_key: "AIza-free-tier" } })).statusCode).toBe(200);
+    for (const model of ctx.config.models) await ctx.db.query(`insert into gemini_quota (user_id, model, exhausted_until) values ($1, $2, now() + interval '1 hour')`, [userId, model]);
+    store.touch("dart-lang/native#3752");
+    await scan(ctx, userId, "test");
+    const [job] = await claimJobs(ctx, 1, 60);
+    expect(job).toMatchObject({ choice: "gemini", agent: "basic" });
+    await failJob(ctx, job.id, { code: "daily_quota", message: "CreateDecisionRequestsPerDay" });
+    const codes = async () => (await shownNotifications(ctx, userId)).map((n) => n.code);
+    expect(await codes()).toEqual(["basic_paused"]);
+    expect((await listRows(ctx.db, userId)).filter((r) => r.waiting).map((r) => r.key)).toContain(job.itemKey);
+
+    // A key with billing turned on: its own quota, so nothing waits for basic ranking any more.
+    hub.lists.length = 0;
+    expect((await call("PUT", "/api/settings", { ...page, credentials: { gemini_key: "AIza-paid" } })).statusCode).toBe(200);
+    expect(await codes()).toEqual([]);
+    expect(await ctx.db.one(`select ranking_paused_until from users where id = $1`, [userId])).toEqual({ ranking_paused_until: null });
+    const told = hub.lists.flatMap((e) => e.upserts).find((r) => r.key === job.itemKey);
+    expect(told).toMatchObject({ waiting: false });
+    const [next] = await claimJobs(ctx, 1, 60);
+    expect(next).toMatchObject({ agent: "gemini", model: ctx.config.models[0], apiKey: "AIza-paid" });
   });
 });

@@ -11,7 +11,7 @@ import {
   MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, SettingsUpdate, SetupRequest, Sort, credentialControlId, exclusionErrors, parseExclusion, parseLogin,
   parseRepo, repoControlId, type CheckResult, type CredentialChip, type FieldError, type Me, type RankingChoice, type SettingsResponse, type SetupResponse,
 } from "@gitilizer/shared";
-import { agentInUse, completeSetupIfReady, keyKindOf, rankedBy, rankingChosen, switchAgent } from "./agents.ts";
+import { agentInUse, completeSetupIfReady, keyKindOf, publishQueued, rankedBy, rankingChosen, rankingPaused, switchAgent } from "./agents.ts";
 import type { Ctx } from "./context.ts";
 import { exclusionRows, lookUpExclusion, removeExcluded } from "./exclusions.ts";
 import { checkValue, credentialStatus, removeCredential, saveCredential } from "./credentials.ts";
@@ -394,6 +394,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     const prev = await db.one(`select custom_prompt from settings where user_id = $1`, [userId]);
     const prevRepos = (await db.query(`select full_name from additional_repos where user_id = $1`, [userId])).map((r) => r.full_name as string);
     const creds = Object.entries(next.credentials ?? {}).filter(([, v]) => v && v.trim()) as [CredentialKind, string][];
+    const wasPaused = await rankingPaused(db, userId);
 
     await db.tx(async (t) => {
       await t.query(
@@ -437,6 +438,11 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     // SET-40: switching ends the previous agent's pause and clears its notifications (NOTIF-23); the sync below ranks
     // waiting and new items with the new agent.
     if (agent !== current) await switchAgent(ctx, userId, agent);
+    // A new key for the agent in use ended a pause inside the transaction (RANK-20): now that it is committed,
+    // the waiting items lose their "–" in open tabs, as they do after a switch.
+    else if (wasPaused && !(await rankingPaused(db, userId))) await publishQueued(ctx, userId);
+    // A new Gemini key has its own quota, so nothing of this developer's waits for basic ranking (RANK-22, NOTIF-13).
+    if (agent === "gemini" && creds.some(([kind]) => kind === "gemini_key")) await clear(ctx, userId, ["basic_paused"]);
     for (const kind of removals) await clearForCredential(ctx, userId, kind);
     // Saving Settings chooses how items are ranked: basic ranking, or an agent that now has a key ("Which screen is shown").
     await rankingChosen(db, userId);

@@ -68,9 +68,13 @@ describe("Warm Welcome", () => {
   });
 
   it("is on step 2 for a token saved in Settings, with no link to add private repositories", () => {
-    const t = text(render(me({ method: "pat", login: null, installUrl: null })));
+    // The server names the app's install page whenever it has an app, whichever way GitHub is connected.
+    const html = render(me({ method: "pat", login: null }));
+    const t = text(html);
     expect(t).toContain("Connected with a personal access token");
+    expect(t).toContain("Public repositories Included");
     expect(t).not.toContain("Private repositories");
+    expect(html).not.toContain("installations/new");
   });
 
   it("points a server without the Gitilizer app to Advanced setup", () => {

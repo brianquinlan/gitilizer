@@ -1,7 +1,7 @@
 // The ranking job queue and the worker's side of it (design: Ranking worker).
 import { randomUUID } from "node:crypto";
 import type { NotificationCode, RankingChoice, SyncEvent } from "@gitilizer/shared";
-import { AGENT_KIND_SQL, agentInUse, jobFits, keyKindFor } from "./agents.ts";
+import { AGENT_KIND_SQL, agentInUse, jobFits, keyKindFor, publishQueued } from "./agents.ts";
 import type { Ctx } from "./context.ts";
 import { getCredential } from "./credentials.ts";
 import { publish } from "./list.ts";
@@ -174,11 +174,6 @@ async function syncQuotaNotifications(ctx: Ctx, userId: string): Promise<ModelSt
     }
   }
   return st;
-}
-
-async function publishQueued(ctx: Ctx, userId: string) {
-  const keys = await ctx.db.query(`select item_key from rank_jobs where user_id = $1 and kind = 'rank' and state = 'queued'`, [userId]);
-  await publish(ctx, userId, keys.map((k) => k.item_key));
 }
 
 /**
