@@ -87,6 +87,12 @@ These are out of scope for the first release.
 - More than one GitHub connection per developer, for example a token for each
   organization, or the Gitilizer app and a token together ([Q-40](#q-40),
   [Q-87](#q-87)). Revisit if developers ask for it.
+- Organizations that use single sign-on, with the Gitilizer app. Gitilizer
+  doesn't yet detect or explain it when such an organization keeps the app's
+  connection out, so its private items may be missing without a message. The
+  documentation tells developers to use a personal access token for these
+  organizations, which Gitilizer does handle ([Q-90](#q-90)). Revisit once the
+  app has been tried with one.
 - Layouts for screens narrower than 1024 px, including phones, and touch input ([Q-54](#q-54)).
 - Languages other than English, and a dark theme. Either may come later ([Q-56](#q-56)).
 
@@ -278,7 +284,8 @@ Figma: [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Git
   explain how connecting GitHub works: what the Gitilizer app can read, how to
   add private repositories and why an organization's owner may have to approve
   that, how to remove Gitilizer's access on GitHub, and when a personal access
-  token is the better choice (the page that "What Gitilizer can read" opens,
+  token is the better choice, which includes an organization that uses single
+  sign-on, [Q-90](#q-90) (the page that "What Gitilizer can read" opens,
   `SET-48`); the two kinds of GitHub token and how to create one with the right
   permissions (the page that the GitHub token's "Learn more" opens, `SET-20`);
   how to create an API key for each ranking agent and what each costs (the pages
@@ -878,9 +885,11 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 
 - **SET-42** A developer has one GitHub connection at a time: the Gitilizer app
   or a PAT. Connecting the app, or saving a token, replaces the connection in
-  use; nothing in Settings removes it without replacing it. **TODO:** confirm
-  that the replaced connection is deleted, not kept for switching back
-  ([Q-88](#q-88)).
+  use, and Gitilizer deletes the one it replaces ([Q-88](#q-88)): the app's
+  connection replaces a saved token as soon as GitHub returns (`SET-43`), and a
+  token replaces the app's connection when it is saved. So after connecting the
+  app, the token field is empty. Nothing in Settings removes a connection
+  without replacing it.
 - **SET-43** "Connect GitHub", on Warm Welcome (`WEL-6`) and in the GitHub card,
   and "Reconnect" and "Reconnect GitHub" in the card (`SET-46`, `SET-47`), must
   open GitHub's authorization page for the Gitilizer app in the same tab. When
@@ -940,8 +949,9 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
     shows too ([catalogue](#catalogue));
   - the developer has asked for the app to be installed on an organization, and
     an owner hasn't approved it yet: "Private repositories: waiting for an owner
-    to approve". **TODO:** confirm, once the design doc has found out whether
-    GitHub reports these requests ([Q-89](#q-89)).
+    to approve" ([Q-89](#q-89)). The design doc must confirm that GitHub reports
+    these requests; if it doesn't, the row is left out and the documentation
+    explains the wait.
 
   With a token in use, the card has the token field as before and, under a rule,
   "No token to create or renew: connect with one click instead." and a "Connect
@@ -954,8 +964,8 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
   token can't read it", and `SET-8`'s ends "Check the name, and that the
   Gitilizer app is installed on {owner}." The catalogue's rows about a personal
   access token, and `SET-8`'s states for a blocked token and for single sign-on,
-  apply only to a token. **TODO:** decide what an organization that uses single
-  sign-on shows with the app ([Q-90](#q-90)).
+  apply only to a token. With the app, an organization that uses single sign-on
+  has no message of its own for now ([Non-goals](#non-goals), [Q-90](#q-90)).
 
 ### Additional repositories
 
@@ -1263,11 +1273,7 @@ Gitilizer keeps:
 
 New questions are marked **TODO:** where they come up and listed here.
 
-| ID | Question | Suggested answer | Where |
-|---|---|---|---|
-| <a id="q-88"></a>Q-88 | When the developer connects the Gitilizer app while a token is saved, or saves a token while the app is connected, is the replaced connection deleted? | Yes. Gitilizer then stores one GitHub credential per developer, and Settings never has a second, unused connection to explain. Connecting the app again is one click; a token can be pasted again. | `SET-42` |
-| <a id="q-89"></a>Q-89 | Does the GitHub card show an organization that is waiting for an owner to approve the app? | Yes, if GitHub tells Gitilizer about the request, which the design doc has to find out. If it doesn't, the row is left out and the documentation explains the wait. | `SET-47` |
-| <a id="q-90"></a>Q-90 | What does the developer see when an organization that uses single sign-on keeps the Gitilizer app's connection out? | The same as for a token ("Your token isn't authorized for {org}"), reworded for the app, once the design doc has found out what GitHub answers. The trial of the app didn't reach such an organization. | `SET-49`, [Catalogue](#catalogue) |
+There are none at the moment.
 
 Q-58 to Q-63 were found by building the prototype described in the [design
 doc](DESIGN.md); Q-64 to Q-76 came from the product owner's 2026-11-01 answers
@@ -1367,6 +1373,9 @@ from connecting GitHub with the Gitilizer app.
 | <a id="q-85"></a>Q-85 | Which Claude and OpenAI models rank | `claude-sonnet-5-5` and `gpt-6.1-sol`. Changed on 2026-11-14 from `claude-haiku-5-5` and `gpt-6-luna`, each provider's cheapest model, after evaluation: over ten prompts the cheapest models' mean Kendall tau was 0.52 and 0.57, against 0.69 for each of the chosen models and 0.72 for `gemini-3.8-flash` at low thinking, which also costs less than either (`eval/prompt-variants-2026-11-07.md`). That is why Gemini is the recommended agent (`WEL-5`, `SET-38`). The Icebox check (`ICE-13`) hasn't been measured with them yet. | `RANK-19` |
 | <a id="q-86"></a>Q-86 | The "Typical cost" figures | Not shown. Settings no longer has billing and cost notes (`SET-41`): figures and billing details go out of date as prices and models change. Gitilizer says only that Gemini ranked best in its tests at the lowest cost and has a free tier, and that Claude and OpenAI are pay as you go. The documentation behind "Learn more" still covers what each agent costs (`SET-32`). | `SET-38`, `WEL-5` |
 | <a id="q-87"></a>Q-87 | Connecting GitHub without creating a token | The developer connects GitHub with the Gitilizer app, a GitHub App with read-only access to issues, pull requests and metadata: one click, nothing to create or renew. Public repositories need nothing installed; private ones need the app installed on their account. Signing in still gives Gitilizer no access, so developers who sign in with Google or with GitHub connect in the same way. A personal access token stays as the alternative, for private repositories in an organization that won't install the app. A trial on 2026-11-14 found that the app reads the same public and private items as a token, with only those three permissions, and that it shares the developer's GitHub rate limit with their tokens. | `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, [Catalogue](#catalogue) |
+| <a id="q-88"></a>Q-88 | What happens to the connection that is replaced, when the developer switches between the Gitilizer app and a token | It is deleted. Gitilizer keeps one GitHub credential per developer, and Settings never has a second, unused connection to explain. Connecting the app again is one click; a token can be pasted again. | `SET-42` |
+| <a id="q-89"></a>Q-89 | Showing an organization that is waiting for an owner to approve the app | Shown in the GitHub card, as long as GitHub reports the request, which the design doc has to confirm. If it doesn't, the row is left out and the documentation explains the wait. | `SET-47` |
+| <a id="q-90"></a>Q-90 | Organizations that use single sign-on, with the Gitilizer app | Out of scope for now: the trial of the app didn't reach such an organization. Gitilizer shows no message of its own for it, and the documentation tells developers to use a personal access token there. Revisit once it has been tried. | `SET-49`, `FOOT-3`, [Non-goals](#non-goals) |
 
 ---
 
@@ -1782,9 +1791,10 @@ Found while building excluded repositories, by testing GitHub's issue search, an
   remove Gitilizer's access on GitHub (`PRIV-3`); the documentation explains
   connecting GitHub (`FOOT-3`, `FOOT-4`). Also the overview, non-goals, glossary
   and `SCAN-1`.
-- Three new open questions: whether the replaced connection is deleted
-  ([Q-88](#q-88)), showing an organization that is waiting for approval
-  ([Q-89](#q-89)), and single sign-on with the app ([Q-90](#q-90)). Q-8, Q-40
+- Three more questions, answered the same day: the connection that is replaced
+  is deleted ([Q-88](#q-88)); an organization that is waiting for approval is
+  shown ([Q-89](#q-89)); and organizations that use single sign-on are out of
+  scope with the app for now ([Q-90](#q-90), [Non-goals](#non-goals)). Q-8, Q-40
   and Q-82 note what changed.
 - Changed Figma: [Warm
   Welcome](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=342-2832)
