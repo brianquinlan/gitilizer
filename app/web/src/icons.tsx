@@ -97,6 +97,12 @@ export const EyeIcon = ({ size = 16 }) => (
 export const EyeOffIcon = ({ size = 16 }) => (
   <svg {...base(size)}><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" x2="22" y1="2" y2="22" /></svg>
 );
+export const GlobeIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg>
+);
+export const LockIcon = ({ size = 16 }) => (
+  <svg {...base(size)}><rect width="18" height="11" x="3" y="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+);
 export const PlusIcon = ({ size = 14 }) => <svg {...base(size)}><path d="M5 12h14" /><path d="M12 5v14" /></svg>;
 export const UserIcon = ({ size = 14 }) => <svg {...base(size)}><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /></svg>;
 export const XCircleIcon = ({ size = 14 }) => <svg {...base(size)}><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></svg>;

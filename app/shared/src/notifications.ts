@@ -14,6 +14,8 @@ export const NotificationCode = z.enum([
   "github_rate_limited", // warning, short-lived
   "github_unavailable", // warning, short-lived
   "github_expiring", // warning
+  "github_connection_ended", // the Gitilizer app's connection (SET-46)
+  "github_app_permission", // warning: an account hasn't approved one of the app's permissions (SET-47)
   // Additional repositories
   "repo_inaccessible",
   // Gemini connection
@@ -78,7 +80,10 @@ type Entry = {
   summary: string;
   /** Short-lived problems are retried silently for SHORT_LIVED_MINUTES, then shown as warnings (NOTIF-21). */
   shortLived?: boolean;
-  /** Credential whose replacement clears this notification at once (NOTIF-13). */
+  /**
+   * Credential whose replacement clears this notification at once (NOTIF-13). "github_pat" stands for the
+   * GitHub connection: saving a token or connecting the Gitilizer app clears these.
+   */
   clearedBy?: "github_pat" | "gemini_key" | "anthropic_key" | "openai_key";
   heading: (p: Params) => string;
   body: (p: Params, now?: number) => Segment[];
@@ -86,6 +91,7 @@ type Entry = {
 
 const T = (text: string): Segment => ({ text });
 const PAT = "github-pat";
+const CONNECT = "github-connect"; // GITHUB_CONNECT_ID in index.ts
 const KEY = "gemini-key";
 const CLAUDE_KEY = "claude-key";
 const OPENAI_KEY = "openai-key";
@@ -121,8 +127,8 @@ const repoControl = (repo: string) => `repo-${repo.replace("/", "-")}`;
 export const CATALOGUE: Record<NotificationCode, Entry> = {
   github_missing: {
     severity: "error", summary: "GitHub connection", clearedBy: "github_pat",
-    heading: () => "No GitHub personal access token is set",
-    body: () => [T("Gitilizer can't scan your issues and PRs. Add a personal access token in "), S("Settings", PAT), T(".")],
+    heading: () => "GitHub isn't connected",
+    body: () => [T("Gitilizer can't scan your issues and PRs. Connect GitHub in "), S("Settings", CONNECT), T(".")],
   },
   github_expired: {
     severity: "error", summary: "GitHub connection", clearedBy: "github_pat",
@@ -172,7 +178,7 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
     heading: () => "GitHub's rate limit has been reached",
     body: (p, now) => [T(
       `Scanning is paused until ${p.resetAt ? `${formatTime(p.resetAt, now)}, when GitHub resets the limit,` : "GitHub resets the limit"} and then resumes automatically. ` +
-      "Other tools that use the same token count toward the same limit.",
+      "Other tools that read GitHub as you count toward the same limit.",
     )],
   },
   github_unavailable: {
@@ -191,12 +197,28 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
       S("Settings", PAT), T("."),
     ],
   },
+  github_connection_ended: {
+    severity: "error", summary: "GitHub connection", clearedBy: "github_pat",
+    heading: () => "Your GitHub connection has ended",
+    body: () => [
+      T("Scanning is paused. Access was removed on GitHub, or Gitilizer hasn't been opened for six months. Reconnect GitHub in "),
+      S("Settings", CONNECT), T("."),
+    ],
+  },
+  github_app_permission: {
+    severity: "warning", summary: "GitHub connection", clearedBy: "github_pat",
+    heading: (p) => `Gitilizer can't read ${p.permission} in ${p.account}`,
+    body: (p) => [
+      T(`Private issues and PRs from ${p.account} may be missing from your list. ${p.account} hasn't approved the Gitilizer app's access to ${p.permission}. Review it on `),
+      { text: "GitHub", href: "https://github.com/settings/installations" }, T("."),
+    ],
+  },
   repo_inaccessible: {
     severity: "error", summary: "Additional repositories", clearedBy: "github_pat",
     heading: (p) => `Gitilizer can't access ${p.repo}`,
     body: (p) => [
       T(`Issues and PRs from ${p.repo} are missing from your list. Check the name in `),
-      S("Settings", repoControl(p.repo)), T(`, or give your token access to ${p.repo}.`),
+      S("Settings", repoControl(p.repo)), T(`, or make sure your GitHub connection can read ${p.repo}.`),
     ],
   },
   gemini_missing: {

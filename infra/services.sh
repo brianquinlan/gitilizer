@@ -11,6 +11,10 @@
 # with Google's sample container before any Gitilizer image exists (the Cloud Build trigger then deploys the
 # real one). SIGN_IN_ALLOWLIST is never written to the repository: it is read from your shell, or from the
 # service's current setting.
+#
+# The Gitilizer GitHub App ("Connect GitHub") is optional: add GITHUB_APP_CLIENT_ID and GITHUB_APP_SLUG, and
+# GITHUB_APP_ID if its private key is stored, after infra/github-app-secrets.sh. Like the other IDs they are
+# kept from the service's current settings when left out. Without them the service offers the token only.
 source "$(dirname "$0")/config.sh"
 
 env=${1:?"dev or prod"}
@@ -55,6 +59,26 @@ else
 fi
 secrets="DATABASE_URL=$env-database-url:latest,CREDENTIAL_KEY=$env-credential-key:latest,WORKER_TOKEN=$env-worker-token:latest"
 secrets+=",GOOGLE_CLIENT_SECRET=$env-google-client-secret:latest,GITHUB_CLIENT_SECRET=$env-github-client-secret:latest"
+
+# The Gitilizer GitHub App (DEPLOYMENT.md, "The Gitilizer GitHub App").
+app_client=${GITHUB_APP_CLIENT_ID:-$(setting GITHUB_APP_CLIENT_ID)}
+app_slug=${GITHUB_APP_SLUG:-$(setting GITHUB_APP_SLUG)}
+app_id=${GITHUB_APP_ID:-$(setting GITHUB_APP_ID)}
+if [[ -n $app_client || -n $app_slug ]]; then
+  [[ -n $app_client && -n $app_slug ]] || { echo "Set both GITHUB_APP_CLIENT_ID and GITHUB_APP_SLUG."; exit 2; }
+  gcloud secrets describe "$env-github-app-client-secret" >/dev/null 2>&1 \
+    || { echo "No secret $env-github-app-client-secret: run infra/github-app-secrets.sh first."; exit 2; }
+  vars+=";GITHUB_APP_CLIENT_ID=$app_client;GITHUB_APP_SLUG=$app_slug"
+  secrets+=",GITHUB_APP_CLIENT_SECRET=$env-github-app-client-secret:latest"
+  if [[ -n $app_id ]]; then
+    gcloud secrets describe "$env-github-app-private-key" >/dev/null 2>&1 \
+      || { echo "GITHUB_APP_ID is set but there is no secret $env-github-app-private-key (infra/github-app-secrets.sh $env key.pem)."; exit 2; }
+    vars+=";GITHUB_APP_ID=$app_id"
+    secrets+=",GITHUB_APP_PRIVATE_KEY=$env-github-app-private-key:latest"
+  fi
+else
+  echo "  … no Gitilizer GitHub App settings: $service will offer a personal access token only"
+fi
 
 step "Deploying $service ($name) with $image"
 gcloud run deploy "$service" --image="$image" --region="$REGION" \

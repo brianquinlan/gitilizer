@@ -158,7 +158,7 @@ export function credentialControlId(kind: CredentialKind): string {
 }
 
 /** The status chip on a credential card (PRD SET-30). */
-export const CredentialChip = z.enum(["not_set", "connected", "not_working", "expires_soon"]);
+export const CredentialChip = z.enum(["not_set", "connected", "not_working", "expires_soon", "needs_attention"]);
 export type CredentialChip = z.infer<typeof CredentialChip>;
 
 export const CredentialStatus = z.object({
@@ -184,6 +184,63 @@ export type SyncProgress = z.infer<typeof SyncProgress>;
 export const SyncEvent = z.object({ running: z.boolean(), lastFinishedAt: z.string().nullable(), progress: SyncProgress.nullable() });
 export type SyncEvent = z.infer<typeof SyncEvent>;
 
+/** How Gitilizer reads GitHub for a developer: the Gitilizer app or a personal access token (PRD SET-42). */
+export const GitHubMethod = z.enum(["app", "pat"]);
+export type GitHubMethod = z.infer<typeof GitHubMethod>;
+
+/** The id of the control that connects GitHub, which Settings links focus (NOTIF-9). */
+export const GITHUB_CONNECT_ID = "github-connect";
+
+/** Why the browser came back from GitHub without a connection (SET-43). */
+export const ConnectFailure = z.enum(["cancelled", "failed"]);
+export type ConnectFailure = z.infer<typeof ConnectFailure>;
+export const CONNECT_MESSAGES: Record<ConnectFailure, string> = {
+  cancelled: "GitHub wasn't connected.",
+  failed: "Couldn't connect GitHub. Try again.",
+};
+
+/** The note wherever the interface offers the connection (SET-44). */
+export const GITHUB_ACCESS_NOTE = "Read-only access to your issues and pull requests. Gitilizer can't change anything on GitHub.";
+
+/** The permissions the Gitilizer app needs on an account, besides metadata (SET-44). */
+export const AppPermission = z.enum(["issues", "pull_requests"]);
+export type AppPermission = z.infer<typeof AppPermission>;
+export const APP_PERMISSION_LABEL: Record<AppPermission, { name: string; short: string }> = {
+  issues: { name: "issues", short: "issues" },
+  pull_requests: { name: "pull requests", short: "PRs" },
+};
+
+/** An account the Gitilizer app is installed on (SET-45, SET-47). */
+export const GitHubInstallation = z.object({
+  account: z.string(),
+  accountType: z.enum(["Organization", "User"]),
+  avatarUrl: z.string().nullable(),
+  /** Every repository of the account, or the ones its owner selected. */
+  selection: z.enum(["all", "selected"]),
+  /** How many repositories are selected; null for "all" or when GitHub didn't say. */
+  repoCount: z.number().int().nullable(),
+  /** Permissions the account hasn't approved. */
+  missing: z.array(AppPermission),
+});
+export type GitHubInstallation = z.infer<typeof GitHubInstallation>;
+
+/** GET /api/github/connection: what the GitHub card shows (SET-46, SET-47). */
+export const GitHubConnection = z.object({
+  method: GitHubMethod.nullable(),
+  login: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  /** Whether this environment offers the Gitilizer app; without it only a token can be used. */
+  app: z.boolean(),
+  /** The app's connection has ended and needs "Reconnect GitHub" (SET-46). */
+  ended: z.boolean(),
+  /** GitHub's page for installing the app on an account (SET-45). */
+  installUrl: z.string().nullable(),
+  installations: z.array(GitHubInstallation),
+  /** Organizations where the developer asked for the app and an owner hasn't approved it yet (Q-89). */
+  pending: z.array(z.object({ account: z.string(), avatarUrl: z.string().nullable() })),
+});
+export type GitHubConnection = z.infer<typeof GitHubConnection>;
+
 export const Me = z.object({
   user: z.object({
     id: z.string(),
@@ -196,6 +253,12 @@ export const Me = z.object({
   /** Which top-level screen to show (PRD NAV-1). */
   screen: z.enum(["welcome", "app"]),
   credentials: z.object({ github_pat: CredentialStatus, gemini_key: CredentialStatus, anthropic_key: CredentialStatus, openai_key: CredentialStatus }),
+  /** The GitHub connection in use, and the chip on the GitHub card (SET-30, SET-42). */
+  github: z.object({
+    method: GitHubMethod.nullable(), login: z.string().nullable(), avatarUrl: z.string().nullable(), chip: CredentialChip,
+    /** Whether this environment offers the Gitilizer app, and GitHub's page for installing it on an account (SET-45). */
+    app: z.boolean(), installUrl: z.string().nullable(),
+  }),
   /** The agent that ranks the developer's list (SET-38). */
   rankingAgent: RankingAgent,
   firstSyncDone: z.boolean(),

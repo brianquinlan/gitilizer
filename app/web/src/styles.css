@@ -358,3 +358,38 @@ input.invalid, textarea.invalid, .secret.invalid input { border-color: var(--err
 .agent-choice { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
 .agent-choice legend { font-size: 13px; font-weight: 600; padding: 0; margin-bottom: 8px; }
 .switch-dialog { width: 500px; }
+
+/* Connecting GitHub with the Gitilizer app (WEL-6, SET-42 to SET-47), as in Figma "Warm Welcome",
+   "Warm Welcome · Connected" and the "Settings · GitHub card" frames. */
+.btn.connect-github { width: 100%; height: 44px; justify-content: center; gap: 10px; background: #20252d; border-color: #20252d; color: #fff; font-weight: 600; text-decoration: none; }
+a.btn { text-decoration: none; color: var(--ink); }
+a.btn.primary { color: var(--accent-ink); font-weight: 600; height: 40px; padding: 0 20px; }
+.link-btn.underlined { padding: 0; text-decoration: underline; justify-self: start; text-align: left; }
+.github-connection { display: grid; gap: 8px; }
+.avatar.initials { background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; }
+.connected-box { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); padding: 12px 14px; display: grid; gap: 10px; }
+.connected-box .who { display: flex; align-items: center; gap: 10px; }
+.connected-box .who .name { flex: 1; min-width: 0; }
+.connected-box .state { display: inline-flex; align-items: center; gap: 6px; color: var(--ok); font-size: 12.5px; font-weight: 500; }
+.connected-box .lines { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 8px; font-size: 12.5px; }
+.connected-box .lines > div { display: flex; justify-content: space-between; gap: 12px; }
+.connected-box .lines .k { color: var(--muted); }
+.connected-account { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.connected-who { flex: 1; min-width: 200px; display: grid; }
+.connected-who span { font-size: 12.5px; color: var(--muted); }
+.read-box { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.read-head { background: var(--surface-2); padding: 8px 14px; font-size: 12px; font-weight: 500; color: var(--muted); }
+.read-row { border-top: 1px solid var(--line); padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.read-name { display: inline-flex; align-items: center; gap: 8px; min-width: 208px; font-size: 13px; color: var(--muted); }
+.read-name .mono, .read-name { color: var(--ink); }
+.read-name svg { color: var(--muted); }
+.read-name .mono { padding: 0; }
+.read-status { flex: 1; min-width: 200px; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.read-status.ok { color: var(--ok); }
+.read-status.warn { color: #8a6508; }
+.card-actions { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; font-size: 12.5px; }
+.card-actions.ruled { border-top: 1px solid var(--line); padding-top: 14px; color: var(--muted); }
+.connection-ended { display: flex; gap: 10px; align-items: flex-start; border: 1px solid #f0c9c4; background: var(--error-tint); color: var(--error); border-radius: var(--radius); padding: 12px 14px; }
+.connection-ended svg { flex: none; margin-top: 2px; }
+.connection-ended div { display: grid; gap: 2px; }
+.connection-ended span { font-size: 12.5px; line-height: 1.55; }

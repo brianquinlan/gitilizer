@@ -1,13 +1,16 @@
-// Warm Welcome (PRD "Warm Welcome", WEL-1..5). Figma: "Warm Welcome".
-// Setup happens here: the GitHub token, the ranking agent and its key, checked and saved together by
-// POST /api/setup (design D-12).
+// Warm Welcome (PRD "Warm Welcome", WEL-1..6). Figma: "Warm Welcome", "Warm Welcome · Connected" and
+// "Warm Welcome · Personal access token".
+// Setup happens here: the GitHub connection, the ranking agent and its key. "Connect GitHub" saves the
+// connection on its own (SET-43); a typed token and the key are checked and saved together by POST /api/setup
+// (design D-12).
 import { useRef, useState } from "react";
 import { AGENT_INFO, RankingAgent, type CredentialKind, type SetupRequest, type SetupResponse } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
 import { AgentPicker } from "../components/AgentPicker.tsx";
 import { DOCS_URL } from "../components/Chrome.tsx";
 import { CredentialField, passed, type Check } from "../components/CredentialField.tsx";
-import { InboxIcon } from "../icons.tsx";
+import { AccessNote, Avatar, ConnectLink, ConnectResult, useConnectResult } from "../components/GitHubConnection.tsx";
+import { CheckCircleIcon, ExternalIcon, InboxIcon } from "../icons.tsx";
 import { navigate } from "../router.tsx";
 import { useStore } from "../store.tsx";
 
@@ -23,10 +26,15 @@ export function WelcomePage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const latest = useRef(values);
   latest.current = values;
+  // WEL-6: the token field shows only when asked for, or when this environment has no Gitilizer app.
+  const [useToken, setUseToken] = useState<boolean | null>(null);
+  const connectResult = useConnectResult();
   if (!me) return null;
+  const connected = me.github.method === "app";
+  const tokenShowing = useToken ?? (!me.github.app || me.github.method === "pat");
 
   const info = AGENT_INFO[agent];
-  const KINDS: CredentialKind[] = ["github_pat", info.kind];
+  const KINDS: CredentialKind[] = tokenShowing ? ["github_pat", info.kind] : [info.kind];
   // Choosing another agent clears what was typed for the previous one, with its Validate result (WEL-5).
   const pick = (next: RankingAgent) => {
     if (next === agent) return;
@@ -36,7 +44,14 @@ export function WelcomePage() {
   };
   const present = (k: CredentialKind) => values[k].trim() !== "" || me.credentials[k].set;
   const checking = KINDS.some((k) => checks[k] === "checking");
-  const canSave = KINDS.every(present) && !checking && !saving;
+  // WEL-4: GitHub connected or a token, and the key. While the token field shows, it is the one that counts.
+  const canSave = (tokenShowing || connected) && KINDS.every(present) && !checking && !saving;
+  // Going back from the token field discards a typed token (WEL-6).
+  const showToken = (on: boolean) => {
+    setValues((v) => ({ ...v, github_pat: "" }));
+    setChecks((c) => ({ ...c, github_pat: null }));
+    setUseToken(on);
+  };
 
   // WEL-4: every typed value is checked (the server checks again, D-12); nothing is saved unless all pass.
   const save = async () => {
@@ -85,15 +100,54 @@ export function WelcomePage() {
         <div className="symbol"><InboxIcon /></div>
         <div>
           <h1>Welcome to your prioritized inbox</h1>
-          <p className="intro">Add your GitHub personal access token, then choose the AI that ranks your issues and PRs and add its API key.</p>
+          <p className="intro">{tokenShowing ? "Add your GitHub personal access token" : "Connect GitHub"}, then choose the AI that ranks your issues and PRs and add its API key.</p>
         </div>
         <div className="welcome-fields">
-          <div className="credential-field">
-            <CredentialField {...field("github_pat")} label="GitHub personal access token"
-              setup={{ text: "Create a token", href: "https://github.com/settings/personal-access-tokens/new" }}
-              guidance="Gitilizer only needs read access to issues, PRs and metadata for the repositories you want to scan."
-              learnMore={`${DOCS_URL}#github-personal-access-tokens`} />
-          </div>
+          {tokenShowing ? (
+            <div className="credential-field">
+              <CredentialField {...field("github_pat")} label="GitHub personal access token"
+                setup={{ text: "Create a token", href: "https://github.com/settings/personal-access-tokens/new" }}
+                guidance="Gitilizer only needs read access to issues, PRs and metadata for the repositories you want to scan."
+                learnMore={`${DOCS_URL}#github-personal-access-tokens`} />
+              {me.github.app && (
+                <button type="button" className="link-btn underlined" onClick={() => showToken(false)}>
+                  {connected ? `Keep @${me.github.login} connected` : "Use Connect GitHub instead"}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="credential-field github-connection">
+              <div className="field-label">
+                <label>GitHub</label>
+                <a href={`${DOCS_URL}#connecting-github`} target="_blank" rel="noreferrer">What Gitilizer can read <ExternalIcon /></a>
+              </div>
+              {connected ? (
+                <div className="connected-box">
+                  <div className="who">
+                    <Avatar url={me.github.avatarUrl} login={me.github.login} size={28} />
+                    <span className="name">Connected as <strong>@{me.github.login}</strong></span>
+                    <span className="state"><CheckCircleIcon /> Connected</span>
+                  </div>
+                  <div className="lines">
+                    <div><span className="k">Public repositories</span><span>Included</span></div>
+                    {me.github.installUrl && (
+                      <div><span className="k">Private repositories</span>
+                        <a className="fine-link" href={me.github.installUrl} target="_blank" rel="noreferrer">Add on GitHub <ExternalIcon /></a></div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <ConnectLink next="/" kind="dark">Connect GitHub</ConnectLink>
+                  <ConnectResult result={connectResult} />
+                </>
+              )}
+              <AccessNote more={connected ? "You can add private repositories now, or later in Settings." : undefined} />
+              <button type="button" className="link-btn underlined" onClick={() => showToken(true)}>
+                {connected ? "Use a personal access token instead" : "Or use a personal access token"}
+              </button>
+            </div>
+          )}
           <fieldset className="agent-choice">
             <legend>Ranking agent</legend>
             <AgentPicker agent={agent} onPick={pick} idPrefix="tile" tiles />

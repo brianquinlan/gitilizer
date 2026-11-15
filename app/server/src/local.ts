@@ -1,6 +1,7 @@
 // Local mode (contributor/LOCAL_DEVELOPMENT.md): one developer on their own machine.
 // The account is created once and signed in automatically, and its credentials
 // can be filled in from .env, so a fresh database needs no clicks to get going.
+import { connectionMethod } from "./connection.ts";
 import { randomUUID } from "node:crypto";
 import type { CredentialKind } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
@@ -42,6 +43,7 @@ export async function seedLocalCredentials(ctx: Ctx, userId: string, seeds: Seed
     const value = seeds[kind]?.trim();
     if (!value || value.length < 10) continue;
     if ((await credentialStatus(ctx, userId, kind)).set) continue;
+    if (kind === "github_pat" && (await connectionMethod(ctx.db, userId)) !== null) continue; // GitHub is connected already
     await saveCredential(ctx, userId, kind, value); // not validated, as in Settings (SET-29)
     seeded.push(kind);
   }
@@ -56,7 +58,7 @@ export async function seedLocalCredentials(ctx: Ctx, userId: string, seeds: Seed
     }
   }
   const agentKey = keyKindFor(await agentInUse(ctx.db, userId));
-  const both = (await credentialStatus(ctx, userId, "github_pat")).set && (await credentialStatus(ctx, userId, agentKey)).set;
+  const both = (await connectionMethod(ctx.db, userId)) !== null && (await credentialStatus(ctx, userId, agentKey)).set;
   let setupCompleted = false;
   if (both) {
     const r = await ctx.db.query(

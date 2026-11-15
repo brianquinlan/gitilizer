@@ -61,6 +61,9 @@ A service's settings are environment variables on its Cloud Run service. Secrets
 | `CREDENTIAL_KEY` | Secret `dev-credential-key` | Secret `prod-credential-key` | Encrypts stored GitHub tokens and Gemini keys. **Never destroy a version**: without it every stored credential is unreadable. |
 | `WORKER_TOKEN` | Secret `dev-worker-token` | Secret `prod-worker-token` | Protects `/internal/metrics`, which listens only inside the container. |
 | `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_SECRET` | Secrets `dev-*-client-secret` | Secrets `prod-*-client-secret` | |
+| `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_SLUG` | Development's app | Production's app | Optional, not secret: [The Gitilizer GitHub App](#the-gitilizer-github-app). Without them the service offers a personal access token only. |
+| `GITHUB_APP_CLIENT_SECRET` | Secret `dev-github-app-client-secret` | Secret `prod-github-app-client-secret` | Needed with the two above. |
+| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` | Optional; secret `dev-github-app-private-key` | Optional; secret `prod-github-app-private-key` | Only for the "waiting for an owner to approve" rows in Settings. |
 | `SCHEDULER`, `WORKER` | Not set (on) | Not set (on) | `off` leaves that part to another service ([Splitting production](#splitting-production)). |
 
 **A deployed server refuses to start rather than run unsafely.** With `GITILIZER_ENV` set, a missing `DATABASE_URL`, `CREDENTIAL_KEY`, `WORKER_TOKEN`, `PUBLIC_URL` (or one that isn't `https://`), a missing Google or GitHub client, `NODE_ENV` other than `production`, or local mode, fixtures or the development sign-in form stops it, and the log names every problem. On a computer, the same gaps fall back to PGlite, a built-in key and the development sign-in form; deployed, they never do. A revision that fails to start never gets traffic: Cloud Run keeps serving the previous one.
@@ -217,6 +220,59 @@ The Google consent screen (Google Auth Platform → Branding) names the home pag
 
 When sign-in fails, the log line `sign-in failed` (component `auth`) has the provider, the category the page showed (`cancelled`, `provider_unavailable`, `expired`, `not_allowed` or `gitilizer_error`) and the provider's own error. A `redirect_uri_mismatch` from Google, or "The redirect_uri is not associated with this application" from GitHub, means the app's callback URL doesn't match `PUBLIC_URL`.
 
+## The Gitilizer GitHub App
+
+"Connect GitHub" uses a GitHub App, separate from the OAuth app that signs
+people in ([GitHub connection](DESIGN.md#github-connection)). Each environment
+has its own, because each has its own callback URL. An environment without one
+still works: it offers the personal access token only.
+
+Register each at GitHub → Settings → Developer settings → GitHub Apps → New
+GitHub App (or under an organization's settings, to own it there):
+
+| Field | Production | Development |
+|---|---|---|
+| GitHub App name | "Gitilizer" | "Gitilizer (development)" |
+| Homepage URL | `https://gitilizer.com` | `https://dev.gitilizer.com` |
+| Callback URL | `https://gitilizer.com/api/connect/github/callback` | `https://dev.gitilizer.com/api/connect/github/callback` |
+| Expire user authorization tokens | On | On |
+| Request user authorization (OAuth) during installation | Off | Off |
+| Enable Device Flow | Off | Off |
+| Setup URL | `https://gitilizer.com/settings` (optional) | `https://dev.gitilizer.com/settings` (optional) |
+| Webhook → Active | Off | Off |
+| Repository permissions | Issues: Read-only; Pull requests: Read-only; Metadata: Read-only | The same |
+| Organization and account permissions | None | None |
+| Where can this GitHub App be installed? | Any account | Any account |
+
+Then, for each app:
+
+1. On its page, note the **Client ID** (starts `Iv`) and the **App ID**, and
+   the app's URL name: the last part of its public page,
+   `https://github.com/apps/<slug>`.
+2. "Generate a new client secret", and store it with
+   `bash infra/github-app-secrets.sh`, which asks for both environments'
+   secrets without showing them.
+3. Optional, for the "waiting for an owner to approve" rows: "Generate a
+   private key", which downloads a `.pem` file; store it with
+   `bash infra/github-app-secrets.sh dev path/to/key.pem` (or `prod`), then
+   delete the file.
+4. Give the service its settings:
+   `GITHUB_APP_CLIENT_ID=<client id> GITHUB_APP_SLUG=<slug> bash infra/services.sh dev`,
+   adding `GITHUB_APP_ID=<app id>` if you stored a private key. The script
+   keeps the service's other settings and its image.
+
+Adding a permission to the app later doesn't reach accounts that already
+installed it until an owner of each approves; until then Gitilizer shows
+"Gitilizer can't read {permission} in {account}". Changing the callback URL
+or the app's name takes effect at once.
+
+When connecting fails, the log line `GitHub wasn't connected` (component
+`connect`) has what the page showed (`cancelled` or `failed`) and GitHub's own
+error. "The redirect_uri is not associated with this application" means the
+app's callback URL doesn't match `PUBLIC_URL`. `the app's connection has
+ended` (component `github`) is logged once when a developer's connection can
+no longer be renewed, with GitHub's reason.
+
 ## Monitoring and alerts
 
 `infra/monitoring.sh` sets these up and can be run again after changing them (the definitions are in `infra/monitoring/`).
@@ -254,6 +310,7 @@ Everything in Google Cloud is created by the scripts in `infra/`, run from the r
 | `inventory.sh` | Lists everything in the project into `gcp-inventory.txt`. Changes nothing. |
 | `foundation.sh` | APIs, Artifact Registry, service accounts and their permissions, Cloud SQL and its databases, the generated secrets and who can read them. Removes Editor from the default service accounts. It sets up the database users itself, with SQL sent over HTTPS (`gcloud sql instances execute-sql`) as `postgres`, whose generated password is kept in the regional secret `sql-admin-password`: each user owns its own database, can't connect to the other's, and isn't a member of `cloudsqlsuperuser`. |
 | `oauth-secrets.sh` | Asks for the four OAuth client secrets and stores them, without showing them. |
+| `github-app-secrets.sh [dev\|prod key.pem]` | Asks for the two Gitilizer GitHub Apps' client secrets and stores them; with an environment and a `.pem` file, stores that app's private key. |
 | `certificate.sh` | The load balancer's addresses and certificate; prints the GoDaddy records and the certificate's state. |
 | `services.sh dev\|prod [sha\|placeholder]` | Creates or reconfigures `gitilizer-dev` or `gitilizer-api` with all its settings, and lets its deployer deploy it. |
 | `load-balancer.sh` | Backends, routing (`url-map.yaml`, `url-map-http.yaml`), proxies and forwarding rules, for whichever services exist. |

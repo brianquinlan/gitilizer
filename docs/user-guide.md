@@ -3,6 +3,7 @@
 Gitilizer collects your open GitHub issues and PRs into one list and uses the AI you choose, Google's Gemini, Anthropic's Claude or OpenAI, to put them in priority order. This guide explains how to set it up, what the notifications mean, and what Gitilizer does with your data.
 
 - [Getting started](#getting-started)
+- [Connecting GitHub](#connecting-github)
 - [GitHub personal access tokens](#github-personal-access-tokens)
 - [Ranking agents](#ranking-agents)
 - [Gemini API keys](#gemini-api-keys)
@@ -15,10 +16,20 @@ Gitilizer collects your open GitHub issues and PRs into one list and uses the AI
 ## Getting started
 
 1. Sign in with Google or GitHub. Each is a separate Gitilizer account, even if both use the same email address, so always sign in the same way.
-2. On the welcome page, add a [GitHub personal access token](#github-personal-access-tokens), choose a [ranking agent](#ranking-agents) and add its API key. A personal access token is free. A Gemini key is free to create and works on Google's free tier, within a small daily quota ([Free-tier limits](#free-tier-limits)); Claude and OpenAI have no free tier. Signing in with GitHub doesn't give Gitilizer access to your issues: it reads GitHub only with the token you add.
-3. Choose **Save**. Gitilizer checks both first and saves them only if both work; otherwise it says what's wrong under the field. It then scans your issues and PRs and ranks each one. The list fills in as items are ranked.
+2. On the welcome page, choose **Connect GitHub**
+   ([Connecting GitHub](#connecting-github)), choose a
+   [ranking agent](#ranking-agents) and add its API key. A Gemini key is free
+   to create and works on Google's free tier, within a small daily quota
+   ([Free-tier limits](#free-tier-limits)); Claude and OpenAI have no free
+   tier. Signing in with GitHub doesn't give Gitilizer access to your issues:
+   it reads GitHub only through the connection you make here.
+3. Choose **Save**. Gitilizer checks what you typed first and saves it only
+   if it works; otherwise it says what's wrong under the field. It then scans
+   your issues and PRs and ranks each one. The list fills in as items are
+   ranked.
 
-You can change either credential, and the ranking agent, later in Settings.
+You can change the GitHub connection, the key and the ranking agent later in
+Settings.
 
 Optionally, in Settings:
 
@@ -28,9 +39,69 @@ Optionally, in Settings:
 
 **Save changes** keeps the existing ranks until items change. **Save and re-rank** ranks every item again, which uses more of your ranking agent's quota or credits.
 
+## Connecting GitHub
+
+Gitilizer needs to read your issues and PRs on GitHub. **Connect GitHub** does
+that in one click: GitHub asks you to authorize the Gitilizer app, and sends
+you back. There is nothing to create, copy or renew.
+
+### What Gitilizer can read
+
+- **Issues, pull requests and repository metadata, read-only.** The Gitilizer
+  app can't change anything on GitHub, and it can't read your code, except the
+  changes in a pull request, which are part of the pull request.
+- **Every public repository**, in any account, as soon as you connect. Nothing
+  needs to be installed for these.
+- **Private repositories only where the app is installed.** In Settings, "Add
+  or change private repositories" opens GitHub, where you choose an account
+  (yours, or an organization) and either all its repositories or the ones you
+  pick. Their issues and PRs join your list at the next scan.
+
+Settings shows what Gitilizer can read under the GitHub card: public
+repositories, and each account where the app is installed.
+
+### Private repositories in an organization
+
+Only an owner of an organization can install the app on it. If you aren't an
+owner, GitHub sends your request to the owners, and the organization's private
+items appear once one of them approves. Where Gitilizer can tell, Settings
+shows the organization as "waiting for an owner to approve" until then.
+
+If the organization won't install the app, use a
+[personal access token](#github-personal-access-tokens) instead. That is the
+one case where a token reaches more than the app. Organizations that require
+single sign-on aren't supported with the app yet; a token works there too.
+
+### Things that can need you
+
+- **"Gitilizer can't read {permission} in {account}".** The account installed
+  the app before it asked for that permission, or declined it. An owner
+  approves it under the account's installed GitHub Apps; "Review on GitHub" in
+  Settings opens that page.
+- **"Your GitHub connection has ended".** You removed Gitilizer's access on
+  GitHub, or Gitilizer hasn't been opened for about six months. Your list and
+  settings are kept. Choose **Reconnect GitHub** in Settings.
+- **A different GitHub account.** "Reconnect" in Settings runs the connection
+  again; sign in to the other account on GitHub first.
+
+To remove Gitilizer's access, revoke the Gitilizer app under
+[Applications](https://github.com/settings/applications) in your GitHub
+settings, or uninstall it from an account. Deleting your Gitilizer account
+also asks GitHub to revoke the authorization.
+
+### One connection at a time
+
+Gitilizer uses the app or a token, never both. Connecting the app deletes a
+saved token, and saving a token ends the app's connection.
+
 ## GitHub personal access tokens
 
-Gitilizer reads your issues and PRs with a personal access token that you create. It only ever reads; it never writes to GitHub. GitHub has two kinds of token, and Gitilizer accepts both.
+A personal access token is the alternative to [Connect
+GitHub](#connecting-github), for private repositories in an organization that
+won't install the Gitilizer app. Choose "Or use a personal access token" on the
+welcome page, or "Use a personal access token instead" in Settings. Gitilizer
+only ever reads with it; it never writes to GitHub. GitHub has two kinds of
+token, and Gitilizer accepts both.
 
 ### Fine-grained token (recommended)
 
@@ -117,16 +188,19 @@ The bell shows problems that stop Gitilizer from working fully. Red means an err
 
 | Notification | What it means and what to do |
 |---|---|
+| GitHub isn't connected | Choose Connect GitHub in Settings, or add a personal access token. |
+| Your GitHub connection has ended | Access was removed on GitHub, or Gitilizer wasn't opened for six months. Choose Reconnect GitHub in Settings ([Connecting GitHub](#connecting-github)). |
+| Gitilizer can't read {permission} in {account} | The account hasn't approved that permission for the Gitilizer app, so its private issues or PRs may be missing. An owner approves it on GitHub. |
 | Your GitHub personal access token has expired | Create a new token and add it in Settings. |
 | Your GitHub personal access token isn't valid | The token was revoked, deleted or mistyped. Add a new one. |
 | {org} doesn't allow this type of token | The organization blocks classic or fine-grained tokens. Use the other kind, or ask an owner to allow yours. |
 | Your GitHub personal access token can't read {permission} | Give the token read access to issues, PRs and metadata. |
 | Your token isn't authorized for {org} | The organization uses single sign-on. Authorize the token for it, then choose Sync now. |
 | GitHub sent an unexpected response | Gitilizer keeps retrying. Report it on GitHub if it continues. |
-| GitHub's rate limit has been reached | GitHub limits each token's requests. Other tools using the same token share the limit. Scanning resumes when it resets. |
+| GitHub's rate limit has been reached | GitHub limits each account's requests. Other tools you use on GitHub may share the limit. Scanning resumes when it resets. |
 | GitHub isn't responding | Check [githubstatus.com](https://www.githubstatus.com). Gitilizer keeps retrying. |
 | Your GitHub personal access token will expire soon | Create a new token before the date and add it in Settings. |
-| Gitilizer can't access {repo} | The repository doesn't exist, was misspelled, or your token can't read it. |
+| Gitilizer can't access {repo} | The repository doesn't exist, was misspelled, or Gitilizer can't read it: the Gitilizer app isn't installed for it, or your token doesn't include it. |
 | Your Gemini API key isn't valid / Google has disabled your Gemini API key | Create a new key in Google AI Studio and add it in Settings. Google disables keys that were published, for example in a public repository. |
 | Your Gemini API key can't use the Gemini API | The key is restricted to other Google APIs. Create a new key in Google AI Studio. |
 | Your Gemini credits have run out / Your Gemini project needs billing | Fix billing for the key's project in Google AI Studio or the Google Cloud console. |
@@ -156,7 +230,7 @@ Report problems at [github.com/brianquinlan/gitilizer/issues](https://github.com
 ### What Gitilizer stores
 
 - **Your account:** your name, email address and picture from Google or GitHub, and which one you signed in with.
-- **Your credentials:** your GitHub personal access token (with its expiry date), the API key of each ranking agent you've added, and which agent you use. They're encrypted, never shown again after you save them, never written to logs and never sent to a ranking agent.
+- **Your credentials:** your GitHub connection (the Gitilizer app's access and renewal tokens, with the connected account, or your personal access token with its expiry date), the API key of each ranking agent you've added, and which agent you use. They're encrypted, never shown again after you save them, never written to logs and never sent to a ranking agent.
 - **Your settings:** additional repositories and their prioritization prompts, collaborators, your ranking prompt and your sort order.
 - **Your items:** the GitHub data needed to rank and show each item (its text, comments, reviews and linked items), and for each item its score, the agent's reasoning, and whether you moved it to the Icebox.
 - **Notifications** that are currently active.

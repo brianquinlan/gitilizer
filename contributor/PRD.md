@@ -961,9 +961,10 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
     shows too ([catalogue](#catalogue));
   - the developer has asked for the app to be installed on an organization, and
     an owner hasn't approved it yet: "Private repositories: waiting for an owner
-    to approve" ([Q-89](#q-89)). The design doc must confirm that GitHub reports
-    these requests; if it doesn't, the row is left out and the documentation
-    explains the wait.
+    to approve" ([Q-89](#q-89)). GitHub reports these requests only to the
+    Gitilizer app itself, so the row shows where Gitilizer holds the app's
+    private key ([design D-19](DESIGN.md#d-19)); elsewhere it is left out, and
+    the documentation explains the wait.
 
   With a token in use, the card has the token field as before and, under a rule,
   "No token to create or renew: connect with one click instead." and a "Connect
@@ -1401,7 +1402,7 @@ from connecting GitHub with the Gitilizer app.
 | <a id="q-86"></a>Q-86 | The "Typical cost" figures | Not shown. Settings no longer has billing and cost notes (`SET-41`): figures and billing details go out of date as prices and models change. Gitilizer says only that Gemini ranked best in its tests at the lowest cost and has a free tier, and that Claude and OpenAI are pay as you go. The documentation behind "Learn more" still covers what each agent costs (`SET-32`). | `SET-38`, `WEL-5` |
 | <a id="q-87"></a>Q-87 | Connecting GitHub without creating a token | The developer connects GitHub with the Gitilizer app, a GitHub App with read-only access to issues, pull requests and metadata: one click, nothing to create or renew. Public repositories need nothing installed; private ones need the app installed on their account. Signing in still gives Gitilizer no access, so developers who sign in with Google or with GitHub connect in the same way. A personal access token stays as the alternative, for private repositories in an organization that won't install the app. A trial on 2026-11-14 found that the app reads the same public and private items as a token, with only those three permissions, and that it shares the developer's GitHub rate limit with their tokens. | `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, [Catalogue](#catalogue) |
 | <a id="q-88"></a>Q-88 | What happens to the connection that is replaced, when the developer switches between the Gitilizer app and a token | It is deleted. Gitilizer keeps one GitHub credential per developer, and Settings never has a second, unused connection to explain. Connecting the app again is one click; a token can be pasted again. | `SET-42` |
-| <a id="q-89"></a>Q-89 | Showing an organization that is waiting for an owner to approve the app | Shown in the GitHub card, as long as GitHub reports the request, which the design doc has to confirm. If it doesn't, the row is left out and the documentation explains the wait. | `SET-47` |
+| <a id="q-89"></a>Q-89 | Showing an organization that is waiting for an owner to approve the app | Shown in the GitHub card where GitHub reports the request. The design doc found that it reports them only to the Gitilizer app itself, which needs the app's private key ([design D-19](DESIGN.md#d-19)); an environment without the key leaves the row out, and the documentation explains the wait. | `SET-47` |
 | <a id="q-90"></a>Q-90 | Organizations that use single sign-on, with the Gitilizer app | Out of scope for now: the trial of the app didn't reach such an organization. Gitilizer shows no message of its own for it, and the documentation tells developers to use a personal access token there. Revisit once it has been tried. | `SET-49`, `FOOT-3`, [Non-goals](#non-goals) |
 
 ---
@@ -1858,3 +1859,7 @@ Found while building excluded repositories, by testing GitHub's issue search, an
   set](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=397-2761),
   and the "Connect GitHub" offer on the token cards in Settings · Errors and
   Settings · Switch ranking agent.
+- While building it, the same day: GitHub reports a request that is waiting for
+  an owner only to the Gitilizer app itself, so that row shows where Gitilizer
+  holds the app's private key and is left out elsewhere (`SET-47`,
+  [Q-89](#q-89), [design D-19](DESIGN.md#d-19)).
