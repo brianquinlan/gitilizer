@@ -86,6 +86,11 @@ export function fmtAge(t: Time | null, now: Time): string {
   return `${fixed(days / 365.25, 1)}y ago`;
 }
 
+/** Days from `t` to `now`, to one decimal place; null when the time is missing. */
+function daysSince(t: Time | null, now: Time): unknown {
+  return t === null ? null : float(pyRound((now.ms - t.ms) / 1000 / 86400, 1));
+}
+
 const login = (u: Json): string | null => (u && typeof u === "object" ? u.login ?? null : u ?? null);
 
 export function isBot(name: string | null | undefined): boolean {
@@ -252,8 +257,8 @@ export function computeSignals(snap: Json, user: UserSettings, now: Time): Recor
     last_human_actor_is_me: Boolean(last && (last.actor || "").toLowerCase() === me),
     my_last_activity: myLast ? `${myLast.kind} ${fmtAge(myLast.at, now)}` : "never",
     mentions_of_me: mentionsOfMe.slice(-5),
-    days_since_update: float(pyRound((now.ms - parseTime(issue.updated_at)!.ms) / 1000 / 86400, 1)),
-    days_since_created: float(pyRound((now.ms - parseTime(issue.created_at)!.ms) / 1000 / 86400, 1)),
+    days_since_update: daysSince(parseTime(issue.updated_at), now),
+    days_since_created: daysSince(parseTime(issue.created_at), now),
   };
 
   if (isPr) {

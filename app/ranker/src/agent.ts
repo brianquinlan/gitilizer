@@ -18,13 +18,37 @@ export type ScoreInput = {
   prompt: string | null;
 };
 
+/**
+ * A failure in Gitilizer's own code before the ranking agent was asked, such as
+ * a snapshot it can't read. The worker reports it as "internal", not as an
+ * unexpected response from the agent (design: Ranking worker).
+ */
+export class InternalError extends Error {
+  constructor(public cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause));
+    this.name = "InternalError";
+    if (cause instanceof Error && cause.stack) this.stack = cause.stack;
+  }
+}
+
+/** Builds what the agent is sent; any failure is Gitilizer's own. */
+function prepare<T>(build: () => T): T {
+  try {
+    return build();
+  } catch (e) {
+    throw new InternalError(e);
+  }
+}
+
 /** Scores one item as of now, so scores that depend on age stay current (RANK-9, RANK-18). */
 export async function scoreItem(job: ScoreInput, llm: LLM, now = Date.now()): Promise<ItemAssessment> {
-  const user = UserSettings.fromDict(job.user);
-  const nowS = isoZ(now);
-  const system = systemInstruction(job.prompt || defaultPrompt(), user, "pointwise");
-  const context = buildContext(job.snapshot, user, parseTime(nowS));
-  const { result } = await llm.generate(system, pointwiseMessage(nowS, context), ASSESSMENT);
+  const { system, message } = prepare(() => {
+    const user = UserSettings.fromDict(job.user);
+    const nowS = isoZ(now);
+    const context = buildContext(job.snapshot, user, parseTime(nowS));
+    return { system: systemInstruction(job.prompt || defaultPrompt(), user, "pointwise"), message: pointwiseMessage(nowS, context) };
+  });
+  const { result } = await llm.generate(system, message, ASSESSMENT);
   return { ...result, priority: Math.max(0, Math.min(1, Number(result.priority))) };
 }
 
@@ -57,8 +81,8 @@ export function iceboxMessage(job: ScoreInput & { iceboxedAt: string | null }, n
 
 /** Asks whether a change should bring an iceboxed item back (ICE-6, ICE-12). */
 export async function iceboxCheck(job: ScoreInput & { iceboxedAt: string | null }, llm: LLM, now = Date.now()): Promise<IceboxDecision> {
-  const system = readFileSync(ICEBOX_PROMPT_PATH, "utf8");
-  const { result } = await llm.generate(system, iceboxMessage(job, now), ICEBOX_DECISION);
+  const { system, message } = prepare(() => ({ system: readFileSync(ICEBOX_PROMPT_PATH, "utf8"), message: iceboxMessage(job, now) }));
+  const { result } = await llm.generate(system, message, ICEBOX_DECISION);
   return result;
 }
 

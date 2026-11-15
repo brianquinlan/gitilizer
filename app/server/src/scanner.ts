@@ -381,7 +381,9 @@ async function scanWith(
         if (++snapshots % 25 === 0) log.debug("scan", "fetching items", { user: userId, fetched: snapshots, of: kept.size });
       } catch (e) {
         if (e instanceof GitHubProblem && e.code === "not_found") { await uncount(key); continue; } // deleted or made private since the search
-        if (!(e instanceof GitHubProblem)) log.warn("scan", "couldn't store an item", { user: userId, item: h.key });
+        if (!(e instanceof GitHubProblem) || e.code === "unexpected") {
+          log.warn("scan", "couldn't store an item", { user: userId, item: h.key, error: String((e as Error)?.message ?? e).slice(0, 300) });
+        }
         throw e;
       }
     }

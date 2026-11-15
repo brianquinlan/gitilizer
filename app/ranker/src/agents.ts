@@ -1,7 +1,8 @@
 // The ranking agents a developer can choose (PRD SET-38, RANK-19): which
 // client to call for each, and checking a Claude or OpenAI key (SET-28).
 import { ClaudeLLM, CLAUDE_API, classifyClaude } from "./anthropic.ts";
-import { classifyGemini, GeminiLLM, type Classified } from "./gemini.ts";
+import { InternalError } from "./agent.ts";
+import { Classified, classifyGemini, GeminiLLM } from "./gemini.ts";
 import type { ProviderOptions } from "./http.ts";
 import { classifyOpenAI, OPENAI_API, OpenAILLM } from "./openai.ts";
 import type { LLM } from "./prioritizer.ts";
@@ -31,6 +32,7 @@ export function createLLM(agent: Agent, opts: ProviderOptions): LLM {
 
 /** Maps any failure from an agent's client to a worker error code. */
 export function classifyFor(agent: Agent, e: unknown): Classified {
+  if (e instanceof InternalError) return new Classified("internal", e.message);
   if (agent === "claude") return classifyClaude(e);
   if (agent === "openai") return classifyOpenAI(e);
   return classifyGemini(e);

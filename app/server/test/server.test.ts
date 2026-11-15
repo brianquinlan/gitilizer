@@ -306,6 +306,24 @@ describe("scan and rank cycle", () => {
     const n = (await shownNotifications(ctx, userId)).find((x) => x.code === "items_unranked");
     expect(n?.params).toEqual({ n: "1" });
   });
+
+  it("doesn't blame the ranking agent when Gitilizer's own code fails", async () => {
+    await ctx.db.query(`delete from notifications`);
+    store.touch("dart-lang/http#2026");
+    await scan(ctx, userId, "test");
+    let id: number | null = null;
+    for (let i = 0; i < 3; i++) {
+      await ctx.db.query(`update rank_jobs set not_before = now() where state = 'queued'`);
+      const [job] = await claimJobs(ctx, 1, 60);
+      id ??= job.id;
+      expect(job.id).toBe(id);
+      await failJob(ctx, job.id, { code: "internal", message: "Cannot read properties of null (reading 'ms')" });
+    }
+    expect((await ctx.db.one(`select state, error_code from rank_jobs where id = $1`, [id]))).toEqual({ state: "failed", error_code: "internal" });
+    const shown = (await shownNotifications(ctx, userId)).map((n) => n.code);
+    expect(shown).toContain("items_unranked");
+    expect(shown).not.toContain("gemini_unexpected");
+  });
 });
 
 describe("expired ranking leases (GitHub issue #3)", () => {
@@ -644,6 +662,14 @@ describe("GitHub client (F24, F25)", () => {
     asked.length = 0;
     await gh.search("is:open is:pr assignee:me", 3);
     expect(asked).toEqual(["GET /search/issues is:open is:pr assignee:me"]);
+  });
+
+  it("rejects an empty answer for the issue instead of storing a snapshot that can't be ranked", async () => {
+    for (const body of ["", null, { message: "?" }]) {
+      const { gh } = fake((route) => (route === "GET /repos/o/r/issues/7" ? body : route.startsWith("GET /repos/o/r") ? { full_name: "o/r" } : []));
+      (gh as any).pages = async () => [];
+      await expect(gh.snapshot("o/r", 7)).rejects.toMatchObject({ code: "unexpected", message: expect.stringContaining("not an issue") });
+    }
   });
 
   it("looks up each repository once, and doesn't remember a failed lookup", async () => {

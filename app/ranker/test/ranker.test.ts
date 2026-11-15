@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { stringify } from "yaml";
 import { describe, expect, it } from "vitest";
-import { iceboxCheck, iceboxMessage, scoreItem } from "../src/agent.ts";
+import { InternalError, iceboxCheck, iceboxMessage, scoreItem } from "../src/agent.ts";
+import { classifyFor } from "../src/agents.ts";
 import { UserSettings, buildContext, computeSignals, parseTime } from "../src/context.ts";
 import { evaluate } from "../src/evaluate.ts";
 import { Classified, FakeLLM, GeminiLLM, InvalidOutput, classifyGemini } from "../src/gemini.ts";
@@ -480,6 +481,26 @@ describe("the worker's calls", () => {
     expect((await iceboxCheck(withComment(base, "dependabot[bot]", "Bumped"), fake)).bring_back).toBe(false);
     expect((await iceboxCheck(withComment(base, "brianquinlan", "This is a critical security issue, I'll work on it right away"), fake)).bring_back).toBe(true);
     expect(iceboxMessage(withComment(base, "github-actions", "CI passed"))).toContain("github-actions[bot] commented");
+  });
+  it("ranks an item whose stored issue has no times instead of crashing", async () => {
+    const spy: LLM = { async generate() { return { result: { actionable: false, next_action: "n", priority: 0.2, reasoning: "r" } as any, usage: {} }; } };
+    const j = job();
+    const { created_at: _c, updated_at: _u, ...issue } = j.snapshot.issue;
+    expect((await scoreItem({ ...j, snapshot: { ...j.snapshot, issue } }, spy)).priority).toBe(0.2);
+    const signals = computeSignals({ ...j.snapshot, issue }, UserSettings.fromDict(j.user), parseTime("2026-11-02T10:00:00Z")!);
+    expect(signals.days_since_update).toBeNull();
+    expect(signals.days_since_created).toBeNull();
+  });
+  it("reports a failure in Gitilizer's own code as internal, not as the agent's", async () => {
+    let asked = false;
+    const spy: LLM = { async generate() { asked = true; throw new Error("not reached"); } };
+    const e = await scoreItem(job({ snapshot: null }), spy).catch((x) => x);
+    expect(e).toBeInstanceOf(InternalError);
+    expect(asked).toBe(false);
+    expect(e.stack).toContain("TypeError");
+    for (const agent of ["gemini", "claude", "openai"] as const) expect(classifyFor(agent, e).code).toBe("internal");
+    expect(classifyFor("gemini", new TypeError("x")).code).toBe("unknown"); // a failure while asking is still the agent's
+    expect(await iceboxCheck(job({ snapshot: null }), spy).catch((x) => x)).toBeInstanceOf(InternalError);
   });
   it("the fake model is deterministic and can be made to fail", async () => {
     const fake = new FakeLLM();
