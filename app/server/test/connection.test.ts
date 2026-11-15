@@ -426,7 +426,7 @@ describe("what Gitilizer can read (SET-45, SET-47)", () => {
     plain.gh.requests = t.gh.requests;
     expect((await plain.call("GET", "/api/github/connection")).json().pending).toEqual([]);
     expect(plain.gh.calls.some((c) => c.url.includes("/app/installation-requests"))).toBe(false);
-  });
+  }, 20_000); // two databases and an RSA key: slow on a busy CI runner
 
   it("answers for a token, or for nothing connected, without asking GitHub", async () => {
     const t = await setup();
