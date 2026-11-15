@@ -46,7 +46,8 @@ function oauthClient(id: string | undefined, secret: string | undefined): OAuthC
 /** The Gitilizer GitHub App: its client ID and secret and its URL name; the app ID and private key are optional. */
 function githubApp(e: Record<string, string | undefined>): GitHubAppConfig | null {
   const client = oauthClient(e.GITHUB_APP_CLIENT_ID, e.GITHUB_APP_CLIENT_SECRET);
-  const slug = e.GITHUB_APP_SLUG?.trim();
+  // The app's URL name, or its whole public link (https://github.com/apps/<slug>), which is what GitHub shows.
+  const slug = e.GITHUB_APP_SLUG?.trim().replace(/\/+$/, "").split("/").pop();
   if (!client || !slug) return null;
   const privateKey = e.GITHUB_APP_PRIVATE_KEY?.trim().replace(/\\n/g, "\n") || null;
   return { ...client, slug, appId: e.GITHUB_APP_ID?.trim() || null, privateKey };

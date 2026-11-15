@@ -445,6 +445,11 @@ describe("the app's settings", () => {
     expect(loadConfig({ GITHUB_APP_CLIENT_ID: "Iv1.x", GITHUB_APP_CLIENT_SECRET: "s" }, ["node", "main.ts"]).githubApp).toBeNull(); // no slug
     expect(loadConfig({ GITHUB_APP_CLIENT_ID: "Iv1.x", GITHUB_APP_CLIENT_SECRET: "s", GITHUB_APP_SLUG: "gitilizer-dev" }, ["node", "main.ts"]).githubApp)
       .toEqual({ clientId: "Iv1.x", clientSecret: "s", slug: "gitilizer-dev", appId: null, privateKey: null });
+    // The app's public link, as GitHub shows it, stands for its URL name.
+    for (const link of ["https://github.com/apps/gitilizer-dev", "https://github.com/apps/gitilizer-dev/", " gitilizer-dev "]) {
+      expect(loadConfig({ GITHUB_APP_CLIENT_ID: "Iv1.x", GITHUB_APP_CLIENT_SECRET: "s", GITHUB_APP_SLUG: link }, ["node", "main.ts"]).githubApp?.slug)
+        .toBe("gitilizer-dev");
+    }
     const withKey = loadConfig({
       GITHUB_APP_CLIENT_ID: "Iv1.x", GITHUB_APP_CLIENT_SECRET: "s", GITHUB_APP_SLUG: "gitilizer", GITHUB_APP_ID: "99",
       GITHUB_APP_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----",
