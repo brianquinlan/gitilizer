@@ -200,8 +200,8 @@ for `gemini-3.8-flash`, with the same first five items, at about US$0.0006 an
 item, an eighth of the cost. A custom prompt (`SET-24`) keeps working: its own
 ranges are used if it has at least two, and otherwise five generic levels from
 "nothing for me to do" to "urgent", with the prompt still read as the
-instructions. **TODO:** measure the generic levels with a prompt that has no
-scale ([D-23](#d-23)).
+instructions. The default prompt without its Scale section measured 0.56 that
+way, with four of the true first five in its first five ([D-23](#d-23)).
 
 `classifyDecision()` maps the API's failures to the worker's codes as
 `classifyGemini()` does, from the status and the `quotaId`, and a 429 about a
@@ -1100,11 +1100,7 @@ Nothing changes outside local mode: production never sets `LOCAL_MODE`, and `AUT
 
 ## Open questions
 
-Questions about the design itself; each is marked **TODO:** where it comes up. The PRD has none open.
-
-| ID | Question | Notes |
-|---|---|---|
-| <a id="d-23"></a>D-23 | How well does basic ranking rank with a custom prompt that has no score ranges? | It then uses five generic levels ([The ranking agent](#the-ranking-agent), "Basic ranking"). Measure with the evaluation harness and a copy of the default prompt without its Scale section. |
+Questions about the design itself; each is marked **TODO:** where it comes up. There are none open at the moment, and the PRD has none either.
 
 ### Answered design questions
 
@@ -1132,3 +1128,4 @@ Questions about the design itself; each is marked **TODO:** where it comes up. T
 | <a id="d-20"></a>D-20 | A decision model returns probabilities for fixed questions, not a number or text. How does basic ranking get a score from the ranking prompt (`RANK-21`)? | By offering the prompt's own score ranges as the choices of one `score` question and taking the probability-weighted middle of the ranges, so the score is continuous and follows the same scale as every other agent's. The ranges are read from the prompt in use, not written into the code, so a new default prompt or a custom one changes them with no release; a prompt with no ranges gets five generic levels. The alternatives were a yes-or-no question for each rule, which ties the client to one prompt, and pairwise comparisons, which need many calls for each item (`RANK-18`). |
 | <a id="d-21"></a>D-21 | Basic ranking has one key for everyone. Where is its pause kept (`RANK-22`)? | In one shared row (`basic_pause`), so every process stops asking Google within one claim, plus the per-developer pause that every other key-level failure already uses, set when a developer first has a job that would have asked. That reuses the waiting items' "–", the sync state and the claim query unchanged, and tells only the developers who are actually waiting. A per-developer pause alone would send one refused request for each developer every 15 minutes; a shared row alone would need the list and the sync state to learn a second kind of pause. |
 | <a id="d-22"></a>D-22 | Where is ranking volume counted (`METRIC-5`)? | In both places the other metrics use. A Postgres table (`ranking_volume`), because past days must stay available and Cloud Monitoring keeps log-based metrics for about six weeks; and "ranking volume" log lines, because the owner's existing dashboard is Cloud Monitoring's and the Looker Studio one isn't built. Each worker flushes its counts once a minute, so a crash loses at most a minute of them. |
+| <a id="d-23"></a>D-23 | How well does basic ranking rank with a custom prompt that has no score ranges, where it falls back to five generic levels? | About as well overall, and a little worse at the very top. Measured on 2026-11-15 with the default prompt without its Scale section: Kendall tau 0.56 against 0.55 with the prompt's own ranges, four of the true first five in its first five (five with the ranges) and seven of the first ten (eight). So custom prompts stay available on basic ranking ([evaluation](../eval/decision-model-2026-11-15.md#follow-up-the-production-client-and-a-prompt-with-no-scale)). |

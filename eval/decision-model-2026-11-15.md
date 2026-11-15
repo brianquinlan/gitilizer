@@ -68,6 +68,30 @@ One ranker, 36 items, and the questions were written once and not tuned. A
 different question design (for example, separate questions for actionability
 and age), or several items in one request, was not tried.
 
+## Follow-up: the production client, and a prompt with no scale
+
+Basic ranking's client (`app/ranker/src/decision.ts`) doesn't have the ranges
+written into it, as the adapter below does: it reads them from the ranking
+prompt in use, and offers five generic levels, from "nothing for me to do" to
+"urgent", when the prompt has fewer than two
+([design](../contributor/DESIGN.md#the-ranking-agent)). Two runs on 2026-11-15,
+each of 3 identical trials:
+
+| Client | Prompt | Ranges offered | Kendall tau | Tau, set A | Tau, set B | Top-3 overlap | Top-5 overlap | Top-10 overlap | Mean rank error | Run |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Production | v4 | The eight in the prompt | 0.546 | 0.783 | 0.305 | 0.67 | 1.00 | 0.80 | 6.06 | Not kept: every figure equals `20261115-173640-decisions-api-v4` |
+| Production | v4 without its Scale section | Five generic levels | 0.559 | 0.850 | 0.305 | 0.67 | 0.80 | 0.70 | 5.78 | `20261115-221550-decision-no-scale` |
+
+- With the default prompt the production client sends the request the adapter
+sent, and gets the same answers.
+- A prompt with no score ranges ranks about as well overall with the generic
+  levels, and a little worse at the very top: four of the true first five in its
+  first five, and seven of the first ten. So a custom ranking prompt (`SET-24`)
+  works with basic ranking whether or not it defines a scale. The scores are
+  closer together (0.33 to 0.82 here), which doesn't matter to the order.
+- The second prompt was `prompts/v4.md` with the "Scale" section removed, and
+  isn't kept in `prompts/`; the run's `contexts/_system.txt` has its text.
+
 ## Appendix: the adapter
 
 `createLLM` returned this for models whose name starts with `gemini-decision`.
