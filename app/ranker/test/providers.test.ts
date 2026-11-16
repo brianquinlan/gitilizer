@@ -1,6 +1,9 @@
-// Claude and OpenAI clients (PRD RANK-19, SET-28): requests, parsing and error codes, against a fake fetch.
+// Claude, OpenAI and basic ranking clients (PRD RANK-19, RANK-21, SET-28): requests, parsing and error codes, against a fake fetch.
 import { describe, expect, it } from "vitest";
-import { agentForModel, checkAgentKey, ClaudeLLM, classifyClaude, classifyOpenAI, OpenAILLM, ProviderHttpError, strictSchema, ASSESSMENT, ICEBOX_DECISION } from "../src/index.ts";
+import {
+  agentForModel, checkAgentKey, ClaudeLLM, classifyClaude, classifyDecision, classifyOpenAI, createLLM, DecisionLLM, defaultPrompt, GENERIC_BANDS, OpenAILLM,
+  ProviderHttpError, scaleBands, strictSchema, ASSESSMENT, ICEBOX_DECISION, RANKING,
+} from "../src/index.ts";
 
 type Call = { url: string; init: RequestInit };
 function fakeFetch(responses: (Response | Error)[]) {
@@ -140,6 +143,7 @@ describe("agents", () => {
     expect(agentForModel("claude-sonnet-5-5")).toBe("claude");
     expect(agentForModel("gpt-6.1-sol")).toBe("openai");
     expect(agentForModel("gemini-3.8-flash")).toBe("gemini");
+    expect(agentForModel("gemini-decision-1")).toBe("basic");
   });
 
   it("checks a key by looking up the model, without using tokens", async () => {
@@ -152,5 +156,70 @@ describe("agents", () => {
     }
     expect(results).toEqual(["not_accepted", "permission_denied", "no_credits", "unreachable"]);
     expect((await checkAgentKey("openai", "k", "m", fakeFetch([new TypeError("fetch failed")]).f)).result).toBe("unreachable");
+  });
+});
+
+describe("scaleBands", () => {
+  it("reads the eight ranges of the default prompt, lowest first, with wrapped lines joined", () => {
+    const bands = scaleBands(defaultPrompt());
+    expect(bands.map((b) => [b.low, b.high])).toEqual([[0, 0.05], [0.05, 0.15], [0.15, 0.35], [0.35, 0.5], [0.5, 0.65], [0.65, 0.8], [0.8, 0.9], [0.9, 1]]);
+    expect(bands[7].text).toBe("Security issues or security PRs that need me.");
+    expect(bands[6].text).toBe("I'm blocking someone right now: my own PR with unanswered review feedback, a direct question to me that blocks someone else's work.");
+    expect(bands[0].text).toMatch(/^Nothing for me to do: .*outside my stated scope\.$/);
+  });
+
+  it("falls back to generic levels for a prompt without a scale", () => {
+    expect(scaleBands("Rank security first.\n\n- 1-10: not a range of scores")).toBe(GENERIC_BANDS);
+    expect(scaleBands("## Scale\n- 0.5-1.0: Mine\n- 0.0 to 0.5: Not mine\nMore text")).toEqual([
+      { low: 0, high: 0.5, text: "Not mine" }, { low: 0.5, high: 1, text: "Mine" },
+    ]);
+  });
+});
+
+describe("DecisionLLM", () => {
+  const system = "Rank my items.\n\n## Scale\n- 0.5–1.0: Needs me\n- 0.0–0.5: Doesn't need me\n";
+  const answer = (probabilities: Record<string, number>, actionable = 0.9) =>
+    json({ answers: { priority: { score: 1, probabilities }, actionable: { noul: actionable } }, usage: { total_input_tokens: 5100 } });
+
+  it("asks one question per answer and turns the probabilities into a score", async () => {
+    const { f, calls } = fakeFetch([answer({ "0": 0.2, "1": 0.8 })]);
+    const llm = createLLM("basic", { model: "gemini-decision-1", apiKey: "g-key", fetch: f });
+    expect(llm).toBeInstanceOf(DecisionLLM);
+    const r = await llm.generate(system, "the item", ASSESSMENT);
+    expect(r.result.priority).toBeCloseTo(0.2 * 0.25 + 0.8 * 0.75);
+    expect(r.result).toMatchObject({ actionable: true, next_action: "", reasoning: "" });
+    expect(r.usage).toEqual({ prompt_tokens: 5100, output_tokens: 0, thinking_tokens: 0 });
+    expect(calls[0].url).toBe("https://generativelanguage.googleapis.com/v1beta/decisions");
+    expect((calls[0].init.headers as Record<string, string>)["x-goog-api-key"]).toBe("g-key");
+    const body = JSON.parse(String(calls[0].init.body));
+    expect(body.model).toBe("gemini-decision-1");
+    expect(body.input).toEqual([{ type: "text", text: `${system}\n\n` }, { type: "text", text: "the item" }]);
+    expect(body.questions.priority).toMatchObject({ type: "score", criteria: ["Doesn't need me", "Needs me"] });
+    expect(body.questions.actionable.type).toBe("noul");
+  });
+
+  it("answers the Icebox check with a yes or no and no reason", async () => {
+    const { f, calls } = fakeFetch([json({ answers: { bring_back: { noul: 0.3 } }, usage: { total_input_tokens: 900 } })]);
+    const r = await new DecisionLLM({ apiKey: "k", fetch: f }).generate("icebox prompt", "changes", ICEBOX_DECISION);
+    expect(r.result).toEqual({ bring_back: false, reason: "" });
+    expect(Object.keys(JSON.parse(String(calls[0].init.body)).questions)).toEqual(["bring_back"]);
+  });
+
+  it("rejects answers it can't read, and schemas it can't answer", async () => {
+    const bad = fakeFetch([answer({ "7": 1 }), answer({ "7": 1 }), answer({ "7": 1 })]);
+    await expect(new DecisionLLM({ apiKey: "k", fetch: bad.f }).generate(system, "u", ASSESSMENT)).rejects.toMatchObject({ code: "invalid_output" });
+    expect(bad.calls.length).toBe(3); // malformed output is retried twice
+    await expect(new DecisionLLM({ apiKey: "k", fetch: fakeFetch([]).f }).generate(system, "u", RANKING)).rejects.toThrow(/one item at a time/);
+  });
+
+  it("classifies quota and spending refusals, which pause basic ranking (RANK-22)", () => {
+    const err = (status: number, body: unknown, retryAfter: number | null = null) => new ProviderHttpError("Gemini", status, JSON.stringify(body), retryAfter);
+    const quota = (quotaId: string) => ({ error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "Quota exceeded", details: [{ violations: [{ quotaId }] }] } });
+    expect(classifyDecision(err(429, quota("CreateDecisionRequestsPerDayPerProjectPerModel"))).code).toBe("daily_quota");
+    expect(classifyDecision(err(429, quota("CreateDecisionRequestsPerMinutePerProjectPerModel"), 7))).toMatchObject({ code: "rate_limited", retryAfter: 7 });
+    expect(classifyDecision(err(429, { error: { message: "The project has exceeded its monthly spending cap." } })).code).toBe("credits_exhausted");
+    expect(classifyDecision(err(403, { error: { message: "Billing is disabled for this project." } })).code).toBe("billing_required");
+    expect(classifyDecision(err(400, { error: { message: "API key not valid. Please pass a valid API key." } })).code).toBe("key_invalid");
+    expect(classifyDecision(err(503, {})).code).toBe("unavailable");
   });
 });

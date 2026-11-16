@@ -5,6 +5,7 @@ export * from "./agent.ts";
 export * from "./agents.ts";
 export * from "./anthropic.ts";
 export * from "./context.ts";
+export * from "./decision.ts";
 export * from "./gemini.ts";
 export { ProviderHttpError, strictSchema, type ProviderOptions } from "./http.ts";
 export * from "./metrics.ts";

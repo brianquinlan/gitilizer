@@ -148,17 +148,37 @@ describe("Connect GitHub (SET-43)", () => {
     expect(await getGitHubToken(t.ctx, userId)).toEqual({ token: "ghu_1", method: "app" });
   });
 
-  it("completes nothing on Warm Welcome by itself: Save still needs the agent's key, but no token (WEL-4)", async () => {
+  it("leads to Warm Welcome's step 2, where a Gemini key finishes setup with Gemini (WEL-2, WEL-4)", async () => {
     const t = await setup();
     await t.signIn();
+    expect((await t.call("POST", "/api/setup", { credentials: {} })).statusCode).toBe(422); // step 1: not connected yet
     const { back } = await t.connect("/");
     expect(back.headers.location).toBe("/");
-    expect((await t.call("GET", "/api/me")).json()).toMatchObject({ screen: "welcome", github: { method: "app" } });
-    expect((await t.call("POST", "/api/setup", { credentials: {} })).statusCode).toBe(422);
-    const r = await t.call("POST", "/api/setup", { credentials: { gemini_key: "AIza-x" }, rankingAgent: "gemini" });
-    expect(r.json()).toEqual({ ok: true, results: { gemini_key: { ok: true, code: "ok" } } });
-    expect((await t.call("GET", "/api/me")).json().screen).toBe("app");
+    expect((await t.call("GET", "/api/me")).json()).toMatchObject({ screen: "welcome", rankingChosen: false, github: { method: "app" } });
+    const r = await t.call("POST", "/api/setup", { credentials: { gemini_key: "AIza-x" } });
+    expect(r.json()).toEqual({ ok: true, results: { gemini_key: { ok: true, code: "ok" } }, rankingAgent: "gemini" });
+    expect((await t.call("GET", "/api/me")).json()).toMatchObject({ screen: "app", rankingAgent: "gemini" });
     expect(await t.kinds()).toEqual(["gemini_key", "github_app"]);
+  });
+
+  it("finishes setup with basic ranking when the key is left blank (WEL-4, RANK-21)", async () => {
+    const t = await setup();
+    await t.signIn();
+    await t.connect("/");
+    const r = await t.call("POST", "/api/setup", {});
+    expect(r.json()).toEqual({ ok: true, results: {}, rankingAgent: "basic" });
+    expect((await t.call("GET", "/api/me")).json()).toMatchObject({ screen: "app", rankingAgent: "basic", rankingChosen: true });
+    expect(await t.kinds()).toEqual(["github_app"]);
+  });
+
+  it("completes setup by itself for a developer who chose their ranking in Settings first (WEL-2)", async () => {
+    const t = await setup();
+    await t.signIn();
+    const page = { additionalRepos: [], excludedRepos: [], collaborators: [], customPrompt: null, rerank: false };
+    expect((await t.call("PUT", "/api/settings", { ...page, rankingAgent: "claude", credentials: { anthropic_key: "sk-ant-x" } })).statusCode).toBe(200);
+    expect((await t.call("GET", "/api/me")).json()).toMatchObject({ screen: "welcome", rankingAgent: "claude", rankingChosen: true });
+    await t.connect("/");
+    expect((await t.call("GET", "/api/me")).json()).toMatchObject({ screen: "app", rankingAgent: "claude" });
   });
 
   it("returns with ?connect=cancelled when the developer cancels on GitHub, and nothing changes", async () => {
@@ -211,7 +231,8 @@ describe("Connect GitHub (SET-43)", () => {
   it("clears the notifications about the GitHub connection (NOTIF-13)", async () => {
     const t = await setup();
     const userId = await t.signIn();
-    await t.call("POST", "/api/setup", { credentials: { github_pat: "ghp_x", gemini_key: "AIza-x" } });
+    const page = { additionalRepos: [], excludedRepos: [], collaborators: [], customPrompt: null, rerank: false };
+    await t.call("PUT", "/api/settings", { ...page, credentials: { github_pat: "ghp_x", gemini_key: "AIza-x" } });
     const { raise } = await import("../src/notify.ts");
     await raise(t.ctx, userId, "github_expired");
     expect((await t.call("GET", "/api/me")).json().github.chip).toBe("not_working");

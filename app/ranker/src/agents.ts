@@ -1,25 +1,30 @@
-// The ranking agents a developer can choose (PRD SET-38, RANK-19): which
-// client to call for each, and checking a Claude or OpenAI key (SET-28).
+// The ranking agents a developer can choose (PRD SET-38, RANK-19), and basic
+// ranking, which needs no key of theirs (RANK-21): which client to call for
+// each, and checking a Claude or OpenAI key (SET-28).
 import { ClaudeLLM, CLAUDE_API, classifyClaude } from "./anthropic.ts";
 import { InternalError } from "./agent.ts";
+import { classifyDecision, DecisionLLM, DEFAULT_BASIC_MODEL } from "./decision.ts";
 import { Classified, classifyGemini, GeminiLLM } from "./gemini.ts";
 import type { ProviderOptions } from "./http.ts";
 import { classifyOpenAI, OPENAI_API, OpenAILLM } from "./openai.ts";
 import type { LLM } from "./prioritizer.ts";
 
-export const AGENTS = ["gemini", "claude", "openai"] as const;
+export const AGENTS = ["gemini", "claude", "openai", "basic"] as const;
 export type Agent = (typeof AGENTS)[number];
 
-/** The model each agent ranks with (RANK-19). Gemini's models, with their backups, are in the server's config (RANK-13). */
+/** The model each agent ranks with (RANK-19, RANK-21). Gemini's models, with their backups, are in the server's config (RANK-13). */
 export const DEFAULT_AGENT_MODELS: Record<Exclude<Agent, "gemini">, string> = {
   claude: "claude-sonnet-5-5",
   openai: "gpt-6.1-sol",
+  basic: DEFAULT_BASIC_MODEL,
 };
 
 /** The agent a model name belongs to, for the evaluation CLI. */
 export function agentForModel(model: string): Agent {
   if (/^claude-/.test(model)) return "claude";
   if (/^(gpt-|o\d)/.test(model)) return "openai";
+  // Decision models answer through the Decisions API, not generateContent.
+  if (/^gemini-decision/.test(model)) return "basic";
   return "gemini";
 }
 
@@ -27,6 +32,7 @@ export function agentForModel(model: string): Agent {
 export function createLLM(agent: Agent, opts: ProviderOptions): LLM {
   if (agent === "claude") return new ClaudeLLM(opts);
   if (agent === "openai") return new OpenAILLM(opts);
+  if (agent === "basic") return new DecisionLLM(opts);
   return new GeminiLLM({ model: opts.model, apiKey: opts.apiKey, thinkingLevel: opts.thinkingLevel, maxRetries: opts.maxRetries, timeoutMs: opts.timeoutMs });
 }
 
@@ -35,6 +41,7 @@ export function classifyFor(agent: Agent, e: unknown): Classified {
   if (e instanceof InternalError) return new Classified("internal", e.message);
   if (agent === "claude") return classifyClaude(e);
   if (agent === "openai") return classifyOpenAI(e);
+  if (agent === "basic") return classifyDecision(e);
   return classifyGemini(e);
 }
 

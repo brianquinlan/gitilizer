@@ -28,8 +28,8 @@ const num = (v: string | undefined, d: number) => (v ? Number(v) : d);
 // `--local` is local mode (contributor/LOCAL_DEVELOPMENT.md).
 // `--dev-sign-in` offers the development sign-in form without OAuth apps (`npm run dev:server`); never deployed.
 
-/** RANK-13: the primary model, then the backups. GITILIZER_MODEL replaces only the primary model. */
-const DEFAULT_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
+/** RANK-13: the primary model, then the backup; basic ranking comes after them. GITILIZER_MODEL replaces only the primary model. */
+const DEFAULT_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash-lite"];
 function rankingModels(): string[] {
   if (env.GITILIZER_MODELS) return env.GITILIZER_MODELS.split(",").map((s) => s.trim()).filter(Boolean);
   const primary = env.GITILIZER_MODEL?.trim();
@@ -71,6 +71,11 @@ export function loadConfig(e: Record<string, string | undefined> = env, argv: st
     agentModels: {
       claude: e.GITILIZER_CLAUDE_MODEL?.trim() || DEFAULT_AGENT_MODELS.claude,
       openai: e.GITILIZER_OPENAI_MODEL?.trim() || DEFAULT_AGENT_MODELS.openai,
+    },
+    basic: {
+      // On a developer's own computer, the Gemini key in .env ranks for basic ranking too (contributor/LOCAL_DEVELOPMENT.md).
+      key: e.BASIC_RANKING_API_KEY?.trim() || (deployed ? "" : e.LOCAL_GEMINI_API_KEY?.trim() || e.GEMINI_API_KEY?.trim()) || null,
+      model: e.GITILIZER_BASIC_MODEL?.trim() || DEFAULT_AGENT_MODELS.basic,
     },
     defaultPrompt: readFileSync(join(ROOT, "prompts", "v4.md"), "utf8"),
     shortLivedSeconds: num(e.SHORT_LIVED_SECONDS, 15 * 60),
@@ -120,6 +125,7 @@ export function deployedConfigProblems(config: Config, e: Record<string, string 
   if (!e.DATABASE_URL) problems.push("DATABASE_URL is missing.");
   if (!e.CREDENTIAL_KEY) problems.push("CREDENTIAL_KEY is missing.");
   if (!e.WORKER_TOKEN || e.WORKER_TOKEN === "dev-worker-token") problems.push("WORKER_TOKEN is missing.");
+  if (!config.basic.key) problems.push("BASIC_RANKING_API_KEY is missing.");
   if (!e.PUBLIC_URL || !/^https:\/\/[^/]+$/.test(config.publicUrl)) problems.push("PUBLIC_URL must be the environment's https:// address, such as https://gitilizer.com.");
   if (!config.oauth.google) problems.push("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are missing.");
   if (!config.oauth.github) problems.push("GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are missing.");

@@ -40,7 +40,9 @@ export function focusTarget(id: string): boolean {
   const el = document.getElementById(decodeURIComponent(id));
   if (!el) return false;
   el.scrollIntoView({ behavior: "smooth", block: "center" });
-  const focusable = el.matches("input, textarea, button, select, a, [tabindex]") ? el : el.querySelector<HTMLElement>("input, textarea, button, select, a, [tabindex]");
+  // In a radio group, the checked choice is the one the keyboard is on.
+  const focusable = el.matches("input, textarea, button, select, a, [tabindex]") ? el
+    : el.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? el.querySelector<HTMLElement>("input, textarea, button, select, a, [tabindex]");
   (focusable ?? el).focus({ preventScroll: true });
   return true;
 }

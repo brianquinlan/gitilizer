@@ -69,6 +69,7 @@ npm run evaluate -- --strategy recency     # no model: most recently updated fir
 npm run evaluate                           # Gemini, pointwise, default prompt (v4), 3 trials
 npm run evaluate -- --model claude-sonnet-5-5  # Claude (ANTHROPIC_API_KEY)
 npm run evaluate -- --model gpt-6.1-sol        # OpenAI (OPENAI_API_KEY); --thinking low to max
+npm run evaluate -- --model gemini-decision-1  # basic ranking (BASIC_RANKING_API_KEY, or GEMINI_API_KEY)
 npm run evaluate -- --strategy listwise    # one call ranks all items
 npm run evaluate -- --thinking low --trials 5
 npm run evaluate -- --prompt prompts/v1.md --label v1

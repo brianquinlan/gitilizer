@@ -393,6 +393,12 @@ Before telling anyone about `gitilizer.com`:
 13. ~~First release and a practice rollback (7.5).~~ Done.
 14. ~~Budget and `monitoring.sh` (8.1, 8.2).~~ Done.
 15. Launch checks (Phase 9).
+16. Before the first release that has basic ranking: create Gitilizer's own
+    Gemini API keys, on a paid tier, and store them with
+    `infra/basic-ranking-secret.sh`; run `infra/services.sh dev` and `prod` to
+    give them to the services; then `infra/monitoring.sh` again, for the
+    ranking-volume charts and the key alert
+    ([DEPLOYMENT.md](DEPLOYMENT.md#the-basic-ranking-key)).
 
 ---
 

@@ -3,8 +3,8 @@ import type { ItemRow, RemovalReason } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 import type { Db } from "./db.ts";
 
-// waiting: a ranking job is queued while ranking is paused, because every Gemini model's daily quota is
-// used up or the agent's key, credits or billing doesn't work (LIST-30, RANK-20).
+// waiting: a ranking job is queued while ranking is paused, because the agent's key, credits or billing
+// doesn't work, or basic ranking is paused (LIST-30, RANK-20, RANK-22).
 const ROW_SQL = `
   select ui.item_key, ui.reasons, ui.mention_handle, ui.status, ui.iceboxed_at, ui.score, ui.reasoning, ui.rank_failed,
          i.kind, i.title, i.html_url, i.updated_at,
@@ -28,7 +28,7 @@ function toRow(r: any): ItemRow {
     mentionHandle: r.mention_handle,
     status: r.status,
     iceboxedAt: r.iceboxed_at ? new Date(r.iceboxed_at).toISOString() : null,
-    reasoning: r.reasoning ?? null,
+    reasoning: r.reasoning || null, // basic ranking stores none, so the rank isn't clickable (LIST-24)
     score: r.score === null || r.score === undefined ? null : Number(r.score),
     rankFailed: Boolean(r.rank_failed),
     waiting: Boolean(r.waiting),

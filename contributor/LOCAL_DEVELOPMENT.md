@@ -52,7 +52,14 @@ GEMINI_API_KEY=...
 
 - **GitHub token:** create one at [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens/new). A fine-grained token needs read access to Issues, Pull requests and Metadata. Gitilizer only reads; it never writes to GitHub.
 - **Gemini API key:** create one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). A free-tier key works, but it allows only a limited number of rankings a day.
-- **Claude and OpenAI keys (optional):** add `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to rank with Claude or OpenAI instead. Local mode saves every key it finds, so you can switch agents in Settings without pasting one; with no Gemini key, it starts with the first agent that has a key. The evaluation tools use them with `--model claude-haiku-5-5` or `--model gpt-6-luna`.
+- **Basic ranking (optional):** with a token and no ranking agent's key in
+  `.env`, the app opens on the welcome page's second step, where you can add a
+  Gemini key or continue with basic ranking. Basic ranking needs a Gemini API
+  key for Gitilizer itself: `BASIC_RANKING_API_KEY` in `.env`, or
+  `GEMINI_API_KEY` if that isn't set. With neither, it stays paused, and the
+  terminal shows `basic ranking can't use its key`. To try it when `.env` has a
+  Gemini key, choose **Basic ranking** under **Ranking agent** in Settings.
+- **Claude and OpenAI keys (optional):** add `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to rank with Claude or OpenAI instead. Local mode saves every key it finds, so you can switch agents in Settings without pasting one; with no Gemini key, it starts with the first agent that has a key. The evaluation tools use them with `--model claude-sonnet-5-5` or `--model gpt-6.1-sol`.
 
 `.env` is ignored by Git, so your credentials stay on your computer. The evaluation tools ([README.md](README.md)) use the same file.
 
@@ -119,7 +126,8 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 | Variable | What it does |
 |---|---|
 | `GITILIZER_MODEL` | The primary Gemini model to rank with; the backup models stay the same (also read from `.env`). |
-| `GITILIZER_MODELS` | The whole fallback list, comma-separated, primary first (default `gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite`). |
+| `GITILIZER_MODELS` | The whole fallback list, comma-separated, primary first (default `gemini-3.8-flash,gemini-3.5-flash-lite`); basic ranking comes after them. |
+| `BASIC_RANKING_API_KEY`, `GITILIZER_BASIC_MODEL` | Gitilizer's own Gemini key for basic ranking (also read from `.env`; default: your `GEMINI_API_KEY`), and its model (default `gemini-decision-1`). |
 | `GITILIZER_CLAUDE_MODEL`, `GITILIZER_OPENAI_MODEL` | The model Claude or OpenAI ranks with (default `claude-sonnet-5-5` and `gpt-6.1-sol`). |
 | `LOG_LEVEL` | How much the server logs: `debug` (the default in local mode: every ranked item), `info`, `warn` or `error`. |
 | `CREDENTIAL_KEY` | Overrides the saved encryption key. If you change it, credentials saved with the old key can no longer be read; use `--reset`. |
@@ -137,9 +145,10 @@ You can also set these in the PowerShell window before starting (`$env:NAME = "v
 | "Port 8787 is already in use" (or 8788, 5173) | Gitilizer is probably already running in another window. Stop it with Ctrl+C there. |
 | Your list looks wrong after updating Gitilizer | The database in `.local` is upgraded automatically when the server starts. If something still looks wrong, start again with `--reset`. |
 | The bell shows "Gitilizer is using a backup Gemini model" | Your free-tier key's daily quota for the main model is used up, so ranking uses a smaller model until midnight Pacific time. This is expected on the free tier, especially after a first sync or **Save and re-rank**. |
-| The app opens on "Welcome to your prioritized inbox" | A credential is missing: `.env` didn't have it on the first run. Enter both on that page and choose **Save**, or fill in `.env` and restart with `--reset`. |
+| The app opens on "Welcome to your prioritized inbox" | `.env` didn't have everything on the first run. With no GitHub token, choose **Advanced setup** and add one in Settings. With a token and no key, add a Gemini key on that page or choose **Continue with basic ranking**. Or fill in `.env` and restart with `--reset`. |
 | The bell shows "Your GitHub token isn't valid" or a Gemini error | Fix the credential in Settings. Changing `.env` alone doesn't replace a credential that is already saved. |
-| "Your Gemini daily quota is used up" | Every model's daily quota is used up. Ranking resumes at midnight Pacific time; until then new items wait at the end of the list with "–". |
+| "Gitilizer is using basic ranking" | Both models' daily quotas are used up, so new and changed items are ranked with basic ranking until midnight Pacific time. |
+| "Basic ranking is paused" | Basic ranking's key was refused for a quota or spending limit, or there is none: set `BASIC_RANKING_API_KEY` or `GEMINI_API_KEY` in `.env` and restart. Items wait at the end of the list with "–" meanwhile. |
 | You want a completely fresh start | `npm run local -- --reset` (or `npm run local:fixtures -- --reset`). |
 
 ## Running the tests

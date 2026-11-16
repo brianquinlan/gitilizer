@@ -1,10 +1,10 @@
-// Shared plumbing for the ranking agents called over plain HTTPS (Claude and
-// OpenAI): errors that keep the status, headers and body for classification,
+// Shared plumbing for the ranking agents called over plain HTTPS (Claude,
+// OpenAI and Gemini's decision model): errors that keep the status, headers and body for classification,
 // strict JSON schemas, and a retry loop with a deadline, as GeminiLLM has
 // (design: Ranking worker, "Timeouts").
 import { Classified, InvalidOutput } from "./gemini.ts";
 
-export type ProviderName = "Claude" | "OpenAI";
+export type ProviderName = "Claude" | "OpenAI" | "Gemini";
 
 /** A non-2xx answer from a provider. */
 export class ProviderHttpError extends Error {

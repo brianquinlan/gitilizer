@@ -89,7 +89,7 @@ describe("ranking with Claude or OpenAI (RANK-19, RANK-20)", () => {
   });
 });
 
-describe("choosing and switching agents in Settings and Warm Welcome (SET-38 to SET-40, WEL-5)", () => {
+describe("choosing and switching agents in Settings (SET-38 to SET-40)", () => {
   let ctx: Ctx;
   let app: FastifyInstance;
   let cookie = "";
@@ -106,12 +106,12 @@ describe("choosing and switching agents in Settings and Warm Welcome (SET-38 to 
     userId = (await call("GET", "/api/me")).json().user.id;
   });
 
-  it("completes setup with Claude and its key, ignoring a value typed for another agent (WEL-4, WEL-5)", async () => {
-    expect((await call("POST", "/api/setup", { credentials: { github_pat: "ghp_x", gemini_key: "AIza-x" }, rankingAgent: "claude" })).statusCode).toBe(422);
-    const r = await call("POST", "/api/setup", { credentials: { github_pat: "ghp_x", anthropic_key: "sk-ant-x", gemini_key: "bad-ignored" }, rankingAgent: "claude" });
-    expect(r.json()).toEqual({ ok: true, results: { github_pat: { ok: true, code: "ok", login: "brianquinlan" }, anthropic_key: { ok: true, code: "ok" } } });
+  it("completes setup from Settings with a token and Claude's key, as \"Advanced setup\" offers (WEL-2, NAV-5)", async () => {
+    expect((await call("GET", "/api/settings")).json()).toMatchObject({ rankingAgent: "gemini", rankingChosen: false }); // the picker starts on Gemini (SET-38)
+    const r = await call("PUT", "/api/settings", { ...page, rankingAgent: "claude", credentials: { github_pat: "ghp_x", anthropic_key: "sk-ant-x" } });
+    expect(r.statusCode).toBe(200);
     const me = (await call("GET", "/api/me")).json();
-    expect(me).toMatchObject({ screen: "app", rankingAgent: "claude" });
+    expect(me).toMatchObject({ screen: "app", rankingAgent: "claude", rankingChosen: true });
     expect(me.credentials.anthropic_key).toMatchObject({ set: true, chip: "connected" });
     expect(me.credentials.gemini_key).toMatchObject({ set: false, chip: "not_set" });
   });
@@ -129,7 +129,7 @@ describe("choosing and switching agents in Settings and Warm Welcome (SET-38 to 
   it("refuses an agent with no key, saved or typed, next to its field (SET-27)", async () => {
     const r = await call("PUT", "/api/settings", { ...page, rankingAgent: "openai" });
     expect(r.statusCode).toBe(422);
-    expect(r.json().errors).toEqual([{ field: "openai-key", message: "Add an OpenAI API key, or choose an agent you've already set up." }]);
+    expect(r.json().errors).toEqual([{ field: "openai-key", message: "Add an OpenAI API key, or choose basic ranking." }]);
     expect((await call("GET", "/api/me")).json().rankingAgent).toBe("claude");
   });
 
@@ -139,7 +139,7 @@ describe("choosing and switching agents in Settings and Warm Welcome (SET-38 to 
       `insert into user_items (user_id, item_key, reasons, score, ranked_agent) values ($1, 'a/b#1', '{assigned}', 0.5, 'claude'), ($1, 'a/b#2', '{assigned}', null, null)`,
       [userId],
     );
-    expect((await call("GET", "/api/settings")).json()).toMatchObject({ rankingAgent: "claude", rankedBy: { gemini: 0, claude: 1, openai: 0 } });
+    expect((await call("GET", "/api/settings")).json()).toMatchObject({ rankingAgent: "claude", rankedBy: { gemini: 0, claude: 1, openai: 0, basic: 0 } });
   });
 
   it("switches with a typed key: ends the old agent's pause, clears its notifications and keeps its key (SET-39, SET-40, NOTIF-23)", async () => {

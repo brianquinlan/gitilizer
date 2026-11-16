@@ -329,6 +329,46 @@
       ]
      }
     }
+   },
+   {
+    "xPos": 0,
+    "yPos": 96,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Items ranked per day, by the developer's choice (METRIC-5)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "prometheusQuery": "sum by (choice) (increase(logging_googleapis_com:user_ranked_items_sum{monitored_resource=\"cloud_run_revision\"}[1d]))",
+         "unitOverride": "1"
+        },
+        "plotType": "STACKED_BAR"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "xPos": 24,
+    "yPos": 96,
+    "width": 24,
+    "height": 16,
+    "widget": {
+     "title": "Items ranked per day for Gemini keys, by step: primary, backup, basic ranking (METRIC-5)",
+     "xyChart": {
+      "dataSets": [
+       {
+        "timeSeriesQuery": {
+         "prometheusQuery": "sum by (model) (increase(logging_googleapis_com:user_ranked_items_sum{monitored_resource=\"cloud_run_revision\",choice=\"gemini\"}[1d]))",
+         "unitOverride": "1"
+        },
+        "plotType": "STACKED_BAR"
+       }
+      ]
+     }
+    }
    }
   ]
  }

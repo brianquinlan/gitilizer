@@ -25,8 +25,7 @@ export const NotificationCode = z.enum([
   "gemini_permission_denied",
   "gemini_credits",
   "gemini_billing",
-  "gemini_backup_model", // warning
-  "gemini_daily_quota",
+  "gemini_backup_model", // warning; also "Gitilizer is using basic ranking" (RANK-13)
   "gemini_rate_limited", // warning, short-lived
   "gemini_unavailable", // warning, short-lived
   "gemini_model_unavailable",
@@ -48,6 +47,7 @@ export const NotificationCode = z.enum([
   "openai_model_unavailable",
   "openai_unexpected",
   // Ranking
+  "basic_paused", // warning (RANK-22)
   "prompt_failing",
   "items_unranked", // warning
   // Gitilizer
@@ -262,20 +262,14 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
   },
   gemini_backup_model: {
     severity: "warning", summary: "Gemini connection", clearedBy: "gemini_key",
-    heading: () => "Gitilizer is using a backup Gemini model",
+    // `basic` is set once the backup model's quota is used up too, and basic ranking is the step in use (RANK-13).
+    heading: (p) => (p.basic ? "Gitilizer is using basic ranking" : "Gitilizer is using a backup Gemini model"),
     body: (p, now) => [T(
-      `Your daily quota for ${p.primaryModel} is used up, so new and changed issues and PRs are being ranked with ${p.model} ` +
+      (p.basic
+        ? "Your Gemini daily quota is used up, so new and changed issues and PRs are being ranked with basic ranking "
+        : `Your daily quota for ${p.primaryModel} is used up, so new and changed issues and PRs are being ranked with ${p.model} `) +
       `until it resets at ${formatTime(p.resetAt, now)}, in about ${formatDuration(p.resetAt, now)}. ` +
       "Rankings may be less accurate until then. To avoid this, turn on billing in Google AI Studio.",
-    )],
-  },
-  gemini_daily_quota: {
-    severity: "error", summary: "Gemini connection", clearedBy: "gemini_key",
-    heading: () => "Your Gemini daily quota is used up",
-    body: (p, now) => [T(
-      "Your daily quota is used up for every Gemini model Gitilizer can use, so new and changed issues and PRs aren't being ranked. " +
-      `Ranking resumes automatically when the quota resets at ${formatTime(p.resetAt, now)}, in about ${formatDuration(p.resetAt, now)}. ` +
-      "To avoid this, use an API key with billing turned on.",
     )],
   },
   gemini_rate_limited: {
@@ -392,6 +386,20 @@ export const CATALOGUE: Record<NotificationCode, Entry> = {
       S("Settings", "ranking-prompt"), T("."),
     ],
   },
+  basic_paused: {
+    severity: "warning", summary: "Ranking",
+    heading: () => "Basic ranking is paused",
+    // `ownQuota` is set for a developer with a Gemini key whose own quota is used up too; `resetAt` when the limit is a daily quota (RANK-22).
+    body: (p, now) => {
+      const start = p.ownQuota ? "Your Gemini daily quota is used up, and so is Gitilizer's own ranking quota," : "Gitilizer's own ranking quota is used up,";
+      const resumes = p.resetAt
+        ? `Ranking resumes automatically when the quota resets at ${formatTime(p.resetAt, now)}, in about ${formatDuration(p.resetAt, now)}.`
+        : "Ranking resumes automatically when more quota is available.";
+      const text = `${start} so new and changed issues and PRs aren't being ranked. ${resumes} `;
+      if (p.ownQuota) return [T(`${text}To avoid this, use an API key with billing turned on.`)];
+      return [T(`${text}To rank without waiting, add your own API key in `), S("Settings", "ranking-agent"), T(".")];
+    },
+  },
   items_unranked: {
     severity: "warning", summary: "Ranking",
     heading: (p) => `Gitilizer couldn't rank ${p.n} ${p.n === "1" ? "issue or PR" : "issues and PRs"}`,
@@ -422,9 +430,14 @@ export function credentialErrorCodes(kind: "github_pat" | "gemini_key" | "anthro
     .filter((c) => CATALOGUE[c].clearedBy === kind && CATALOGUE[c].severity === "error" && c !== "repo_inaccessible");
 }
 
-/** Every notification about one ranking agent, cleared when the developer switches away from it (NOTIF-23). */
-export function agentNotificationCodes(agent: "gemini" | "claude" | "openai"): NotificationCode[] {
-  return (Object.keys(CATALOGUE) as NotificationCode[]).filter((c) => c.startsWith(`${agent}_`));
+/**
+ * Every notification about one way of ranking, cleared when the developer
+ * switches away from it (NOTIF-23). "Basic ranking is paused" is about basic
+ * ranking and about a Gemini key that has fallen back to it (RANK-22).
+ */
+export function agentNotificationCodes(agent: "gemini" | "claude" | "openai" | "basic"): NotificationCode[] {
+  const codes = (Object.keys(CATALOGUE) as NotificationCode[]).filter((c) => c.startsWith(`${agent}_`));
+  return agent === "gemini" ? [...codes, "basic_paused"] : codes;
 }
 
 /** Errors before warnings, then oldest first (NOTIF-19). */

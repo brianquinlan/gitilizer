@@ -1,11 +1,12 @@
 # Gitilizer user guide
 
-Gitilizer collects your open GitHub issues and PRs into one list and uses the AI you choose, Google's Gemini, Anthropic's Claude or OpenAI, to put them in priority order. This guide explains how to set it up, what the notifications mean, and what Gitilizer does with your data.
+Gitilizer collects your open GitHub issues and PRs into one list and uses the AI you choose, Google's Gemini, Anthropic's Claude or OpenAI, to put them in priority order. If you don't add an API key, Gitilizer ranks them itself ([Basic ranking](#basic-ranking)). This guide explains how to set it up, what the notifications mean, and what Gitilizer does with your data.
 
 - [Getting started](#getting-started)
 - [Connecting GitHub](#connecting-github)
 - [GitHub personal access tokens](#github-personal-access-tokens)
 - [Ranking agents](#ranking-agents)
+- [Basic ranking](#basic-ranking)
 - [Gemini API keys](#gemini-api-keys)
 - [Claude API keys](#claude-api-keys)
 - [OpenAI API keys](#openai-api-keys)
@@ -16,19 +17,27 @@ Gitilizer collects your open GitHub issues and PRs into one list and uses the AI
 ## Getting started
 
 1. Sign in with Google or GitHub. Each is a separate Gitilizer account, even if both use the same email address, so always sign in the same way.
-2. On the welcome page, choose **Connect GitHub**
-   ([Connecting GitHub](#connecting-github)), choose a
-   [ranking agent](#ranking-agents) and add its API key. A Gemini key is free
-   to create and works on Google's free tier, within a small daily quota
-   ([Free-tier limits](#free-tier-limits)); Claude and OpenAI have no free
-   tier. Signing in with GitHub doesn't give Gitilizer access to your issues:
-   it reads GitHub only through the connection you make here.
-3. Choose **Save**. Gitilizer checks what you typed first and saves it only
-   if it works; otherwise it says what's wrong under the field. It then scans
-   your issues and PRs and ranks each one. The list fills in as items are
-   ranked.
+2. On the welcome page, choose **Connect GitHub** ([Connecting
+   GitHub](#connecting-github)). Signing in with GitHub doesn't give Gitilizer
+   access to your issues: it reads GitHub only through the connection you make
+   here.
+3. Back on the welcome page, paste a **Gemini API key** if you have one, or
+   create one: it is free, and works on Google's free tier within a small daily
+   quota ([Free-tier limits](#free-tier-limits)). Then choose **Save and
+   start**. Gitilizer checks the key first and saves it only if it works;
+   otherwise it says what's wrong under the field.
+4. Or leave the key blank and choose **Continue with basic ranking**. Gitilizer
+   then ranks your list itself: good for your top items, less precise below
+   them, with no explanation for each rank ([Basic ranking](#basic-ranking)).
+   You can add a key at any time in Settings.
 
-You can change the GitHub connection, the key and the ranking agent later in
+Gitilizer then scans your issues and PRs and ranks each one. The list fills in
+as items are ranked.
+
+To use Claude or OpenAI, or a personal access token in place of Connect GitHub,
+choose **Advanced setup** on the welcome page before connecting. It opens
+Settings, where you can set up everything; saving there finishes setup too. You
+can change the GitHub connection, the key and how your list is ranked later in
 Settings.
 
 Optionally, in Settings:
@@ -37,7 +46,7 @@ Optionally, in Settings:
 - **Ranking prompt** changes the instructions the agent follows when it scores an item. **Restore default** puts back Gitilizer's own prompt, which improves over time.
 - **Collaborators** are people whose issues, PRs and comments should rank higher.
 
-**Save changes** keeps the existing ranks until items change. **Save and re-rank** ranks every item again, which uses more of your ranking agent's quota or credits.
+**Save changes** keeps the existing ranks until items change. **Save and re-rank** ranks every item again, which uses more of your ranking agent's quota or credits; it needs an API key of your own, so it is greyed out on basic ranking.
 
 ## Connecting GitHub
 
@@ -128,7 +137,7 @@ Validate, next to the token field, checks a token before you save it and shows w
 
 ## Ranking agents
 
-The ranking agent is the AI that reads each issue and PR and gives it a score. You can choose one of three, each with your own API key:
+The ranking agent is the AI that reads each issue and PR and gives it a score. You can choose one of three, each with your own API key, or none of them ([Basic ranking](#basic-ranking)):
 
 | Agent | Company | Cost |
 |---|---|---|
@@ -142,6 +151,39 @@ Gitilizer chooses the model for each agent. Whichever you choose, it sends one r
 
 **When ranking pauses.** If your agent's key stops working, or its credits or quota run out, Gitilizer pauses ranking and shows a notification saying what to fix. New and changed items wait at the end of your list with "–". Ranking resumes by itself when the problem is fixed, and at once when you add a new key or switch agents.
 
+## Basic ranking
+
+With no API key of your own, Gitilizer ranks your list itself. It is what you
+get when you choose **Continue with basic ranking** on the welcome page, or
+**Basic ranking** under **Ranking agent** in Settings. It costs you nothing and
+needs no setup. Gitilizer pays for it, so it does less than a ranking agent with
+your own key:
+
+| | Your own API key | Basic ranking |
+|---|---|---|
+| Who ranks | The agent you choose: Gemini, Claude or OpenAI | Google's `gemini-decision-1`, with Gitilizer's own key |
+| Cost to you | Gemini's free tier, or what the company bills you | Nothing |
+| Accuracy | The best Gitilizer has | Good for your top items: in our tests its first five were the same five as in a list ranked by hand. Below them the order is less precise. |
+| Why an item has its rank | Click a rank to read the agent's reasoning | No explanation, so ranks can't be clicked |
+| New and changed items | Ranked at each sync | Ranked at each sync |
+| Daily re-rank | Every item is scored again once a day, so scores that depend on age stay current | None: an item keeps its score until it changes on GitHub |
+| **Save and re-rank** | Ranks everything again | Not available |
+| When it runs out | Your key's quota or credits ([When ranking pauses](#ranking-agents)) | Gitilizer's own quota: the warning **"Basic ranking is paused"** |
+
+**Basic ranking is paused.** Every developer on basic ranking shares Gitilizer's
+own quota with Google. When it is used up, new and changed items wait at the end
+of your list with "–", and the warning says when ranking resumes, if Gitilizer
+knows. It tries again every 15 minutes. Adding your own key in Settings ranks
+them without waiting.
+
+**Changing your mind.** To move to a ranking agent, choose it under **Ranking
+agent** in Settings, add its key and save; Gitilizer asks whether to rank
+everything again with it now. To move to basic ranking, choose **Basic ranking**
+there and save. Your items keep the scores they have, and a key you saved stays
+saved until you remove it.
+
+What basic ranking sends to Google is in [Privacy](#privacy).
+
 ## Gemini API keys
 
 Create a key in [Google AI Studio](https://aistudio.google.com/apikey). A key on Google's free tier works. Gitilizer makes one Gemini request for each new or changed item, and for every item once a day so that scores that depend on age stay current.
@@ -153,8 +195,21 @@ A free-tier key has a small **daily quota** for each Gemini model: a limit on ho
 A first sync, or **Save and re-rank**, sends one request for every item on your list, which can use up a free-tier quota quickly. When that happens, Gitilizer doesn't stop:
 
 1. It ranks with its main model, `gemini-3.8-flash`, while that model's quota lasts.
-2. When it's used up, Gitilizer switches to smaller backup models (`gemini-3.5-flash-lite`, then `gemini-3.1-flash-lite`), which have their own quotas, and shows the warning **"Gitilizer is using a backup Gemini model"**. Their rankings are a little less accurate. At midnight Pacific time it goes back to the main model, and the daily re-rank gradually improves the scores.
-3. If every model's quota is used up, ranking pauses until midnight Pacific time, and the error **"Your Gemini daily quota is used up"** appears. New and changed items wait at the end of your list with "–" instead of a rank.
+2. When it's used up, Gitilizer switches to a smaller backup model,
+   `gemini-3.5-flash-lite`, which has its own quota, and shows the warning
+   **"Gitilizer is using a backup Gemini model"**. Its rankings are less
+   accurate.
+3. When that is used up too, Gitilizer ranks new and changed items with [basic
+   ranking](#basic-ranking), using its own key, and the warning's heading
+   becomes **"Gitilizer is using basic ranking"**. Those items get a rank with
+   no explanation. A **Save and re-rank** or daily re-rank that was under way
+   stops there: the items it didn't reach keep their scores.
+4. At midnight Pacific time Gitilizer goes back to the main model, and the daily
+   re-rank gradually improves the scores.
+
+If Gitilizer's own quota for basic ranking is used up as well, the warning
+**"Basic ranking is paused"** takes its place, and new and changed items wait at
+the end of your list with "–" until your quota resets or basic ranking resumes.
 
 Gitilizer also slows down by itself when Gemini limits how many requests your key can make per minute; that is a separate, short limit.
 
@@ -204,8 +259,8 @@ The bell shows problems that stop Gitilizer from working fully. Red means an err
 | Your Gemini API key isn't valid / Google has disabled your Gemini API key | Create a new key in Google AI Studio and add it in Settings. Google disables keys that were published, for example in a public repository. |
 | Your Gemini API key can't use the Gemini API | The key is restricted to other Google APIs. Create a new key in Google AI Studio. |
 | Your Gemini credits have run out / Your Gemini project needs billing | Fix billing for the key's project in Google AI Studio or the Google Cloud console. |
-| Gitilizer is using a backup Gemini model | Your main model's daily quota is used up; see [Free-tier limits](#free-tier-limits). |
-| Your Gemini daily quota is used up | Every model's quota is used up. Ranking resumes at midnight Pacific time; a [paid key](#getting-a-paid-key) avoids this. |
+| Gitilizer is using a backup Gemini model / Gitilizer is using basic ranking | Your main model's daily quota is used up, or the backup model's too; see [Free-tier limits](#free-tier-limits). A [paid key](#getting-a-paid-key) avoids this. |
+| Basic ranking is paused | Gitilizer's own ranking quota is used up, so new and changed items wait with "–". Ranking resumes by itself; adding your own API key in Settings ranks them without waiting ([Basic ranking](#basic-ranking)). |
 | Gemini is limiting requests from your key | Too many requests a minute. Ranking slows down and catches up by itself. |
 | Gemini isn't responding | Check the [Google AI Studio status page](https://aistudio.google.com/status). |
 | The Gemini model Gitilizer uses isn't available | A problem with Gitilizer. Please report it. |
@@ -230,9 +285,9 @@ Report problems at [github.com/brianquinlan/gitilizer/issues](https://github.com
 ### What Gitilizer stores
 
 - **Your account:** your name, email address and picture from Google or GitHub, and which one you signed in with.
-- **Your credentials:** your GitHub connection (the Gitilizer app's access and renewal tokens, with the connected account, or your personal access token with its expiry date), the API key of each ranking agent you've added, and which agent you use. They're encrypted, never shown again after you save them, never written to logs and never sent to a ranking agent.
+- **Your credentials:** your GitHub connection (the Gitilizer app's access and renewal tokens, with the connected account, or your personal access token with its expiry date), the API key of each ranking agent you've added, and which agent you use, or that you use basic ranking. They're encrypted, never shown again after you save them, never written to logs and never sent to a ranking agent.
 - **Your settings:** additional repositories and their prioritization prompts, collaborators, your ranking prompt and your sort order.
-- **Your items:** the GitHub data needed to rank and show each item (its text, comments, reviews and linked items), and for each item its score, the agent's reasoning, and whether you moved it to the Icebox.
+- **Your items:** the GitHub data needed to rank and show each item (its text, comments, reviews and linked items), and for each item its score, the agent's reasoning (basic ranking gives none), and whether you moved it to the Icebox.
 - **Notifications** that are currently active.
 
 ### When it's deleted
@@ -243,10 +298,18 @@ Report problems at [github.com/brianquinlan/gitilizer/issues](https://github.com
 
 ### What Gitilizer sends to your ranking agent
 
-Gitilizer calls the ranking agent you chose, and only that one, with **your own API key**, one item at a time. Each request contains the content of one of your issues or PRs (title, description, labels, comments, reviews and the items it links to) and your settings (your GitHub username, additional repositories with their prioritization prompts, collaborators and ranking prompt). It never contains your credentials.
+Gitilizer calls the ranking agent you chose, and only that one, with **your own API key**, one item at a time. Basic ranking is the one exception, described below. Each request contains the content of one of your issues or PRs (title, description, labels, comments, reviews and the items it links to) and your settings (your GitHub username, additional repositories with their prioritization prompts, collaborators and ranking prompt). It never contains your credentials.
 
 What each company may do with that content depends on its terms. It can come from private repositories you can read.
 
 - **Gemini:** Google's [Gemini API terms](https://ai.google.dev/gemini-api/terms) let Google use content sent with a **free-tier** (unpaid) key to improve its products, and say that human reviewers may read it. If that matters to you, use a key with billing turned on: Google says it doesn't use prompts or responses sent with paid quota to improve its products.
 - **Claude:** Anthropic's [commercial terms](https://www.anthropic.com/legal/commercial-terms) say it may not train models on what you send through the API. Anthropic keeps API requests for a limited time; its [privacy center](https://privacy.claude.com) says for how long.
 - **OpenAI:** OpenAI's [data controls](https://developers.openai.com/api/docs/guides/your-data) say that data sent to its API isn't used to train its models unless you opt in, and that it keeps abuse-monitoring logs for up to 30 days. Gitilizer asks OpenAI not to store its requests for later retrieval.
+
+**Basic ranking.** If you use basic ranking, Gitilizer sends the same content,
+one item at a time, to Google's Gemini API with **Gitilizer's own key**. That
+key is on Google's paid tier, where Google says it doesn't use prompts or
+responses to improve its products. The same happens for new and changed items
+when your own Gemini key's daily quota is used up ([Free-tier
+limits](#free-tier-limits)). Gitilizer's key is never used with Claude or
+OpenAI, and never to read GitHub.

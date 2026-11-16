@@ -1,7 +1,7 @@
 // The ranking job queue and the worker's side of it (design: Ranking worker).
 import { randomUUID } from "node:crypto";
-import type { NotificationCode, RankingAgent, SyncEvent } from "@gitilizer/shared";
-import { AGENT_KIND_SQL, agentInUse, keyKindFor } from "./agents.ts";
+import type { NotificationCode, RankingChoice, SyncEvent } from "@gitilizer/shared";
+import { AGENT_KIND_SQL, agentInUse, jobFits, keyKindFor, publishQueued } from "./agents.ts";
 import type { Ctx } from "./context.ts";
 import { getCredential } from "./credentials.ts";
 import { publish } from "./list.ts";
@@ -86,6 +86,20 @@ export async function queueFullRerank(ctx: Ctx, userId: string, reason: "rerank"
   return n;
 }
 
+/**
+ * Takes the developer's queued bulk re-rank jobs out of the queue and closes
+ * their batches, which publish what they finished. Items not reached keep
+ * their scores until a later daily re-rank (RANK-13, RANK-21).
+ */
+export async function dropBulkJobs(ctx: Ctx, userId: string) {
+  const dropped = await ctx.db.query(
+    `delete from rank_jobs where user_id = $1 and state = 'queued' and kind = 'rank' and reason in ('rerank', 'ageing') returning batch_id`, [userId],
+  );
+  for (const id of new Set(dropped.map((d) => d.batch_id as string | null))) await finishBatchIfDone(ctx, id);
+  if (dropped.length) await pushSync(ctx, userId);
+  return dropped.length;
+}
+
 async function finishBatchIfDone(ctx: Ctx, batchId: string | null) {
   if (!batchId) return;
   // A first-sync batch can run dry while its scan is still downloading, so only
@@ -124,23 +138,32 @@ export async function modelFor(ctx: Ctx, userId: string): Promise<ModelState> {
   return { model: ctx.config.models.find((m) => !exhausted.has(m)) ?? null, exhausted };
 }
 
-/** Raises or clears the backup-model warning and the all-models error to match the quota rows. */
+/** The earliest time one of the developer's own models has quota again. */
+const earliestReset = (st: ModelState): Date => new Date(Math.min(...[...st.exhausted.values()].map((d) => d.getTime())));
+
+/**
+ * Raises or clears the backup-model warning to match the quota rows (RANK-13).
+ * With every model used up, basic ranking is the step in use and the warning
+ * says so, unless basic ranking is paused too, whose warning replaces it (RANK-22).
+ */
 async function syncQuotaNotifications(ctx: Ctx, userId: string): Promise<ModelState> {
   const st = await modelFor(ctx, userId);
   const [primary] = ctx.config.models;
   if (st.model === null) {
-    const resetAt = new Date(Math.min(...[...st.exhausted.values()].map((d) => d.getTime())));
-    await ctx.db.query(
-      `update users set ranking_paused_until = $2, ranking_paused_code = 'daily_quota' where id = $1`, [userId, resetAt.toISOString()],
+    const held = await ctx.db.one(
+      `select 1 as held from users where id = $1 and ranking_paused_code = 'basic_paused' and ranking_paused_until > now()`, [userId],
     );
-    await clear(ctx, userId, ["gemini_backup_model"]);
-    await raise(ctx, userId, "gemini_daily_quota", { resetAt: resetAt.toISOString() });
-    await publishQueued(ctx, userId); // shown at the end with "–" (LIST-30)
+    if (!held) {
+      await raise(ctx, userId, "gemini_backup_model", {
+        primaryModel: primary, model: "basic ranking", basic: "true", resetAt: earliestReset(st).toISOString(),
+      });
+    }
   } else {
+    // One of the developer's own models has quota again, so nothing of theirs waits for basic ranking.
     const paused = await ctx.db.query(
-      `update users set ranking_paused_until = null, ranking_paused_code = null where id = $1 and ranking_paused_code = 'daily_quota' returning id`, [userId],
+      `update users set ranking_paused_until = null, ranking_paused_code = null where id = $1 and ranking_paused_code = 'basic_paused' returning id`, [userId],
     );
-    await clear(ctx, userId, ["gemini_daily_quota"]);
+    await clear(ctx, userId, ["basic_paused"]);
     if (paused.length) await publishQueued(ctx, userId);
     if (st.model !== primary) {
       await raise(ctx, userId, "gemini_backup_model", {
@@ -153,23 +176,82 @@ async function syncQuotaNotifications(ctx: Ctx, userId: string): Promise<ModelSt
   return st;
 }
 
-async function publishQueued(ctx: Ctx, userId: string) {
-  const keys = await ctx.db.query(`select item_key from rank_jobs where user_id = $1 and kind = 'rank' and state = 'queued'`, [userId]);
-  await publish(ctx, userId, keys.map((k) => k.item_key));
-}
-
-/** Called by the scheduler: quotas that have reset bring the primary model back (RANK-13). */
+/**
+ * Called by the scheduler: quotas that have reset bring the primary model
+ * back (RANK-13), and "Basic ranking is paused" goes for a developer who has
+ * no item waiting any more (RANK-22).
+ */
 export async function refreshQuotas(ctx: Ctx) {
   const users = await ctx.db.query(
     `select distinct q.user_id from gemini_quota q join users u on u.id = q.user_id
-     where q.exhausted_until <= now() and u.ranking_agent = 'gemini'
-     union select id from users where ranking_paused_code = 'daily_quota' and ranking_paused_until <= now()`,
+     where q.exhausted_until <= now() and u.ranking_agent = 'gemini'`,
   );
   await ctx.db.query(`delete from gemini_quota where exhausted_until <= now()`);
   for (const u of users) {
     await syncQuotaNotifications(ctx, u.user_id);
     await pushSync(ctx, u.user_id);
   }
+  await ctx.db.query(`delete from basic_pause where paused_until <= now()`);
+  const idle = await ctx.db.query(
+    `select n.user_id from notifications n where n.code = 'basic_paused'
+       and not exists (select 1 from rank_jobs j where j.user_id = n.user_id and j.state in ('queued', 'leased'))`,
+  );
+  for (const u of idle) {
+    await clear(ctx, u.user_id, ["basic_paused"]);
+    await ctx.db.query(`update users set ranking_paused_until = null, ranking_paused_code = null where id = $1 and ranking_paused_code = 'basic_paused'`, [u.user_id]);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Basic ranking's pause (RANK-22)
+// ---------------------------------------------------------------------------
+
+/** How long basic ranking waits before asking Google again. */
+const BASIC_RETRY_SECONDS = 15 * 60;
+
+type BasicPause = { until: Date; resetAt: Date | null };
+
+/** The pause in force, if Google has refused Gitilizer's own key in the last 15 minutes. */
+async function basicPause(ctx: Ctx): Promise<BasicPause | null> {
+  const r = await ctx.db.one(`select paused_until, reset_at from basic_pause where id = 1 and paused_until > now()`);
+  return r ? { until: new Date(r.paused_until), resetAt: r.reset_at ? new Date(r.reset_at) : null } : null;
+}
+
+/** Pauses basic ranking for everyone. `resetAt` is when a daily quota resets; a spending limit has no known end. */
+async function pauseBasic(ctx: Ctx, resetAt: Date | null): Promise<BasicPause> {
+  const until = new Date(Date.now() + BASIC_RETRY_SECONDS * 1000);
+  await ctx.db.query(
+    `insert into basic_pause (id, paused_until, reset_at) values (1, $1, $2)
+     on conflict (id) do update set paused_until = excluded.paused_until, reset_at = excluded.reset_at`,
+    [until.toISOString(), resetAt ? resetAt.toISOString() : null],
+  );
+  return { until, resetAt };
+}
+
+/**
+ * Holds one developer's queue while basic ranking is paused, and tells them
+ * (RANK-22). Their items wait with "–" (LIST-30), as for any pause. A
+ * developer with a Gemini key waits only until their own quota resets, and
+ * for them the warning replaces the backup-model one.
+ */
+async function holdForBasic(ctx: Ctx, userId: string, choice: RankingChoice, pause: BasicPause) {
+  let until = pause.until;
+  const params: Record<string, string> = {};
+  if (pause.resetAt) params.resetAt = pause.resetAt.toISOString();
+  if (choice === "gemini") {
+    const st = await modelFor(ctx, userId);
+    if (st.exhausted.size) {
+      const own = earliestReset(st);
+      if (own < until) until = own;
+      params.resetAt = own.toISOString();
+    }
+    params.ownQuota = "true";
+    await clear(ctx, userId, ["gemini_backup_model"]);
+  }
+  await ctx.db.query(`update users set ranking_paused_until = $2, ranking_paused_code = 'basic_paused' where id = $1`, [userId, until.toISOString()]);
+  await raise(ctx, userId, "basic_paused", params);
+  await publishQueued(ctx, userId);
+  await pushSync(ctx, userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -184,8 +266,13 @@ export type ClaimedJob = {
   snapshot: Record<string, unknown>;
   user: { github_login: string; additional_repos: { repo: string; prioritization_prompt: string }[]; collaborators: string[] };
   prompt: string | null;
-  /** The developer's ranking agent when the job was claimed, its key and the model to use (RANK-13, RANK-19). */
-  agent: RankingAgent;
+  /** How the developer's items are ranked: their ranking agent, or basic ranking (SET-38). */
+  choice: RankingChoice;
+  /**
+   * What runs this job, its key and the model to use (RANK-13, RANK-19). It is the developer's choice, except
+   * that basic ranking steps in for a Gemini key whose daily quota is used up; then the key is Gitilizer's own (RANK-21).
+   */
+  agent: RankingChoice;
   apiKey: string;
   model: string;
   /** For an Icebox check: when the developer moved the item to the Icebox (ICE-6). */
@@ -204,7 +291,7 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
        from rank_jobs j join users u on u.id = j.user_id left join items i on i.key = j.item_key
        where j.state = 'queued' and j.not_before <= now()
          and (u.ranking_paused_until is null or u.ranking_paused_until <= now())
-         and exists (select 1 from credentials c where c.user_id = j.user_id and c.kind = ${AGENT_KIND_SQL})
+         and (u.ranking_agent = 'basic' or exists (select 1 from credentials c where c.user_id = j.user_id and c.kind = ${AGENT_KIND_SQL}))
      ) c
      where n + leased <= $2
      order by priority, updated_at desc nulls last, id
@@ -212,6 +299,8 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
     [max, ctx.config.perDeveloperConcurrency],
   );
   const out: ClaimedJob[] = [];
+  let pause: BasicPause | null | undefined; // read once, when the first job needs basic ranking
+  const requeue = (id: unknown) => db.query(`update rank_jobs set state = 'queued', attempts = attempts - 1, lease_expires_at = null where id = $1`, [id]);
   for (const c of candidates) {
     const r = await db.one(
       `update rank_jobs j set state = 'leased', attempts = attempts + 1, lease_expires_at = now() + make_interval(secs => $2),
@@ -220,22 +309,41 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
       [c.id, leaseSeconds],
     );
     if (!r) continue; // claimed by someone else
-    const agent = await agentInUse(db, r.user_id);
-    // Gemini falls back to backup models as daily quotas run out (RANK-13); Claude and OpenAI have one model each (RANK-19).
-    const model = agent === "gemini" ? (await modelFor(ctx, r.user_id)).model : ctx.config.agentModels[agent];
+    const choice = await agentInUse(db, r.user_id);
+    let agent = choice;
+    // Gemini falls back to its backup model as daily quotas run out, and then to basic ranking for new and
+    // changed items (RANK-13); Claude and OpenAI have one model each (RANK-19).
+    let model: string | null = choice === "basic" ? ctx.config.basic.model : choice === "gemini" ? (await modelFor(ctx, r.user_id)).model : ctx.config.agentModels[choice];
+    if (!model) {
+      if (r.kind === "rank" && (r.reason === "rerank" || r.reason === "ageing")) {
+        // A full re-rank uses only the developer's own models (RANK-17): what it didn't reach keeps its score.
+        await requeue(r.id);
+        await dropBulkJobs(ctx, r.user_id);
+        continue;
+      }
+      agent = "basic";
+      model = ctx.config.basic.model;
+    }
+    if (agent === "basic") {
+      if (pause === undefined) pause = await basicPause(ctx);
+      // No key is a fault of the deployment: basic ranking waits, as when Google refuses the key.
+      if (!pause && !ctx.config.basic.key && ctx.config.geminiMode !== "fake") {
+        log.error("worker", "basic ranking can't use its key", { code: "missing", message: "BASIC_RANKING_API_KEY isn't set" });
+        pause = await pauseBasic(ctx, null);
+      }
+      if (pause) {
+        await requeue(r.id);
+        await holdForBasic(ctx, r.user_id, choice, pause);
+        continue;
+      }
+    }
     const u = await db.one(`select github_login from users where id = $1`, [r.user_id]);
     const s = await db.one(`select custom_prompt from settings where user_id = $1`, [r.user_id]);
     const repos = await db.query(`select full_name, prioritization_prompt from additional_repos where user_id = $1 order by position, full_name`, [r.user_id]);
     const collabs = await db.query(`select login from collaborators where user_id = $1 order by position, login`, [r.user_id]);
     const item = await db.one(`select snapshot from items where key = $1`, [r.item_key]);
     const ui = await db.one(`select status, iceboxed_at from user_items where user_id = $1 and item_key = $2`, [r.user_id, r.item_key]);
-    const key = await getCredential(ctx, r.user_id, keyKindFor(agent));
-    if (!model) {
-      // Every model is exhausted; leave it queued for when the quota resets.
-      await db.query(`update rank_jobs set state = 'queued', attempts = attempts - 1, lease_expires_at = null where id = $1`, [r.id]);
-      await syncQuotaNotifications(ctx, r.user_id);
-      continue;
-    }
+    const key = agent === "basic" ? ctx.config.basic.key ?? "fake" : await getCredential(ctx, r.user_id, keyKindFor(agent));
     if (!item?.snapshot || !key || !u?.github_login || (r.kind === "icebox_check" && ui?.status !== "iceboxed")) {
       await db.query(`update rank_jobs set state = 'failed', error_code = 'missing_input', finished_at = now() where id = $1`, [r.id]);
       continue;
@@ -253,6 +361,7 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
         collaborators: collabs.map((x) => x.login),
       },
       prompt: s?.custom_prompt ?? null,
+      choice,
       agent,
       apiKey: key,
       model,
@@ -270,10 +379,10 @@ export type RankResult = { priority: number; actionable: boolean; next_action: s
 export type IceboxResult = { bring_back: boolean; reason: string };
 
 /** What a successful request shows has cleared (PRD catalogue, "Clears when"). */
-const OK_CLEARS: Record<RankingAgent, NotificationCode[]> = {
+const OK_CLEARS: Record<RankingChoice, NotificationCode[]> = {
   gemini: [
     "gemini_rate_limited", "gemini_unavailable", "gemini_credits", "gemini_billing", "gemini_permission_denied",
-    "gemini_model_unavailable", "gemini_unexpected", "prompt_failing",
+    "gemini_model_unavailable", "gemini_unexpected", "prompt_failing", "basic_paused",
   ],
   claude: [
     "claude_rate_limited", "claude_unavailable", "claude_credits", "claude_permission_denied",
@@ -283,9 +392,11 @@ const OK_CLEARS: Record<RankingAgent, NotificationCode[]> = {
     "openai_rate_limited", "openai_unavailable", "openai_credits", "openai_permission_denied",
     "openai_model_unavailable", "openai_unexpected", "prompt_failing",
   ],
+  // Google accepted Gitilizer's own key, so basic ranking isn't paused (RANK-22).
+  basic: ["basic_paused", "prompt_failing"],
 };
 
-const jobAgent = (a: string | null): RankingAgent => (a === "claude" || a === "openai" ? a : "gemini");
+const jobAgent = (a: string | null): RankingChoice => (a === "claude" || a === "openai" || a === "basic" ? a : "gemini");
 
 export async function completeJob(ctx: Ctx, jobId: number, r: RankResult | IceboxResult) {
   const db = ctx.db;
@@ -296,7 +407,22 @@ export async function completeJob(ctx: Ctx, jobId: number, r: RankResult | Icebo
   const userId = job.user_id as string;
   const agent = jobAgent(job.agent);
   await db.query(`update rank_jobs set state = 'done', finished_at = now() where id = $1`, [jobId]);
-  if (agent === (await agentInUse(db, userId))) await clear(ctx, userId, OK_CLEARS[agent]);
+  const choice = await agentInUse(db, userId);
+  if (jobFits(choice, agent)) await clear(ctx, userId, OK_CLEARS[agent]);
+  if (agent === "basic") {
+    // Basic ranking works again: nobody waits out the rest of a pause.
+    const resumed = await db.query(`delete from basic_pause where id = 1 returning id`);
+    if (resumed.length) {
+      const held = await db.query(
+        `update users set ranking_paused_until = null, ranking_paused_code = null where ranking_paused_code = 'basic_paused' returning id`,
+      );
+      for (const h of held) { await publishQueued(ctx, h.id); await pushSync(ctx, h.id); }
+    }
+    // For a Gemini key, the backup-model warning comes back in place of "Basic ranking is paused".
+    if (choice === "gemini" && !(await db.one(`select 1 as on from notifications where user_id = $1 and code = 'gemini_backup_model'`, [userId]))) {
+      await syncQuotaNotifications(ctx, userId);
+    }
+  }
 
   if (job.kind === "icebox_check") {
     await iceboxDecision(ctx, userId, job.item_key, (r as IceboxResult).bring_back, job.item_updated_at);
@@ -429,7 +555,7 @@ export async function pushSync(ctx: Ctx, userId: string, opts: { now?: boolean }
  * item (RANK-20; design: Ranking worker, "Error codes"). Each agent has its
  * own notifications; Gemini's leaked key and billing have no counterpart.
  */
-const KEY_LEVEL: Record<RankingAgent, Record<string, NotificationCode>> = {
+const KEY_LEVEL: Record<Exclude<RankingChoice, "basic">, Record<string, NotificationCode>> = {
   gemini: {
     key_invalid: "gemini_invalid",
     key_leaked: "gemini_leaked",
@@ -456,12 +582,19 @@ const KEY_LEVEL: Record<RankingAgent, Record<string, NotificationCode>> = {
   },
 };
 /** Per-minute limits and outages: wait and retry, never switch model (RANK-14). */
-const TRANSIENT: Record<RankingAgent, Record<string, NotificationCode>> = {
+const TRANSIENT: Record<Exclude<RankingChoice, "basic">, Record<string, NotificationCode>> = {
   gemini: { rate_limited: "gemini_rate_limited", unavailable: "gemini_unavailable" },
   claude: { rate_limited: "claude_rate_limited", unavailable: "claude_unavailable" },
   openai: { rate_limited: "openai_rate_limited", unavailable: "openai_unavailable" },
 };
-const UNEXPECTED: Record<RankingAgent, NotificationCode> = { gemini: "gemini_unexpected", claude: "claude_unexpected", openai: "openai_unexpected" };
+const UNEXPECTED: Record<Exclude<RankingChoice, "basic">, NotificationCode> = { gemini: "gemini_unexpected", claude: "claude_unexpected", openai: "openai_unexpected" };
+/**
+ * What pauses basic ranking (RANK-22): Google refusing Gitilizer's own key for a
+ * daily quota or a spending limit. A key Google no longer accepts pauses it too,
+ * and is logged as an error, because only the owner can fix it.
+ */
+const BASIC_PAUSES = new Set(["daily_quota", "credits_exhausted", "billing_required", "key_invalid", "key_leaked", "permission_denied", "model_not_found"]);
+const BASIC_LIMITS = new Set(["daily_quota", "credits_exhausted", "billing_required"]);
 /**
  * How long a key-level failure pauses ranking. Credits and billing can be fixed
  * outside Gitilizer, so ranking tries again every 15 minutes and the error clears
@@ -489,12 +622,28 @@ export async function failJob(ctx: Ctx, jobId: number, e: { code: string; messag
   );
 
   // A job that ran with the previous agent says nothing about the one now in use (SET-40): run it again.
-  if (agent !== (await agentInUse(db, userId))) {
+  const choice = await agentInUse(db, userId);
+  if (!jobFits(choice, agent)) {
     await requeue();
     await pushSync(ctx, userId);
     return true;
   }
-  if (e.code === "daily_quota" && agent === "gemini") {
+  if (agent === "basic") {
+    if (BASIC_PAUSES.has(e.code)) {
+      // The owner's to fix, and alerted on (infra/monitoring/policy-basic-key.json).
+      if (!BASIC_LIMITS.has(e.code)) log.error("worker", "basic ranking can't use its key", { code: e.code, message: e.message });
+      const pause = await pauseBasic(ctx, e.code === "daily_quota" ? nextPacificMidnight() : null);
+      await requeue();
+      await holdForBasic(ctx, userId, choice, pause);
+      return true;
+    }
+    if (e.code === "rate_limited" || e.code === "unavailable") {
+      // Per-minute limits and outages on Gitilizer's own key: wait and retry, with nothing for the developer to do (RANK-22).
+      await requeue(Math.max(5, e.retryAfterSeconds ?? 60));
+      await pushSync(ctx, userId);
+      return true;
+    }
+  } else if (e.code === "daily_quota" && agent === "gemini") {
     // Per model: the next claim gets the next model (RANK-13).
     const until = job.model ? nextPacificMidnight() : new Date(Date.now() + 3600_000);
     await db.query(
@@ -508,7 +657,7 @@ export async function failJob(ctx: Ctx, jobId: number, e: { code: string; messag
     return true;
   }
   const code = e.code === "daily_quota" ? "rate_limited" : e.code; // only Gemini has daily quotas per model
-  if (code in KEY_LEVEL[agent]) {
+  if (agent !== "basic" && code in KEY_LEVEL[agent]) {
     const pauseUntil = PAUSE[code] ?? `'infinity'::timestamptz`;
     await db.query(`update users set ranking_paused_until = ${pauseUntil}, ranking_paused_code = $2 where id = $1`, [userId, code]);
     await requeue();
@@ -517,7 +666,7 @@ export async function failJob(ctx: Ctx, jobId: number, e: { code: string; messag
     await pushSync(ctx, userId);
     return true;
   }
-  if (code in TRANSIENT[agent]) {
+  if (agent !== "basic" && code in TRANSIENT[agent]) {
     await requeue(Math.max(5, e.retryAfterSeconds ?? 60));
     await raise(ctx, userId, TRANSIENT[agent][code]);
     await pushSync(ctx, userId); // may be "waiting for {agent}" now (LIST-33)
@@ -530,7 +679,7 @@ export async function failJob(ctx: Ctx, jobId: number, e: { code: string; messag
     return true;
   }
   await db.query(`update rank_jobs set state = 'failed', error_code = $2, finished_at = now() where id = $1`, [jobId, e.code]);
-  if (e.code === "unknown") await raise(ctx, userId, UNEXPECTED[agent]);
+  if (e.code === "unknown" && agent !== "basic") await raise(ctx, userId, UNEXPECTED[agent]);
   await giveUp(ctx, userId, job.item_key, job.kind, e.code);
   await checkPromptFailing(ctx, userId);
   await afterJob(ctx, userId, job.batch_id);

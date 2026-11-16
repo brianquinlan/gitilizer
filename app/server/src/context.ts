@@ -18,6 +18,11 @@ export type Config = {
   models: string[];
   /** The model Claude and OpenAI rank with (RANK-19). */
   agentModels: { claude: string; openai: string };
+  /**
+   * Basic ranking (RANK-21): Gitilizer's own Gemini key, on a paid tier, and the decision model it asks.
+   * With no key, basic ranking stays paused (RANK-22); a deployed environment must have one.
+   */
+  basic: { key: string | null; model: string };
   defaultPrompt: string;
   /** Short-lived notifications wait this long before showing (PRD NOTIF-21: 15 min). */
   shortLivedSeconds: number;
