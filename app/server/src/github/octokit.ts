@@ -290,12 +290,19 @@ export class OctokitGitHub implements GitHubApi {
     const base = `/repos/${repo}/issues/${number}`;
     const warnings: string[] = [];
     const repoObj = await this.repoData(repo);
+    const issue = (await this.req(`GET ${base}`)).data;
+    // GitHub has answered 200 with an empty body. Stored, it would never be fetched
+    // again (the item's updated_at doesn't change) and every ranking of it would fail.
+    if (!issue || typeof issue !== "object" || typeof issue.number !== "number" || !issue.created_at || !issue.updated_at) {
+      const got = typeof issue === "object" && issue ? `keys ${Object.keys(issue).slice(0, 10).join(",")}` : JSON.stringify(issue)?.slice(0, 100);
+      throw new GitHubProblem("unexpected", `GET ${base}: not an issue (${got})`);
+    }
     const snap: Record<string, any> = {
       schema_version: 2,
       ref: { owner, repo: name, number },
       fetched_at: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
       repo: repoObj,
-      issue: (await this.req(`GET ${base}`)).data,
+      issue,
       comments: await this.pages(`GET ${base}/comments`),
       timeline: await this.pages(`GET ${base}/timeline`),
     };
