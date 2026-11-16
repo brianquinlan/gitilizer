@@ -234,6 +234,8 @@ When your credits run out, or you reach a spend or usage limit, Gitilizer pauses
 - An item is on your list if it's open, its repository isn't archived, and your review is requested, you're assigned, you're @-mentioned by name, you created it, you commented on it, or it's in one of your additional repositories. Team review requests and team mentions don't count.
 - The list holds the 1,000 most recently updated items.
 - Ranks come from the agent's scores. Items that couldn't be ranked are shown at the end with "–".
+- The strip above the list searches it by title, repository or number, and **All**, **PRs** and **Issues** show one type. A filtered list keeps each item's rank in the whole list. The search and filter are in the page's address, so you can bookmark them.
+- Press **/** to jump to the search field. If single-key shortcuts get in your way, for example with speech input, turn off **Keyboard shortcuts** under Preferences in Settings; Tab, Enter and Esc work either way.
 - **Move to icebox** sets an item aside. If it changes later in a way that matters (for example, someone comments), Gitilizer brings it back. Bot comments and label changes don't. **Restore** brings it back yourself.
 - Gitilizer scans every 5 minutes while the list is open in a visible tab, every 30 minutes while it's in a background tab, and every 2 hours otherwise, if you've used Gitilizer in the last 7 days. **Sync now** scans at once; it is greyed out, with its icon turning, while a sync is already running.
 
@@ -286,7 +288,7 @@ Report problems at [github.com/brianquinlan/gitilizer/issues](https://github.com
 
 - **Your account:** your name, email address and picture from Google or GitHub, and which one you signed in with.
 - **Your credentials:** your GitHub connection (the Gitilizer app's access and renewal tokens, with the connected account, or your personal access token with its expiry date), the API key of each ranking agent you've added, and which agent you use, or that you use basic ranking. They're encrypted, never shown again after you save them, never written to logs and never sent to a ranking agent.
-- **Your settings:** additional repositories and their prioritization prompts, collaborators, your ranking prompt and your sort order.
+- **Your settings:** additional repositories and their prioritization prompts, collaborators, your ranking prompt, your sort order and whether keyboard shortcuts are on.
 - **Your items:** the GitHub data needed to rank and show each item (its text, comments, reviews and linked items), and for each item its score, the agent's reasoning (basic ranking gives none), and whether you moved it to the Icebox.
 - **Notifications** that are currently active.
 

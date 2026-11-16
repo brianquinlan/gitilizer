@@ -349,8 +349,14 @@ export const Settings = z.object({
   customPrompt: z.string().nullable(),
   sortPrioritized: Sort,
   sortIcebox: Sort,
+  /** The "Keyboard shortcuts" switch (SET-50, KEY-3). */
+  keyboardShortcuts: z.boolean(),
 });
 export type Settings = z.infer<typeof Settings>;
+
+/** PUT /api/preferences: what the Preferences block saves as soon as it changes (SET-50). */
+export const Preferences = z.object({ keyboardShortcuts: z.boolean() });
+export type Preferences = z.infer<typeof Preferences>;
 
 export const SettingsResponse = Settings.extend({
   defaultPrompt: z.string(),

@@ -11,6 +11,7 @@ import { AgentPicker } from "../components/AgentPicker.tsx";
 import { DOCS_URL } from "../components/Chrome.tsx";
 import { CredentialField, type Check } from "../components/CredentialField.tsx";
 import { CHIPS, GitHubCard, useConnectResult, useGitHubConnection } from "../components/GitHubConnection.tsx";
+import { Preferences } from "../components/Preferences.tsx";
 import {
   AlertIcon, ExternalIcon, EyeOffIcon, FolderGitIcon, GitHubIcon, ListIcon, PlugIcon, PlusIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
 } from "../icons.tsx";
@@ -23,7 +24,7 @@ type Errors = Record<string, string>;
 const LEAVE_PROMPT = "Leave Settings? Your changes haven't been saved.";
 
 export function SettingsPage() {
-  const { me, refreshMe } = useStore();
+  const { me, refreshMe, shortcuts, setShortcuts } = useStore();
   const [server, setServer] = useState<SettingsResponse | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [secrets, setSecrets] = useState<Record<CredentialKind, string>>({ github_pat: "", gemini_key: "", anthropic_key: "", openai_key: "" });
@@ -171,6 +172,9 @@ export function SettingsPage() {
             {/* SET-16, ACCT-5: "Sign out", with no arrow. */}
             <button className="link-btn plain" onClick={async () => { await api.post("/api/auth/logout"); location.href = "/sign-in"; }}>Sign out</button>
           </div>
+          <hr />
+          {/* SET-50: the store has the switch's current state; until it has loaded, what this page read. */}
+          <Preferences shortcuts={shortcuts ?? server.keyboardShortcuts} onShortcuts={setShortcuts} />
           <DeleteAccount />
         </aside>
 

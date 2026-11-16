@@ -4,14 +4,17 @@ import {
   choiceName, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, reasonLabel, type Sort, type SortColumn, type SyncEvent,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
-import { BoxIcon, ChevronLeft, ChevronRight, DownToLineIcon, InfoIcon, IssueIcon, PrIcon, RefreshIcon, SortIcon, XIcon } from "../icons.tsx";
+import { BoxIcon, ChevronLeft, ChevronRight, DownToLineIcon, InfoIcon, IssueIcon, PrIcon, RefreshIcon, SearchIcon, SortIcon, XIcon } from "../icons.tsx";
 import { clampPage, PAGE_SIZE, pageCount, ranks, rowsFor, sortRows, type Row, type View } from "../live/engine.ts";
+import { countText, isFiltering, listUrl, matches, NO_FILTER, parseFilter, words, type Filter, type TypeFilter } from "../live/filter.ts";
 import { useLive } from "../live/useLive.ts";
 import { useSyncProgress } from "../live/useSyncProgress.ts";
 import { Link, navigate, useRoute } from "../router.tsx";
+import { useShortcut, useShortcutsOn } from "../shortcuts.ts";
 import { useStore } from "../store.tsx";
 import { fullDate, relativeTime, useNow } from "../time.ts";
 
+const SEARCH_ID = "list-search";
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function ListPage({ view }: { view: View }) {
@@ -21,22 +24,31 @@ export function ListPage({ view }: { view: View }) {
   const sort = (view === "prioritized" ? sorts?.prioritized : sorts?.icebox) ?? (view === "prioritized" ? DEFAULT_SORT_PRIORITIZED : DEFAULT_SORT_ICEBOX);
   useNow(60_000); // LIST-5: relative times update every minute
 
+  // LIST-40: the search and the type filter live in the URL, with the page.
+  const queryString = query.toString();
+  const filter = useMemo(() => parseFilter(new URLSearchParams(queryString)), [queryString]);
+  const filtering = isFiltering(filter);
+
+  // LIST-37: ranks come from the whole list, so searching and filtering never change them.
   const rank = useMemo(() => (live ? ranks(live.shown) : {}), [live]);
   const all = useMemo(() => (live ? sortRows(rowsFor(live.shown, view), sort) : []), [live, view, sort]);
-  const settled = all.filter((r) => !r.leaving).length;
+  const matching = useMemo(() => (filtering ? all.filter((r) => matches(r, filter)) : all), [all, filter, filtering]);
+  const total = all.filter((r) => !r.leaving).length;
+  const settled = matching.filter((r) => !r.leaving).length;
   const requested = Number(query.get("page") ?? "1") || 1;
   const page = clampPage(requested, settled);
+  const path = view === "prioritized" ? "/" : "/icebox";
 
   // LIVE-2: if the page no longer exists, go to the last page that does, without a notice.
   useEffect(() => {
-    if (live && requested !== page) navigate(page === 1 ? location.pathname : `${location.pathname}?page=${page}`, true);
-  }, [live, requested, page]);
+    if (live && requested !== page) navigate(listUrl(path, filter, page), true);
+  }, [live, requested, page, path, filter]);
 
   // Page boundaries count settled rows; a row showing its leave label stays where it was (LIVE-15).
   const start = (page - 1) * PAGE_SIZE;
   const visible: Row[] = [];
   let i = 0;
-  for (const r of all) {
+  for (const r of matching) {
     if (i >= start && i < start + PAGE_SIZE) visible.push(r);
     if (!r.leaving) i++;
   }
@@ -44,7 +56,13 @@ export function ListPage({ view }: { view: View }) {
   const chooseSort = (column: SortColumn) => {
     const dir = sort.column === column ? (sort.dir === "asc" ? "desc" : "asc") : FIRST_DIRECTION[column];
     setSort(view, { column, dir });
-    navigate(location.pathname); // LIST-26: sorting returns to page 1
+    navigate(listUrl(path, filter)); // LIST-26: sorting returns to page 1; LIST-40: it keeps the search and filter
+  };
+
+  // LIST-39: "Clear filters" adds a history entry (LIST-40); its button goes with the state, so focus moves to the search field.
+  const clearFilters = () => {
+    navigate(listUrl(path, NO_FILTER));
+    document.getElementById(SEARCH_ID)?.focus();
   };
 
   const firstSyncRunning = view === "prioritized" && !me?.firstSyncDone;
@@ -62,25 +80,91 @@ export function ListPage({ view }: { view: View }) {
         <SyncButton sync={sync} agent={me ? choiceName(me.rankingAgent) : "Gemini"} />
       </div>
 
-      <div className={`table ${view === "icebox" ? "icebox" : ""} ${reducedMotion() ? "reduced" : ""}`} role="table" aria-label={view === "prioritized" ? "Prioritized issues" : "Icebox"}>
-        <div className="tr thead" role="row">
-          {view === "prioritized" && <SortHeader label="Priority" column="priority" sort={sort} onSort={chooseSort} />}
-          <SortHeader label="Issue" column="type" sort={sort} onSort={chooseSort} />
-          <SortHeader label="Repository" column="repo" sort={sort} onSort={chooseSort} />
-          <SortHeader label="Modified" column="modified" sort={sort} onSort={chooseSort} />
-          <span role="columnheader" style={{ textAlign: "right", paddingRight: 46 }}>Actions</span>
+      <div className={`table ${view === "icebox" ? "icebox" : ""} ${reducedMotion() ? "reduced" : ""}`}>
+        {/* LIST-34: in every state of the table, and outside the row group, so it doesn't hold live updates (LIST-41). */}
+        <Filters path={path} filter={filter} />
+        {/* The table itself is the headings and the rows; the strip and the pager are controls beside it. */}
+        <div role="table" aria-label={view === "prioritized" ? "Prioritized issues" : "Icebox"}>
+          <div className="tr thead" role="row">
+            {view === "prioritized" && <SortHeader label="Priority" column="priority" sort={sort} onSort={chooseSort} />}
+            <SortHeader label="Issue" column="type" sort={sort} onSort={chooseSort} />
+            <SortHeader label="Repository" column="repo" sort={sort} onSort={chooseSort} />
+            <SortHeader label="Modified" column="modified" sort={sort} onSort={chooseSort} />
+            <span role="columnheader" style={{ textAlign: "right", paddingRight: 46 }}>Actions</span>
+          </div>
+          <div {...tableProps} role="rowgroup">
+            {/* LIST-39: the first-sync state comes first, then the empty state, then "No matching issues or PRs". */}
+            {!live ? (firstSyncRunning ? <FirstSync /> : <Skeleton view={view} />) :
+              visible.length === 0 && firstSyncRunning ? <FirstSync /> :
+              visible.length === 0 && (all.length === 0 || !filtering) ? <Empty view={view} /> :
+              visible.length === 0 ? <NoMatches onClear={clearFilters} /> :
+              <Rows rows={visible} rank={rank} view={view} indicators={indicators} collapsing={collapsing} step={step}
+                    onIcebox={moveToIcebox} onRestore={restore} onPopup={holdForPopup} />}
+          </div>
         </div>
-        <div {...tableProps} role="rowgroup">
-          {!live ? (firstSyncRunning ? <FirstSync /> : <Skeleton view={view} />) :
-            visible.length === 0 && firstSyncRunning ? <FirstSync /> :
-            visible.length === 0 ? <Empty view={view} /> :
-            <Rows rows={visible} rank={rank} view={view} indicators={indicators} collapsing={collapsing} step={step}
-                  onIcebox={moveToIcebox} onRestore={restore} onPopup={holdForPopup} />}
-        </div>
-        <Pager page={page} total={live ? settled : null} />
+        <Pager page={page} matching={live ? settled : null} total={total} filtering={filtering} href={(p) => listUrl(path, filter, p)} />
       </div>
       <div className="sr-only" aria-live="polite">{announcement}</div>
     </>
+  );
+}
+
+const TYPES: [TypeFilter, string][] = [["all", "All"], ["pr", "PRs"], ["issue", "Issues"]];
+
+/**
+ * The strip above the column headings: search and the type filter (LIST-34 to
+ * LIST-36). The URL is the source of truth (LIST-40); the field keeps what was
+ * typed, spaces included, and follows the URL when that changes some other
+ * way, such as Back or "Clear filters".
+ */
+function Filters({ path, filter }: { path: string; filter: Filter }) {
+  const shortcutsOn = useShortcutsOn();
+  const input = useRef<HTMLInputElement>(null);
+  const [text, setText] = useState(filter.q);
+  useEffect(() => { setText((t) => (t.trim() === filter.q ? t : filter.q)); }, [filter.q]);
+  const empty = words(text).length === 0; // LIST-35: only spaces counts as empty
+
+  // Typing and the clear button replace the history entry; choosing a type adds one (LIST-40).
+  const search = (value: string) => {
+    setText(value);
+    if (value.trim() !== filter.q) navigate(listUrl(path, { ...filter, q: value }), true);
+  };
+  const choose = (t: TypeFilter) => { if (t !== filter.type) navigate(listUrl(path, { ...filter, type: t })); };
+
+  // KEY-1: "/" moves focus to the field and selects its text. Esc in the empty field undoes that (LIST-35).
+  const cameFrom = useRef<HTMLElement | null>(null);
+  useShortcut("/", () => {
+    const active = document.activeElement;
+    cameFrom.current = active instanceof HTMLElement && active !== document.body ? active : null;
+    input.current?.focus();
+    input.current?.select();
+  });
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Escape") return;
+    if (!empty) { e.preventDefault(); search(""); return; }
+    if (text) setText("");
+    const back = cameFrom.current;
+    cameFrom.current = null;
+    if (back?.isConnected) back.focus(); else e.currentTarget.blur();
+  };
+
+  return (
+    <div className="filters" role="search" aria-label="Issues and PRs">
+      <div className="search">
+        <SearchIcon />
+        <input ref={input} id={SEARCH_ID} type="text" value={text} placeholder="Search title, repo or #number" aria-label="Search issues and PRs"
+               aria-keyshortcuts={shortcutsOn ? "/" : undefined} autoComplete="off" spellCheck={false}
+               onChange={(e) => search(e.target.value)} onKeyDown={onKeyDown} onBlur={() => { cameFrom.current = null; }} />
+        {!empty
+          ? <button type="button" className="search-clear" aria-label="Clear search" onClick={() => { search(""); input.current?.focus(); }}><XIcon size={14} /></button>
+          : shortcutsOn && <kbd className="keycap" aria-hidden="true">/</kbd> /* KEY-1; hidden with shortcuts off (KEY-3) */}
+      </div>
+      <div className="type-filter" role="group" aria-label="Type">
+        {TYPES.map(([value, label]) => (
+          <button key={value} type="button" aria-pressed={filter.type === value} onClick={() => choose(value)}>{label}</button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -246,14 +330,18 @@ export function pageButtons(page: number, count: number): (number | "…")[] {
   return out;
 }
 
-function Pager({ page, total }: { page: number; total: number | null }) {
-  const count = pageCount(total ?? 0);
-  const go = (p: number) => navigate(p === 1 ? location.pathname : `${location.pathname}?page=${p}`);
+/**
+ * `matching` is the number of rows the pages are made of, null while loading; `total` is the number without the
+ * search and filter. With no rows there is still one page, so "Previous" and "Next" are both disabled (LIST-12).
+ */
+function Pager({ page, matching, total, filtering, href }: { page: number; matching: number | null; total: number; filtering: boolean; href: (page: number) => string }) {
+  const count = pageCount(matching ?? 0);
+  const go = (p: number) => navigate(href(p)); // LIST-40: changing pages keeps the search and filter
   return (
     <div className="pager">
-      {/* LIST-27: "{N} issues and PRs" in every state; a placeholder while loading, as in Figma. */}
-      {total === null ? <span className="count skeleton"><span className="bar" style={{ width: 82 }} /></span>
-        : <span className="count">{total.toLocaleString("en-US")} {total === 1 ? "issue or PR" : "issues and PRs"}</span>}
+      {/* LIST-27, LIST-38: "{N} issues and PRs", or "{n} of {N}" while filtering; a placeholder while loading, as in Figma. */}
+      {matching === null ? <span className="count skeleton"><span className="bar" style={{ width: 82 }} /></span>
+        : <span className="count">{countText(matching, total, filtering)}</span>}
       <button onClick={() => go(page - 1)} disabled={page <= 1}><ChevronLeft /> Previous</button>
       {pageButtons(page, count).map((p, i) => p === "…"
         ? <span key={`gap${i}`} className="hint">…</span>
@@ -272,6 +360,16 @@ function Empty({ view }: { view: View }) {
     </div>
   ) : (
     <div className="empty"><strong>No issues or PRs in the Icebox</strong></div>
+  );
+}
+
+/** LIST-39: the developer has items, but none match the search and type filter. */
+function NoMatches({ onClear }: { onClear: () => void }) {
+  return (
+    <div className="empty">
+      <strong>No matching issues or PRs</strong>
+      <button type="button" className="btn" onClick={onClear}>Clear filters</button>
+    </div>
   );
 }
 

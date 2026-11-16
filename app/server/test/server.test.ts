@@ -447,6 +447,15 @@ describe("HTTP API", () => {
     expect((await call("POST", "/api/credentials/github_pat/validate", {})).statusCode).toBe(404);
   });
 
+  it("keeps the Keyboard shortcuts switch on its own, on by default (SET-50)", async () => {
+    expect((await call("GET", "/api/settings")).json().keyboardShortcuts).toBe(true);
+    expect((await call("PUT", "/api/preferences", { keyboardShortcuts: false })).statusCode).toBe(200);
+    expect((await call("GET", "/api/settings")).json().keyboardShortcuts).toBe(false);
+    expect((await call("PUT", "/api/preferences", { keyboardShortcuts: "no" })).statusCode).toBe(400);
+    expect((await call("PUT", "/api/preferences", { keyboardShortcuts: true })).statusCode).toBe(200);
+    expect((await call("GET", "/api/settings")).json().keyboardShortcuts).toBe(true);
+  });
+
   it("never refuses Sync now (LIST-28)", async () => {
     expect((await call("POST", "/api/sync")).statusCode).toBe(202);
     expect((await call("POST", "/api/sync")).statusCode).toBe(202);
