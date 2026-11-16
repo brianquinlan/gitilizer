@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import {
   CSRF_HEADER, CredentialKind, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, MAX_COLLABORATORS, MAX_PROMPT_LENGTH,
-  MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, SettingsUpdate, SetupRequest, Sort, credentialControlId, exclusionErrors, parseExclusion, parseLogin,
+  MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, Preferences, SettingsUpdate, SetupRequest, Sort, credentialControlId, exclusionErrors, parseExclusion, parseLogin,
   parseRepo, repoControlId, type CheckResult, type CredentialChip, type FieldError, type Me, type RankingChoice, type SettingsResponse, type SetupResponse,
 } from "@gitilizer/shared";
 import { agentInUse, completeSetupIfReady, keyKindOf, publishQueued, rankedBy, rankingChosen, rankingPaused, switchAgent } from "./agents.ts";
@@ -341,6 +341,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       customPrompt: s.custom_prompt ?? null,
       sortPrioritized: s.sort_prioritized ?? DEFAULT_SORT_PRIORITIZED,
       sortIcebox: s.sort_icebox ?? DEFAULT_SORT_ICEBOX,
+      keyboardShortcuts: s.keyboard_shortcuts ?? true,
       defaultPrompt: ctx.config.defaultPrompt,
       rankingAgent: await agentInUse(db, userId),
       rankingChosen: Boolean(await db.one(`select 1 as chosen from users where id = $1 and coalesce(ranking_chosen_at, setup_completed_at) is not null`, [userId])),
@@ -464,6 +465,13 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     const { view, sort } = z.object({ view: z.enum(["prioritized", "icebox"]), sort: Sort }).parse(req.body);
     const col = view === "prioritized" ? "sort_prioritized" : "sort_icebox";
     await db.query(`update settings set ${col} = $2 where user_id = $1`, [uid(req), JSON.stringify(sort)]);
+    return { ok: true };
+  });
+
+  // The Preferences block saves on its own, as soon as it changes, not with the rest of Settings (SET-50).
+  app.put("/api/preferences", async (req) => {
+    const { keyboardShortcuts } = Preferences.parse(req.body);
+    await db.query(`update settings set keyboard_shortcuts = $2 where user_id = $1`, [uid(req), keyboardShortcuts]);
     return { ok: true };
   });
 

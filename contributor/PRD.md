@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -32,12 +32,13 @@
 11. [Prioritized list](#prioritized-list)
 12. [Live updates](#live-updates)
 13. [Icebox](#icebox)
-14. [Settings](#settings)
-15. [Scanning and ranking](#scanning-and-ranking)
-16. [Data and privacy](#data-and-privacy)
-17. [Non-functional requirements](#non-functional-requirements)
-18. [Open questions](#open-questions)
-19. [Appendix: revision history](#appendix-revision-history)
+14. [Keyboard shortcuts](#keyboard-shortcuts)
+15. [Settings](#settings)
+16. [Scanning and ranking](#scanning-and-ranking)
+17. [Data and privacy](#data-and-privacy)
+18. [Non-functional requirements](#non-functional-requirements)
+19. [Open questions](#open-questions)
+20. [Appendix: revision history](#appendix-revision-history)
 
 ---
 
@@ -183,20 +184,22 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Prioritized list, first sync | [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689), using [Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433) on the Animations page (present it to see the pulse) | [Empty, loading and first-sync states](#empty-loading-and-first-sync-states) |
 | List layout component | [Shared / Inbox layout](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-1000) | [Prioritized list](#prioritized-list) |
 | Rank reasoning popup | [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443) | [Columns](#columns) |
+| Search and type filter | [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2738), shown above the column headings in the list and Icebox frames; with a search and a filter in use: [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904); with nothing matching: [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161) | [Search and type filter](#search-and-type-filter) |
 | Sync now button | [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369) on the Animations page (Idle and Syncing; present it to see the icon turn) | [Sync now](#sync-now) |
 | Icebox | [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947) | [Icebox](#icebox) |
 | Icebox, empty | [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593) | [Icebox](#icebox) |
 | Icebox row | [Icebox / Issue row · Restore](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=180-1403) | [Icebox](#icebox) |
-| Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), including the Ranking agent card, Additional repositories, Excluded repositories, Collaborators, Delete account, and the save and cancel buttons | [Settings](#settings) |
+| Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), including the Ranking agent card, Additional repositories, Excluded repositories, Collaborators, Preferences, Delete account, and the save and cancel buttons | [Settings](#settings) |
 | Settings with errors | [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237): a failed Validate, a ranking agent chosen without its API key, a duplicate repository, an excluded repository that can't be found, an exclusion that is already an additional repository, a prompt that's too long, a duplicate collaborator, and the save buttons disabled | [Saving](#saving) |
 | Switching ranking agent | [Settings · Switch ranking agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631) | [Connections](#connections) |
 | GitHub card | Connected with the Gitilizer app: in [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802). Its other states: [Settings · GitHub card · Reconnect needed](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2937), [Settings · GitHub card · Missing permission](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2955), [Settings · GitHub card · Token in use](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-3015), [Settings · GitHub card · Not set](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=397-2761) | [Connecting GitHub](#connecting-github) |
 | Ranking agent choices | [Settings / Ranking agent option](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2497), whose "No key" variant is basic ranking | [Connections](#connections) |
 | Ranking agent card on basic ranking | [Settings · Ranking agent card · Basic ranking](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=406-2736) | [Connections](#connections) |
+| Keyboard shortcuts | [Shared / Key cap](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2736), the "/" hint in the search field; [Settings / Preferences](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2761) and [Settings / Switch](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2760), in the left column of [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802); with shortcuts turned off: [Keyboard shortcuts · Turned off](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3274) | [Keyboard shortcuts](#keyboard-shortcuts), [Preferences](#preferences) |
 
 ### Live reorder prototype
 
-The [Animations](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=139-491) page shows how the Prioritized list changes when ranks change. Open it in Present mode and pick a flow; each flow plays on its own and loops. Flow 7 waits for you to move the pointer onto the table and off it again. The frames show 10 rows per page to keep them small; the behavior is the same at 25. The [How to play these flows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=151-8151) note on that page has the details.
+The [Animations](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=139-491) page shows how the Prioritized list changes when ranks change. Open it in Present mode and pick a flow; each flow plays on its own and loops. Flow 7 waits for you to move the pointer onto the table and off it again. The frames show 10 rows per page to keep them small; the behavior is the same at 25. They leave out the search and type filter strip (`LIST-34`), which doesn't change the animations. The [How to play these flows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=151-8151) note on that page has the details.
 
 | Flow | Starts at | Requirement |
 |---|---|---|
@@ -235,7 +238,7 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 
 ### Routes
 
-- **NAV-3** The screens must have these URLs on `https://gitilizer.com`: `/` for the Prioritized list and `/icebox` for the Icebox (each with `?page=N` for pages after the first), `/settings` (with `#connections`, `#additional-repositories`, `#excluded-repositories`, `#ranking-prompt`, `#collaborators` and `#account` for its sections) and `/sign-in`. Sort order is a stored preference, not part of the URL.
+- **NAV-3** The screens must have these URLs on `https://gitilizer.com`: `/` for the Prioritized list and `/icebox` for the Icebox (each with `?page=N` for pages after the first, and with `?q=` and `?type=` while a search or type filter is in use, `LIST-40`), `/settings` (with `#connections`, `#additional-repositories`, `#excluded-repositories`, `#ranking-prompt`, `#collaborators` and `#account` for its sections) and `/sign-in`. Sort order is a stored preference, not part of the URL.
 - **NAV-4** Moving between these screens must not reload the page.
 
 ### Moving between screens
@@ -574,7 +577,7 @@ Claude or OpenAI, sets up in Settings instead.
 
 Figma: [Issue inbox - Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2562), [Issue inbox · No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-897), [Shared / Inbox layout](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-1000)
 
-The Prioritized list is a table of the developer's open items in rank order, 25 per page, with controls above it for switching to the Icebox and starting a sync.
+The Prioritized list is a table of the developer's open items in rank order, 25 per page, with controls above it for switching to the Icebox and starting a sync. A strip at the top of the table searches the list and filters it by type.
 
 ### Which items appear
 
@@ -629,17 +632,84 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 - **LIST-25** Clicking a column that isn't active must sort by it in its first direction: Priority with rank 1 first, Issue with PRs first, Repository A–Z, Modified newest first. Clicking the active column must reverse the direction.
 - **LIST-26** Changing the sort must return to page 1.
 
+### Search and type filter
+
+Figma: [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2738), [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904), [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161)
+
+- **LIST-34** The table must have a strip above its column headings with a
+  search field and, to its right, a type filter. The strip is shown in every
+  state of the table, as the column headings are, including the empty and
+  first-sync states (`LIST-14`, `LIST-15`).
+- **LIST-35** The search field's placeholder is "Search title, repo or #number".
+  The list must narrow as the developer types, without Enter. An item matches
+  when every word typed is found, ignoring case, in its title, its repository
+  (`owner/name`) or its number, written with or without "#" ("842" or "#842").
+  The inclusion reason and the agent's reasoning aren't searched. A field that
+  holds only spaces counts as empty, and no search is in use. Once the field
+  isn't empty, a clear button (×, named "Clear search") at its right end
+  empties it and leaves focus in the field. With focus in the field, Esc
+  empties it. Esc in an empty field moves focus out of it: back to the control
+  that had focus before "/" moved it to the field (`KEY-1`), when that is how
+  the developer got there and the control is still on the page, and otherwise
+  to no control.
+- **LIST-36** The type filter has three choices, "All", "PRs" and "Issues", of
+  which one is always chosen. "All" is the default, "PRs" shows only PRs and
+  "Issues" shows only issues. The search and the type filter apply together.
+- **LIST-37** Searching and filtering must not change an item's rank. The
+  Priority column keeps showing the item's rank in the whole list, so a
+  filtered list can read 2, 4, 16, as in
+  [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904).
+  The sort order (`LIST-6`) applies to the items that match.
+- **LIST-38** Changing the search text or the type filter must return to page
+  1, as changing the sort does (`LIST-26`). Pages are made of the matching
+  items only (`LIST-11`, `LIST-12`). While a search or type filter is in use,
+  the item count (`LIST-27`) reads "{n} of {N} issues and PRs", where {n} is
+  the number of matching items and {N} is the number there would be without
+  the search and filter, for example "3 of 62 issues and PRs".
+- **LIST-39** If the developer has items but none of them match, the table
+  body must be replaced by "No matching issues or PRs" and a "Clear filters"
+  button, as in
+  [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161).
+  "Clear filters" empties the search field and chooses "All". The count reads
+  "0 of {N} issues and PRs". Two states come first, whatever the search and
+  filter are. While the first sync is running and there is no row to show,
+  because nothing is ranked yet or nothing ranked so far matches, the table
+  stays in the first-sync state (`LIST-15`). And a developer with no items at
+  all sees the empty state in `LIST-14`.
+- **LIST-40** The search text and the type filter must be in the URL, as `q`
+  and `type` (`type=pr` or `type=issue`; no `type` means "All"), for example
+  `/?type=pr&q=api`, so that reloading the page and the browser's Back and
+  Forward buttons keep them, and a filtered list can be bookmarked (`NAV-3`).
+  `q` holds the search text without the spaces at its ends, and is left out
+  when the field is empty (`LIST-35`). Changing pages keeps both
+  (`/?type=pr&q=api&page=2`), and so does changing the sort. Typing in the
+  search field, and its clear button, replace the current history entry
+  instead of adding one for each character. Choosing a type and "Clear
+  filters" add an entry, as changing pages does, so Back undoes them. Unlike
+  the sort order (`LIST-9`), the search and filter aren't stored on the
+  account, and the "Prioritized" / "Icebox" toggle (`NAV-6`) opens the other
+  view without them.
+- **LIST-41** [Live updates](#live-updates) keep working while a search or
+  type filter is in use, and their rules apply to the rows that are shown. Row
+  indicators still show the change in the item's rank in the whole list
+  (`LIVE-18`). An item that starts or stops matching because it changed on
+  GitHub, such as an edited title, appears or goes without a leaving label
+  (`LIVE-25`). Searching and filtering are the developer's own actions, so
+  they apply immediately (`LIVE-7`). For `LIVE-4` and `LIVE-5`, the strip
+  isn't part of the table: the pointer over it, or keyboard focus in it,
+  doesn't hold updates.
+
 ### Pages
 
 - **LIST-11** Each page must show 25 items.
-- **LIST-12** Below the table there must be a "Previous" button (disabled on the first page), numbered page buttons, with the current page highlighted, and a "Next" button (disabled on the last page). When there isn't room for a button per page, show the first page, the last page, the current page and one page on each side of it, with "…" for each gap.
-- **LIST-27** The left end of the pagination row must show the number of items, "{N} issues and PRs", in every state, including "0 issues and PRs" when the list is empty.
+- **LIST-12** Below the table there must be a "Previous" button (disabled on the first page), numbered page buttons, with the current page highlighted, and a "Next" button (disabled on the last page). When there isn't room for a button per page, show the first page, the last page, the current page and one page on each side of it, with "…" for each gap. When the table has no rows to show (`LIST-14`, `LIST-15`, `LIST-39`, `ICE-7`), the row is still there, with "Previous", one page button, "1", and "Next", and both "Previous" and "Next" disabled.
+- **LIST-27** The left end of the pagination row must show the number of items, "{N} issues and PRs", in every state, including "0 issues and PRs" when the list is empty. While a search or type filter is in use it reads "{n} of {N} issues and PRs" (`LIST-38`).
 - **LIST-13** Changing pages applies immediately and is never held back by the rules in [Live updates](#live-updates).
 
 ### Empty, loading and first-sync states
 
 - **LIST-14** If the developer has no items and at least one sync has finished, the table body must be replaced by "No issues or PRs to show 🎉" and "You can choose more repositories in the settings.", where "settings" opens Settings at Additional repositories, with focus on the "Add repository" field.
-- **LIST-15** While the first sync is running and nothing has been ranked yet, the table must show the column headings, three skeleton rows and "Scanning your issues and PRs…", as in [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689). The skeleton placeholders pulse, fading to about a third of their strength and back, 0.8 s each way ([Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433)); with reduced motion they don't pulse. As soon as the first item has been ranked, the list replaces the skeleton rows, and further items appear as they are ranked.
+- **LIST-15** While the first sync is running and nothing has been ranked yet, the table must show the column headings, three skeleton rows and "Scanning your issues and PRs…", as in [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689). The skeleton placeholders pulse, fading to about a third of their strength and back, 0.8 s each way ([Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433)); with reduced motion they don't pulse. As soon as the first item has been ranked, the list replaces the skeleton rows, and further items appear as they are ranked. With a search or type filter in use, that is the first item that matches (`LIST-39`).
 - **LIST-30** An item must not be shown in the Prioritized list until it has
   been ranked. Two kinds of unranked item are shown after all ranked items,
   newest first, with "–" in the Priority column: an item waiting because ranking
@@ -702,7 +772,7 @@ Items change on GitHub all the time, so ranks change while the developer is look
   (`LIST-24`) is open, wherever the pointer and focus are, until it has been
   closed for 1 second, so rows don't move while the developer reads it.
 - **LIVE-6** Updates must be held while the browser tab is hidden or the Icebox is shown. They play when the developer returns to the list.
-- **LIVE-7** The developer's own actions (Move to icebox, sorting, changing pages) must apply immediately and are never held.
+- **LIVE-7** The developer's own actions (Move to icebox, sorting, changing pages, searching and filtering) must apply immediately and are never held.
 
 ### Order of updates
 
@@ -763,8 +833,8 @@ The Icebox holds items the developer has decided to set aside. It works like the
 - **ICE-4** The default sort must be Issue ascending: PRs first, then issues, each by number ascending.
 - **ICE-5** The Actions column must have a "Restore" button that returns the item to the Prioritized list.
 - **ICE-6** When an item in the Icebox changes on GitHub, Gitilizer must run the **Icebox check**: a short question to the agent, with its own prompt, about whether the change should bring the item back. If the answer is yes, the item returns to the Prioritized list automatically and is ranked again.
-- **ICE-7** If the Icebox is empty, the table body must be replaced by "No issues or PRs in the Icebox".
-- **ICE-8** Pages, sorting, the item count and "Sync now" must work as in the Prioritized list.
+- **ICE-7** If the Icebox is empty, the table body must be replaced by "No issues or PRs in the Icebox". If it has items but none match the search and type filter, it shows "No matching issues or PRs" and "Clear filters", as the Prioritized list does (`LIST-39`).
+- **ICE-8** Pages, sorting, the search and type filter (`LIST-34` to `LIST-41`), the item count and "Sync now" must work as in the Prioritized list. `LIST-37` doesn't apply, because the Icebox has no ranks (`ICE-2`).
 - **ICE-9** While the Icebox is shown, an item that leaves it (it returns to the list under `ICE-6`, or leaves under `ICE-11`) must use the leave animation in `LIVE-15`, without the holding rules in [When updates wait](#when-updates-wait).
 - **ICE-10** A restored item must keep its last score. (An item that changed while in the Icebox will usually have returned to the list already, under `ICE-6`, and been ranked again.)
 - **ICE-11** An item that would no longer be eligible for the Prioritized list must leave the Icebox automatically. That includes items that are closed or merged, items that no longer match `LIST-1`, items in a repository that has been archived, items that were there only because of an additional repository the developer has removed, and items in an excluded repository (`SET-34`).
@@ -780,11 +850,49 @@ The Icebox holds items the developer has decided to set aside. It works like the
 
 ---
 
+## Keyboard shortcuts
+
+Figma: [Shared / Key cap](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2736), [Keyboard shortcuts · Turned off](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3274)
+
+A keyboard shortcut is a key that does something wherever the developer is on
+a screen, without first moving focus to a control. Shortcuts are a faster way
+to reach what the controls already do, so nothing depends on them (`NFR-2`).
+
+- **KEY-1** These are the shortcuts. One added later must be added to this
+  table, and `KEY-2` and `KEY-3` apply to it.
+
+  | Key | Where | What it does |
+  |---|---|---|
+  | / | Prioritized list, Icebox | Moves focus to the search field (`LIST-35`) and selects any text in it. |
+
+  While the search field is empty, a key cap showing "/" sits at its right end
+  as a hint. The clear button takes its place once the field isn't empty.
+- **KEY-2** A shortcut must not act while focus is in a text field or another
+  control that takes typing, while a dialog, popup or menu is open (the rank
+  reasoning popup, the notification popover, the account menu), or while Ctrl,
+  Alt or Command is held, so that it never takes a key the developer meant for
+  something else.
+- **KEY-3** The developer must be able to turn every shortcut off with the
+  "Keyboard shortcuts" switch in Settings (`SET-50`). WCAG's success criterion
+  2.1.4, Character Key Shortcuts, requires this for shortcuts made of a single
+  character, which speech input can set off by accident (`NFR-10`). The one
+  switch covers every shortcut in `KEY-1`, including any added later. While it
+  is off, the hints shown on controls are hidden too, such as the "/" key cap
+  in the search field, as in
+  [Keyboard shortcuts · Turned off](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3274).
+  The hint under the switch itself stays (`SET-50`).
+  The switch turns off shortcuts only. Ordinary keyboard operation doesn't
+  change: Tab and Shift+Tab, Enter and Space on a control, the arrow keys
+  inside one, and Esc to close a popup or to empty the search field
+  (`LIST-35`) work whether it is on or off (`NFR-2`).
+
+---
+
 ## Settings
 
 Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
 
-Settings is one page. The left column has links to its sections (Connections, Additional repositories, Excluded repositories, Ranking prompt, Collaborators), the developer's account details ("Signed in with GitHub", "Sign out") and a Delete account panel. The main column has the numbered sections (01 Connections, 02 Additional repositories, 03 Excluded repositories, 04 Ranking prompt, 05 Collaborators) and, at the bottom, three buttons: "Save changes", "Save and re-rank" and "Cancel".
+Settings is one page. The left column has links to its sections (Connections, Additional repositories, Excluded repositories, Ranking prompt, Collaborators), the developer's account details ("Signed in with GitHub", "Sign out"), a Preferences block with the "Keyboard shortcuts" switch (`SET-50`) and a Delete account panel. The main column has the numbered sections (01 Connections, 02 Additional repositories, 03 Excluded repositories, 04 Ranking prompt, 05 Collaborators) and, at the bottom, three buttons: "Save changes", "Save and re-rank" and "Cancel".
 
 ### Connections
 
@@ -1131,7 +1239,7 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 
 ### Saving
 
-- **SET-14** Changes must take effect only when the developer chooses "Save changes" or "Save and re-rank". Both save everything on the page, credentials included. "Cancel" discards unsaved changes (`NAV-9`).
+- **SET-14** Changes must take effect only when the developer chooses "Save changes" or "Save and re-rank". Both save everything on the page, credentials included. The one exception is the "Keyboard shortcuts" switch, which applies as soon as it is changed (`SET-50`). "Cancel" discards unsaved changes (`NAV-9`).
 - **SET-15** "Save changes" must save without re-ranking: items already ranked
   keep their scores until they change on GitHub. New items, such as those from a
   newly added repository, are ranked as usual. "Save and re-rank" must save and
@@ -1162,6 +1270,23 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 
 - **SET-16** The account panel must show the developer's name, email, sign-in provider and a "Sign out" link (`ACCT-5`).
 - **SET-17** The developer must be able to delete their Gitilizer account from the Delete account panel in the left column, which says: "Deleting your account is permanent and cannot be reversed." Choosing "Delete account" must ask for confirmation with a simple dialog: "Delete your Gitilizer account? This can't be undone.", with "Cancel" and "Delete account". Deletion is immediate: it deletes all data about the developer from the live database (see [Data and privacy](#data-and-privacy)), ends all their sessions and shows the sign-in page. Copies remain in database backups for up to 6 months (`PRIV-4`).
+
+### Preferences
+
+Figma: [Settings / Preferences](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2761), [Settings / Switch](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2760)
+
+- **SET-50** The left column must have a "Preferences" block between the
+  account details and the Delete account panel. It has one switch, "Keyboard
+  shortcuts", and under it the hint "Such as / to search.", with the "/" shown
+  as a key cap. The switch is on for a new account. Turning it off turns off
+  every keyboard shortcut and hides the hints for them on other controls, and
+  turning it on brings them back (`KEY-3`). The block's own hint is shown
+  either way. It applies as soon as it is changed, without "Save changes",
+  and isn't one of the unsaved changes that `SET-26` asks about. It is stored
+  on the account, like the sort order (`LIST-9`), so it is kept between visits
+  and follows the developer to other devices. It is announced as a switch
+  named "Keyboard shortcuts", with its state and with the hint as its
+  description (`NFR-10`).
 
 ---
 
@@ -1336,7 +1461,7 @@ Gitilizer keeps:
 |---|---|
 | Account | Sign-in provider and provider user ID, name, email, avatar URL. |
 | Credentials | The GitHub connection: a PAT (with its expiry date, if known), or what GitHub issues for the Gitilizer app's connection, with the connected account's login. An API key for each ranking agent the developer has saved one for, and which agent is in use, or that basic ranking is. |
-| Settings | Additional repositories with their prioritization prompts, excluded repositories, collaborators, custom ranking prompt, sort preferences. |
+| Settings | Additional repositories with their prioritization prompts, excluded repositories, collaborators, custom ranking prompt, sort preferences, whether keyboard shortcuts are on. |
 | Item data | The GitHub data needed to rank and show each item. |
 | Item state | For each developer and item: inclusion reasons, score, rank, the agent's output, when it was last ranked, and whether and when it was moved to the Icebox. |
 | Notifications | Active notifications with their first-detected time. |
@@ -1445,7 +1570,8 @@ and the new Figma designs; Q-77 to Q-79 came from bringing the prototype in line
 with this document; Q-80 came from the decision to have a development
 environment; Q-84 to Q-86 came from adding Claude and OpenAI; Q-87 to Q-90 came
 from connecting GitHub with the Gitilizer app; Q-91 to Q-97 came from making
-the ranking agent's API key optional.
+the ranking agent's API key optional; Q-98 and Q-99 came from adding search,
+the type filter and the first keyboard shortcut.
 
 ### Answered questions
 
@@ -1476,7 +1602,7 @@ the ranking agent's API key optional.
 | <a id="q-23"></a>Q-23 | Title link; ranks of 100 or more | New tab. Ranks are never zero-padded; Figma updated. The Priority column already fits four digits. | `LIST-4`, [Columns](#columns) |
 | <a id="q-24"></a>Q-24 | Relative times | Short, as suggested, with the full date and time on hover. After 30 days: the month and day in the current year, "last year" for the previous year until a full year has passed, then "{n}y ago" (GitHub issue #7). | `LIST-22` |
 | <a id="q-25"></a>Q-25 | Sorting | Click toggles; first directions as suggested; stored on the account per view; sorting returns to page 1. | `LIST-9`, `LIST-25`, `LIST-26` |
-| <a id="q-26"></a>Q-26 | Many pages; item count | First, last, current ±1 with "…"; the count is always shown. Figma updated. | `LIST-12`, `LIST-27` |
+| <a id="q-26"></a>Q-26 | Many pages; item count | First, last, current ±1 with "…"; the count is always shown. Figma updated. Settled on 2026-11-15: with no rows to show, the row keeps "Previous", "1" and "Next", with "Previous" and "Next" disabled, as the application already did. Figma updated. | `LIST-12`, `LIST-27` |
 | <a id="q-27"></a>Q-27 | Maximum list size | The 1,000 most recently updated items, kept up to date as items are updated. (Details in [Q-66](#q-66).) | `LIST-19`, `SCAN-1` |
 | <a id="q-28"></a>Q-28 | First sync; unranked and failed items | Skeleton rows that pulse (drawn in Figma); items hidden until ranked; failed items at the end with "–" and a warning. | `LIST-15`, `LIST-30` |
 | <a id="q-29"></a>Q-29 | Sync now | Spins for any sync, and is disabled while it does (corrected on 2026-11-02: the earlier record said "never disabled"); no other throttle; finished when the scan is done and every item is ranked, has failed or is waiting for quota. Spinning state drawn in Figma. | `LIST-17`, `LIST-28`, `LIST-32` |
@@ -1548,6 +1674,8 @@ the ranking agent's API key optional.
 | <a id="q-95"></a>Q-95 | Telling a developer on basic ranking what they are missing, after setup | Nothing does. Warm Welcome says once that ranking is basic without a key (`WEL-3`), and shows that private repositories haven't been added (`WEL-6`), which is clear enough. The Prioritized list has no chip or note about either. | `WEL-3`, `WEL-6` |
 | <a id="q-96"></a>Q-96 | A free-tier Gemini key whose quota for the primary model is used up | Gitilizer ranks with `gemini-3.5-flash-lite` next, on the developer's own quota, and then with basic ranking, at its own cost. Basic ranking takes the place of `gemini-3.1-flash-lite` and of pausing. In evaluation `gemini-3.5-flash-lite` scored Kendall tau 0.58 and basic ranking 0.55 to 0.58, against 0.40 for `gemini-3.1-flash-lite`, so a list with a key is never ranked worse than basic ranking would rank it. Basic ranking steps in for new and changed items only; a full re-rank waits for the developer's quota. The "Your Gemini daily quota is used up" error is gone. | `RANK-13`, `RANK-15`, `RANK-17`, `RANK-20`, [Catalogue](#catalogue), `METRIC-5` |
 | <a id="q-97"></a>Q-97 | What the developer sees when basic ranking is held up by Gitilizer's own limits, and whether it stops when the budget is spent | Basic ranking pauses whenever Google refuses Gitilizer's own key for a quota or spending limit, and developers with items waiting see the "Basic ranking is paused" warning, worded like the earlier "Your Gemini daily quota is used up" error. Whether basic ranking stops when a month's budget is spent isn't a rule of the application: the owner decides it in their budget configuration with Google, and the same pause and warning cover it. | `RANK-22`, [Catalogue](#catalogue), `PLAT-4` |
+| <a id="q-98"></a>Q-98 | Finding an item in a long list | A strip above the column headings, inside the table, with a search field and an "All" / "PRs" / "Issues" filter. Search covers the title, the repository and the number. It leaves out the inclusion reason and the agent's reasoning; the reasoning isn't shown on the row, so a match on it couldn't be seen. A filtered list keeps each item's rank in the whole list, and the search and filter are in the URL. Putting the two controls in the row of controls above the table, and putting the type filter in the Issue column heading, were considered and not chosen: the first wraps onto a second line at 1024 px (`PLAT-6`), and the second is easy to miss. Filters by repository and by inclusion reason, unread markers and shortcuts for working through the list were proposed with it and left for later. | `LIST-34` to `LIST-41`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`, `LIVE-7` |
+| <a id="q-99"></a>Q-99 | A keyboard shortcut for search, and turning shortcuts off | "/" moves focus to the search field, with a key cap in the field as a hint. A "Keyboard shortcuts" switch in Settings turns off every shortcut, this one and any added later, which WCAG 2.2 level AA requires for single-character shortcuts. The switch turns off shortcuts only, never ordinary keyboard operation such as Tab, Enter and Esc. A switch for "/" alone, letting the developer change the key, and Ctrl+K or Command+K in its place, which would need no switch, were considered and not chosen. | `KEY-1` to `KEY-3`, `SET-50`, `SET-14`, `LIST-35`, `NFR-10` |
 
 ---
 
@@ -2149,3 +2277,41 @@ Details settled while building the simplified setup and basic ranking
 - A key that Google no longer accepts, or a missing one, pauses basic ranking
   like a limit does, and alerts the owner (`RANK-22`, `METRIC-4`).
 - How long the ranking-volume charts and counts go back (`METRIC-5`).
+
+### Forty-first revision (2026-11-15, search and the type filter)
+
+Search, a type filter and the first keyboard shortcut ([Q-98](#q-98),
+[Q-99](#q-99)):
+
+- The Prioritized list and the Icebox have a strip above the column headings
+  with a search field and an "All" / "PRs" / "Issues" filter. A filtered list
+  keeps each item's rank in the whole list, counts as "{n} of {N} issues and
+  PRs" and has its own "No matching issues or PRs" state. The search and
+  filter are in the URL (`LIST-34` to `LIST-41`, `LIST-27`, `NAV-3`, `ICE-7`,
+  `ICE-8`, `LIVE-7`).
+- While the first sync is running, a table with no row to show stays in the
+  first-sync state, whatever the search and filter are (`LIST-15`,
+  `LIST-39`).
+- With no rows to show, the pagination row keeps "Previous", "1" and "Next",
+  with "Previous" and "Next" disabled, as the application already did
+  ([Q-26](#q-26), `LIST-12`). Changed Figma: the empty, first-sync, Icebox
+  empty and no-matches frames now show them.
+- A new section, [Keyboard shortcuts](#keyboard-shortcuts): "/" moves focus to
+  the search field, and one switch turns every shortcut off without changing
+  ordinary keyboard operation (`KEY-1` to `KEY-3`).
+- Settings has a Preferences block in its left column with the "Keyboard
+  shortcuts" switch, which applies as soon as it is changed and is stored on
+  the account (`SET-50`, `SET-14`, [Data and privacy](#data-and-privacy)).
+- Changed Figma. New components:
+  [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2738),
+  [Shared / Key cap](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2736),
+  [Settings / Preferences](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2761)
+  and [Settings / Switch](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2760).
+  The strip is in
+  [Shared / Inbox layout](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-1000)
+  and both Icebox frames, and the Preferences block is in every Settings
+  frame. New frames:
+  [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904),
+  [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161)
+  and [Keyboard shortcuts · Turned off](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3274).
+  The rank reasoning popup moved down with the rows.

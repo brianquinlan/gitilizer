@@ -84,7 +84,8 @@ create table if not exists settings (
   user_id text primary key references users(id) on delete cascade,
   custom_prompt text,
   sort_prioritized jsonb not null default '{"column":"priority","dir":"asc"}',
-  sort_icebox jsonb not null default '{"column":"type","dir":"asc"}'
+  sort_icebox jsonb not null default '{"column":"type","dir":"asc"}',
+  keyboard_shortcuts boolean not null default true
 );
 create table if not exists additional_repos (
   user_id text not null references users(id) on delete cascade,
@@ -298,6 +299,7 @@ alter table credentials drop column if exists validated_at;
 alter table credentials drop column if exists validation_ok;
 alter table credentials drop column if exists validation_detail;
 alter table settings drop column if exists review_teams;
+alter table settings add column if not exists keyboard_shortcuts boolean not null default true;
 alter table settings drop column if exists review_teams_fetched_at;
 alter table additional_repos add column if not exists token_type text;
 alter table additional_repos add column if not exists checked_at timestamptz;

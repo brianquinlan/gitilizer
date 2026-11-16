@@ -12,8 +12,11 @@ type Store = {
   notifications: Notification[];
   sync: SyncEvent;
   sorts: { prioritized: Sort; icebox: Sort } | null;
+  /** The "Keyboard shortcuts" switch (SET-50); null until the account's settings have loaded. */
+  shortcuts: boolean | null;
   refreshMe: () => Promise<void>;
   setSort: (view: "prioritized" | "icebox", s: Sort) => void;
+  setShortcuts: (on: boolean) => void;
   onList: (l: Listener) => () => void;
   connected: boolean;
 };
@@ -31,6 +34,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [cannotConnect, setCannotConnect] = useState<string | null>(null);
   const [sync, setSync] = useState<SyncEvent>({ running: false, lastFinishedAt: null, progress: null });
   const [sorts, setSorts] = useState<Store["sorts"]>(null);
+  const [shortcuts, setShortcutsOn] = useState<boolean | null>(null);
   const [connected, setConnected] = useState(true);
   const listeners = useRef(new Set<Listener>());
 
@@ -53,7 +57,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const userId = me?.user.id;
   useEffect(() => {
     if (!userId) return;
-    api.get<SettingsResponse>("/api/settings").then((s) => setSorts({ prioritized: s.sortPrioritized, icebox: s.sortIcebox }));
+    api.get<SettingsResponse>("/api/settings").then((s) => {
+      setSorts({ prioritized: s.sortPrioritized, icebox: s.sortIcebox });
+      setShortcutsOn(s.keyboardShortcuts);
+    });
 
     // Presence (design: Scheduler).
     const report = () => api.post("/api/presence", { tabId: TAB_ID, visible: document.visibilityState === "visible" }).catch(() => {});
@@ -88,6 +95,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     api.put("/api/sort", { view, sort: s }).catch(() => {});
   }, []);
 
+  // SET-50: applies at once and is saved on its own; if the save fails, the switch goes back.
+  const setShortcuts = useCallback((on: boolean) => {
+    setShortcutsOn(on);
+    api.put("/api/preferences", { keyboardShortcuts: on }).catch(() => setShortcutsOn(!on));
+  }, []);
+
   const onList = useCallback((l: Listener) => { listeners.current.add(l); return () => { listeners.current.delete(l); }; }, []);
 
   const notifications = cannotConnect
@@ -95,7 +108,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     : serverNotes;
 
   return (
-    <Ctx.Provider value={{ me, signedOut, notifications, sync, sorts, refreshMe, setSort, onList, connected }}>
+    <Ctx.Provider value={{ me, signedOut, notifications, sync, sorts, shortcuts, refreshMe, setSort, setShortcuts, onList, connected }}>
       {children}
     </Ctx.Provider>
   );

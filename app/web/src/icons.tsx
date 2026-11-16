@@ -69,6 +69,7 @@ export const BrandSymbol = ({ size = 30 }) => (
 export const SignOutIcon = ({ size = 16 }) => (
   <svg {...base(size)}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
 );
+export const SearchIcon = ({ size = 16 }) => <svg {...base(size)}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>;
 export const XIcon = ({ size = 14 }) => <svg {...base(size)}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>;
 export const PlugIcon = ({ size = 16 }) => (
   <svg {...base(size)}><path d="M12 22v-5" /><path d="M9 8V2" /><path d="M15 8V2" /><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" /></svg>
