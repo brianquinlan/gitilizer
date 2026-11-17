@@ -336,6 +336,7 @@ secret ([Changing a setting or a secret](#changing-a-setting-or-a-secret)), with
   | No scans finishing | No scan finished for 3 hours. Background scans run every 2 hours, so at today's scale a shorter window would raise false alarms; tighten it to the design's 30 minutes once someone always has the app open. |
   | gitilizer-api is busy | CPU above 60% for an hour: [time to split production](#splitting-production). |
   | Basic ranking can't use its key | Google refused Gitilizer's own key for a reason other than a quota or spending limit, or the key isn't set: [The basic ranking key](#the-basic-ranking-key). |
+  | Live updates can't reach tabs | A process failed to get its `LISTEN` connection to Postgres back 3 times in 10 minutes, or lost it more than 5 times in an hour ([F28](DESIGN.md#findings-from-the-prototype)). One drop that reconnects doesn't alert. Open tabs get no live updates meanwhile; if it doesn't recover, [start a new revision](#changing-a-setting-or-a-secret). |
 
 - **Logs.** Each line is JSON with `severity`, `component` and `message` ([Logging](DESIGN.md#logging)). In Logs Explorer, `resource.labels.service_name="gitilizer-api" AND severity>=WARNING` is the place to start; `jsonPayload.user="<account ID>"` follows one developer.
 - **Budget.** A US$200 monthly budget on the project emails the owner at 50%, 90% and 100% (Billing → Budgets & alerts).

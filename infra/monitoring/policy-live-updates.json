@@ -1,0 +1,45 @@
+{
+  "displayName": "Gitilizer: live updates can't reach tabs",
+  "documentation": {
+    "content": "A server process keeps losing its LISTEN connection to Postgres, or can't get it back. Live updates travel on that connection, so while it is down open tabs get no list changes, notifications or sync progress, and Sync now doesn't turn; scans and ranking carry on, and a reload shows the right list. One drop that reconnects is normal and doesn't alert. Look at the `pubsub` lines in the log (`jsonPayload.component=\"pubsub\"`) and at Cloud SQL's status. If the connection doesn't come back by itself, start a new revision of gitilizer-api: DEPLOYMENT.md, \"Changing a setting or a secret\". Background: DESIGN.md, finding F28.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Reconnecting failed 3 times in 10 minutes",
+      "conditionThreshold": {
+        "filter": "metric.type=\"logging.googleapis.com/user/listen_connection\" AND metric.label.event=\"failed\" AND resource.type=\"cloud_run_revision\" AND resource.label.service_name=monitoring.regex.full_match(\"gitilizer-(api|worker)\")",
+        "aggregations": [
+          {
+            "alignmentPeriod": "600s",
+            "perSeriesAligner": "ALIGN_SUM",
+            "crossSeriesReducer": "REDUCE_SUM"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 2,
+        "duration": "0s"
+      }
+    },
+    {
+      "displayName": "The connection was lost more than 5 times in an hour",
+      "conditionThreshold": {
+        "filter": "metric.type=\"logging.googleapis.com/user/listen_connection\" AND metric.label.event=\"lost\" AND resource.type=\"cloud_run_revision\" AND resource.label.service_name=monitoring.regex.full_match(\"gitilizer-(api|worker)\")",
+        "aggregations": [
+          {
+            "alignmentPeriod": "3600s",
+            "perSeriesAligner": "ALIGN_SUM",
+            "crossSeriesReducer": "REDUCE_SUM"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 5,
+        "duration": "0s"
+      }
+    }
+  ],
+  "notificationChannels": [
+    "CHANNEL"
+  ]
+}
