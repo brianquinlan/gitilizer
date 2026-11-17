@@ -1,0 +1,7 @@
+# The connection live updates travel on (design: Findings, F28). `lost` is a drop the listener noticed and is
+# reconnecting from; `failed` is a reconnection attempt that didn't work. The "live updates can't reach tabs"
+# alert watches both.
+description: 'Times a process lost its LISTEN connection to Postgres, or failed to get it back, by event'
+filter: 'resource.type="cloud_run_revision" AND jsonPayload.component="pubsub" AND (jsonPayload.message="lost the LISTEN connection; reconnecting" OR jsonPayload.message="reconnecting failed")'
+metricDescriptor: { metricKind: DELTA, valueType: INT64, labels: [{ key: event }] }
+labelExtractors: { event: 'REGEXP_EXTRACT(jsonPayload.message, "(lost|failed)")' }
