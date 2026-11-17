@@ -5,6 +5,7 @@
 // able to create databases: each run makes its own and drops it afterwards.
 //   TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/postgres npm test -w app/server
 import { randomBytes } from "node:crypto";
+import net from "node:net";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ListEvent } from "@gitilizer/shared";
@@ -14,7 +15,7 @@ import { CredentialCipher } from "../src/crypto.ts";
 import { openDb } from "../src/db.ts";
 import { FixtureGitHub, FixtureStore } from "../src/github/fixtures.ts";
 import { publish } from "../src/list.ts";
-import { PgListener, PgRelay } from "../src/pubsub.ts";
+import { PgListener, PgRelay, notify } from "../src/pubsub.ts";
 import { Scheduler } from "../src/scheduler.ts";
 import { FIXTURES, addUser, testConfig } from "./helpers.ts";
 
@@ -54,6 +55,43 @@ function tab(hub: Hub, userId: string) {
   }, end: () => {} } } as any;
   hub.subscribe(userId, reply);
   return got;
+}
+
+/**
+ * A TCP relay in front of Postgres that can cut what is behind it without telling the client: the connection
+ * to Postgres closes, and the client's stays open and silent. A connection through Cloud SQL's connector can
+ * end this way (design: Findings, F28).
+ */
+async function quietRelay() {
+  const target = new URL(BASE!);
+  const open: { client: net.Socket; server: net.Socket }[] = [];
+  const sockets = new Set<net.Socket>();
+  const relay = net.createServer((client) => {
+    const server = net.connect(Number(target.port || 5432), target.hostname);
+    for (const s of [client, server]) { sockets.add(s); s.on("error", () => {}); }
+    client.pipe(server);
+    server.pipe(client);
+    open.push({ client, server });
+  });
+  await new Promise<void>((done) => relay.listen(0, "127.0.0.1", done));
+  const u = new URL(url());
+  u.hostname = "127.0.0.1";
+  u.port = String((relay.address() as net.AddressInfo).port);
+  return {
+    url: u.toString(),
+    /** Cuts every connection open now, on the Postgres side only. Later connections work. */
+    cut() {
+      for (const { client, server } of open.splice(0)) {
+        client.unpipe(server);
+        server.unpipe(client);
+        server.destroy();
+      }
+    },
+    async close() {
+      for (const s of sockets) s.destroy();
+      await new Promise((done) => relay.close(done));
+    },
+  };
 }
 
 const until = async (check: () => boolean | Promise<boolean>, ms = 10_000) => {
@@ -163,6 +201,28 @@ describe.skipIf(!BASE)("several processes on one Postgres", () => {
     expect(await until(() => got.some((g) => g.event === "list" && g.data.resync === true))).toBe(true);
     scanner.ctx.hub.list("u1", { version: 99, bulk: false, upserts: [], removals: [] });
     expect(await until(() => got.some((g) => g.data?.version === 99))).toBe(true);
+  });
+
+  it("notices a LISTEN connection that has gone quiet, and reconnects (F28)", async () => {
+    const relay = await quietRelay();
+    const listener = new PgListener(relay.url, { checkEveryMs: 100, checkTimeoutMs: 300 });
+    const heard: string[] = [];
+    let restored = 0;
+    listener.on("gitilizer_test_quiet", (payload) => { heard.push(payload); });
+    listener.onReconnect(() => { restored++; });
+    await listener.start();
+    try {
+      await notify(api.ctx, "gitilizer_test_quiet", "before");
+      expect(await until(() => heard.includes("before"))).toBe(true);
+      // Postgres no longer has the connection, and nothing tells the listener: only its own check can.
+      relay.cut();
+      expect(await until(() => restored === 1)).toBe(true);
+      await notify(api.ctx, "gitilizer_test_quiet", "after");
+      expect(await until(() => heard.includes("after"))).toBe(true);
+    } finally {
+      await listener.stop();
+      await relay.close();
+    }
   });
 
   it("lets one process at a time run the periodic pass", async () => {
