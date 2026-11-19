@@ -11,7 +11,7 @@ import { classify, OctokitGitHub, partialResultOrgIds } from "../src/github/octo
 import { limitSnapshot } from "../src/github/types.ts";
 import { claimJobs, completeJob, failJob, nextPacificMidnight, pushSync, queueFullRerank, reapLeases, refreshQuotas, SYNC_PUSH_MS, syncState } from "../src/jobs.ts";
 import { listRows } from "../src/list.ts";
-import { shownNotifications } from "../src/notify.ts";
+import { clear, raise, shownNotifications } from "../src/notify.ts";
 import { discoveryQueries, reapScans, scan } from "../src/scanner.ts";
 import { Scheduler } from "../src/scheduler.ts";
 import { AGENT_TIMEOUT_MS, RankingWorker } from "../src/worker.ts";
@@ -384,6 +384,24 @@ describe("expired ranking leases (GitHub issue #3)", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("\"haven't updated since\" behind an error that stops every scan (NOTIF-24)", () => {
+  it("is hidden while the GitHub connection has ended, and shown again once that clears", async () => {
+    const { ctx, hub } = await makeCtx();
+    await addUser(ctx, "u1");
+    const codes = async () => (await shownNotifications(ctx, "u1")).map((n) => n.code);
+    await raise(ctx, "u1", "stale", { since: "2026-11-15T22:33:00Z" });
+    expect(await codes()).toEqual(["stale"]);
+    await raise(ctx, "u1", "github_connection_ended");
+    expect(await codes()).toEqual(["github_connection_ended"]);
+    expect(hub.notes.at(-1)!.map((n) => n.code)).toEqual(["github_connection_ended"]); // what the bell gets
+    // Errors that leave some items readable don't hide it.
+    await raise(ctx, "u1", "github_permission_missing", { permission: "issues" });
+    expect(await codes()).not.toContain("stale");
+    await clear(ctx, "u1", ["github_connection_ended"]);
+    expect(await codes()).toContain("stale");
   });
 });
 

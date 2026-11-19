@@ -2,7 +2,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   choiceName, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, NEXT_STEP_LABEL, NEXT_STEP_TONE, reasonLabel,
-  type NextStep, type Sort, type SortColumn, type SyncEvent,
+  scanBlocker, type NextStep, type ScanBlocker, type Sort, type SortColumn, type SyncEvent,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
 import { BoxIcon, ChevronLeft, ChevronRight, DownToLineIcon, InfoIcon, IssueIcon, PrIcon, RefreshIcon, SearchIcon, SortIcon, XIcon } from "../icons.tsx";
@@ -19,7 +19,7 @@ const SEARCH_ID = "list-search";
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function ListPage({ view }: { view: View }) {
-  const { me, sorts, setSort, sync } = useStore();
+  const { me, sorts, setSort, sync, notifications } = useStore();
   const { live, indicators, collapsing, announcement, step, tableProps, holdForPopup, moveToIcebox, restore } = useLive(view);
   const { query } = useRoute();
   const sort = (view === "prioritized" ? sorts?.prioritized : sorts?.icebox) ?? (view === "prioritized" ? DEFAULT_SORT_PRIORITIZED : DEFAULT_SORT_ICEBOX);
@@ -78,7 +78,7 @@ export function ListPage({ view }: { view: View }) {
           <Link to="/icebox" aria-current={view === "icebox" ? "page" : undefined}><BoxIcon /> Icebox</Link>
         </nav>
         <span className="spacer" />
-        <SyncButton sync={sync} agent={me ? choiceName(me.rankingAgent) : "Gemini"} />
+        <SyncButton sync={sync} agent={me ? choiceName(me.rankingAgent) : "Gemini"} blocker={scanBlocker(notifications)} />
       </div>
 
       <div className={`table ${view === "icebox" ? "icebox" : ""} ${reducedMotion() ? "reduced" : ""}`}>
@@ -319,10 +319,11 @@ export function RankWhy({ row: r, rank: n, onClose }: { row: Row; rank: number; 
 
 /**
  * Disabled while any sync runs, however it started, with the icon turning (LIST-17, LIST-28),
- * and how far the sync has got to its left (LIST-33).
+ * and how far the sync has got to its left (LIST-33). While GitHub can't be read at all, disabled
+ * with a link to the fix in place of the progress, and a scan that fails at once doesn't flash (LIST-43).
  */
-function SyncButton({ sync, agent }: { sync: SyncEvent; agent: string }) {
-  const running = sync.running;
+function SyncButton({ sync, agent, blocker }: { sync: SyncEvent; agent: string; blocker: ScanBlocker | null }) {
+  const running = sync.running && !blocker;
   const progress = useSyncProgress(sync, agent);
   const [error, setError] = useState<string | null>(null);
   const start = async () => {
@@ -331,11 +332,13 @@ function SyncButton({ sync, agent }: { sync: SyncEvent; agent: string }) {
   };
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-      {error && <span className="hint">{error}</span>}
+      {error && !blocker && <span className="hint">{error}</span>}
       {/* Not a live region: it would be read out every 2 seconds. The button points at it instead. */}
-      {progress && <span id="sync-progress" className="sync-progress">{progress}</span>}
-      <button className={`btn sync ${running ? "syncing" : ""}`} onClick={start} disabled={running} aria-busy={running}
-              aria-describedby={progress ? "sync-progress" : undefined}>
+      {blocker
+        ? <span id="sync-note" className="sync-progress"><Link to={`/settings#${blocker.settings}`}>{blocker.link}</Link>{blocker.rest}</span>
+        : progress && <span id="sync-progress" className="sync-progress">{progress}</span>}
+      <button className={`btn sync ${running ? "syncing" : ""}`} onClick={start} disabled={running || blocker !== null} aria-busy={running}
+              aria-describedby={blocker ? "sync-note" : progress ? "sync-progress" : undefined}>
         <RefreshIcon className={running ? "spin" : ""} /> Sync now
       </button>
     </span>
