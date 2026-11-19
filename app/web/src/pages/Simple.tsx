@@ -1,21 +1,23 @@
 // Sign-in (PRD "Sign-in"). Warm Welcome is in WelcomePage.tsx.
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api.ts";
-import { IssueIcon, PrIcon } from "../icons.tsx";
-import { BrandSymbol } from "../icons.tsx";
+import type { NextStep } from "@gitilizer/shared";
+import { BrandSymbol, GitHubIcon, IssueIcon, PrIcon } from "../icons.tsx";
+import { NextStepChip } from "./ListPage.tsx";
 
-// The static preview on the sign-in page, as in Figma: unpadded ranks, repository names as reasons (LIST-3).
-const PREVIEW: ["issue" | "pr", string, string][] = [
-  ["issue", "Connection pool exhausted after database failover", "Issue #1842 · Assigned to you"],
-  ["pr", "Retry failed webhooks with exponential backoff", "PR #731 · Assigned to you"],
-  ["issue", "Token refresh fails in headless environments", "Issue #416 · Created by you"],
-  ["pr", "Prevent duplicate events on reconnect", "PR #729 · @maya"],
-  ["issue", "Session cookie expires during active use", "Issue #962 · northstar/web"],
-  ["issue", "Document environment variable precedence", "Issue #408 · @maya"],
-  ["pr", "Add keyboard navigation to command menu", "PR #955 · Assigned to you"],
-  ["issue", "Missing trace context in background jobs", "Issue #1821 · northstar/api"],
-  ["issue", "Support Node.js 24 in the release pipeline", "Issue #397 · Created by you"],
-  ["issue", "Clarify workspace setup in onboarding", "Issue #918 · northstar/web"],
+// The static preview on the sign-in page, as in Figma: unpadded ranks, each row's next step (LIST-42),
+// repository names as reasons (LIST-3).
+const PREVIEW: ["issue" | "pr", string, NextStep, string][] = [
+  ["issue", "Connection pool exhausted after database failover", "todo", "Issue #1842 · Assigned to you"],
+  ["pr", "Retry failed webhooks with exponential backoff", "review", "PR #731 · Assigned to you"],
+  ["issue", "Token refresh fails in headless environments", "backlog", "Issue #416 · Created by you"],
+  ["pr", "Prevent duplicate events on reconnect", "respond", "PR #729 · @maya"],
+  ["issue", "Session cookie expires during active use", "waiting", "Issue #962 · northstar/web"],
+  ["issue", "Document environment variable precedence", "respond", "Issue #408 · @maya"],
+  ["pr", "Add keyboard navigation to command menu", "review", "PR #955 · Assigned to you"],
+  ["issue", "Missing trace context in background jobs", "not_yours", "Issue #1821 · northstar/api"],
+  ["issue", "Support Node.js 24 in the release pipeline", "todo", "Issue #397 · Created by you"],
+  ["issue", "Clarify workspace setup in onboarding", "elsewhere", "Issue #918 · northstar/web"],
 ];
 
 /** Failed sign-in messages (AUTH-10). Only "cancelled" is neutral; the rest are errors (AUTH-15). */
@@ -93,12 +95,12 @@ export function SignInPage() {
         <p>View all of your GitHub issues and PRs, prioritized, in one place.</p>
         <div className="table preview" style={{ marginTop: 32 }} aria-hidden="true">
           <div className="tr thead" style={{ gridTemplateColumns: "72px 1fr" }}><span className="th active">Priority ↑</span><span className="th">Issue</span></div>
-          {PREVIEW.map(([kind, title, meta], i) => (
+          {PREVIEW.map(([kind, title, step, meta], i) => (
             <div className="tr" key={title} style={{ gridTemplateColumns: "72px 1fr" }}>
               <span className="rank">{i + 1}</span>
               <span className="issue">
                 <span className={`kind ${kind}`}>{kind === "pr" ? <PrIcon /> : <IssueIcon />}</span>
-                <span className="issue-text"><span className="issue-title">{title}</span><span className="issue-meta">{meta}</span></span>
+                <span className="issue-text"><span className="issue-title">{title}</span><span className="issue-meta"><NextStepChip step={step} />{" "}{meta}</span></span>
               </span>
             </div>
           ))}
@@ -109,7 +111,7 @@ export function SignInPage() {
           <h2>Welcome to Gitilizer</h2>
           {notice && <div className={`signin-notice ${notice.error === "cancelled" ? "" : "error"}`} role="alert">{notice.message}</div>}
           <button className="btn provider" disabled={!auth || unavailable("google")} onClick={() => start("google")}><span style={{ color: "#4285F4", fontWeight: 700 }}>G</span> Continue with Google</button>
-          <button className="btn provider dark" disabled={!auth || unavailable("github")} onClick={() => start("github")}>Continue with GitHub</button>
+          <button className="btn provider dark" disabled={!auth || unavailable("github")} onClick={() => start("github")}><GitHubIcon size={18} /> Continue with GitHub</button>
           {dev && (
             <form className="panel card" onSubmit={(e) => { e.preventDefault(); void signIn(); }}>
               <strong>Development sign-in</strong>
@@ -123,7 +125,7 @@ export function SignInPage() {
           )}
           <div className="callout">
             <strong>Sign in first. Connect your tools next.</strong>
-            You'll add a GitHub personal access token (don't worry, Gitilizer only needs read access) and a Gemini API key so that Gitilizer can scan and rank your issues and PRs.
+            You'll connect GitHub in one click, so that Gitilizer can read your issues and PRs (it can't change anything on GitHub). Then add a free Gemini API key for the best ranking, or skip it for now.
           </div>
         </div>
       </section>
