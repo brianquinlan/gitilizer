@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gitilizer Next Steps</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Shared with the ranking page (eval/ranker_template.html): the list on the left, the selected issue on the right. */
+:root {
+  --bg: #f4f6f8; --surface: #ffffff; --ink: #16202c; --muted: #5a6575; --line: #d9dfe7; --hover: #eef2f6;
+  --accent: #0e6b67; --accent-ink: #ffffff; --accent-soft: #dcefed;
+  --pr: #5b3aa6; --pr-soft: #ece6f8; --issue: #23692f; --issue-soft: #e3f1e5;
+  --warn: #8a5300; --warn-soft: #fbedd6; --down: #a3332b; --down-soft: #f9e3e1;
+  --font-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f141a; --surface: #171e26; --ink: #e5eaf0; --muted: #98a3b2; --line: #2a3441; --hover: #1d2630;
+  --accent: #46b8b0; --accent-ink: #062523; --accent-soft: #15302f;
+  --pr: #b9a0f0; --pr-soft: #2a2140; --issue: #86d193; --issue-soft: #183020;
+  --warn: #f0b75c; --warn-soft: #33270f; --down: #f09a92; --down-soft: #3a1d1b; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f141a; --surface: #171e26; --ink: #e5eaf0; --muted: #98a3b2; --line: #2a3441; --hover: #1d2630;
+  --accent: #46b8b0; --accent-ink: #062523; --accent-soft: #15302f;
+  --pr: #b9a0f0; --pr-soft: #2a2140; --issue: #86d193; --issue-soft: #183020;
+  --warn: #f0b75c; --warn-soft: #33270f; --down: #f09a92; --down-soft: #3a1d1b; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 14.5px/1.5 var(--font-body); display: flex; flex-direction: column; }
+a { color: var(--accent); }
+button { font: 600 13px/1 var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 7px; padding: 9px 12px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); background: var(--surface); border-bottom: 1px solid var(--line); }
+h1 { font: 800 18px/1.1 var(--font-display); margin: 0; }
+.status { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; margin-right: auto; min-width: 0; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.status[data-s="saved"] .dot { background: var(--issue); }
+.status[data-s="saving"] .dot { background: var(--warn); }
+.status[data-s="error"] .dot, .status[data-s="offline"] .dot { background: var(--down); }
+.count { font-size: 12.5px; color: var(--muted); }
+
+.panes { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); }
+.listpane { border-right: 1px solid var(--line); overflow-y: auto; background: var(--surface); }
+ol.rank { list-style: none; margin: 0; padding: 6px 0; }
+ol.rank li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 7px 12px 7px 10px; cursor: pointer; border-left: 3px solid transparent; }
+ol.rank li:hover { background: var(--hover); }
+ol.rank li[aria-selected="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
+.n { font: 800 15px/1 var(--font-display); font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); }
+li[aria-selected="true"] .n { color: var(--accent); }
+.row-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+.row-id { font: 11.5px/1.3 var(--font-mono); color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.k { flex: none; font: 700 10px/1 var(--font-body); padding: 2px 4px; border-radius: 3px; }
+.k.pr { background: var(--pr-soft); color: var(--pr); } .k.issue { background: var(--issue-soft); color: var(--issue); }
+.rid { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.newdot { flex: none; white-space: nowrap; font: 600 10px/1 var(--font-body); color: var(--warn); background: var(--warn-soft); padding: 2px 4px; border-radius: 3px; }
+
+.viewpane { overflow-y: auto; min-width: 0; }
+.mover { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-block: 10px; padding-left: 20px; padding-right: max(20px, env(safe-area-inset-right, 0px)); background: var(--bg); border-bottom: 1px solid var(--line); }
+.pos { font: 800 22px/1 var(--font-display); font-variant-numeric: tabular-nums; margin-right: 6px; }
+.pos small { font: 500 13px var(--font-body); color: var(--muted); }
+.mover .big { padding: 10px 16px; font-size: 14px; }
+.mover .sep { flex: 1; }
+.hint { font-size: 12px; color: var(--muted); }
+kbd { font: 11px var(--font-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 4px; background: var(--surface); }
+
+article { padding: 18px 20px 40px; padding-right: max(20px, env(safe-area-inset-right, 0px)); max-width: 860px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 600 11px/1 var(--font-body); padding: 4px 7px; border-radius: 5px; background: var(--surface); color: var(--muted); border: 1px solid var(--line); }
+.chip.pr { background: var(--pr-soft); color: var(--pr); border-color: transparent; }
+.chip.issue { background: var(--issue-soft); color: var(--issue); border-color: transparent; }
+h2 { font: 600 20px/1.3 var(--font-body); margin: 10px 0 4px; text-wrap: balance; }
+h2 a { color: var(--ink); text-decoration: none; } h2 a:hover { text-decoration: underline; }
+.idline { font: 12.5px/1.4 var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }
+.banner { margin: 12px 0 0; padding: 9px 12px; border-radius: 8px; font-size: 13.5px; }
+.banner.asof { background: var(--warn-soft); color: var(--warn); }
+.banner.down { background: var(--down-soft); color: var(--down); }
+.banner.note { background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
+.banner.note b { color: var(--muted); font-weight: 600; }
+dl.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 14px; margin: 14px 0; font-size: 13.5px; }
+dl.facts dt { color: var(--muted); } dl.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+h3 { font: 600 11px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; }
+.body { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-size: 14px; }
+.tlbar { display: flex; align-items: center; gap: 10px; margin: 22px 0 8px; }
+.tlbar h3 { margin: 0; }
+.tlbar label { font-size: 12.5px; color: var(--muted); display: inline-flex; gap: 5px; align-items: center; }
+ol.tl { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+ol.tl li { border-left: 2px solid var(--line); padding: 2px 0 2px 12px; }
+ol.tl li.me { border-left-color: var(--accent); }
+ol.tl li.bot { opacity: .7; }
+ol.tl .meta { font-size: 12.5px; color: var(--muted); }
+ol.tl .meta b { color: var(--ink); font-weight: 600; }
+ol.tl .txt { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 3px; font-size: 13.5px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; max-height: 340px; overflow-y: auto; }
+.why label { display: block; font-size: 12.5px; color: var(--muted); margin: 22px 0 4px; }
+textarea { width: 100%; min-height: 56px; resize: vertical; font: 14px/1.45 var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; }
+.yaml { margin: 16px; }
+.yaml textarea { min-height: 200px; font: 12px/1.4 var(--font-mono); }
+
+@media (max-width: 760px) {
+  body { height: auto; display: block; }
+  .panes { display: flex; flex-direction: column-reverse; }
+  .listpane { border-right: 0; border-top: 1px solid var(--line); max-height: none; overflow: visible; }
+  .viewpane { overflow: visible; }
+  .mover { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .mover .hint { display: none; }
+  article { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+}
+/* The labelling page: the items on the left, the selected item on the right, the seven next steps on top of it. */
+.stepbar { position: sticky; top: 0; z-index: 2; padding: 10px 20px 12px; padding-right: max(20px, env(safe-area-inset-right, 0px)); background: var(--bg); border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.stepbar .groups { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+.stepbar .group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.stepbar .glabel { font: 600 11px/1 var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.stepbar .row2 { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.stepbar .row2 .grow { flex: 1; }
+.pos { font: 800 18px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.pos small { font: 500 12.5px var(--font-body); color: var(--muted); }
+
+/* Next-step chips, in the app's colors (PRD LIST-42): filled blue on me, outlined blue for Backlog, grey for the rest. */
+:root { --on: #315bde; --on-soft: #eef2ff; --on-line: #c9d4f5; --off: #5f6876; --off-soft: #f3f5f8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --on: #8fa8ff; --on-soft: #1d2647; --on-line: #34437a; --off: #a7b0bd; --off-soft: #1f2731; } }
+button.step { display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border-radius: 999px; font: 600 13px/1 var(--font-body); }
+button.step kbd { font-size: 10.5px; padding: 0 4px; opacity: .8; }
+button.step[aria-pressed="true"] kbd { background: transparent; color: inherit; border-color: rgba(255, 255, 255, .6); }
+button.step.now { background: var(--on-soft); color: var(--on); border-color: transparent; }
+button.step.later { background: var(--surface); color: var(--on); border-color: var(--on-line); }
+button.step.off { background: var(--off-soft); color: var(--off); border-color: var(--line); }
+button.step[aria-pressed="true"] { color: #fff; border-color: transparent; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px currentColor; }
+button.step.now[aria-pressed="true"], button.step.later[aria-pressed="true"] { background: var(--on); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--on); }
+button.step.off[aria-pressed="true"] { background: var(--off); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--off); }
+button.step.draft:not([aria-pressed="true"]) { border: 1.5px dashed currentColor; }
+.tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px; font: 600 11px/1 var(--font-body); white-space: nowrap; border: 1px solid transparent; }
+.tag.now { background: var(--on-soft); color: var(--on); }
+.tag.later { background: var(--surface); color: var(--on); border-color: var(--on-line); }
+.tag.off { background: var(--off-soft); color: var(--off); border-color: var(--line); }
+.tag.draft { background: transparent; border: 1px dashed currentColor; opacity: .75; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.filters button { padding: 6px 9px; font-size: 12px; }
+.filters button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+ol.rank li { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding-left: 12px; }
+ol.rank li.done .row-title { color: var(--muted); }
+.src { font: 600 10px/1 var(--font-body); color: var(--muted); }
+details.help, details.agents { margin: 14px 0 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+details.help summary, details.agents summary { cursor: pointer; padding: 9px 12px; font-size: 13px; font-weight: 600; }
+details.help dl { margin: 0; padding: 0 12px 10px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 12px; font-size: 13px; }
+details.help dd { margin: 0; color: var(--muted); }
+details.agents ul { margin: 0; padding: 0 12px 12px 12px; list-style: none; display: grid; gap: 8px; font-size: 13.5px; }
+details.agents li { display: grid; grid-template-columns: 70px auto minmax(0, 1fr); gap: 8px; align-items: baseline; }
+details.agents .who { color: var(--muted); font-size: 12.5px; }
+.empty { padding: 40px 20px; color: var(--muted); }
+</style>
+
+<header class="top">
+  <h1>Next steps</h1>
+  <span class="count" id="count"></span>
+  <div class="status" id="status" data-s="loading" role="status" aria-live="polite"><span class="dot"></span><span id="statusText">Connecting…</span></div>
+  <button id="copyBtn" type="button">Copy as YAML</button>
+</header>
+
+<div class="panes">
+  <nav class="listpane" aria-label="Items">
+    <div class="filters" role="group" aria-label="Show">
+      <button type="button" data-f="all" aria-pressed="true">All</button>
+      <button type="button" data-f="todo" aria-pressed="false">To label</button>
+      <button type="button" data-f="eval" aria-pressed="false">Eval set</button>
+      <button type="button" data-f="production" aria-pressed="false">Production</button>
+      <button type="button" data-f="gemini" aria-pressed="false" id="geminiFilter">Differs from Gemini</button>
+    </div>
+    <ol class="rank" id="list" role="listbox" aria-label="Items"></ol>
+  </nav>
+  <main class="viewpane" id="viewpane">
+    <div class="stepbar" role="toolbar" aria-label="Next step">
+      <div class="groups" id="steps"></div>
+      <div class="row2">
+        <span class="pos" id="pos"></span>
+        <span id="draftNote"></span>
+        <span class="grow"></span>
+        <span class="hint"><kbd>1</kbd>–<kbd>7</kbd> choose · <kbd>Enter</kbd> accept the draft · <kbd>0</kbd> clear · <kbd>J</kbd><kbd>K</kbd> next/previous · <kbd>N</kbd> next to label</span>
+      </div>
+    </div>
+    <article id="view"></article>
+    <div class="yaml" id="yamlBox" hidden>
+      <p>Saving isn't available in this view. Copy this and paste it to Claude:</p>
+      <textarea id="yamlText" readonly></textarea>
+    </div>
+  </main>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(() => {
+  const DATA = JSON.parse(document.getElementById("data").textContent);
+  const ME = DATA.user.toLowerCase();
+  const STEPS = DATA.steps; // [{key, label, tone, meaning}] in the order of PRD RANK-23
+  const STEP = Object.fromEntries(STEPS.map(s => [s.key, s]));
+  const byId = Object.fromEntries(DATA.items.map(x => [x.id, x]));
+  const ids = DATA.items.map(x => x.id);
+  const DOC = "labels/all";
+  let labels = {}, notes = {};
+  let filter = "all";
+  let sel = ids[0];
+  let hideBots = true;
+  let db = null, writing = false, pending = false, timer = null, first = true;
+
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const when = iso => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+  const role = r => r.replace("requested_reviewer_via_team", "review requested via team").replace(/_/g, " ");
+  const tag = (k, draft) => `<span class="tag ${STEP[k].tone}${draft ? " draft" : ""}" title="${draft ? "Draft: " : ""}${esc(STEP[k].label)}">${esc(STEP[k].label)}</span>`;
+  // Gemini's answer for an item, from the runs the page was built with.
+  const gemini = id => ((byId[id].agents || []).find(a => a.who === "Gemini") || {}).step || null;
+  const differs = id => !!labels[id] && !!gemini(id) && gemini(id) !== labels[id];
+  // The items "Differs from Gemini" shows, fixed when it is chosen, so changing a label doesn't make the item vanish.
+  let checking = new Set();
+  const shown = () => ids.filter(id => filter === "all" || (filter === "todo" ? !labels[id] : filter === "gemini" ? checking.has(id) : byId[id].source === filter));
+
+  // ---- the seven buttons
+  const stepsEl = $("#steps");
+  const groups = [["On you", STEPS.filter(s => s.tone !== "off")], ["Not on you", STEPS.filter(s => s.tone === "off")]];
+  stepsEl.innerHTML = groups.map(([name, ss]) => `<div class="group" role="group" aria-label="${name}"><span class="glabel">${name}</span>${ss.map(s =>
+    `<button type="button" class="step ${s.tone}" data-k="${s.key}" aria-pressed="false" title="${esc(s.meaning)}">${esc(s.label)} <kbd>${STEPS.indexOf(s) + 1}</kbd></button>`).join("")}</div>`).join("");
+  stepsEl.addEventListener("click", e => { const b = e.target.closest("button.step"); if (b) choose(b.dataset.k); });
+
+  // ---- list
+  const listEl = $("#list");
+  const rows = {};
+  for (const x of DATA.items) {
+    const li = document.createElement("li");
+    li.setAttribute("role", "option");
+    li.innerHTML = `<span style="min-width:0"><span class="row-title">${esc(x.title)}</span><span class="row-id"><span class="k ${x.kind === "PR" ? "pr" : "issue"}">${x.kind}</span><span class="rid">${esc(x.id)}</span><span class="src">${x.source === "eval" ? "eval" : ""}</span></span></span><span class="lab"></span>`;
+    li.addEventListener("click", () => select(x.id, true));
+    rows[x.id] = li;
+  }
+
+  function renderList() {
+    const vis = shown();
+    listEl.replaceChildren(...vis.map(id => rows[id]));
+    if (!vis.length) listEl.innerHTML = `<li class="empty">Nothing here.</li>`;
+    for (const id of ids) {
+      const li = rows[id], k = labels[id], d = byId[id].draft;
+      li.setAttribute("aria-selected", String(id === sel));
+      li.classList.toggle("done", !!k);
+      li.querySelector(".lab").innerHTML = k ? tag(k) : d ? tag(d, true) : "";
+    }
+    const n = ids.filter(id => labels[id]).length;
+    $("#count").textContent = `${n} of ${ids.length} labelled`;
+    $("#geminiFilter").textContent = `Differs from Gemini (${ids.filter(differs).length})`;
+    $("#geminiFilter").hidden = !ids.some(gemini);
+    $("#yamlText").value = yaml();
+  }
+
+  function renderBar() {
+    const k = labels[sel], d = byId[sel].draft;
+    for (const b of stepsEl.querySelectorAll("button.step")) {
+      b.setAttribute("aria-pressed", String(b.dataset.k === k));
+      b.classList.toggle("draft", !k && b.dataset.k === d);
+    }
+    const vis = shown(), i = vis.indexOf(sel);
+    $("#pos").innerHTML = i >= 0 ? `${i + 1} <small>of ${vis.length}</small>` : "";
+    $("#draftNote").innerHTML = !k && d ? `Draft from your ranking note: ${tag(d, true)} · <kbd>Enter</kbd> to accept` : "";
+  }
+
+  // ---- item view
+  function renderView() {
+    const x = byId[sel];
+    const chips = [`<span class="chip ${x.kind === "PR" ? "pr" : "issue"}">${x.kind}</span>`, `<span class="chip">${esc(x.state)}</span>`,
+      ...x.labels.map(l => `<span class="chip">${esc(l)}</span>`)].join("");
+    const facts = [
+      ["Author", x.author], ["Opened", x.created], ["Last update", x.updated],
+      x.assignees.length && ["Assigned", x.assignees.join(", ")],
+      x.requested.length && ["Review requested", x.requested.join(", ")],
+      x.roles.length && ["Your role", x.roles.map(role).join(", ")],
+      ["Last human activity", x.last || "none (bots only)"],
+      x.stacked_on && ["Stacked on", Array.isArray(x.stacked_on) ? x.stacked_on.map(s => `${s.pr} “${s.title}” (${s.state}; reviews: ${Array.isArray(s.reviews) ? s.reviews.join(", ") : s.reviews})`).join(" · ") : x.stacked_on],
+      x.related.length && ["Related", x.related.join(" · ")],
+    ].filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+    const banners = [
+      x.as_of ? `<div class="banner asof"><b>Shown as it was on ${esc(when(x.as_of))}.</b> Label it as if that were now.</div>` : `<div class="banner note"><b>Snapshot:</b> ${esc(when(x.snapshot))}. GitHub may have changed since; label what you see here.</div>`,
+      x.thumbs_down_at ? `<div class="banner down"><b>Pretend you thumbs-downed this on ${esc(when(x.thumbs_down_at))}.</b></div>` : "",
+      x.why ? `<div class="banner note"><b>Your ranking note:</b> ${esc(x.why)}</div>` : "",
+      x.settings_note ? `<div class="banner note"><b>About you, as the agent sees it:</b> ${esc(x.settings_note)}</div>` : "",
+    ].join("");
+    const events = x.timeline.filter(e => !(hideBots && e.bot));
+    const tl = events.map(e => `<li class="${e.who.toLowerCase() === ME ? "me" : ""} ${e.bot ? "bot" : ""}"><div class="meta"><b>${esc(e.who)}</b> ${esc(e.what)} · ${esc(e.at)} (${esc(e.ago)})</div>${e.text ? `<div class="txt">${esc(e.text)}</div>` : ""}</li>`).join("");
+    const botCount = x.timeline.filter(e => e.bot).length;
+    const agents = (x.agents || []).map(a => `<li><span class="who">${esc(a.who)}</span>${a.step ? tag(a.step) : "<span></span>"}<span>${esc(a.text || "")}</span></li>`).join("");
+    $("#view").innerHTML = `
+      <div class="chips">${chips}</div>
+      <h2><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></h2>
+      <div class="idline">${esc(x.id)}${x.repo_desc ? " · " + esc(x.repo_desc) : ""}</div>
+      ${banners}
+      <details class="help"><summary>What each next step means</summary><dl>${STEPS.map((s, i) => `<dt>${i + 1}. ${tag(s.key)}</dt><dd>${esc(s.meaning)}</dd>`).join("")}</dl>
+        <p style="margin:0;padding:0 12px 12px;font-size:12.5px;color:var(--muted)">If more than one applies: ${DATA.precedence.map(k => esc(STEP[k].label)).join(", ")}, in that order.</p></details>
+      ${agents ? `<details class="agents" id="agentsBox"${labels[sel] ? " open" : ""}><summary>What the agents said (opens after you choose, so it doesn't sway you)</summary><ul>${agents}</ul></details>` : ""}
+      <dl class="facts">${facts}</dl>
+      <h3>Description</h3>
+      <div class="body">${x.body ? esc(x.body) : "<i>No description.</i>"}</div>
+      <div class="tlbar"><h3>Conversation (${events.length})</h3>${botCount ? `<label><input type="checkbox" id="botToggle" ${hideBots ? "checked" : ""}> Hide ${botCount} bot events</label>` : ""}</div>
+      <ol class="tl">${tl || "<li><i>Nothing yet.</i></li>"}</ol>
+      <div class="why"><label for="noteBox">Note (optional): why this next step, or what made it hard</label><textarea id="noteBox"></textarea></div>`;
+    $("#noteBox").value = notes[sel] || "";
+    $("#noteBox").addEventListener("input", e => { notes[sel] = e.target.value; save(); });
+    const bt = $("#botToggle"); if (bt) bt.addEventListener("change", e => { hideBots = e.target.checked; renderView(); });
+  }
+
+  function select(id, fromClick) {
+    sel = id;
+    renderList(); renderBar(); renderView();
+    $("#viewpane").scrollTop = 0;
+    if (!fromClick && rows[id].isConnected) rows[id].scrollIntoView({ block: "nearest" });
+  }
+  function step(delta) {
+    const vis = shown(), i = vis.indexOf(sel);
+    const j = i < 0 ? 0 : i + delta;
+    if (j >= 0 && j < vis.length) select(vis[j]);
+  }
+  function nextToLabel() {
+    const i = ids.indexOf(sel);
+    const next = [...ids.slice(i + 1), ...ids.slice(0, i)].find(id => !labels[id] && shown().includes(id));
+    if (next) select(next);
+  }
+  function choose(k) {
+    if (k) labels[sel] = k; else delete labels[sel];
+    const box = $("#agentsBox"); if (box && k) box.open = true;
+    renderList(); renderBar(); save();
+  }
+
+  $(".filters").addEventListener("click", e => {
+    const b = e.target.closest("button[data-f]"); if (!b) return;
+    filter = b.dataset.f;
+    if (filter === "gemini") checking = new Set(ids.filter(differs));
+    for (const x of document.querySelectorAll(".filters button")) x.setAttribute("aria-pressed", String(x === b));
+    const vis = shown();
+    if (vis.length && !vis.includes(sel)) select(vis[0]); else renderList(), renderBar();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.target.closest("textarea, input, select") || e.metaKey || e.ctrlKey || e.altKey) return;
+    const n = Number(e.key);
+    if (e.key >= "1" && e.key <= String(STEPS.length)) { e.preventDefault(); choose(STEPS[n - 1].key); }
+    else if (e.key === "0" || e.key === "Backspace") { e.preventDefault(); choose(null); }
+    else if (e.key === "Enter" && !e.target.closest("button, a, summary") && byId[sel].draft && !labels[sel]) { e.preventDefault(); choose(byId[sel].draft); }
+    else if (e.key === "j" || e.key === "J") step(1);
+    else if (e.key === "k" || e.key === "K") step(-1);
+    else if (e.key === "n" || e.key === "N") nextToLabel();
+  });
+
+  function yaml() {
+    const lines = ["# Next steps (PRD RANK-23) from the labelling page", "next_steps:"];
+    for (const id of ids) if (labels[id]) {
+      lines.push(`  - url: ${byId[id].url}`, `    next_step: ${labels[id]}`);
+      if ((notes[id] || "").trim()) lines.push(`    note: ${JSON.stringify(notes[id].trim())}`);
+    }
+    return lines.join("\n") + "\n";
+  }
+  $("#copyBtn").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(yaml()); $("#copyBtn").textContent = "Copied"; setTimeout(() => $("#copyBtn").textContent = "Copy as YAML", 1500); }
+    catch { $("#yamlBox").hidden = false; $("#yamlText").value = yaml(); $("#yamlText").focus(); $("#yamlText").select(); }
+  });
+
+  // ---- saving (db capability): one document, written after a short pause, one write at a time
+  function setStatus(s, t) { $("#status").dataset.s = s; $("#statusText").textContent = t; }
+  function save() {
+    if (!db) { $("#yamlText").value = yaml(); return; }
+    setStatus("saving", "Saving…");
+    clearTimeout(timer); timer = setTimeout(flush, 600);
+  }
+  async function flush() {
+    timer = null;
+    if (writing) { pending = true; return; }
+    writing = true;
+    try {
+      await db.doc(DOC).set({ labels: { ...labels }, notes: { ...notes }, updated_at: new Date().toISOString() });
+      setStatus("saved", "Saved");
+    } catch (e) {
+      if (e && e.code === "unavailable") { pending = true; setStatus("saving", "Retrying…"); await new Promise(r => setTimeout(r, 1200 + Math.random() * 800)); }
+      else setStatus("error", `Couldn't save (${e && e.code || "error"}). Use Copy as YAML.`);
+    } finally {
+      writing = false;
+      if (pending) { pending = false; flush(); }
+    }
+  }
+  function apply(d) {
+    labels = Object.fromEntries(Object.entries(d.labels || {}).filter(([id, k]) => byId[id] && STEP[k]));
+    notes = Object.fromEntries(Object.entries(d.notes || {}).filter(([id]) => byId[id]));
+  }
+  // Open on what's left to label; once everything is labelled, on the items where the label and Gemini's answer differ.
+  function startFilter() {
+    if (ids.some(id => !labels[id])) filter = "todo";
+    else if (ids.some(differs)) { filter = "gemini"; checking = new Set(ids.filter(differs)); }
+    else return;
+    for (const x of document.querySelectorAll(".filters button")) x.setAttribute("aria-pressed", String(x.dataset.f === filter));
+    sel = shown()[0];
+  }
+
+  select(sel);
+
+  (async () => {
+    let timeout = setTimeout(() => setStatus("offline", "Saving unavailable here: use Copy as YAML"), 10000);
+    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch { db = null; }
+    if (!db) { clearTimeout(timeout); setStatus("offline", "Saving unavailable here: use Copy as YAML"); $("#yamlBox").hidden = false; return; }
+    db.doc(DOC).onSnapshot(snap => {
+      clearTimeout(timeout);
+      if (first) {
+        first = false;
+        if (snap.exists) { apply(snap.data()); startFilter(); select(sel); setStatus("saved", "Saved"); }
+        else setStatus("saved", "Nothing saved yet");
+      } else if (snap.exists && !snap.metadata.hasPendingWrites && !writing && !timer) {
+        apply(snap.data()); renderList(); renderBar();
+      }
+    }, e => { clearTimeout(timeout); setStatus("error", `Saving stopped (${e.code}). Reload the page.`); });
+  })();
+})();
+</script>

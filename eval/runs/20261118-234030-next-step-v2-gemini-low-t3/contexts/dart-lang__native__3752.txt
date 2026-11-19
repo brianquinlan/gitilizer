@@ -1,0 +1,52 @@
+# ISSUE dart-lang/native#3752: [objective_c] `NSInputStream` doesn't support run loop scheduling
+url: https://github.com/dart-lang/native/issues/3752
+state: open
+author: brianquinlan (association with repo: MEMBER)
+created: 2026-10-19T23:58:18Z (6d ago)
+last updated: 2026-10-19T23:58:21Z (6d ago)
+labels: ['lang-objective_c', 'package:objective_c', 'needs-triage']
+assignees: ['brianquinlan']
+repository: dart-lang/native — Dart packages related to native interop and the foreign function interface. Contains code generators for generating bindings for other programming languages and packages related to the hooks system for bundling native code, (stars: 277, open issues: 559, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['author', 'assignee']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: brianquinlan assigned 6d ago
+- last_human_actor_is_me: True
+- my_last_activity: assigned 6d ago
+- mentions_of_me: []
+- days_since_update: 5.8
+- days_since_created: 5.8
+
+## Related issues and PRs
+- PR dart-lang/native#3763 [linked: closes/closed-by] '[objective_c] support `scheduleInRunLoop:forMode:`': open, by brianquinlan, updated 2d ago, labels ['package:objective_c']
+
+## Description
+The `NSInputStream` returned by `toNSInputStream` ignores [`scheduleInRunLoop:forMode:`](https://github.com/dart-lang/native/blob/3cbe319e3c1ec0f9253c126ba3e465e55229c3a4/pkgs/objective_c/src/input_stream_adapter.m#L66-L67), never sends stream events to its delegate, and [hasBytesAvailable](https://github.com/dart-lang/native/blob/3cbe319e3c1ec0f9253c126ba3e465e55229c3a4/pkgs/objective_c/src/input_stream_adapter.m#L191-L193) returns YES even when no data is buffered. So a reader that schedules the stream and waits for events never receives any.
+
+`NSURLSession` schedules request body streams, but because `hasBytesAvailable` returns `YES`, it calls [read:maxLength](https://github.com/dart-lang/native/blob/3cbe319e3c1ec0f9253c126ba3e465e55229c3a4/pkgs/objective_c/src/input_stream_adapter.m#L131) on its single, process-wide `com.apple.NSURLConnectionLoader thread`, which [waits](https://github.com/dart-lang/native/blob/3cbe319e3c1ec0f9253c126ba3e465e55229c3a4/pkgs/objective_c/src/input_stream_adapter.m#L163) until the Dart stream provides data. Until then, no other NSURLSession request in the process can make progress. `package:cupertino_http` sends StreamedRequest bodies this way.
+
+To reproduce, add this to pkgs/objective_c/test/ns_input_stream_test.dart:
+
+```dart
+test('hasBytesAvailable when scheduled in a run loop', () {
+  final controller = StreamController<List<int>>();
+  final inputStream = controller.stream.toNSInputStream();
+  addTearDown(inputStream.close);
+  inputStream.scheduleInRunLoop(
+    NSRunLoop.getCurrentRunLoop(),
+    forMode: 'kCFRunLoopDefaultMode'.toNSString(),
+  );
+  inputStream.open();
+  expect(inputStream.hasBytesAvailable, isFalse);
+});
+```
+
+## Activity (5 events, oldest first)
+[2026-10-19 23:58Z, 6d ago] brianquinlan (ME) opened this issue
+[2026-10-19 23:58Z, 6d ago] brianquinlan (ME) labeled 'lang-objective_c'
+[2026-10-19 23:58Z, 6d ago] brianquinlan (ME) labeled 'package:objective_c'
+[2026-10-19 23:58Z, 6d ago] brianquinlan (ME) labeled 'needs-triage'
+[2026-10-19 23:58Z, 6d ago] brianquinlan (ME) assigned brianquinlan

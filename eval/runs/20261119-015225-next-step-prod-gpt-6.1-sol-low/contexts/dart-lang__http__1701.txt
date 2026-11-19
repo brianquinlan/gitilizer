@@ -1,0 +1,74 @@
+# ISSUE dart-lang/http#1701: innerWebSocket undefined after upgrade
+url: https://github.com/dart-lang/http/issues/1701
+state: open
+author: RazaGR (association with repo: NONE)
+created: 2025-01-18T19:58:28Z (22mo ago)
+last updated: 2025-05-02T08:05:47Z (19mo ago)
+labels: ['package:web_socket_channel']
+assignees: []
+reactions: {'heart': 1}
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 384, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['commenter', 'watches_repo']
+- repo_interest_filter: I am responsible for all packages in this repo, expect `package:http2`. But if I am assigned, mentioned, etc. in an issue or PR related to `package:http2` then rank it as you would any other package in dart-lang/http.
+- author_is_collaborator: False
+- last_human_activity: RazaGR commented 19mo ago
+- last_human_actor_is_me: False
+- my_last_activity: labeled 19mo ago
+- mentions_of_me: []
+- days_since_update: 565.5
+- days_since_created: 669.0
+
+## Description
+I want to upgrade the package from `2.4.0` to `3.0.1` , any idea how can I access `readyState` anymore? 
+earlier I was doing 
+
+```
+ _channel?.innerWebSocket?.readyState
+```
+
+## Activity (6 events, oldest first)
+[2025-01-18 19:58Z, 22mo ago] RazaGR opened this issue
+[2025-01-22 16:12Z, 22mo ago] mosuem labeled 'package:web_socket_channel'
+[2025-05-01 21:05Z, 19mo ago] brianquinlan (ME) commented:
+    Does [`WebSocketChannel.ready`](https://pub.dev/documentation/web_socket_channel/latest/web_socket_channel/WebSocketChannel/ready.html) provide the information that you need?
+[2025-05-01 21:05Z, 19mo ago] brianquinlan (ME) labeled 'needs-info'
+[2025-05-02 01:32Z, 19mo ago] RazaGR commented:
+    Thanks for the suggestion! Unfortunately, not quite ? `WebSocketChannel.ready`  is helpful during the connection phase, but in my case, I need to check the state of an already established connection before calling `_channel!.ready`. Previously, I used `_channel?.innerWebSocket?.readyState`  to determine whether the socket was still connected or not, especially in situations where the connection might have been dropped silently.
+    
+    Is there an equivalent way to get the current readyState in 3.0.1? Here's a quick example of how I was using it:
+    ```dart
+    class WebSocketRepository {
+      dynamic _channel;
+    
+      Future<bool> connect(Uri url) async {
+       // confirm if its already connected, so we dont call connect again
+        if (_channel?.innerWebSocket?.readyState == 1) {
+          debugPrint('Already connected!');
+          return true;
+        }
+    
+        // make connection 
+        _channel = defaultTargetPlatform == TargetPlatform.iOS ||
+                defaultTargetPlatform == TargetPlatform.android
+            ? IOWebSocketChannel.connect(url)
+            : WebSocketChannel.connect(url);
+        try {
+          await _channel!.ready;
+        } catch (e) {
+          debugPrint('Error Exception repo $e');
+        }
+    
+        // confirming connection again
+        if (_channel?.innerWebSocket?.readyState == 1) {
+          return true;
+        } else {
+          return false;
+        }
+      }
+    ...
+    }
+    ```
+[2025-05-02 08:05Z, 19mo ago] github-actions[bot] unlabeled 'needs-info'

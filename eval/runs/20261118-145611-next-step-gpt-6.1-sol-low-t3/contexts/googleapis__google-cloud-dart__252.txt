@@ -1,0 +1,90 @@
+# ISSUE googleapis/google-cloud-dart#252: Enum does not parse integer values
+url: https://github.com/googleapis/google-cloud-dart/issues/252
+state: open
+author: brianquinlan (association with repo: MEMBER)
+created: 2026-04-29T19:01:52Z (6mo ago)
+last updated: 2026-10-21T18:10:25Z (4d ago)
+labels: ['type: bug', 'priority: p2']
+assignees: []
+repository: googleapis/google-cloud-dart — [Experimental] Google Cloud Dart Client Libraries (stars: 23, open issues: 58, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['author', 'commenter', 'watches_repo']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: Yusufihsangorgel commented 4d ago
+- last_human_actor_is_me: False
+- my_last_activity: commented 10d ago
+- mentions_of_me: []
+- days_since_update: 4.1
+- days_since_created: 179.0
+
+## Description
+From https://protobuf.dev/programming-guides/json/
+
+> The name of the enum value as specified in proto is used. Parsers accept both enum names and integer values.
+
+## Activity (14 events, oldest first)
+[2026-04-29 19:01Z, 6mo ago] brianquinlan (ME) opened this issue
+[2026-04-29 19:01Z, 6mo ago] brianquinlan (ME) labeled 'type: bug'
+[2026-04-29 19:01Z, 6mo ago] brianquinlan (ME) labeled 'priority: p2'
+[2026-04-29 19:01Z, 6mo ago] github-project-automation[bot] added to project v2
+[2026-04-29 19:01Z, 6mo ago] github-project-automation[bot] project v2 item status changed
+[2026-10-13 19:56Z, 12d ago] Yusufihsangorgel commented:
+    I'd like to take this. I would change the enum template in googleapis/librarian so generated fromJson also maps a known integer to its constant, then regenerate here and un-skip `oneof_enum_integer`. For an unknown number, should the decoder keep it or throw?
+[2026-10-13 20:57Z, 12d ago] brianquinlan (ME) commented:
+    Take a look at https://protobuf.dev/programming-guides/enum/
+    
+    I think that, to be compliant, you need to preserve unknown integers. But, if you do that, you'll need to change the [`ProtoEnum`](https://github.com/googleapis/google-cloud-dart/blob/0a3fe91aabdbdad8b8a2305aa36390e50958ffa4/generated/google_cloud_protobuf/lib/src/protobuf.p.dart#L37) definition and the code generation for `ProtoEnum` subclasses to preserve the field numbers.
+    
+    The [ProtoJSON](https://protobuf.dev/programming-guides/json/) description doesn't really say what to do if the string/integer values don't map to existing values.
+    
+    When using actual APIs, do we every receive 
+    
+    I think that this is the Java parsing implementation:
+    https://github.com/protocolbuffers/protobuf/blob/2f21136f4ea05813a4e2cffd4ab6337a5a09cecb/java/util/src/main/java/com/google/protobuf/util/JsonFormat.java#L2448
+    
+    Maybe we need to set `;enum-encoding=int` in the request to get any benefit from the unknown enum value behavior?
+    
+    @Yusufihsangorgel I think that this is likely a big project that you'll have to research a bit before you take it on.
+[2026-10-13 20:59Z, 12d ago] brianquinlan (ME) commented:
+    It looks like some clients do request integer enum values e.g.
+    https://github.com/googleapis/google-cloud-rust/blob/16628efbcde33ee1d62f7ee68a833c9ea8dae13f/src/generated/cloud/workflows/v1/src/transport.rs#L113
+[2026-10-13 23:11Z, 12d ago] Yusufihsangorgel commented:
+    I'll read the Java JsonFormat parser and how the Rust client requests integer enums, then write up a design here first.
+[2026-10-14 03:16Z, 12d ago] Yusufihsangorgel commented:
+    For proto3 the conformance suite requires an unknown integer to round-trip as a number ([EnumFieldUnknownValue][1]). By default Java's [JsonFormat][2] and Go's [protojson][3] print integers only for unknown values. Without `enum-encoding=int`, Showcase [GetEnum][4] can return one, and the Dart client throws on it today. Dart already keeps unknown names, so asking for integers can come later.
+    
+    I'd generate the value numbers, map known integers to constants, keep unknown ones and accept 0 for NullValue. Should `ProtoEnum` get a nullable number, or would a [Rust-style unknown variant][5] fit better?
+    
+    [1]: https://github.com/protocolbuffers/protobuf/blob/2f21136f4ea05813a4e2cffd4ab6337a5a09cecb/conformance/binary_json_conformance_suite.cc#L3278-L3286
+    [2]: https://github.com/protocolbuffers/protobuf/blob/2f21136f4ea05813a4e2cffd4ab6337a5a09cecb/java/util/src/main/java/com/google/protobuf/util/JsonFormat.java#L1556-L1557
+    [3]: https://github.com/protocolbuffers/protobuf-go/blob/3933e752f9ea536e2cf45bf15b321274293863d3/encoding/protojson/encode.go#L331-L333
+    [4]: https://github.com/googleapis/gapic-showcase/blob/c804ae4fb988f92e54ddf5a6c816c61e9e62e98e/server/services/compliance_service.go#L135-L158
+    [5]: https://github.com/googleapis/google-cloud-rust/blob/16628efbcde33ee1d62f7ee68a833c9ea8dae13f/src/generated/cloud/workflows/v1/src/model.rs#L666-L678
+[2026-10-14 18:19Z, 11d ago] brianquinlan (ME) commented:
+    We keep unknown names? Oh, I think that is not to spec, it is a detail of the existing implementation. 
+    
+    Probably `ProtoEnum` should have a nullable number and a nullable string (which will be breaking but we are still prerelease).
+[2026-10-15 05:52Z, 11d ago] Yusufihsangorgel commented:
+    Yeah, the [conformance suite](https://github.com/protocolbuffers/protobuf/blob/2f21136f4ea05813a4e2cffd4ab6337a5a09cecb/conformance/binary_json_conformance_suite.cc#L2585-L2593) recommends rejecting unknown names, or dropping them when unknown fields are ignored.
+    
+    Nullable number and string make sense. Librarian's [CONTRIBUTING](https://github.com/googleapis/librarian/blob/984188ef724e707146280a0702a8a8d0e8cfb5f3/CONTRIBUTING.md#becoming-a-contributor) asks contributors to join its team. Does that apply to a one-off template change?
+[2026-10-15 16:03Z, 10d ago] brianquinlan (ME) commented:
+    I suspec
+    
+    > Librarian's [CONTRIBUTING](https://github.com/googleapis/librarian/blob/984188ef724e707146280a0702a8a8d0e8cfb5f3/CONTRIBUTING.md#becoming-a-contributor) asks contributors to join its team. Does that apply to a one-off template change?
+    
+    I suspect not but we can do the paperwork when you have a PR. It might make sense to show a design, preliminary PR, etc. before you try to get all the details right. Just to make sure that we agree on approach before you write tonnes of code.
+[2026-10-21 18:10Z, 4d ago] Yusufihsangorgel commented:
+    I’d propose nullable number and string members, with declared constants carrying both. Unknown integer values in ordinary open enums use JSON numbers and decimal-string query values. This breaks the existing string-only API. Unknown-name decoding remains outside this representation sketch.
+    
+    ```dart
+    final int? number;
+    final String? value;
+    const State._(this.number, this.value);
+    static const ready = State._(1, 'READY'), unknown = State._(123, null);
+    Object? toJson() => value ?? number;
+    String toQueryValue() => value ?? number!.toString();
+    ```

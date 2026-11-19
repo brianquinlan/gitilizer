@@ -1,0 +1,49 @@
+# ISSUE dart-lang/sdk#61328: [gardening] standalone/io/file_system_watcher_test flaky timeout on Windows
+url: https://github.com/dart-lang/sdk/issues/61328
+state: open
+author: dcharkes (association with repo: MEMBER)
+created: 2025-08-15T08:17:09Z (15mo ago)
+last updated: 2026-05-18T22:07:08Z (6mo ago)
+labels: ['area-vm', 'library-io', 'gardening', 'triaged']
+assignees: ['brianquinlan']
+repository: dart-lang/sdk — The Dart SDK, including the VM, JS and Wasm compilers, analysis, core libraries, and more. (stars: 11337, open issues: 8537, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['assignee', 'mentioned']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: alexmarkov commented 14mo ago
+- last_human_actor_is_me: False
+- my_last_activity: labeled 15mo ago
+- mentions_of_me: [{'by': 'dcharkes', 'informational_cc': True, 'line': 'cc @brianquinlan'}]
+- days_since_update: 184.0
+- days_since_created: 460.5
+
+## Description
+The tests
+```
+standalone/io/file_system_watcher_test Timeout (expected Pass)
+```
+are failing on configurations
+```
+vm-aot-win-debug-arm64
+```
+
+It was already flaking, and now it's timing out as well.
+
+Log: https://dart-ci.appspot.com/log/vm-aot-win-debug-arm64/vm-aot-win-debug-arm64/1262/standalone/io/file_system_watcher_test
+
+cc @brianquinlan
+
+## Activity (7 events, oldest first)
+[2025-08-15 08:17Z, 15mo ago] dcharkes opened this issue
+[2025-08-15 08:17Z, 15mo ago] dcharkes labeled 'area-vm'
+[2025-08-15 08:17Z, 15mo ago] dcharkes labeled 'library-io'
+[2025-08-15 08:17Z, 15mo ago] dcharkes labeled 'gardening'
+[2025-08-20 20:48Z, 15mo ago] brianquinlan (ME) assigned brianquinlan
+[2025-08-20 20:48Z, 15mo ago] brianquinlan (ME) labeled 'triaged'
+[2025-09-18 16:04Z, 14mo ago] alexmarkov commented:
+    `standalone/io/file_system_watcher_test` turned Pass -> Timeout on `vm-win-release-arm64`.
+    
+    [log](https://dart-ci.appspot.com/log/vm-win-release-arm64/vm-win-release-arm64/4874/standalone/io/file_system_watcher_test)

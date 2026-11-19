@@ -1,0 +1,310 @@
+# ISSUE dart-lang/http#1620: How to detect channel disconnected (can not listen cause message will duplicated)
+url: https://github.com/dart-lang/http/issues/1620
+state: open
+author: lucasjinreal (association with repo: NONE)
+created: 2018-12-18T13:24:37Z (7.9y ago)
+last updated: 2025-01-22T16:05:30Z (22mo ago)
+labels: ['package:web_socket_channel']
+assignees: []
+reactions: {'+1': 29}
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 384, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['mentioned', 'watches_repo']
+- repo_interest_filter: I am responsible for all packages in this repo, expect `package:http2`. But if I am assigned, mentioned, etc. in an issue or PR related to `package:http2` then rank it as you would any other package in dart-lang/http.
+- author_is_collaborator: False
+- last_human_activity: mosuem labeled 22mo ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: [{'by': 'michael-joseph-payne', 'informational_cc': False, 'line': "@brianquinlan I'm struggling with this too (both WebSocket and CupertinoWebSocket)"}]
+- days_since_update: 665.2
+- days_since_created: 2892.3
+
+## Description
+Hi, just wonder if there an alternative way to detection disconnection of channel, I wanna something like:
+
+```
+if (channel.disConnect) {....}
+```
+is there anyway to do this? (I should do it when user refresh...... do not need listen to stream....)
+
+## Activity (39 events, oldest first)
+[2018-12-18 13:24Z, 7.9y ago] lucasjinreal opened this issue
+[2019-01-21 15:07Z, 7.8y ago] mrleesin commented:
+    The same question!
+[2019-01-22 01:27Z, 7.8y ago] lucasjinreal commented:
+    @mrleesin Obviously the dart team does not notice this problem, they claimed they provide a way which is detect the stream is exit or not, but this way not properly in all situation.................
+    
+    I have waiting the problem to solve for about twenty years............
+[2019-01-23 07:49Z, 7.8y ago] phamnhuvu-dev commented:
+    listen onDone: () {
+          print("Close WS");
+        }
+    
+    I tested when I shutdown server, the socket channel on the client(Flutter or AngularDart) is called onDone.
+… 10 older events condensed …
+[2019-01-23 12:41Z, 7.8y ago] lucasjinreal commented:
+    @phamnhuvu-dev  I can not do this if your app goes back from background...... cause at that time the websocket already closed.
+    
+    What users really needs, is simply check if current connect is alive o …[5 more chars]
+[2019-01-30 21:59Z, 7.8y ago] shinayser commented:
+    We definetly needs some way to check the current connectivity. +1 for this
+[2019-01-30 22:45Z, 7.8y ago] kevmoo commented:
+    Pull requests welcome.
+[2019-04-08 08:04Z, 7.6y ago] TomLiu-GitHub commented:
+    The same question!
+[2019-04-09 01:34Z, 7.6y ago] lucasjinreal commented:
+    @kevmoo  Any updates on this? Or does there any alternative package of websocket as flutter community becomes larger?
+[2019-04-09 01:39Z, 7.6y ago] TomLiu-GitHub commented:
+    you can use dart:io
+    --
+    like this
+    ```
+    class MessageUtils {
+      static WebSocket _webSocket;
+      static num _id = 0;
+    
+      static void connect() {
+        Future<WebSocket> futureWebSocket =
+            WebS …[1140 more chars]
+[2019-04-09 01:43Z, 7.6y ago] lucasjinreal commented:
+    @TomLiu-GitHub  Does this can keep listening when app goes back to home? (both Android and iOS). If not, does it can detect ws connection closed?
+[2019-07-17 15:29Z, 7.3y ago] Katekko commented:
+    > ## you can use dart:io
+    > like this
+    > 
+    > ```
+    > class MessageUtils {
+    >   static WebSocket _webSocket;
+    >   static num _id = 0;
+    > 
+    >   static void connect() {
+    >     Future<WebSocket> futureWebS …[1769 more chars]
+[2019-07-17 20:38Z, 7.3y ago] natebosch commented:
+    Does `if (channel.closeCode != null)` solve the issue for you?
+    
+    https://pub.dev/documentation/web_socket_channel/latest/web_socket_channel/WebSocketChannel/closeCode.html
+[2019-07-18 04:00Z, 7.3y ago] lucasjinreal commented:
+    @natebosch  Does it work? I mean there are some methods call it but actually it not worked.
+[2019-07-18 17:35Z, 7.3y ago] natebosch commented:
+    > Does it work?
+    
+    I would expect so, it's [tested at least](https://github.com/dart-lang/web_socket_channel/blob/5f5ca1af4a5e5d41c0bba4d328731e9528d7a0ed/test/io_test.dart#L47)
+    
+    > I mean there are some methods call it but actually it not worked.
+    
+    Doesn't work how? Can you provide a reproduction case?
+[2019-10-13 03:18Z, 7.1y ago] cindyqin2015 commented:
+    There have no way to detect disconnect of socket otherwise add ping pong. But I have tried this lib, ping pong is not working. 
+    There have no response issues since disconnect status can't be detected.
+    For example: if app go to background long time or keep foreground long time, but not access server. when user back to app, app will think socket still alive, since OnDone is not be called and closeCode is always Null, then app want to send package to server, no response in this case.
+    
+    So I add a 1 min timeout timer to fix this. if no package send/receive, after 1 mins, app will call _channel?.sink.close(socketChannelStatus.goingAway); to close socket.
+[2019-10-13 03:28Z, 7.1y ago] lucasjinreal commented:
+    @cindyqin2015 what do u mean by that? That sounds a little complicated. Indeed, listen `closeCode` only works when app alive and close connection from server, but what we want is app goes back from background then it doesn't work.
+    
+    At least, it doesn't correctly detected if connection actually disconnected.
+    
+    currently I don't know what's the simplest and best way to do this.
+    
+    As for @Katekko provides dart::io, that is not I want, it can not have a StreamController which I can listen messages arrive callback inside another page.
+    
+    If web_socket_channel can provides a way to fix this, that would be great!
+[2019-10-13 04:20Z, 7.1y ago] cindyqin2015 commented:
+    I know it doesn't work, and there no way work by using lib. But I found an alternative way to resolve those  disconnect unknown issues, and share here for see whether can help someone.
+[2020-03-18 15:38Z, 6.7y ago] sachin052 commented:
+    working code for me
+    if (channel==null) {
+               channel = IOWebSocketChannel.connect(url);
+               listenChannelStream();
+           }
+           else{
+             channel.sink.close(status.goingAway);
+             channel = IOWebSocketChannel.connect(url);
+             listenChannelStream();
+           }
+[2020-03-19 03:41Z, 6.7y ago] lucasjinreal commented:
+    @sachin052  this is unrelated to this issue. What we want is when apps goes back from background, disconnect signal can be correctly detected by this lib.
+[2020-04-25 02:32Z, 6.6y ago] baotoushashou commented:
+    > @phamnhuvu-dev I can not do this if your app goes back from background...... cause at that time the websocket already closed.
+    > 
+    > What users really needs, is simply check if current connect is alive or not
+    
+    @jinfagang could you please describe your problem in details?Be better with procedure in details.I have tried the websocket channel as your procedure ,the channel could keep active in background in my andoird phone.And then, i tried the network factor.When the demo being running,i closed my wifi,and the onDone method was called.It seems nothing wrong to happen.
+[2020-04-25 03:39Z, 6.6y ago] lucasjinreal commented:
+    @baotoushashou  Can u you share your demo?
+[2020-04-25 03:43Z, 6.6y ago] lucasjinreal commented:
+    So when your apps goes back from background, the method `onClosed` can be run?
+[2020-04-25 03:44Z, 6.6y ago] baotoushashou commented:
+    > @baotoushashou Can u you share your demo?
+    
+    the connection was still on active
+[2020-04-25 03:45Z, 6.6y ago] baotoushashou commented:
+    @jinfagang so,how to reappear your problem?
+[2020-04-25 03:48Z, 6.6y ago] lucasjinreal commented:
+    @baotoushashou  Turn off your wifi or cut down your sever listening
+[2020-04-25 03:50Z, 6.6y ago] baotoushashou commented:
+    @jinfagang i have tried it.Nothing wrong with it.turn off my wifi.The log show reconnect.and then the connection recreated.
+[2020-04-25 03:53Z, 6.6y ago] baotoushashou commented:
+    Please show me your environment and procedures in details. So I could reappear your problem.
+[2020-04-25 07:49Z, 6.6y ago] lucasjinreal commented:
+    @baotoushashou Would u share your code on github so that I can have a try?
+[2020-04-25 10:39Z, 6.6y ago] baotoushashou commented:
+    @jinfagang of course
+    ```
+      ///??
+      void connect() {
+        _doConnect();
+        print("websocket ?????");
+      }
+    void _doConnect() {
+        if (this._channel != null && this._state != WebSocketChannelState.closed) {
+          close();
+        }
+        this._channel = IOWebSocketChannel.connect(
+          WS_ADDRESS,
+          pingInterval: Duration(
+            seconds: 1,
+          ),
+        );
+        _state = WebSocketChannelState.connecting;
+        this._channel.stream.listen(onReceiveData,
+            onDone: onClosed, onError: onError, cancelOnError: false);
+      }
+    ///????
+      void onReceiveData(data) {
+        Protocol protocol = Protocol(data);
+        ProtocolManager().dispatch(protocol);
+        print("websocket receive protocol:${protocol.prtId} data:$data");
+      }
+    
+      ///????,????
+      void onClosed() {
+        print("websocket ???");
+        new Future.delayed(Duration(seconds: 1), () {
+          print("websocket ?????");
+          _doConnect();
+        });
+      }
+    
+      void onError(err, StackTrace stackTrace) {
+        print("websocket ??:" + err.toString());
+        if (stackTrace != null) {
+          print(stackTrace);
+        }
+      }
+    
+      void close() {
+        this._channel.sink.close();
+        this._state = WebSocketChannelState.closed;
+      }
+    ```
+    Please igore the state of websocket managing.I'm tring to manage the state of websocket channel. So it's a tempprary and half-baked version.
+[2020-04-27 03:19Z, 6.6y ago] baotoushashou commented:
+    @jinfagang Have u solved your problems?I tried the web_socket_channel and my code in the LTE. I found something wrong, maybe it's a bug of the channel. The thing is that When the channel connecting with LTE, it is ok. But later I have closen the LTE. The stranger thing appeared. The onDone was not called. Is it the same as your problem? I think it 's a bug of the web_socket_channel.
+[2020-04-27 03:23Z, 6.6y ago] lucasjinreal commented:
+    @baotoushashou  I believe it is so. I previous not notice the differences between LTE and wifi.
+    But problem actually exists.
+[2020-04-27 03:56Z, 6.6y ago] baotoushashou commented:
+    @jinfagang The problem above in my real phone did not exist. Just in simulator.
+[2020-05-29 22:35Z, 6.5y ago] isco-msyv commented:
+    Can be helpful: https://stackoverflow.com/questions/55503083/flutter-websockets-autoreconnect-how-to-implement/62095514#62095514
+[2020-06-02 15:18Z, 6.5y ago] ramioooz commented:
+    Something like this should work : 
+    ```
+      void initState(){
+        super.initState();
+        listenWs();
+      }
+    
+      listenWs(){
+        widget.channel.stream.listen((onData){
+          final data = json.decode(onData);
+          print(data);
+        },onDone: (){
+          reConnectWs();
+          }
+        );
+      }
+    
+      reConnectWs(){
+        final token = prefs.token;
+        
+        Future.delayed(Duration(milliseconds: 1000)).then((_){
+          widget.channel = IOWebSocketChannel.connect(WS_URL);
+          listenWs();
+        });
+    
+      }
+    ```
+    
+    Hope it helps,
+    Thanks
+[2021-09-01 09:10Z, 5.2y ago] tarunjain3 commented:
+    https://stackoverflow.com/a/68549605/13713269
+    
+    you can refer this
+[2022-10-13 18:47Z, 4.1y ago] denewbie commented:
+    Hi guys, was suffering from that too but I modified @TomLiu-GitHub 's codes (which was a great reference) to the following: 
+    
+    
+    ```
+    //// Initialised  A Task Upon Loading 
+    SOME_INIT_FUNCTION(){
+        // Initialise the task
+        HandleWSConnection();
+    }
+    
+    //// The Task Itself, which periodically checks if _websocket is "null"
+      HandleWSConnection(){
+    
+          print("Handle WS Connection");
+    
+            // Send Heartbeat
+            if (
+            _webSocket != null &&
+                _webSocket.readyState == WebSocket.open
+            ) {
+              WSSendHBTMessage();
+            }
+            // Request Connection
+            else {
+              ConnectWS();
+            }
+       
+          // Set next interval action
+          Future.delayed(Duration( milliseconds: WS_INTERVAL ), HandleWSConnection);
+      }
+    
+    //// Create the Connection
+    Future<void> ConnectWS() async{
+    
+        print("Connect WS");
+    
+        //// Do not if already connected
+        if  (
+                _webSocket != null &&
+                (
+                    _webSocket.readyState == WebSocket.open ||
+                    _webSocket.readyState == WebSocket.connecting
+                )
+            ){
+            print("WS already connected or connecting");
+            return;
+        }
+    
+        Future<WebSocket> futureWebSocket = WebSocket.connect( 'ws://$_host:$_port' );
+    
+        futureWebSocket.then( ( WebSocket webSocket ){
+            _webSocket = webSocket;
+    
+            webSocket.listen(
+              OnWSData,
+    
+              onError: ( error ){
+    
+                print( "There was an er …[407 more chars]
+[2024-08-15 20:51Z, 2.3y ago] michael-joseph-payne commented:
+    @brianquinlan I'm struggling with this too (both WebSocket and CupertinoWebSocket)
+[2025-01-22 16:05Z, 22mo ago] mosuem labeled 'package:web_socket_channel'
