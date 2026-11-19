@@ -1,5 +1,5 @@
 // Notification service (design: Notifications; PRD NOTIF-11..16).
-import { CATALOGUE, compareNotifications, type CredentialKind, type Notification, type NotificationCode } from "@gitilizer/shared";
+import { CATALOGUE, compareNotifications, withoutCovered, type CredentialKind, type Notification, type NotificationCode } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 
 export async function shownNotifications(ctx: Ctx, userId: string): Promise<Notification[]> {
@@ -7,13 +7,14 @@ export async function shownNotifications(ctx: Ctx, userId: string): Promise<Noti
     `select code, subject, params, first_detected_at, seen_at from notifications where user_id = $1 and shown`,
     [userId],
   );
-  return rows
+  const notes = rows
     .filter((r) => r.code in CATALOGUE)
     .map((r) => ({
       code: r.code, subject: r.subject, params: r.params ?? {},
       firstDetectedAt: new Date(r.first_detected_at).toISOString(), seen: r.seen_at !== null,
     }))
     .sort(compareNotifications);
+  return withoutCovered(notes); // NOTIF-24
 }
 
 export async function push(ctx: Ctx, userId: string) {

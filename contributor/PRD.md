@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -189,7 +189,7 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Rank reasoning popup | [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443) | [Columns](#columns) |
 | Next step chip | [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240), with a variant for each of the seven next steps; shown on every row of the list frames and in the rank reasoning popup | [Columns](#columns), [Ranking](#ranking) |
 | Search and type filter | [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2738), shown above the column headings in the list and Icebox frames; with a search and a filter in use: [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904); with nothing matching: [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161) | [Search and type filter](#search-and-type-filter) |
-| Sync now button | [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369) on the Animations page (Idle and Syncing; present it to see the icon turn) | [Sync now](#sync-now) |
+| Sync now button | [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369) on the Animations page (Idle and Syncing; present it to see the icon turn); while GitHub can't be read: [Inbox controls · GitHub can't be read](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=425-3408) | [Sync now](#sync-now) |
 | Icebox | [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947) | [Icebox](#icebox) |
 | Icebox, empty | [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593) | [Icebox](#icebox) |
 | Icebox row | [Icebox / Issue row · Restore](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=180-1403) | [Icebox](#icebox) |
@@ -436,6 +436,10 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
   expires. Its body counts down the days ("will expire in 3 days", as in Figma's
   example). A connection made with the Gitilizer app renews itself, so it has no
   expiry warning (`SET-46`).
+- **NOTIF-24** While an error that stops every scan is shown (`LIST-43`),
+  "Your issues and PRs haven't updated since {time}" must not be shown: the
+  error says why, and its fix, Sync now, is disabled. It is shown again if it
+  still applies when that error clears ([Q-101](#q-101)).
 - **NOTIF-23** Notifications about a ranking agent appear only for the agent in
   use. Switching agents (`SET-40`) clears every notification about the previous
   one, as saving a new key does (`NOTIF-13`).
@@ -486,7 +490,7 @@ Figma: [Error being shown](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 | Warning | Ranking | Gitilizer couldn't rank {n} issues and PRs | These issues and PRs are shown without a rank. Gitilizer tries again when they change. | Individual items fail after retries (blocked response, output cut off, invalid output). See `LIST-30`. | Every one of them is ranked or leaves the list. |
 | Error | Gitilizer | Can't connect to Gitilizer | Your list won't update until the connection comes back. Check your internet connection. | The web app's requests to the Gitilizer API fail. Detected in the browser. | A request succeeds. |
 | Error | Gitilizer | Gitilizer couldn't finish scanning | Your list may be missing recent changes. Gitilizer tries again at the next scan. If this continues, report it using the GitHub link at the bottom of the page. | The backend's own scan job fails for a reason other than GitHub. | A scan succeeds. |
-| Error | Gitilizer | Your issues and PRs haven't updated since {time} | No scan has finished in 3 hours, so your list may be missing recent changes. Try Sync now. If this continues, report it using the GitHub link at the bottom of the page. | No scan has succeeded for 3 hours. This catches failures the other rows miss. | A scan succeeds. |
+| Error | Gitilizer | Your issues and PRs haven't updated since {time} | No scan has finished in 3 hours, so your list may be missing recent changes. Try Sync now. If this continues, report it using the GitHub link at the bottom of the page. | No scan has succeeded for 3 hours. This catches failures the other rows miss. Not shown while an error that stops every scan is (`NOTIF-24`). | A scan succeeds. |
 | Warning | GitHub connection | Your GitHub personal access token will expire soon | Your GitHub personal access token will expire in {n} days. Create a new one and add it to Settings. | The stored expiry date is 7 days away or less (`NOTIF-22`). | A PAT with a later expiry date is saved, or GitHub is connected with the Gitilizer app. |
 
 Not in the catalogue, by decision:
@@ -745,7 +749,7 @@ Figma: [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 
 - **LIST-16** A "Sync now" button must start a sync: a scan for new, changed and removed items, followed by ranking of only the new and changed items. "Save and re-rank" (`SET-15`) also starts a sync, one that ranks every item again. The daily re-rank (`RANK-9`) isn't a sync: it doesn't turn the icon, disable the button or show progress (`LIST-33`), and only its result is shown (`LIVE-24`).
 - **LIST-17** While any sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), the button must show the **Syncing** state: its icon, in the accent color, turns clockwise once per second. With reduced motion, the icon is still and in the accent color.
-- **LIST-28** The button must be disabled while a sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), and enabled again as soon as the sync finishes (`LIST-32`). There is no other minimum interval between manual syncs.
+- **LIST-28** The button must be disabled while a sync is in progress, whether the developer started it or it started automatically (`SCAN-5`), and enabled again as soon as the sync finishes (`LIST-32`). There is no other minimum interval between manual syncs. It is also disabled while GitHub can't be read at all (`LIST-43`).
 - **LIST-32** A sync counts as finished, and the icon stops turning, when the
   scan has finished and every new and changed item (after "Save and re-rank",
   every item it can reach, `RANK-13`) has been ranked, has failed, or is waiting
@@ -764,6 +768,22 @@ Figma: [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
     that it disappears as soon as the sync finishes. "· waiting for {agent}"
     appears only after 5 seconds without progress, and goes as soon as {n}
     changes.
+- **LIST-43** While an error that stops every scan is shown, the button must be
+  disabled, and text next to it, in place of the progress text, must say what
+  fixes it, as in [Inbox controls · GitHub can't be read](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=425-3408).
+  The first words are a link that opens Settings at the control that fixes it,
+  as `NOTIF-9` does, and the button names the text as its description, so a
+  screen reader reads them together:
+  - "Your GitHub connection has ended": "**Reconnect GitHub** to sync".
+  - "GitHub isn't connected": "**Connect GitHub** to sync".
+  - "Your GitHub personal access token has expired" and "…isn't valid":
+    "**Replace your token** to sync".
+
+  Errors that leave some issues and PRs readable, such as "Your GitHub personal
+  access token can't read {permission}", and short-lived ones (`NOTIF-21`)
+  don't disable it. While it is disabled, a scan that starts automatically and
+  fails at once doesn't turn the icon or show progress. The button is enabled
+  again as soon as the error clears ([Q-101](#q-101)).
 
 ### Moving an item to the Icebox
 
@@ -1739,6 +1759,7 @@ item's next step.
 | <a id="q-98"></a>Q-98 | Finding an item in a long list | A strip above the column headings, inside the table, with a search field and an "All" / "PRs" / "Issues" filter. Search covers the title, the repository and the number. It leaves out the inclusion reason and the agent's reasoning; the reasoning isn't shown on the row, so a match on it couldn't be seen. A filtered list keeps each item's rank in the whole list, and the search and filter are in the URL. Putting the two controls in the row of controls above the table, and putting the type filter in the Issue column heading, were considered and not chosen: the first wraps onto a second line at 1024 px (`PLAT-6`), and the second is easy to miss. Filters by repository and by inclusion reason, unread markers and shortcuts for working through the list were proposed with it and left for later. | `LIST-34` to `LIST-41`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`, `LIVE-7` |
 | <a id="q-99"></a>Q-99 | A keyboard shortcut for search, and turning shortcuts off | "/" moves focus to the search field, with a key cap in the field as a hint. A "Keyboard shortcuts" switch in Settings turns off every shortcut, this one and any added later, which WCAG 2.2 level AA requires for single-character shortcuts. The switch turns off shortcuts only, never ordinary keyboard operation such as Tab, Enter and Esc. A switch for "/" alone, letting the developer change the key, and Ctrl+K or Command+K in its place, which would need no switch, were considered and not chosen. | `KEY-1` to `KEY-3`, `SET-50`, `SET-14`, `LIST-35`, `NFR-10` |
 | <a id="q-100"></a>Q-100 | Showing what the developer should do next on each item | Ranking gives each item one of seven next steps: "Review", "Respond", "To do" and "Backlog" are on the developer; "Waiting", "Elsewhere" and "Not yours" are not. A chip with the next step starts the line under the title, and the agent's one-sentence next action is in the rank reasoning popup, above the reasoning. A fixed set was chosen for the row over the agent's own words because the words don't fit: at 1024 px (`PLAT-6`) the line shows about 38 characters, and the next actions agents write have a median of 68 to 123 characters, depending on the agent. A fixed set also reads the same whichever agent ranked the item, and basic ranking, which writes no text, can give it. The seven came from sorting the next actions of 1,000 items in production. With a finer set for what is on the developer (reply, revise, build, decide, verify, merge), two thirds of those items named two at once. Old items in the developer's own areas with nothing pressing, about a fifth of the list, fitted nowhere, which is why "Backlog" exists; it counts as on the developer because the developer can act on it, and its low score keeps it below the rest. Showing a short phrase on the row, in place of the inclusion reason or on a line of its own, a "Next step" column, and marking only the items that aren't on the developer were considered and not chosen. Filtering by next step, such as "On you" and "Not on you", is left for later, to keep the first change small. Basic ranking gives next steps too: evaluation found its next steps match the eval set about as often as Claude's do ([evaluation](../eval/next-step-2026-11-18.md)). | `LIST-42`, `LIST-24`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, [Non-goals](#non-goals) |
+| <a id="q-101"></a>Q-101 | What Sync now does while GitHub can't be read at all | It is disabled, with "Reconnect GitHub to sync" (or "Connect GitHub" or "Replace your token") next to it, linking to Settings. "Haven't updated since" isn't shown while that error is, because it has the same cause and tells the developer to try Sync now. Until now the button stayed enabled, and a sync failed in milliseconds, so the progress text flashed and the icon didn't visibly turn. | `LIST-43`, `LIST-28`, `NOTIF-24` |
 
 ---
 
@@ -2412,3 +2433,17 @@ reasoning popup ([Q-100](#q-100), [Q-31](#q-31)):
   and the "Next" block is in
   [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443).
   The live update flows on the Animations page still show rows without chips.
+
+### Forty-third revision (2026-11-18, Sync now while GitHub can't be read)
+
+On dev, Sync now flashed "Finding issues and PRs…" and the icon didn't turn,
+because the GitHub connection had ended and each sync failed in milliseconds
+([Q-101](#q-101)):
+
+- While "Your GitHub connection has ended", "GitHub isn't connected" or a
+  token error that pauses scanning is shown, Sync now is disabled, with text
+  next to it that links to the fix in Settings (`LIST-43`, `LIST-28`).
+- "Your issues and PRs haven't updated since {time}" isn't shown while one of
+  those errors is (`NOTIF-24`, the catalogue).
+- Changed Figma. New frame:
+  [Inbox controls · GitHub can't be read](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=425-3408).

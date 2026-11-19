@@ -1,4 +1,5 @@
-// The list as static markup: search and the type filter (PRD LIST-34 to LIST-41, KEY-1, KEY-3), and next steps (LIST-42, LIST-24).
+// The list as static markup: search and the type filter (PRD LIST-34 to LIST-41, KEY-1, KEY-3), next steps (LIST-42, LIST-24),
+// and Sync now while GitHub can't be read (LIST-43).
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,12 +7,16 @@ import { DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, type ItemRow } from "@gi
 import { init, type Live, type View } from "../live/engine.ts";
 
 // The store, the router and the live list need a browser; the page only needs their values.
-const page = vi.hoisted(() => ({ search: "", shortcuts: true as boolean | null, firstSyncDone: true, live: null as unknown }));
+const page = vi.hoisted(() => ({
+  search: "", shortcuts: true as boolean | null, firstSyncDone: true, live: null as unknown,
+  notifications: [] as { code: string }[], running: false,
+}));
 vi.mock("../store.tsx", () => ({
   useStore: () => ({
     me: { firstSyncDone: page.firstSyncDone, rankingAgent: "gemini" },
     sorts: { prioritized: DEFAULT_SORT_PRIORITIZED, icebox: DEFAULT_SORT_ICEBOX },
-    setSort: () => {}, sync: { running: false, lastFinishedAt: null, progress: null }, shortcuts: page.shortcuts,
+    setSort: () => {}, sync: { running: page.running, lastFinishedAt: null, progress: null }, shortcuts: page.shortcuts,
+    notifications: page.notifications,
   }),
 }));
 vi.mock("../router.tsx", () => ({
@@ -181,5 +186,49 @@ describe("next steps on the list (LIST-42, LIST-24)", () => {
     expect(old).toContain('<span class="rank-why-next-head">Next</span><p>Answer the question.</p>');
     // Nothing to show: no block.
     expect(renderToStaticMarkup(<RankWhy row={{ ...steps[3], reasoning: "Because." }} rank={4} onClose={() => {}} />)).not.toContain("rank-why-next");
+  });
+});
+
+describe("Sync now while GitHub can't be read (LIST-43)", () => {
+  beforeEach(() => { page.notifications = []; page.running = false; });
+  const controls = () => {
+    const html = render("", list(ITEMS));
+    return html.slice(html.indexOf('class="controls"'), html.indexOf('class="table'));
+  };
+
+  it("is enabled, with no note, while GitHub can be read", () => {
+    page.notifications = [{ code: "github_rate_limited" }, { code: "stale" }];
+    const html = controls();
+    expect(html).not.toContain("sync-note");
+    expect(html).toMatch(/<button class="btn sync "[^>]*aria-busy="false">/);
+    expect(html).not.toMatch(/<button[^>]*disabled/);
+  });
+
+  it("is disabled, with a link to reconnect named as its description, when the connection has ended", () => {
+    page.notifications = [{ code: "stale" }, { code: "github_connection_ended" }];
+    const html = controls();
+    expect(html).toContain('<span id="sync-note" class="sync-progress"><a href="/settings#github-connect">Reconnect GitHub</a> to sync</span>');
+    expect(html).toMatch(/<button class="btn sync "[^>]*disabled=""[^>]*aria-describedby="sync-note">/);
+  });
+
+  it("says how to fix each error that stops every scan", () => {
+    const note = (code: string) => { page.notifications = [{ code }]; return text(controls().match(/<span id="sync-note".*?<\/span>/)![0]).trim(); };
+    expect(note("github_missing")).toBe("Connect GitHub to sync");
+    expect(note("github_expired")).toBe("Replace your token to sync");
+    expect(note("github_invalid")).toBe("Replace your token to sync");
+    expect(controls()).toContain('href="/settings#github-pat"');
+    // Errors that leave some items readable don't disable it.
+    page.notifications = [{ code: "github_permission_missing" }];
+    expect(controls()).not.toContain("sync-note");
+  });
+
+  it("doesn't turn the icon or show progress for a scan that fails at once", () => {
+    page.running = true;
+    expect(controls()).toContain('class="btn sync syncing"');
+    page.notifications = [{ code: "github_connection_ended" }];
+    const html = controls();
+    expect(html).not.toContain("syncing");
+    expect(html).not.toContain("spin");
+    expect(html).not.toContain("sync-progress\">Finding");
   });
 });

@@ -240,7 +240,7 @@ When your credits run out, or you reach a spend or usage limit, Gitilizer pauses
 - The strip above the list searches it by title, repository or number, and **All**, **PRs** and **Issues** show one type. A filtered list keeps each item's rank in the whole list. The search and filter are in the page's address, so you can bookmark them.
 - Press **/** to jump to the search field. If single-key shortcuts get in your way, for example with speech input, turn off **Keyboard shortcuts** under Preferences in Settings; Tab, Enter and Esc work either way.
 - **Move to icebox** sets an item aside. If it changes later in a way that matters (for example, someone comments), Gitilizer brings it back. Bot comments and label changes don't. **Restore** brings it back yourself.
-- Gitilizer scans every 5 minutes while the list is open in a visible tab, every 30 minutes while it's in a background tab, and every 2 hours otherwise, if you've used Gitilizer in the last 7 days. **Sync now** scans at once; it is greyed out, with its icon turning, while a sync is already running.
+- Gitilizer scans every 5 minutes while the list is open in a visible tab, every 30 minutes while it's in a background tab, and every 2 hours otherwise, if you've used Gitilizer in the last 7 days. **Sync now** scans at once; it is greyed out, with its icon turning, while a sync is already running. It is also greyed out while Gitilizer can't read GitHub at all, for example after your GitHub connection has ended; the link next to it, such as **Reconnect GitHub**, opens the setting that fixes it.
 
 ## Notifications
 
@@ -281,7 +281,7 @@ The bell shows problems that stop Gitilizer from working fully. Red means an err
 | Gitilizer couldn't rank {n} issues and PRs | Those items are shown with "–". Gitilizer tries again when they change. |
 | Can't connect to Gitilizer | Your browser can't reach Gitilizer. Check your connection. |
 | Gitilizer couldn't finish scanning | A problem on Gitilizer's side. Please report it if it continues. |
-| Your issues and PRs haven't updated since {time} | No scan has finished for 3 hours. Try Sync now. |
+| Your issues and PRs haven't updated since {time} | No scan has finished for 3 hours. Try Sync now. Not shown while a GitHub connection or token error that pauses scanning is. |
 
 Report problems at [github.com/brianquinlan/gitilizer/issues](https://github.com/brianquinlan/gitilizer/issues).
 

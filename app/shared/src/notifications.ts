@@ -447,3 +447,31 @@ export function compareNotifications(a: Notification, b: Notification): number {
   if (sa !== sb) return sa - sb;
   return a.firstDetectedAt < b.firstDetectedAt ? -1 : a.firstDetectedAt > b.firstDetectedAt ? 1 : 0;
 }
+
+/**
+ * A GitHub error that stops every scan until the developer fixes it in
+ * Settings, and the note shown in place of Sync now's progress text while it
+ * lasts: `link`, a link to `settings` (the control, as in NOTIF-9), then
+ * `rest` (LIST-43). In order of precedence, if more than one shows.
+ */
+export type ScanBlocker = { code: NotificationCode; link: string; rest: string; settings: string };
+export const SCAN_BLOCKERS: ScanBlocker[] = [
+  { code: "github_connection_ended", link: "Reconnect GitHub", rest: " to sync", settings: CONNECT },
+  { code: "github_missing", link: "Connect GitHub", rest: " to sync", settings: CONNECT },
+  { code: "github_expired", link: "Replace your token", rest: " to sync", settings: PAT },
+  { code: "github_invalid", link: "Replace your token", rest: " to sync", settings: PAT },
+];
+
+/** The error, if any, that disables Sync now (LIST-43). */
+export function scanBlocker(notifications: { code: NotificationCode }[]): ScanBlocker | null {
+  const codes = new Set(notifications.map((n) => n.code));
+  return SCAN_BLOCKERS.find((b) => codes.has(b.code)) ?? null;
+}
+
+/**
+ * "Haven't updated since" isn't shown while an error that stops every scan
+ * does: that error is why, and its fix, Sync now, is disabled (NOTIF-24).
+ */
+export function withoutCovered<T extends { code: NotificationCode }>(notifications: T[]): T[] {
+  return scanBlocker(notifications) ? notifications.filter((n) => n.code !== "stale") : notifications;
+}
