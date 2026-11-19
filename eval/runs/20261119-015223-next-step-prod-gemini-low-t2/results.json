@@ -1,0 +1,403 @@
+{
+ "config": {
+  "label": "next-step-prod-gemini-low-t2",
+  "strategy": "pointwise",
+  "model": "gemini-3.8-flash",
+  "thinking": "low",
+  "prompt": "/sessions/rcw-01fmhwkbaxx3b3yagpz8tnn6/work/prompts/v4.md",
+  "signals": true,
+  "trials": 1,
+  "now": null,
+  "started_at": "20261119-015223",
+  "snapshots_fetched_at": [
+   "2026-11-06T17:54:31Z",
+   "2026-11-06T17:54:36Z",
+   "2026-11-06T17:54:55Z",
+   "2026-11-06T17:54:57Z",
+   "2026-11-06T17:59:32Z",
+   "2026-11-06T18:00:54Z",
+   "2026-11-06T18:00:55Z",
+   "2026-11-06T18:01:31Z",
+   "2026-11-06T18:01:53Z",
+   "2026-11-06T18:01:58Z",
+   "2026-11-06T18:02:12Z",
+   "2026-11-06T18:04:50Z",
+   "2026-11-06T18:05:16Z",
+   "2026-11-06T18:05:48Z",
+   "2026-11-06T18:10:07Z",
+   "2026-11-06T18:10:27Z",
+   "2026-11-06T18:24:26Z",
+   "2026-11-18T13:16:00Z",
+   "2026-11-18T16:08:07Z",
+   "2026-11-18T20:57:52Z"
+  ],
+  "elapsed_s": 13.7,
+  "usage": {
+   "prompt_tokens": 97199,
+   "output_tokens": 2628,
+   "thinking_tokens": 0
+  },
+  "labels_only": true
+ },
+ "truth": [
+  "dart-lang/http#1742",
+  "dart-lang/sdk#61328",
+  "dart-lang/http#1701",
+  "dart-lang/tools#2899",
+  "dart-lang/http#1988",
+  "dart-lang/tools#2893",
+  "dart-lang/sdk#60881",
+  "canonical/stdlibc.dart#152",
+  "dart-lang/sdk#54851",
+  "dart-lang/http#1620",
+  "dart-lang/http#1817",
+  "dart-lang/sdk#60768",
+  "dart-lang/sdk#51528",
+  "dart-lang/http#1217",
+  "dart-lang/http#2112",
+  "dart-lang/http#1382",
+  "googleapis/librarian#2490",
+  "dart-lang/http#1530",
+  "dart-lang/language#2133",
+  "googleapis/google-cloud-dart#392"
+ ],
+ "why": {
+  "dart-lang/http#1742": "",
+  "dart-lang/sdk#61328": "",
+  "dart-lang/http#1701": "",
+  "dart-lang/tools#2899": "",
+  "dart-lang/http#1988": "",
+  "dart-lang/tools#2893": "",
+  "dart-lang/sdk#60881": "",
+  "canonical/stdlibc.dart#152": "",
+  "dart-lang/sdk#54851": "",
+  "dart-lang/http#1620": "",
+  "dart-lang/http#1817": "",
+  "dart-lang/sdk#60768": "",
+  "dart-lang/sdk#51528": "",
+  "dart-lang/http#1217": "",
+  "dart-lang/http#2112": "",
+  "dart-lang/http#1382": "",
+  "googleapis/librarian#2490": "",
+  "dart-lang/http#1530": "",
+  "dart-lang/language#2133": "",
+  "googleapis/google-cloud-dart#392": ""
+ },
+ "trials": [
+  [
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.75,
+    "next_step": "review",
+    "next_action": "Review the PR hardening CI and pinning NASM for package:boring.",
+    "reasoning": "This PR touches package:boring, which is explicitly within my scope in dart-lang/tools. It was authored by my close collaborator mosuem, introduces CI supply-chain hardening, and is waiting for review. Although jonasfj was also requested, as a primary maintainer of package:boring, reviewing collaborator PRs in my scope is my responsibility.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 5938,
+     "output_tokens": 128,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "googleapis/google-cloud-dart#392",
+    "priority": 0.5,
+    "next_step": "todo",
+    "next_action": "Implement support for x-google-user-project in requestMetadata or prioritize this feature request.",
+    "reasoning": "You filed this feature request yourself in google-cloud-dart about two weeks ago. Although it is marked P3, it represents your own planned work and no one else is currently driving it. As it begins to age without external activity, it sits in the moderate priority range.",
+    "last_activity": "2026-11-05T19:08:24Z",
+    "usage": {
+     "prompt_tokens": 3355,
+     "output_tokens": 113,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/sdk#61328",
+    "priority": 0.5,
+    "next_step": "todo",
+    "next_action": "Investigate the flaky test timeout on Windows or unassign myself.",
+    "reasoning": "You assigned this issue to yourself in dart-lang/sdk to investigate a flaky test in library-io. It has been dormant for over a year, but as an assigned issue that remains open, you should either fix it or unassign yourself so it can be re-triaged. It belongs in the 0.5-0.65 range for assigned issues needing resolution or unassignment.",
+    "last_activity": "2026-05-18T22:07:08Z",
+    "usage": {
+     "prompt_tokens": 3617,
+     "output_tokens": 132,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/sdk#60881",
+    "priority": 0.5,
+    "next_step": "todo",
+    "next_action": "Evaluate the requested SecurityContext EKU check override for BoringSSL mTLS or unassign myself.",
+    "reasoning": "This issue is assigned to me in dart-lang/sdk because of my BoringSSL knowledge. Although it has been inactive for over 17 months without recent activity, assigned issues in the 0.5–0.65 range need attention to either work on or unassign.",
+    "last_activity": "2025-06-11T20:40:21Z",
+    "usage": {
+     "prompt_tokens": 4167,
+     "output_tokens": 115,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2893",
+    "priority": 0.45,
+    "next_step": "waiting",
+    "next_action": "Wait for mosuem to respond to review comments and decide how to split or update the PR.",
+    "reasoning": "This is in `package:boring` (my responsibility in `dart-lang/tools`) authored by a close collaborator (mosuem). I gave review feedback and suggested splitting the PR 6 hours ago; mosuem and dcharkes have engaged in discussion, and mosuem still needs to update the PR or resolve the direction. Since I've already reviewed and we are waiting on author action/consensus, priority sits in the waiting range for collaborator work.",
+    "last_activity": "2026-11-18T20:54:09Z",
+    "usage": {
+     "prompt_tokens": 6516,
+     "output_tokens": 153,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/sdk#54851",
+    "priority": 0.45,
+    "next_step": "todo",
+    "next_action": "Check the Wireshark dump and certificate validation failure in dart:io to see if this is an active TLS issue.",
+    "reasoning": "This is in dart-lang/sdk (not a repository I directly own), but a-siva specifically CC'd me on this TLS certificate verification failure after Wireshark traces were provided. Because it deals with TLS handshake failures and certificate trust in widely used core networking, it warrants attention even though I was only CC'd. However, it has been inactive for nearly two years without a direct call to action directed solely at me, keeping it in the moderate CC range.",
+    "last_activity": "2025-02-13T14:17:44Z",
+    "usage": {
+     "prompt_tokens": 5467,
+     "output_tokens": 160,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1217",
+    "priority": 0.4,
+    "next_step": "backlog",
+    "next_action": "Review or triage this long-standing Cronet network/DNS issue when grooming cronet_http.",
+    "reasoning": "This is an assigned bug in package:cronet_http with notable user impact regarding connection/DNS errors under Cronet. However, the thread has been dormant for 3 to 4 months following the last exchange, with no immediate action pending or direct questions blocking anyone right now. It belongs in the backlog to investigate or address when grooming.",
+    "last_activity": "2026-07-21T11:04:24Z",
+    "usage": {
+     "prompt_tokens": 10013,
+     "output_tokens": 128,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1988",
+    "priority": 0.25,
+    "next_step": "backlog",
+    "next_action": "Decide whether to publish a new release or pre-release of package:ok_http to pub.dev.",
+    "reasoning": "This is an issue in a repository you own asking for a new release of `package:ok_http` after several merged PRs. It has been open and quiet for over two months with no direct mentions or urgent blocker status. It sits in your general backlog of release and maintenance tasks to address when grooming.",
+    "last_activity": "2026-09-16T06:46:30Z",
+    "usage": {
+     "prompt_tokens": 3411,
+     "output_tokens": 126,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/sdk#51528",
+    "priority": 0.25,
+    "next_step": "respond",
+    "next_action": "Reply to mraleph's question about whether dart:io HttpClient should support preserving header casing and ordering for non-compliant servers.",
+    "reasoning": "You were explicitly asked by mraleph to make a call on this issue in dart-lang/sdk. However, the repository is not one you maintain directly, the issue is almost four years old, dormant for nearly two years, and represents an edge-case feature request rather than a defect or security problem. As an unanswered direct mention on an old external issue, it rates in the low priority range.",
+    "last_activity": "2024-12-23T10:34:36Z",
+    "usage": {
+     "prompt_tokens": 4088,
+     "output_tokens": 146,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "canonical/stdlibc.dart#152",
+    "priority": 0.2,
+    "next_step": "elsewhere",
+    "next_action": "Update or close PR #150 to implement the Ubuntu 24.04 ffigen workflow changes.",
+    "reasoning": "This issue is tracked by your open draft PR #150, which is where any actual implementation work should happen. While robert-ancell gave you the green light to push ahead, that was over 19 months ago in a repository you do not own. Because there is an open PR covering this issue and the thread is long stale, this issue itself requires no direct action and ranks low.",
+    "last_activity": "2025-04-06T21:48:20Z",
+    "usage": {
+     "prompt_tokens": 3485,
+     "output_tokens": 143,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "googleapis/librarian#2490",
+    "priority": 0.1,
+    "next_step": "backlog",
+    "next_action": "Leave in backlog until ready to work on sidekick Dart generator streaming whitelist.",
+    "reasoning": "I filed this issue over a year ago in googleapis/librarian, which is not one of my primary repositories. It was placed into an 'Unplanned' milestone with no recent comments or assignments. There is no active urgency or blocker here, so it belongs in the low-priority backlog.",
+    "last_activity": "2026-07-25T14:53:20Z",
+    "usage": {
+     "prompt_tokens": 3659,
+     "output_tokens": 114,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1817",
+    "priority": 0.1,
+    "next_step": "backlog",
+    "next_action": "Consider closing this issue since `cronet_http` resolved the background issue or file a feature request for `addPublicKeyPins` if needed.",
+    "reasoning": "The original background networking issue in `dart:io` was resolved for the reporter by switching to `package:cronet_http`. The discussion veered into certificate pinning in `cronet_http` and has been completely dormant for over a year. There is no active blocker or pressing request waiting on me, so this can be triaged and closed during backlog grooming.",
+    "last_activity": "2025-11-10T07:23:40Z",
+    "usage": {
+     "prompt_tokens": 4950,
+     "output_tokens": 143,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/sdk#60768",
+    "priority": 0.1,
+    "next_step": "backlog",
+    "next_action": "Decide whether to modify default Content-Type headers for empty bodies or unassign myself.",
+    "reasoning": "You are assigned to this issue in dart-lang/sdk, but it has been completely inactive for over 17 months. While Kevmoo is a frequent collaborator, this is an old, non-critical enhancement/discussion in SDK's dart:io with no recent traction. It sits in your long-term backlog to groom or unassign.",
+    "last_activity": "2025-06-24T23:39:22Z",
+    "usage": {
+     "prompt_tokens": 3687,
+     "output_tokens": 129,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1742",
+    "priority": 0.1,
+    "next_step": "backlog",
+    "next_action": "Evaluate the feature request to expose internal request headers added by the client, or close as not planned.",
+    "reasoning": "The user replied explaining they want access to additional headers added by the package internally, removing the needs-info state. However, this issue has been completely dormant for 18 months and is a minor feature request in package:http. It belongs in the low-priority backlog to be triaged or closed when grooming.",
+    "last_activity": "2025-05-10T08:04:43Z",
+    "usage": {
+     "prompt_tokens": 3652,
+     "output_tokens": 123,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1701",
+    "priority": 0.1,
+    "next_step": "backlog",
+    "next_action": "Reply to the user's question about checking connection state in package:web_socket_channel, or close the issue if obsolete.",
+    "reasoning": "The user answered my question and asked how to inspect the connection state in 3.0.1, so technically it is waiting on me in a repo I manage. However, this is an ordinary usage question/minor feature inquiry that has been completely dormant for over 19 months. Because of its extreme staleness and low impact, it sits squarely in the low-priority backlog.",
+    "last_activity": "2025-05-02T08:05:47Z",
+    "usage": {
+     "prompt_tokens": 3800,
+     "output_tokens": 144,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1620",
+    "priority": 0.1,
+    "next_step": "backlog",
+    "next_action": "Triage this stale discussion on detecting disconnection in web_socket_channel when grooming.",
+    "reasoning": "This is an ancient, 8-year-old discussion issue in dart-lang/http regarding web_socket_channel connectivity detection. Although I was mentioned by a user over two years ago, it was merely an 'I'm struggling with this too' comment rather than an actionable question, and kevmoo already noted 'Pull requests welcome' long ago. It is stale backlog in a package I own with no urgent action required.",
+    "last_activity": "2025-01-22T16:05:30Z",
+    "usage": {
+     "prompt_tokens": 7420,
+     "output_tokens": 145,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1530",
+    "priority": 0.05,
+    "next_step": "waiting",
+    "next_action": "Wait for reporter response to my question about WebSocketChannel.ready, or triage and close during backlog grooming.",
+    "reasoning": "I asked a clarifying question over 3 years ago inquiring if WebSocketChannel.ready solves their problem, and nobody has answered. While I am responsible for package:web_socket_channel in this repo, this is an ancient stale issue with no recent activity or blocking work. It belongs in the very low priority backlog range.",
+    "last_activity": "2025-01-22T16:02:20Z",
+    "usage": {
+     "prompt_tokens": 3742,
+     "output_tokens": 125,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#2112",
+    "priority": 0,
+    "next_step": "not_yours",
+    "next_action": "None, as package:http2 is outside my scope and I am not assigned or mentioned.",
+    "reasoning": "Per my instructions, I am responsible for all packages in dart-lang/http except package:http2 unless specifically mentioned or assigned. This PR is strictly within package:http2, and I have not been assigned, mentioned, or requested for review. Furthermore, it is stacked deep in a series of PRs.",
+    "last_activity": "2026-11-18T15:59:04Z",
+    "usage": {
+     "prompt_tokens": 6579,
+     "output_tokens": 124,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/language#2133",
+    "priority": 0,
+    "next_step": "not_yours",
+    "next_action": "None; this is an open language feature request in dart-lang/language and is waiting on the language team.",
+    "reasoning": "This is a feature request in `dart-lang/language`, a repository I do not own or maintain. Even though I originally authored the issue over 4 years ago, design and implementation decisions are handled by the language team. There is no pending action or question directed at me.",
+    "last_activity": "2026-03-01T17:30:09Z",
+    "usage": {
+     "prompt_tokens": 6163,
+     "output_tokens": 121,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/http#1382",
+    "priority": 0,
+    "next_step": "not_yours",
+    "next_action": "None; this package:http2 question was redirected to mosuem over two years ago.",
+    "reasoning": "This issue is about package:http2, which I am not responsible for unless actively needed. Although kevmoo pinged me over two years ago, I answered and redirected the question to mosuem, who has since labeled the issue. There is nothing further for me to do.",
+    "last_activity": "2024-10-18T09:08:17Z",
+    "usage": {
+     "prompt_tokens": 3490,
+     "output_tokens": 116,
+     "thinking_tokens": null
+    },
+    "error": null
+   }
+  ]
+ ],
+ "next_step_labels": {
+  "dart-lang/http#1742": "backlog",
+  "dart-lang/sdk#61328": "backlog",
+  "dart-lang/http#1701": "respond",
+  "dart-lang/tools#2899": "not_yours",
+  "dart-lang/http#1988": "backlog",
+  "dart-lang/tools#2893": "review",
+  "dart-lang/sdk#60881": "backlog",
+  "canonical/stdlibc.dart#152": "backlog",
+  "dart-lang/sdk#54851": "not_yours",
+  "dart-lang/http#1620": "backlog",
+  "dart-lang/http#1817": "backlog",
+  "dart-lang/sdk#60768": "backlog",
+  "dart-lang/sdk#51528": "respond",
+  "dart-lang/http#1217": "todo",
+  "dart-lang/http#2112": "not_yours",
+  "dart-lang/http#1382": "not_yours",
+  "googleapis/librarian#2490": "backlog",
+  "dart-lang/http#1530": "waiting",
+  "dart-lang/language#2133": "waiting",
+  "googleapis/google-cloud-dart#392": "todo"
+ },
+ "next_step": {
+  "labelled": 20,
+  "exact": [
+   0.55,
+   0
+  ],
+  "same_side": [
+   0.8,
+   0
+  ]
+ }
+}

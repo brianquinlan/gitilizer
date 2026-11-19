@@ -1,0 +1,41 @@
+# ISSUE dart-lang/http#1742: Request headers from streamed response
+url: https://github.com/dart-lang/http/issues/1742
+state: open
+author: Clasherzz (association with repo: NONE)
+created: 2025-03-31T04:45:15Z (20mo ago)
+last updated: 2025-05-10T08:04:43Z (18mo ago)
+labels: ['type-enhancement', 'package:http']
+assignees: []
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 384, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['commenter', 'mentioned', 'watches_repo']
+- repo_interest_filter: I am responsible for all packages in this repo, expect `package:http2`. But if I am assigned, mentioned, etc. in an issue or PR related to `package:http2` then rank it as you would any other package in dart-lang/http.
+- author_is_collaborator: False
+- last_human_activity: Clasherzz commented 18mo ago
+- last_human_actor_is_me: False
+- my_last_activity: labeled 18mo ago
+- mentions_of_me: [{'by': 'Clasherzz', 'informational_cc': False, 'line': '@brianquinlan I beleive its unavailable'}]
+- days_since_update: 557.5
+- days_since_created: 597.7
+
+## Description
+If possible it would be great if you guys can expose the request headers in the streamed response
+
+## Activity (11 events, oldest first)
+[2025-03-31 04:45Z, 20mo ago] Clasherzz opened this issue
+[2025-03-31 04:45Z, 20mo ago] Clasherzz labeled 'package:http'
+[2025-03-31 04:45Z, 20mo ago] Clasherzz labeled 'type-enhancement'
+[2025-05-01 17:43Z, 19mo ago] brianquinlan (ME) commented:
+    Can't you get them from `StreamedResponse.request.headers`?
+[2025-05-01 17:43Z, 19mo ago] brianquinlan (ME) labeled 'needs-info'
+[2025-05-02 12:56Z, 19mo ago] Clasherzz commented:
+    @brianquinlan I beleive its unavailable
+[2025-05-02 14:42Z, 19mo ago] brianquinlan (ME) commented:
+    What is unavailable?
+[2025-05-03 08:05Z, 19mo ago] github-actions[bot] unlabeled 'needs-info'
+[2025-05-07 16:38Z, 18mo ago] brianquinlan (ME) labeled 'needs-info'
+[2025-05-09 15:19Z, 18mo ago] Clasherzz commented:
+    The headers that we send in a request is unavailable through the streamed response. I wanted to get the additional headers that http package add while sending .
+[2025-05-10 08:04Z, 18mo ago] github-actions[bot] unlabeled 'needs-info'

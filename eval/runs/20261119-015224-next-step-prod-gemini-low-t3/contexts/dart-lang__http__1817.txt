@@ -1,0 +1,89 @@
+# ISSUE dart-lang/http#1817: [http] Requests fail with SocketException when flutter app goes in to background
+url: https://github.com/dart-lang/http/issues/1817
+state: open
+author: KingRial (association with repo: NONE)
+created: 2025-08-29T08:18:34Z (15mo ago)
+last updated: 2025-11-10T07:23:40Z (12mo ago)
+labels: ['type-bug', 'package:http']
+assignees: []
+reactions: {'+1': 3}
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 384, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['commenter', 'mentioned', 'watches_repo']
+- repo_interest_filter: I am responsible for all packages in this repo, expect `package:http2`. But if I am assigned, mentioned, etc. in an issue or PR related to `package:http2` then rank it as you would any other package in dart-lang/http.
+- author_is_collaborator: False
+- last_human_activity: KingRial commented 12mo ago
+- last_human_actor_is_me: False
+- my_last_activity: commented 12mo ago
+- mentions_of_me: [{'by': 'KingRial', 'informational_cc': False, 'line': 'Hi @brianquinlan,'}, {'by': 'brianquinlan', 'informational_cc': False, 'line': '> Hi [@brianquinlan](https://github.com/brianquinlan),'}, {'by': 'KingRial', 'informational_cc': False, 'line': '@brianquinlan, it works using [package:cronet_http](https://pub.dev/packages/cronet_http) on Android Devices!'}]
+- days_since_update: 373.6
+- days_since_created: 446.5
+
+## Related issues and PRs
+- issue dart-lang/http#877 '[http] Requests fail with SocketException when flutter app goes in to background': closed (completed), by jimmyff, updated 2.2y ago, labels ['closed-duplicate', 'type-question', 'package:http']
+- issue dart-lang/http#1314 'Support badCertificateCallback in cronet': closed (completed), by komaxx, updated 2.0y ago, assignees ['brianquinlan'], labels ['type-enhancement', 'package:cronet_http']
+- issue appsup-dart/openid_client#128 'Update Docs: "ClientException with SocketException: Failed host lookup"; Android requires specific configurations to work': open, by KingRial, updated 15mo ago
+
+## Description
+Just wanted to let you know that this issue is still present on android devices: https://github.com/dart-lang/http/issues/877
+
+I discovered the problem while using the openid_client (https://pub.dev/packages/openid_client).
+I configured the authentication process to use an external browsers (See https://github.com/appsup-dart/openid_client/issues/128 for more details) and this is what happens:
+
+- When the authentication process starts the App goes in background and open a browser to desired authentication server URL
+- When you log in the browser will be redirected to localhost:4000 with all the relevant data
+- However the openUrl on https://github.com/dart-lang/http/blob/ef05b3744424885d93f88a6a50664fb5b7d5cbdb/pkgs/http/lib/src/io_client.dart#L114 fails with the "ClientException with SocketException: Failed host lookup: 'xxx.yyy.zzz' (OS Error: No address associated with hostname, errno = 7)" since the App has been put on background (and the browser is still on foreground)
+
+If you use an inApp webview the problem doesn't occur (since the app is still on foreground)
+
+## Activity (11 events, oldest first)
+[2025-08-29 08:18Z, 15mo ago] KingRial opened this issue
+[2025-08-29 08:18Z, 15mo ago] KingRial labeled 'type-bug'
+[2025-08-29 08:18Z, 15mo ago] KingRial labeled 'package:http'
+[2025-10-06 23:17Z, 13mo ago] brianquinlan (ME) commented:
+    Hi @KingRial 
+    
+    Could you try using [`package:cupertino_http`](https://pub.dev/packages/cupertino_http) to see if you can still reproduce?
+[2025-10-06 23:17Z, 13mo ago] brianquinlan (ME) labeled 'needs-info'
+[2025-10-07 06:46Z, 13mo ago] KingRial commented:
+    > Hi [@KingRial](https://github.com/KingRial)
+    > 
+    > Could you try using [`package:cupertino_http`](https://pub.dev/packages/cupertino_http) to see if you can still reproduce?
+    
+    Hi @brianquinlan,
+    
+    just wanted to point that this issue is related only to **Android environment**; on Apple/iOS everything is fine.
+    I could try using the [package:cupertino_http](https://pub.dev/packages/cupertino_http) but I don't understand how on Android this could change anything.
+    
+    Should I still try to reproduce it with [package:cupertino_http](https://pub.dev/packages/cupertino_http)?
+[2025-10-07 08:06Z, 13mo ago] github-actions[bot] unlabeled 'needs-info'
+[2025-10-13 17:25Z, 13mo ago] brianquinlan (ME) commented:
+    > > Hi [@KingRial](https://github.com/KingRial)
+    > > Could you try using [`package:cupertino_http`](https://pub.dev/packages/cupertino_http) to see if you can still reproduce?
+    > 
+    > Hi [@brianquinlan](https://github.com/brianquinlan),
+    > 
+    > just wanted to point that this issue is related only to **Android environment**; on Apple/iOS everything is fine. I could try using the [package:cupertino_http](https://pub.dev/packages/cupertino_http) but I don't understand how on Android this could change anything.
+    > 
+    > Should I still try to reproduce it with [package:cupertino_http](https://pub.dev/packages/cupertino_http)?
+    
+    No, sorry. On Android, could you try to reproduce with `package:cronet_http`?
+[2025-10-14 06:17Z, 13mo ago] KingRial commented:
+    @brianquinlan, it works using [package:cronet_http](https://pub.dev/packages/cronet_http) on Android Devices!
+    
+    However please be aware that this HTTP client won't support the classic "badCertificateCallback" to manage self signed certificates  without creating a custom CA to install on all the machines you want to use (https://github.com/dart-lang/http/issues/1314) ^^
+    
+    It should be doable by using the native `CronetEngine.Builder(..)` with a drugged ` TrustManager`  that will accept any certificate by your own specific internal logic, but as far as I understood, the current flutter package `cronet_http `  doesn't allow to add this options on the native `CronetEngine`
+[2025-11-08 01:15Z, 12mo ago] brianquinlan (ME) commented:
+    I don't think that `CronetEngine` interoperates with `TrustManager` in any way. 
+    
+    Would access to [addPublicKeyPins](https://developer.android.com/develop/connectivity/cronet/reference/org/chromium/net/CronetEngine.Builder.html#addPublicKeyPins) be sufficient for your use case?
+[2025-11-10 07:23Z, 12mo ago] KingRial commented:
+    > I don't think that `CronetEngine` interoperates with `TrustManager` in any way.
+    > 
+    > Would access to [addPublicKeyPins](https://developer.android.com/develop/connectivity/cronet/reference/org/chromium/net/CronetEngine.Builder.html#addPublicKeyPins) be sufficient for your use case?
+    
+    Thank your for your hint.
+    You are right, that seems the only viable way to support self-signed certificates using [package:cronet_http](https://pub.dev/packages/cronet_http).

@@ -1,0 +1,123 @@
+# ISSUE dart-lang/sdk#54851: TCP Connections Aborting During TLS Handshake
+url: https://github.com/dart-lang/sdk/issues/54851
+state: open
+author: aweinber (association with repo: NONE)
+created: 2024-02-07T19:34:24Z (2.8y ago)
+last updated: 2025-02-13T14:17:44Z (21mo ago)
+labels: ['area-vm', 'library-io']
+assignees: []
+reactions: {'+1': 1}
+repository: dart-lang/sdk — The Dart SDK, including the VM, JS and Wasm compilers, analysis, core libraries, and more. (stars: 11337, open issues: 8537, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['mentioned']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: lrhn unlabeled 21mo ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: [{'by': 'a-siva', 'informational_cc': True, 'line': '//cc @brianquinlan @aam'}, {'by': 'a-siva', 'informational_cc': True, 'line': '//cc @brianquinlan looks like we have a wire shark report for this issue.'}]
+- days_since_update: 643.3
+- days_since_created: 1015.1
+
+## Description
+Hi,
+
+Writing here because I'm not sure the right place and this seems to involve dart:io (though that isn't necessarily the cause of this issue).
+
+### Issue background 
+
+~5 times in the last month, a recurring network call in my deployed flutter Windows application (on multiple different client computers) has begun to throw the following error when connecting to a particular API:
+```
+HandshakeException: Handshake error in client (OS Error: 
+	BLOCK_TYPE_IS_NOT_01(../../third_party/boringssl/src/crypto/fipsmodule/rsa/padding.c:108)
+	PADDING_CHECK_FAILED(../../third_party/boringssl/src/crypto/fipsmodule/rsa/rsa_impl.c:676)
+	public key routines(../../third_party/boringssl/src/crypto/x509/a_verify.c:108)
+	CERTIFICATE_VERIFY_FAILED: certificate signature failure(../../third_party/boringssl/src/ssl/handshake.cc:393))
+```
+This is the code in the dart sdk that invokes the boringssl validation
+```
+secure_socket_patch.dart in _SecureFilterImpl._handshake at line 99
+```
+The issue occurs for the duration of the lifespan of the application. Force quitting the application and restarting the machine both successfully resolve the issue; otherwise the recurring process continues to fail with this error. The same exception occurs in multiple places in my application where I call this endpoint. Here's one such example (running every 60 seconds) that is raising this exception (which happens whether I a `/health` endpoint from this healthcheck code or from the more important application code.:
+
+```
+  final client = HttpClient();
+  try {
+    final req = await client.getUrl(host);
+    final res = await req.close();
+    if (res.statusCode != 200) {
+      throw Exception('Unexpected status code: ${res.statusCode}. Reason: ${res.reasonPhrase}.');
+    }
+  } on Exception catch (e, stackTrace) {
+    // send to logging endpoint
+  } finally {
+    client.close(force: true);
+  }
+```
+
+### Why this might be a dart or flutter issue
+I initially assumed there was a network failure or a certificate issue and have worked to disprove these theories. Here's what I've learned:
+* This issue only happens for some clients, some of the time, while other clients have no problem
+* This issue only happens to this one api - healthchecks to 8.8.8.8 succeed (thanks google)
+* The issue happens whether I instantiate a new HttpClient or use a Dio singleton
+* This issue only happens when connecting over HTTPS to this endpoint - http healthchecks to my endpoint succeed
+* While the instance of the app is impaired, https Requests from the rest of the OS to this endpoint succeed - curl and browser requests both succeed
+* Packet sniffing indicates that the client is sending FIN packets before the TLS connection is complete and application data is exchanged: I have generated a pcap file while the app is impaired and have found that at various stages of the TLS handshake the client has sent a FIN packet before the TLS handshake is done - sometimes between Server Hello and Server Key Exchange, sometimes after Server Key Exchange. 
+
+### Reproduction steps
+Unfortunately I haven't been able to reproduce this issue quite yet. If you have any suggestions I'd be very happy to try them.
+
+### Specs
+Windows 10 (both my dev machine and the affected clients)
+Dart version: Dart version: 3.0.6 (stable)
+Flutter 3.10.6 (stable)
+
+I'm at a bit of a loss and would appreciate any ideas to try to understand the source of this error. Thanks!
+
+## Activity (18 events, oldest first)
+[2024-02-07 19:34Z, 2.8y ago] aweinber opened this issue
+[2024-02-08 16:37Z, 2.8y ago] lrhn labeled 'area-library'
+[2024-02-08 16:37Z, 2.8y ago] lrhn labeled 'library-io'
+[2024-02-08 18:52Z, 2.8y ago] a-siva labeled 'area-vm'
+[2024-02-08 18:52Z, 2.8y ago] a-siva commented:
+    //cc @brianquinlan @aam
+[2024-02-12 20:44Z, 2.8y ago] aweinber commented:
+    Hi, I just want to briefly update this ticket. It appears that another client saw a similar error today, with an unrelated endpoint not owned by my team - `google.com`. Here is the error message:
+    
+    ```
+    HealthCheckException{uri: https://google.com, error: HandshakeException: Handshake error in client (OS Error: 
+    	CALLED_WITH_EVEN_MODULUS(../../third_party/boringssl/src/crypto/fipsmodule/bn/exponentiation.c:590)
+    	public key routines(../../third_party/boringssl/src/crypto/x509/a_verify.c:108)
+    	CERTIFICATE_VERIFY_FAILED: certificate signature failure(../../third_party/boringssl/src/ssl/handshake.cc:393))}
+    ```
+    
+    This error happens here - https://github.com/google/boringssl/blob/c39e6cd9ec5acebb6de2adffc03cfe03b07f08ab/crypto/fipsmodule/bn/exponentiation.c#L589. The error is also happening repeatedly on other APIs, including those on our backend.  I don't think my application is doing anything unusual with how it creates HTTP requests, but let me know if there's anything I can do to fix this or illuminate the problem.
+[2024-02-14 21:50Z, 2.8y ago] a-siva commented:
+    @aweinber can you send us a wireshark dump when the error happens, maybe that might give us some clues. Without a reliable reproduction it is going to be hard for us to investigate this.
+[2024-02-14 21:50Z, 2.8y ago] a-siva labeled 'needs-info'
+[2024-02-29 08:03Z, 2.7y ago] github-actions[bot] commented:
+    Without additional information we're not able to resolve this issue. Feel free to add more info or respond to any questions above and we can reopen the case. Thanks for your contribution!
+[2024-02-29 08:03Z, 2.7y ago] github-actions[bot] closed
+[2024-03-01 14:34Z, 2.7y ago] aweinber commented:
+    @a-siva sorry about the delay here. Here's a zip of one such example. If you open in wireshark and examine `tcp.stream eq 17`, you will see a representative example. Ip addr 54.... is the backend. If I'm reading this correctly, after the Server Hello Done, my machine abruptly sends a FIN packet to the backend. I'm not sure how useful this will be, but please let me know if it gives you any ideas for other things I should explore. 
+    
+    Thanks!
+    
+    [2-7-failure-zip.zip](https://github.com/dart-lang/sdk/files/14462325/2-7-failure-zip.zip)
+[2024-08-28 15:56Z, 2.2y ago] hillelcoren commented:
+    We're seeing the same error, could the issue please be re-opened? 
+    
+    I found another report here:
+    
+    https://www.reddit.com/r/flutterhelp/comments/1cnb3q0/certificate_verify_failed_whats_the_right/
+[2024-10-02 17:00Z, 2.1y ago] aweinber commented:
+    @a-siva (in case you dont get notified when these issues get commented on - sorry about the delay in my original wireshark dump) - this continues to happen intermittently for me by the way - against both my app's endpoint and google.com
+[2024-10-02 22:49Z, 2.1y ago] a-siva commented:
+    //cc @brianquinlan looks like we have a wire shark report for this issue.
+[2024-10-02 22:49Z, 2.1y ago] a-siva reopened
+[2024-10-03 08:05Z, 2.1y ago] github-actions[bot] unlabeled 'needs-info'
+[2024-11-27 14:31Z, 24mo ago] hillelcoren commented:
+    In case it's a helpful, one of our users reported that using "HP Wolf Security software" was introducing the issue for them.
+[2025-02-13 14:17Z, 21mo ago] lrhn unlabeled 'area-core-library'

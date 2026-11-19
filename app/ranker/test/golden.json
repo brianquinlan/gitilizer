@@ -1,5 +1,5 @@
 {
- "note": "SHA-256 (first 16 hex digits) of the text the Python ranker produced for the eval set, before it was ported to TypeScript. The TypeScript ranker must produce the same text, so measurements made with either still compare.",
+ "note": "SHA-256 (first 16 hex digits) of the text the Python ranker produced for the eval set, before it was ported to TypeScript. The TypeScript ranker must produce the same text, so measurements made with either still compare. The exception is `system` (and `eval.__system__`): since 2026-11-18 the output section asks for a next step (PRD RANK-23), so those are hashes of the current system prompts.",
  "contexts": {
   "dart-lang__core__1007": "e9d68bf7f2769400",
   "dart-lang__http__1365": "5a071ac93c3182da",
@@ -39,7 +39,7 @@
   "googleapis__librarian__7808": "9eb1ce219d60bf9e"
  },
  "eval": {
-  "__system__": "a47fd9fb6163ecde",
+  "__system__": "547b5e2d53137e6d",
   "dart-lang/core#1007": "e9d68bf7f2769400",
   "dart-lang/http#1365": "cd98f99aa1445560",
   "dart-lang/http#1837": "6a1716f0359f81be",
@@ -116,19 +116,19 @@
   "fbec0f3899ef4b6b"
  ],
  "system": {
-  "v1": "209ff8a464234b74",
-  "v1-listwise": "d4ba6832655f7101",
-  "v2": "29c35bc0ac040d36",
-  "v2-listwise": "e50b614aaaaa9c3c",
-  "v3": "6b2b9cf30559eca5",
-  "v3-listwise": "9b16f9a45c0bc10f",
-  "v4": "a47fd9fb6163ecde",
-  "v4-listwise": "10bf53c182ff5e6a"
+  "v1": "aa4c23528fdf5f59",
+  "v1-listwise": "402cdcee6e52b163",
+  "v2": "12f637ae6d4d0225",
+  "v2-listwise": "7941f859dc9145b3",
+  "v3": "b2af5af347e16c16",
+  "v3-listwise": "1c5262af2e33417a",
+  "v4": "547b5e2d53137e6d",
+  "v4-listwise": "05a38e56d5d2a676"
  },
  "recency": [
   [
    "dart-lang/http#1981",
-   1.0
+   1
   ],
   [
    "dart-lang/tools#2719",
@@ -268,7 +268,7 @@
   ],
   [
    "dart-lang/sdk#59846",
-   0.0
+   0
   ]
  ],
  "sheet": "06b8d91bad5b9846"

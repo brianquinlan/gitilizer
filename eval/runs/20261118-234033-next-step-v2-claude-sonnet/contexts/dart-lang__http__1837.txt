@@ -1,0 +1,48 @@
+# ISSUE dart-lang/http#1837: Support WinHTTP-based HTTP client for Windows (similar to cupertino_http and cronet_http)
+url: https://github.com/dart-lang/http/issues/1837
+state: open
+author: UnluckyY1 (association with repo: NONE)
+created: 2025-10-20T23:15:26Z (12mo ago)
+last updated: 2025-10-28T00:05:56Z (12mo ago)
+labels: ['type-enhancement', 'contributions-welcome', 'P3', 'package:http']
+assignees: []
+reactions: {'+1': 2}
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 380, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['commenter', 'watches_repo']
+- repo_interest_filter: not responsible for http2
+- author_is_collaborator: False
+- last_human_activity: brianquinlan labeled 12mo ago
+- last_human_actor_is_me: True
+- my_last_activity: labeled 12mo ago
+- mentions_of_me: []
+- days_since_update: 362.8
+- days_since_created: 369.8
+
+## Related issues and PRs
+- issue flutter/flutter#26359 'App ignores proxy settings': open, by christian-muertz, updated 9mo ago, labels ['c: new feature', 'framework', 'engine', 'dependency: dart', 'P2', 'team-engine', 'triaged-engine']
+
+## Description
+Hi Dart team 👋
+
+I’d like to ask if there are any plans to provide a WinHTTP-based implementation for the http package on Windows, similar to how:
+	•	cronet_http is used on Android
+	•	cupertino_http is used on iOS/macOS
+
+Currently, there’s no native Windows equivalent. As a result, apps using Dart/Flutter on Windows rely solely on the default Dart HTTP stack, which may not take advantage of Windows’ native networking capabilities (e.g. WinHTTP, proxy integration, certificate management, etc.).
+
+This would also help resolve long-standing issues such as:
+flutter/flutter#26359
+
+## Activity (6 events, oldest first)
+[2025-10-20 23:15Z, 12mo ago] UnluckyY1 opened this issue
+[2025-10-20 23:15Z, 12mo ago] UnluckyY1 labeled 'type-enhancement'
+[2025-10-20 23:15Z, 12mo ago] UnluckyY1 labeled 'package:http'
+[2025-10-21 08:47Z, 12mo ago] HosseinYousefi labeled 'contributions-welcome'
+[2025-10-28 00:05Z, 12mo ago] brianquinlan (ME) commented:
+    Hi @UnluckyY1 ,
+    
+    This is not something that the Dart team is likely to take on. It should be possible to a member of the community to tackle this by adding the needed APIs to `package:win32` and then implementing the HTTP API using them.
+[2025-10-28 00:05Z, 12mo ago] brianquinlan (ME) labeled 'P3'

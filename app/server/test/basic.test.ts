@@ -20,7 +20,7 @@ async function addBasicUser(ctx: Ctx, userId: string) {
   await ctx.db.query(`delete from credentials where user_id = $1 and kind = 'gemini_key'`, [userId]);
   await ctx.db.query(`update users set ranking_agent = 'basic' where id = $1`, [userId]);
 }
-const scored = { priority: 0.7, actionable: true, next_action: "", reasoning: "" };
+const scored = { priority: 0.7, next_step: "todo" as const, next_action: "", reasoning: "" };
 const pausedText = (params: Record<string, string>) => CATALOGUE.basic_paused.body(params, Date.now()).map((x) => x.text).join("");
 
 describe("ranking with basic ranking (RANK-21)", () => {
@@ -35,14 +35,24 @@ describe("ranking with basic ranking (RANK-21)", () => {
     await scan(ctx, userId, "test");
   });
 
-  it("claims jobs with Gitilizer's own key and the decision model, and stores a score with no reasoning (RANK-2, RANK-16)", async () => {
+  it("claims jobs with Gitilizer's own key and the decision model, and stores a score and a next step with no reasoning (RANK-2, RANK-16, RANK-21)", async () => {
     const [job] = await claimJobs(ctx, 1, 60);
     expect(job).toMatchObject({ choice: "basic", agent: "basic", model: "gemini-decision-1", apiKey: "basic-key-1234567890" });
     await completeJob(ctx, job.id, scored);
-    const row = await ctx.db.one(`select score, ranked_agent, ranked_model, reasoning, next_action from user_items where user_id = $1 and item_key = $2`, [userId, job.itemKey]);
-    expect(row).toEqual({ score: 0.7, ranked_agent: "basic", ranked_model: "gemini-decision-1", reasoning: "", next_action: "" });
-    // No reasoning, so the rank isn't clickable (LIST-24).
-    expect((await listRows(ctx.db, userId)).find((r) => r.key === job.itemKey)).toMatchObject({ score: 0.7, reasoning: null });
+    const row = await ctx.db.one(`select score, ranked_agent, ranked_model, reasoning, next_step, actionable, next_action from user_items where user_id = $1 and item_key = $2`, [userId, job.itemKey]);
+    expect(row).toEqual({ score: 0.7, ranked_agent: "basic", ranked_model: "gemini-decision-1", reasoning: "", next_step: "todo", actionable: true, next_action: "" });
+    // No reasoning, so the rank isn't clickable (LIST-24); the next step is still on the row (LIST-42).
+    expect((await listRows(ctx.db, userId)).find((r) => r.key === job.itemKey)).toMatchObject({ score: 0.7, reasoning: null, nextStep: "todo", nextAction: null });
+  });
+
+  it("sends no next step for an item last ranked before next steps existed, or with one it doesn't know (LIST-42)", async () => {
+    const [key] = (await ctx.db.query(`select item_key from user_items where user_id = $1 and next_step is not null`, [userId])).map((r) => r.item_key);
+    const nextStep = async () => (await listRows(ctx.db, userId, [key]))[0].nextStep;
+    await ctx.db.query(`update user_items set next_step = null where user_id = $1 and item_key = $2`, [userId, key]);
+    expect(await nextStep()).toBeNull();
+    await ctx.db.query(`update user_items set next_step = 'later' where user_id = $1 and item_key = $2`, [userId, key]);
+    expect(await nextStep()).toBeNull();
+    await ctx.db.query(`update user_items set next_step = 'todo' where user_id = $1 and item_key = $2`, [userId, key]);
   });
 
   it("waits out a per-minute limit on Gitilizer's key without pausing or telling the developer (RANK-22)", async () => {
@@ -154,6 +164,15 @@ describe("ranking with basic ranking (RANK-21)", () => {
     const worker = new RankingWorker(t.ctx);
     for (const job of await claimJobs(t.ctx, 12, 60)) await worker.run(job); // 4 for each developer (RANK-11)
     await worker.flushVolume();
+    // Every item gets a next step, and whether it is on the developer follows from it (RANK-2, RANK-23).
+    const steps = await t.ctx.db.query(`select ui.user_id, ui.next_step, ui.actionable, ui.next_action, ui.ranked_agent from user_items ui where ui.score is not null`);
+    expect(steps).toHaveLength(12);
+    for (const r of steps) {
+      expect(r.next_step).toMatch(/^(review|respond|todo|backlog|waiting|elsewhere|not_yours)$/);
+      expect(r.actionable).toBe(["review", "respond", "todo", "backlog"].includes(r.next_step));
+      // Basic ranking keeps the next step and stores no text, whatever the model sent (RANK-21).
+      expect(r.next_action).toBe(r.ranked_agent === "basic" ? "" : "(fake) Look at this.");
+    }
     const rows = await t.ctx.db.query(`select choice, agent, model, items from ranking_volume where day = current_date order by choice, agent`);
     expect(rows).toEqual([
       { choice: "basic", agent: "basic", model: "gemini-decision-1", items: 4 },

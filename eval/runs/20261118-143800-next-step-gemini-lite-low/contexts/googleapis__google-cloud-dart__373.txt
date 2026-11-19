@@ -1,0 +1,171 @@
+# PULL REQUEST googleapis/google-cloud-dart#373: feat(rpc): make retry logic useable across clients
+url: https://github.com/googleapis/google-cloud-dart/pull/373
+state: open
+author: brianquinlan (association with repo: MEMBER)
+created: 2026-10-14T16:37:25Z (11d ago)
+last updated: 2026-10-21T16:34:59Z (4d ago)
+labels: []
+assignees: ['natebosch']
+requested reviewers: ['natebosch']
+branch: brianquinlan:retry_harmony -> main
+reactions: {'heart': 2, 'eyes': 1}
+repository: googleapis/google-cloud-dart — [Experimental] Google Cloud Dart Client Libraries (stars: 23, open issues: 58, archived: False)
+
+## Derived signals (computed from the data below)
+- type: pull_request
+- my_roles: ['author', 'commenter', 'watches_repo']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: brianquinlan commented 4d ago
+- last_human_actor_is_me: True
+- my_last_activity: commented 4d ago
+- mentions_of_me: []
+- days_since_update: 4.1
+- days_since_created: 11.1
+- my_latest_review: {'state': 'COMMENTED', 'at': '11d ago', 'commits_pushed_after': 6, 'author_activity_after': True}
+- other_reviews: {'gemini-code-assist[bot]': 'COMMENTED 11d ago', 'sigurdm': 'APPROVED 6d ago'}
+- review_decision: APPROVED
+- unresolved_review_threads: 2
+- draft: False
+- merged: False
+- mergeable_state: behind
+- size: +1393/-516 in 34 files
+- last_commit: 5d ago
+
+## Changed files (34)
+AGENTS.md (+11/-1), generated/google_cloud_rpc/lib/retry.dart (+2/-1), generated/google_cloud_rpc/lib/service_client.dart (+115/-68), generated/google_cloud_rpc/lib/src/retry.dart (+203/-111), generated/google_cloud_rpc/test/client_test.dart (+259/-0), generated/google_cloud_rpc/test/retry_test.dart (+234/-63), pkgs/google_cloud_pubsub/CHANGELOG.md (+2/-3), pkgs/google_cloud_pubsub/lib/google_cloud_pubsub.dart (+1/-1), pkgs/google_cloud_pubsub/lib/src/client.dart (+3/-2), pkgs/google_cloud_pubsub/lib/src/retry.dart (+15/-9), pkgs/google_cloud_pubsub/lib/src/subscription.dart (+4/-6), pkgs/google_cloud_pubsub/lib/src/topic.dart (+5/-5), pkgs/google_cloud_pubsub/test/acknowledge_test.dart (+7/-6), pkgs/google_cloud_pubsub/test/modify_ack_deadline_test.dart (+4/-3), pkgs/google_cloud_pubsub/test/publish_test.dart (+4/-3) … and 19 more
+
+## Related issues and PRs
+- issue googleapis/google-cloud-dart#359 '[google_cloud_rpc] Wire RetryRunner and per-call RequestOptions into ServiceClient for generated REST clients': open, by kevmoo, updated 10d ago, assignees ['brianquinlan']
+- PR brianquinlan/google-cloud-dart#2 'chore(pubsub): merge main and update Subscription retry calls': merged, by sigurdm, updated 5d ago
+- PR googleapis/google-cloud-dart#292 'feat(google_cloud_pubsub): add Subscription ack and modifyAckDeadline batching': merged, by sigurdm, updated 5d ago
+- PR googleapis/google-cloud-dart#339 'feat(pubsub): add resilient parallel streaming pull': merged, by sigurdm, updated 5d ago
+- PR googleapis/google-cloud-dart#2 'Configure Renovate': closed, by renovate-bot, updated 13mo ago
+
+## Description
+Part of https://github.com/googleapis/google-cloud-dart/issues/359
+
+History: My original implementation of RPC retry logic was located in `package:google_cloud_storage` and meant for use in that package. @sigurdm needed equivalent functionality for `package:google_cloud_pubsub` so he moved it to a common location (`package:google_cloud_rpc`).
+
+The intent of this PR is to make this RPC retry logic useable by all clients, hand-written and generated.
+
+The broad strokes (does saying something like "broad strokes" make this seem more or less AI-written?):
+1. Remove the Google Cloud Storage-specific retry logic from `package:google_cloud_rpc` and replace it with the ability to retry errors based on either a predicate function or specific error codes.
+2. Changed the retry defaults to match Python (there is variation across implementations so I picked one)
+3. Changed the jittering logic to match the other languages' clients (the were all the same) 
+4. Changed `ServiceClient` to accept a `retry` argument for every RPC method
+
+The rest of the PR is clean-up in `package:google_cloud_storage` and `package:google_cloud_pubsub` to use the change functionality.
+
+There are a few semi-related changes in `package:google_cloud_storage` (I noticed these because it does affect the retry strategy):
+- Changed `deleteObjectAcl`/`patchObjectAcl` to never be idempotent.
+- Changed `deleteBucket` to always be idempotent.
+- Changed `uploadObjectFromSink` to only consider the generation match when starting the transfer, not when retrying failed data chunk uploads.
+
+One small semi-related change to `package:google_cloud_pubsub`:
+- Changed `defaultRetry` to match the service definition. @sigurdm could you check that I used the correct reference?
+
+**Question**: Should every package `export 'package:google_cloud_rpc/retry.dart';` so that developers don't have to explicitly depend on `package:google_cloud_rpc` if they want to modify their client's retry logic?
+
+I talked to @natebosch and we will not be doing that.
+
+## Activity (55 events, oldest first)
+[2026-10-13 20:15Z, 12d ago] Brian Quinlan pushed commit 6328f71 'first go'
+[2026-10-13 21:16Z, 12d ago] Brian Quinlan pushed commit 4dc8510 'Fix'
+[2026-10-13 22:38Z, 12d ago] Brian Quinlan pushed commit a7807d9 'Retry'
+[2026-10-13 22:46Z, 12d ago] Brian Quinlan pushed commit 0591457 'Update AGENTS.md'
+… 26 older events condensed …
+[2026-10-14 16:37Z, 11d ago] brianquinlan (ME) opened this PR
+[2026-10-14 16:42Z, 11d ago] gemini-code-assist[bot] reviewed [COMMENTED]:
+    ## Code Review
+    
+    This pull request refactors the retry mechanism across the Google Cloud Dart packages, introducing breaking changes to `ExponentialRetry` by removing built-in retryable errors in favor …[541 more chars]
+[2026-10-14 16:42Z, 11d ago] gemini-code-assist[bot] left inline review comment on pkgs/google_cloud_storage/lib/src/retry.dart:
+    ![high](https://www.gstatic.com/codereviewagent/high-priority.svg)
+    
+    In REST-based APIs like Google Cloud Storage, the JSON error response is parsed into a `ServiceException` where `status.code` contai …[1060 more chars]
+[2026-10-14 17:42Z, 11d ago] brianquinlan (ME) renamed 'Retry harmony' -> 'feat(rpc): make retry logic useable across clients'
+[2026-10-14 18:05Z, 11d ago] brianquinlan (ME) commented:
+    /gcbrun
+[2026-10-14 18:31Z, 11d ago] brianquinlan (ME) left inline review comment (reply) on pkgs/google_cloud_storage/lib/src/retry.dart:
+    google_cloud_storage doesn't use gRPC so I removed all of these cases.
+[2026-10-14 20:20Z, 11d ago] brianquinlan (ME) commented:
+    /gcbrun
+[2026-10-14 20:41Z, 11d ago] brianquinlan (ME) commented:
+    /gcbrun
+[2026-10-14 20:50Z, 11d ago] brianquinlan (ME) commented:
+    /gemini review
+[2026-10-14 20:53Z, 11d ago] gemini-code-assist[bot] reviewed [COMMENTED]:
+    ## Code Review
+    
+    This pull request introduces significant updates to the retry mechanism across the google_cloud_rpc, google_cloud_pubsub, and google_cloud_storage packages, including breaking changes that remove the isIdempotent parameter from RetryRunner.run and allow explicit retry runners to always be used. It also adds the isTransientError helper and noRetry option for Cloud Storage. Feedback on these changes suggests documenting that the custom http.Client is closed when Storage is closed, and correcting the Pub/Sub delayMultiplier from 4 to 2 (along with its corresponding test) to align with the standard service configuration.
+[2026-10-14 20:53Z, 11d ago] gemini-code-assist[bot] left inline review comment on pkgs/google_cloud_storage/lib/src/client.dart:
+    ![medium](https://www.gstatic.com/codereviewagent/medium-priority.svg)
+    
+    Since the `Storage` class closes the user-provided `http.Client` in its `close()` method, this behavior must be explicitly documented in the constructor to warn users against passing shared or persistent clients, in accordance with the repository's general rules.
+    
+    ```suggestion
+      /// Methods retry failed requests using [defaultRetry] if the operation is
+      /// [idempotent][], and don't retry them otherwise. Pass a `retry` argument
+      /// to a method to change how that call is retried. The documentation for
+      /// each method says when the operation is idempotent.
+      ///
+      /// Note that if a custom [client] is provided, it will be closed when
+      /// [close] is called on this [Storage] instance. Avoid passing a shared or
+      /// persistent client that is used elsewhere.
+    ```
+    
+    <details>
+    <summary>References</summary>
+    
+    1. If a class or function accepts a user-provided http.Client (or a factory creating one) and closes it, this behavior must be explicitly documented to warn users against passing shared or persistent clients.
+    </details>
+[2026-10-14 20:53Z, 11d ago] gemini-code-assist[bot] left inline review comment on pkgs/google_cloud_pubsub/lib/src/retry.dart:
+    ![medium](https://www.gstatic.com/codereviewagent/medium-priority.svg)
+    
+    The `google.pubsub.v1` gRPC service configuration specifies a `backoffMultiplier` of `2` (or `1.3` in some versions), not `4`. A multiplier of `4` causes the retry delay to grow extremely fast, which deviates from the standard Pub/Sub retry policy. Please update this to `2` to match the service definition.
+    
+    ```suggestion
+      delayMultiplier: 2,
+    ```
+[2026-10-14 20:53Z, 11d ago] gemini-code-assist[bot] left inline review comment on pkgs/google_cloud_pubsub/test/retry_test.dart:
+    ![medium](https://www.gstatic.com/codereviewagent/medium-priority.svg)
+    
+    Update the test assertion to expect a `delayMultiplier` of `2` to align with the corrected default retry configuration.
+    
+    ```dart
+          expect(defaultRetry.delayMultiplier, equals(2));
+    ```
+[2026-10-14 21:04Z, 11d ago] brianquinlan (ME) commented:
+    /gcbrun(a2d98a479f1227e5e51f65592d64dba7e320fafb)
+[2026-10-14 22:32Z, 11d ago] Brian Quinlan pushed commit 07791cd "Merge branch 'main' into retry_harmony"
+[2026-10-14 22:33Z, 11d ago] brianquinlan (ME) left inline review comment (reply) on pkgs/google_cloud_pubsub/lib/src/retry.dart:
+    The value is `4` here:
+    https://github.com/googleapis/googleapis/blob/8c6e40489b4ab4f1886154a32ece2f0b5db52b27/google/pubsub/v1/pubsub_grpc_service_config.json#L41-L64
+[2026-10-14 22:34Z, 11d ago] brianquinlan (ME) left inline review comment (reply) on pkgs/google_cloud_storage/lib/src/client.dart:
+    This seems unrelated to this PR.
+[2026-10-14 22:34Z, 11d ago] brianquinlan (ME) review_requested natebosch
+[2026-10-14 22:34Z, 11d ago] brianquinlan (ME) review_requested sigurdm
+[2026-10-14 22:34Z, 11d ago] brianquinlan (ME) assigned natebosch
+[2026-10-14 22:35Z, 11d ago] brianquinlan (ME) commented:
+    @sigurdm for the pubsub bits
+[2026-10-15 07:22Z, 11d ago] Brian Quinlan pushed commit d6ef4f3 "Merge branch 'main' into retry_harmony"
+[2026-10-15 07:22Z, 11d ago] brianquinlan (ME) commented:
+    /gcbrun
+[2026-10-15 22:05Z, 10d ago] Brian Quinlan pushed commit 5b0d75e 'no export retry'
+[2026-10-15 22:15Z, 10d ago] Brian Quinlan pushed commit 4cffd84 'fix'
+[2026-10-15 22:54Z, 10d ago] Brian Quinlan pushed commit 23e6915 'Fix CHANGELOG'
+[2026-10-19 15:17Z, 6d ago] sigurdm reviewed [APPROVED]:
+    LGTM!
+    
+    Checked the `defaultRetry` reference in `pkgs/google_cloud_pubsub/lib/src/retry.dart` — [`pubsub_grpc_service_config.json#L41-L64`](https://github.com/googleapis/googleapis/blob/8c6e40489b4ab4f1886154a32ece2f0b5db52b27/google/pubsub/v1/pubsub_grpc_service_config.json#L41-L64) is the right reference for `Publish` (100ms initial delay, 4x multiplier, 60s max delay, 60s timeout, and those 7 status codes). (`pubsub_grpc_service_config.json` has separate entries for `StreamingPull` at `#L101-L122` and `Acknowledge`/`ModifyAckDeadline` at `#L189-L241`, which we can either share `defaultRetry` for or specialize in #292/#339.)
+[2026-10-20 09:59Z, 5d ago] Sigurd Meldgaard pushed commit ec8f213 'Merge main into retry_harmony and update Subscription retry calls'
+[2026-10-20 10:03Z, 5d ago] sigurdm commented:
+    I opened https://github.com/brianquinlan/google-cloud-dart/pull/2 against `retry_harmony` to resolve the merge conflicts with #292 and #339 and update `Subscription` for the new `RetryRunner`/`ExponentialRetry` API.
+[2026-10-20 16:03Z, 5d ago] Brian Quinlan pushed commit 283d072 'Merge pull request #2 from sigurdm/retry-harmony-merged'
+[2026-10-20 16:04Z, 5d ago] brianquinlan (ME) commented:
+    /gbcrun
+[2026-10-21 16:34Z, 4d ago] brianquinlan (ME) commented:
+    Hey @sigurdm 
+    
+    Do you think that this is good to merge (I mean did you look at the non-PubSub parts)? @natebosch has a lot of reviews on his plate right now so, if he doesn't have to review this code, it would be helpful.

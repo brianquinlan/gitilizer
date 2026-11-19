@@ -1,0 +1,385 @@
+# ISSUE dart-lang/http#1217: Cronet exception: m.ms: Exception in CronetUrlRequest: net::ERR_CONNECTION_CLOSED, ErrorCode=5
+url: https://github.com/dart-lang/http/issues/1217
+state: open
+author: JSBmanD (association with repo: NONE)
+created: 2024-05-30T04:25:50Z (2.5y ago)
+last updated: 2026-07-21T11:04:24Z (4mo ago)
+labels: ['type-bug', 'package:cronet_http']
+assignees: ['brianquinlan']
+reactions: {'+1': 7}
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 384, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['assignee', 'commenter', 'watches_repo']
+- repo_interest_filter: I am responsible for all packages in this repo, expect `package:http2`. But if I am assigned, mentioned, etc. in an issue or PR related to `package:http2` then rank it as you would any other package in dart-lang/http.
+- author_is_collaborator: False
+- last_human_activity: brianquinlan referenced this in commit 3mo ago
+- last_human_actor_is_me: True
+- my_last_activity: referenced this in commit 3mo ago
+- mentions_of_me: []
+- days_since_update: 120.4
+- days_since_created: 902.7
+
+## Related issues and PRs
+- issue dart-lang/http#01 'Remove dart:mirror usage from package:http': closed (completed), by mkustermann, updated 9.8y ago, labels ['status-blocked']
+- PR dart-lang/http#02 "Change 'utils' library to 'http.utils'": merged, by azenla, updated 11.7y ago
+- issue dart-lang/http#03 'Remove reference to dartbug.com/new in README': closed (completed), by kevmoo, updated 10.1y ago
+- issue dart-lang/http#04 'Provide a HttpHeaders class for platform-independent use': closed (completed), by stevenroose, updated 11.7y ago
+- issue dart-lang/http#1720 '[cronet_http] Potential problem when having multiple Flutter engines': closed (completed), by HosseinYousefi, updated 11mo ago, assignees ['brianquinlan'], labels ['type-bug', 'package:cronet_http']
+- PR dart-lang/http#1845 [linked: closes/closed-by] '[cronet_http] Fix: multiple Flutter engines would cause crash': closed, by HosseinYousefi, updated 12mo ago, labels ['package:cronet_http']
+- PR dart-lang/http#1862 '[cronet_http] Fix background bugs': merged, by HosseinYousefi, updated 11mo ago, labels ['package:cronet_http']
+
+## Description
+### Package
+
+cronet_http
+
+### Version
+
+1.2.1
+
+### Operating-System
+
+Android
+
+### Output of `flutter doctor -v`
+
+```shell
+flutter doctor -v
+[?] Flutter (Channel stable, 3.19.6, on macOS 14.4.1 23E224 darwin-arm64, locale en-RU)
+    ? Flutter version 3.19.6 on channel stable at /Users/dmitry/fvm/versions/3.19.6
+    ? Upstream repository https://github.com/flutter/flutter.git
+    ? Framework revision 54e66469a9 (6 weeks ago), 2024-04-17 13:08:03 -0700
+    ? Engine revision c4cd48e186
+    ? Dart version 3.3.4
+    ? DevTools version 2.31.1
+
+[?] Android toolchain - develop for Android devices (Android SDK version 34.0.0)
+    ? Android SDK at /Users/dmitry/Documents/sdk
+    ? Platform android-34, build-tools 34.0.0
+    ? ANDROID_HOME = /Users/dmitry/Documents/sdk
+    ? Java binary at: /Users/dmitry/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java
+    ? Java version OpenJDK Runtime Environment (build 17.0.10+0-17.0.10b1087.21-11572160)
+    ? All Android licenses accepted.
+
+[!] Xcode - develop for iOS and macOS (Xcode 15.3)
+    ? Xcode at /Applications/Xcode.app/Contents/Developer
+    ? Build 15E204a
+    ! CocoaPods 1.12.1 out of date (1.13.0 is recommended).
+        CocoaPods is used to retrieve the iOS and macOS platform side's plugin code that responds to your plugin usage on the Dart side.
+        Without CocoaPods, plugins will not work on iOS or macOS.
+        For more info, see https://flutter.dev/platform-plugins
+      To upgrade see https://guides.cocoapods.org/using/getting-started.html#updating-cocoapods for instructions.
+
+[?] Chrome - develop for the web (Cannot find Chrome executable at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --ignore-certificate-errors
+    --disable-web-security --user-data-dir=/Users/dmitry/temp)
+    ! /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --ignore-certificate-errors --disable-web-security --user-data-dir=/Users/dmitry/temp is not
+      executable.
+
+[?] Android Studio (version 2023.3)
+    ? Android Studio at /Users/dmitry/Applications/Android Studio.app/Contents
+    ? Flutter plugin can be installed from:
+      ? https://plugins.jetbrains.com/plugin/9212-flutter
+    ? Dart plugin can be installed from:
+      ? https://plugins.jetbrains.com/plugin/6351-dart
+    ? Java version OpenJDK Runtime Environment (build 17.0.10+0-17.0.10b1087.21-11572160)
+
+[?] IntelliJ IDEA Community Edition (version 2023.3.2)
+    ? IntelliJ at /Users/dmitry/Applications/IntelliJ IDEA Community Edition.app
+    ? Flutter plugin version 78.4.2
+    ? Dart plugin version 233.15123
+
+[?] VS Code (version 1.87.2)
+    ? VS Code at /Applications/Visual Studio Code.app/Contents
+    ? Flutter extension version 3.88.0
+
+[?] Connected device (2 available)
+    ? iPhone SE (3rd generation) (mobile) ? *** ? ios          ? com.apple.CoreSimulator.SimRuntime.iOS-17-4 (simulator)
+    ? macOS (desktop)                     ? macos                                ? darwin-arm64 ? macOS 14.4.1 23E224 darwin-arm64
+
+[?] Network resources
+    ? All expected network resources are available.
+
+! Doctor found issues in 2 categories.
+```
+
+
+### Dart Version
+
+3.3.4
+
+### Steps to Reproduce
+
+1. Create long polling client (that will make requests one after another for a period of time)
+2. Start making requests
+
+### Expected Result
+
+Requests succeed
+
+### Actual Result
+
+After some time requests will fail with `Cronet exception: m.ms: Exception in CronetUrlRequest: net::ERR_CONNECTION_CLOSED, ErrorCode=5, InternalErrorCode=-100, Retryable=true, uri=https://***/v1/polling.getUpdates?ts=***,statusCode: null,cause: DioException [unknown]: null`
+
+Devices distribution (out of 30k events):
+<img width="609" alt="image" src="https://github.com/cfug/dio/assets/5402335/03f39d73-981b-4079-8107-a3b72f887e9c">
+
+Full log
+```
+Cronet exception: m.ms: Exception in CronetUrlRequest: net::ERR_CONNECTION_CLOSED, ErrorCode=5, InternalEr …[1032 more chars]
+
+## Activity (34 events, oldest first)
+[2024-05-30 04:25Z, 2.5y ago] JSBmanD opened this issue
+[2024-05-30 04:25Z, 2.5y ago] JSBmanD labeled 'package:cronet_http'
+[2024-05-30 04:25Z, 2.5y ago] JSBmanD labeled 'type-bug'
+[2024-05-30 04:25Z, 2.5y ago] JSBmanD assigned brianquinlan
+… 5 older events condensed …
+[2024-07-12 20:27Z, 2.4y ago] brianquinlan (ME) commented:
+    How are you using `package:cronet_http`? I see `DioException` in your logs.
+[2024-10-10 16:57Z, 2.1y ago] AlexV525 commented:
+    > How are you using `package:cronet_http`? I see `DioException` in your logs.
+    
+    We have `package:native_dio_adapter` that can connects `cronet_http` and `cupertino_http` with the Dio instance.
+[2025-04-25 19:51Z, 19mo ago] escamoteur commented:
+    I now see this exceptions too in our app and we don't use dio.
+    
+    V13.3
+[2025-04-25 23:16Z, 19mo ago] brianquinlan (ME) commented:
+    -100 seems to mean `ILLEGAL_ARGUMENT`:
+    https://chromium.googlesource.com/chromium/src/+/master/components/cronet/native/cronet.idl#205
+    
+    5 means `ERROR_CONNECTION_CLOSED`:
+    https://chromium.googlesource …[168 more chars]
+[2025-04-25 23:21Z, 19mo ago] escamoteur commented:
+    It happens on a polling GET call to our backend. Nothing special besides that we call this URL every 30s
+    Am 25. Apr. 2025, 18:16 -0500 schrieb Brian Quinlan ***@***.***>:
+    > brianquinlan left a comme …[548 more chars]
+[2025-04-28 17:46Z, 19mo ago] techouse commented:
+    I noticed that I get this when my app goes into the background and tries to make a REST call to an API (i.e. every 30 seconds):
+    
+    ```
+    ClientException: Cronet exception: m.kt: Exception in CronetUrlRequest: net::ERR_NAME_NOT_RESOLVED, ErrorCode=1, InternalErrorCode=-105, Retryable=false, uri=http://my-fancy-server.com
+    ```
+    
+    As soon as I bring it back to the foreground everything is back to normal.
+    
+    ---
+    
+    Tested on a Google Pixel 6
+[2025-04-28 17:54Z, 19mo ago] brianquinlan (ME) commented:
+    Could someone post a stack trace so I can see what line of code in the `cronet_http` package this is coming from?
+[2025-04-29 10:21Z, 19mo ago] techouse commented:
+    > Could someone post a stack trace so I can see what line of code in the `cronet_http` package this is coming from?
+    
+    The stack trace is not really helpful and most of it just mentions from what part of my app this originates
+    ```
+    Non-fatal Exception: io.flutter.plugins.firebase.crashlytics.FlutterError: ClientException: Cronet exception: m.kt: Exception in CronetUrlRequest: net::ERR_NAME_NOT_RESOLVED, ErrorCode=1, InternalErrorCode=-105, Retryable=false, uri=https://my-fancy-server.com/user. Error thrown Error refreshing User resources.
+    #00 pc 0xe28597 com.example.app (FirebaseCrashlytics.recordError [firebase_crashlytics.dart:119]) (BuildId: cde83d06fccce350ccbd75ad4c3ac952)
+    #01 pc 0xe2838f com.example.app (LoggingMixin._recordError [logging_mixin.dart:107]) (BuildId: cde83d06fccce350ccbd75ad4c3ac952)
+    #02 pc 0xe2f1cf com.example.app (LoadResources.reloadAll [logging_mixin.dart:66]) (BuildId: cde83d06fccce350ccbd75ad4c3ac952)
+    #03 pc 0xe2f093 com.example.app (PreventConcurrencyMixin.preventConcurrentRuns [prevent_concurrency_mixin.dart:10]) (BuildId: cde83d06fccce350ccbd75ad4c3ac952)
+    #04 pc 0xe2ef67 com.example.app (LoadResources.reloadAllPeriodically [load_resources.dart:263]) (BuildId: cde83d06fccce350ccbd75ad4c3ac952)
+    ```
+    
+    The only line in `cronet_http` that mentions `"Cronet exception: "` is this one
+    https://github.com/dart-lang/http/blob/63c477b466f650e8f5505d6d78dc283c2c2f9845/pkgs/cronet_http/lib/src/cronet_client.dart#L265
+[2025-08-01 01:46Z, 16mo ago] satya1395 commented:
+    facing same issue when using http call with flutter and work manager.  Background sync task fails with error:
+    ```
+    InetDiagMessage: Destroyed 2 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+    07-31 21:35:25.010   658   823 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+    07-31 21:35:25.010   658   823 D InetDiagMessage: Destroyed live tcp sockets for uids={10225} in 0ms
+    07-31 21:35:25.011   658   823 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+    07-31 21:35:25.011   658   823 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+    07-31 21:35:25.011   658   823 D InetDiagMessage: Destroyed live tcp sockets for uids={20225} in 1ms
+    07-31 21:35:25.016  8829  8829 I flutter : ? Sync failed after 67050ms: ClientException: Cronet exception: m1.mh: Exception in CronetUrlRequest: net::ERR_CONNECTION_ABORTED, ErrorCode=11, InternalErrorCode=-103, Retryable=false, uri=http://<url>
+    ```
+[2025-08-01 08:32Z, 16mo ago] HosseinYousefi commented:
+    This could be because of https://github.com/dart-lang/http/issues/1720
+    
+    Work manager creates another Flutter engine. I will fix this soon.
+[2025-11-02 19:23Z, 13mo ago] fluttersiast commented:
+    @HosseinYousefi Hi!
+    Maybe you have some updates on the issue?
+[2025-11-03 09:18Z, 13mo ago] HosseinYousefi commented:
+    > Maybe you have some updates on the issue?
+    
+    I have a PR ready and it will be merged by the end of this week.
+[2025-11-03 21:23Z, 12mo ago] brianquinlan (ME) commented:
+    > > Maybe you have some updates on the issue?
+    > 
+    > I have a PR ready and it will be merged by the end of this week.
+    
+    Could you provide a link?
+[2025-11-07 09:26Z, 12mo ago] HosseinYousefi commented:
+    > Could you provide a link?
+    
+    https://github.com/dart-lang/http/pull/1845
+[2025-11-11 16:18Z, 12mo ago] HosseinYousefi commented:
+    Could someone here please provide a minimal reproducible repo that has this problem? A simple get request works whether I'm using WorkManager or not.
+[2025-11-13 17:05Z, 12mo ago] fluttersiast commented:
+    @HosseinYousefi issue, that it's not so easy to reproduce, as it happened only after few mins/hours app was in background(and probably network switch from wifi to cellular in background may affect).
+    We have around 900K reports in sentry per month, but I'm not able to reproduce easily it.
+[2025-11-13 17:09Z, 12mo ago] HosseinYousefi commented:
+    > @HosseinYousefi issue, that it's not so easy to reproduce, as it happened only after few mins/hours app was in background(and probably network switch from wifi to cellular in background may affect).
+    > We have around 900K reports in sentry per month, but I'm not able to reproduce easily it.
+    
+    I see. Maybe it has something to do with the interface we're implementing in Dart. If I create a branch and experiment with some ideas, would you be able to verify if they solve your problem?
+[2025-11-20 13:51Z, 12mo ago] fluttersiast commented:
+    I would say mostly not, as It happened only for real users and I don't know how to reproduce it locally
+    
+    I can share more logs for various scenarious. Maybe that will be enough
+    In all scenarious user just open app from background, while in background wifi changed to cellular and vice-versa.
+    Also this is logs from app that do not have other isolates.
+    
+    <details> 
+      <summary>1: ERR_NETWORK_CHANGED
+     </summary>
+    Error: ClientException: Cronet exception: org.chromium.net.impl.NetworkExceptionImpl: Exception in CronetUrlRequest: net::ERR_NETWORK_CHANGED, ErrorCode=3, InternalErrorCode=-21, Retryable=true, uri=
+    
+    LOGS:
+    
+       Network Event
+    info
+    12:23:05.159 PM
+    
+    {
+    action: NETWORK_CAPABILITIES_CHANGED,
+    download_bandwidth: 14,
+    network_type: cellular,
+    upload_bandwidth: 14,
+    vpn_active: false
+    }
+    Network Event
+    info
+    12:23:05.159 PM
+    
+    {
+    action: NETWORK_AVAILABLE
+    }
+    Network Event
+    info
+    12:23:03.884 PM
+    
+    {
+    action: NETWORK_CAPABILITIES_CHANGED,
+    download_bandwidth: 9535,
+    network_type: wifi,
+    signal_strength: -82,
+    upload_bandwidth: 1451,
+    vpn_active: false
+    }
+    Ui Lifecycle
+    info
+    12:22:56.412 PM
+    
+    {
+    screen: MainActivity,
+    state: resumed
+    }
+    App Lifecycle
+    info
+    12:22:56.408 PM
+    
+    {
+    state: foreground
+    }
+    Ui Lifecycle
+    info
+    12:22:56.406 PM
+    
+    {
+    screen: MainActivity,
+    state: started
+    }
+    Network Event
+    info
+    12:22:56.352 PM
+    
+    {
+    action: NETWORK_CAPABILITIES_CHANGED,
+    download_bandwidth: 40131,
+    network_type: wifi,
+    signal_strength: -55,
+    upload_bandwidth: 38797,
+    vpn_active: false
+    }
+    Network Event
+    info
+    12:22:56.350 PM
+    
+    {
+    action: NETWORK_AVAIL …[3448 more chars]
+[2025-11-20 18:44Z, 12mo ago] brianquinlan (ME) commented:
+    I think that this occurs when the network changes or is disconnected. You can see these errors for cronet (and Chrome) outside of the Dart package, e.g. https://issues.chromium.org/issues/40144418
+[2025-11-21 09:21Z, 12mo ago] fluttersiast commented:
+    I see that it's marked as FIXED....As far as I understand we have 2 ways to eliminate this error. 
+    
+    1. Wait a fix(but noone know how to fix it since it's still reproducible )
+    2. Write a wrapper around Client interface and in case of hitting this issue - recreate a try to recreate a client.
+    
+    I will try to go with second option and let's see how it will work. In a month or two will share results as need to prepare release etc.
+[2025-12-09 20:52Z, 11mo ago] HosseinYousefi commented:
+    Can you check if this has gotten fixed by https://github.com/dart-lang/http/pull/1862 or not?
+[2025-12-11 16:16Z, 11mo ago] fluttersiast commented:
+    OK, will check this as well.
+    
+    What I found, that cronet should also have access to `android.permission.ACCESS_WIFI_STATE` to be able to detect when connection changes from WIFI to Cellular and vice versa (there is nothing in documentation).
+[2026-01-08 16:26Z, 10mo ago] johnswarbrick commented:
+    I'm experiencing the same `net::ERR_NAME_NOT_RESOLVED` errors on Android when using `cronet_http` version `1.7.0` with QUIC enabled:
+    
+    `Cronet exception: m1.mo: Exception in CronetUrlRequest: net::ERR_NAME_NOT_RESOLVED, ErrorCode=1, InternalErrorCode=-105, Retryable=false`
+    
+    Like @satya1395 these errors appear when HTTP POST requests are scheduled with Android WorkManager using Cronet..
+    
+    But they only fail when the device is connected with mobile data, they never fail when connected with WiFi.
+    
+    I cannot test whether #1862 fixes the issue as this change has not yet been tagged in a release.
+    
+    
+    ### Environment
+    
+    - `cronet_http`: 1.7.0
+    - Flutter: 3.29.x
+    - Android 10+ (multiple devices)
+    - Backend: Cloudflare (HTTP/3 enabled)
+    - HTTP POST requests executed from Android WorkManager
+    
+    ### Logs
+    
+    ```
+    01-08 16:20:13.420  1616 13797 D ConnectivityService: requestNetwork for uid/pid:10399/13492 activeRequest: null callbackRequest: 8667 [NetworkRequest [ REQUEST id=8668, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10399 RequestorUid: 10399 RequestorPkg: com.myapp.myapp UnderlyingNetworks: Null] ]] callback flags: 0 order: 2147483647 isUidTracked: false declaredMethods: AVAIL|LOST|NC
+    01-08 16:20:13.439  1616  2107 D ConnectivityService: NetReassign [8668 : null ? 131] [c 0] [a 5] [i 12]
+    01-08 16:20:13.454 13492 13520 D WM-Processor: Processor: processing WorkGenerationalId(workSpecId=fc71ebf8-cdab-4aa7-a4f2-cecfcdcf5d4f, generation=0)
+    01-08 16:2 …[2674 more chars]
+[2026-02-23 20:12Z, 9mo ago] johnswarbrick commented:
+    I [reported this previously](#issuecomment-3724655405) on `cronet_http` 1.7.0 and can confirm the issue **persists on 1.8.0** - the async callback fix in #1862 does not resolve this. 
+    
+    The error is `ERROR_HOSTNAME_NOT_RESOLVED` (ErrorCode=1, InternalErrorCode=-105), not `ERROR_CONNECTION_CLOSED`(ErrorCode=5), so this may be a separate root cause from the original report, though the trigger conditions are identical (Cronet + WorkManager background isolate).
+    
+    #### Conditions
+    - HTTP POST requests executed from **Android WorkManager** (separate Flutter engine/isolate)
+    - Cronet with **QUIC enabled** and QUIC hints for the target host
+    - Fails **only on mobile data** (4G/5G) ? never on WiFi
+    - **Disabling QUIC (`enableQuic: false`) resolves the issue** ? DNS resolution succeeds on mobile data with HTTP/2 only
+    - The device **has network connectivity** ? Android's `ConnectivityService` confirms a network is assigned to the WorkManager process (`NetReassign [8668 : null ? 131]`)
+    - Retries within the same WorkManager task all fail with the same DNS error
+    - Subsequent WorkManager retries (via exponential backoff) eventually succeed once the system reschedules the task
+    
+    #### Hypothesis
+    
+    When QUIC is enabled, Cronet appears to use a different DNS resolution path that fails on cellular networks in background isolates. With QUIC disabled, the same request succeeds on the same network ? so the underlying network connectivity and standard DNS resolution are both functional. This points to QUIC- …[5742 more chars]
+[2026-07-02 17:16Z, 5mo ago] fryette referenced this in commit 1b58049
+[2026-07-02 17:38Z, 5mo ago] fryette referenced this in commit 6e6e564
+[2026-07-02 17:40Z, 5mo ago] fryette commented:
+    I have around 60k users affected per week.
+    I raised draft PR, and will back in a 7-10d to confirm that dns resolve the isue
+[2026-07-20 21:02Z, 4mo ago] brianquinlan (ME) commented:
+    Did your PR resolve the issue? Do you know how running in a WorkManager isolate (what is that BTW) affects the behavior of Cronet?
+[2026-07-21 11:03Z, 4mo ago] fryette commented:
+    I don't have isolates but still struggle with DNS resolvers, now I see significantly less DNS issues.
+    
+    My MR just expose more API for cronet, so developers may configure it in a more accurate way.
+    Actually I think main issue was with maxStaleDnsExpiredDelay
+[2026-08-08 01:54Z, 3mo ago] brianquinlan (ME) referenced this in commit 107e4c7

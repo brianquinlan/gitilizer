@@ -25,11 +25,46 @@ export const DEFAULT_PROMPT_PATH = join(ROOT, "prompts", "v4.md");
 export const defaultPrompt = () => readFileSync(DEFAULT_PROMPT_PATH, "utf8");
 
 // ---------------------------------------------------------------------------
+// Next steps (PRD RANK-23)
+// ---------------------------------------------------------------------------
+
+/**
+ * Whose move it is on an item, in the words the agent is told (PRD RANK-23).
+ * The first four are on the developer. The order is the one that settles an
+ * item that fits more than one (NEXT_STEP_PRECEDENCE), not this one.
+ */
+export const NEXT_STEPS = {
+  review: "A PR is waiting for my review or re-review. I am a requested reviewer, or the default reviewer for the repository, or the author has updated the PR since my last review.",
+  respond: "Someone is waiting on me. A question or request addressed to me is unanswered, or my own PR has review feedback I haven't addressed.",
+  todo: "It is mine to move forward and nobody is waiting on a reply from me. This covers work I am assigned, said I would do, or recently filed in an area I own. It includes checking whether something is fixed, deciding what to do, finishing or closing my draft, and pinging a reviewer who has been silent for about a week.",
+  backlog: "It is mine, but nothing is pressing. It is an old or stale item in an area I own, with no recent activity and nobody waiting, that I could triage or close when grooming.",
+  waiting: "I am involved and it is someone else's move. I asked a question, requested changes or requested a review, and haven't had an answer yet.",
+  elsewhere: "The thing to act on is a different item. This is an issue with an open PR that fixes it, or a PR stacked on lower PRs that need review first. Name that item in the next action.",
+  not_yours: "There is nothing for me to do, now or later. It is outside my stated scope, owned or driven by someone else, a team review request in a repository I'm not responsible for, a mention with nothing asked of me, or a PR I already approved.",
+} as const;
+export type NextStep = keyof typeof NEXT_STEPS;
+export const NEXT_STEP_KEYS = Object.keys(NEXT_STEPS) as [NextStep, ...NextStep[]];
+/** If more than one next step applies, the first of these (PRD RANK-23). */
+export const NEXT_STEP_PRECEDENCE: NextStep[] = ["not_yours", "elsewhere", "review", "respond", "waiting", "todo", "backlog"];
+const ON_ME: ReadonlySet<NextStep> = new Set(["review", "respond", "todo", "backlog"]);
+/** Whether a next step is on the developer (the first four, PRD RANK-23). */
+export const isOnMe = (step: NextStep) => ON_ME.has(step);
+
+const precedence = NEXT_STEP_PRECEDENCE.map((k) => `\`${k}\``).join(", ");
+/** The question basic ranking's model answers for the next step, with NEXT_STEPS as its options (RANK-21). */
+export const NEXT_STEP_QUESTION = `Following the instructions above, whose move is it on this item? If more than one applies, choose the first of: ${precedence}.`;
+const NEXT_STEP_LIST = `\`next_step\` says whose move it is on this item. It is one of:
+
+${NEXT_STEP_KEYS.map((k) => `- \`${k}\`: ${NEXT_STEPS[k]}`).join("\n")}
+
+If more than one applies, choose the first of: ${precedence}.`;
+
+// ---------------------------------------------------------------------------
 // Output schemas
 // ---------------------------------------------------------------------------
 
 export const ItemAssessment = z.object({
-  actionable: z.boolean(),
+  next_step: z.enum(NEXT_STEP_KEYS),
   next_action: z.string(),
   priority: z.number(),
   reasoning: z.string(),
@@ -48,12 +83,12 @@ export type IceboxDecision = z.infer<typeof IceboxDecision>;
 export type OutputSchema<T> = { name: string; zod: z.ZodType<T>; json: Record<string, unknown> };
 
 const assessmentProps = {
-  actionable: { type: "boolean", description: "Whether there is something I (the user) can usefully do on this item right now." },
+  next_step: { type: "string", enum: NEXT_STEP_KEYS, description: "Whose move it is on this item: the one next step that applies, as the Output section defines them." },
   next_action: { type: "string", description: "One short sentence: what I should do next, or who/what we are waiting on." },
   priority: { type: "number", description: "Priority from 0.0 (ignore) to 1.0 (most urgent thing on my plate)." },
   reasoning: { type: "string", description: "2-4 sentences explaining the priority." },
 };
-const assessmentRequired = ["actionable", "next_action", "priority", "reasoning"];
+const assessmentRequired = ["next_step", "next_action", "priority", "reasoning"];
 
 export const ASSESSMENT: OutputSchema<ItemAssessment> = {
   name: "ItemAssessment", zod: ItemAssessment,
@@ -101,7 +136,7 @@ export interface LLM {
 export type Scored = {
   id: string;
   priority: number;
-  actionable: boolean | null;
+  next_step: NextStep | null;
   next_action: string;
   reasoning: string;
   last_activity: string | null;
@@ -110,7 +145,7 @@ export type Scored = {
 };
 
 const scored = (id: string, priority: number, x: Partial<Scored> = {}): Scored => ({
-  id, priority, actionable: null, next_action: "", reasoning: "", last_activity: null, usage: {}, error: null, ...x,
+  id, priority, next_step: null, next_action: "", reasoning: "", last_activity: null, usage: {}, error: null, ...x,
 });
 
 /** An item to prioritize: a snapshot plus optional per-item state from the eval set. */
@@ -149,15 +184,19 @@ export function aboutMe(user: UserSettings): string {
 
 export const POINTWISE_OUTPUT = `## Output
 You will be shown one GitHub issue or PR at a time, as it looked at \`current_time\`.
-Activity marked "(ME)" was done by me. Return a JSON object with \`actionable\`,
+Activity marked "(ME)" was done by me. Return a JSON object with \`next_step\`,
 \`next_action\`, \`priority\` (0.0-1.0) and \`reasoning\`. Priorities from separate
-calls are sorted together into one list, so use the whole scale consistently.`;
+calls are sorted together into one list, so use the whole scale consistently.
+
+${NEXT_STEP_LIST}`;
 
 export const LISTWISE_OUTPUT = `## Output
 You will be shown several GitHub issues and PRs, as they looked at \`current_time\`.
 Activity marked "(ME)" was done by me. Return every item, ordered from most to
-least important, each with \`id\` (exactly as given), \`actionable\`, \`next_action\`,
-\`priority\` (0.0-1.0, non-increasing down the list) and \`reasoning\`.`;
+least important, each with \`id\` (exactly as given), \`next_step\`, \`next_action\`,
+\`priority\` (0.0-1.0, non-increasing down the list) and \`reasoning\`.
+
+${NEXT_STEP_LIST}`;
 
 export type Strategy = "pointwise" | "listwise" | "recency";
 
@@ -228,7 +267,7 @@ export async function prioritize(items: Item[], user: UserSettings, opts: Priori
       try {
         const { result: a, usage } = await llm.generate(system, pointwiseMessage(itemNow(item), contexts.get(item.id)!), ASSESSMENT);
         return scored(item.id, Number(a.priority), {
-          actionable: a.actionable, next_action: a.next_action, reasoning: a.reasoning, last_activity: item.updatedAt, usage,
+          next_step: a.next_step, next_action: a.next_action, reasoning: a.reasoning, last_activity: item.updatedAt, usage,
         });
       } catch (e) { // keep the run going; report the failure
         return scored(item.id, -1.0, { error: `${(e as Error).name}: ${(e as Error).message}`, last_activity: item.updatedAt });
@@ -254,7 +293,7 @@ export async function prioritize(items: Item[], user: UserSettings, opts: Priori
     seen.add(ri.id);
     // Position defines the order; keep the model's priority for display.
     out.push(scored(ri.id, Number(ri.priority), {
-      actionable: ri.actionable, next_action: ri.next_action, reasoning: ri.reasoning, last_activity: byId.get(ri.id)!.updatedAt,
+      next_step: ri.next_step, next_action: ri.next_action, reasoning: ri.reasoning, last_activity: byId.get(ri.id)!.updatedAt,
     }));
   }
   for (const i of items) if (!seen.has(i.id)) out.push(scored(i.id, -1.0, { error: "omitted by model", last_activity: i.updatedAt }));

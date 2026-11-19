@@ -1,7 +1,8 @@
 // Prioritized list and Icebox (PRD "Prioritized list", "Live updates", "Icebox").
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  choiceName, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, reasonLabel, type Sort, type SortColumn, type SyncEvent,
+  choiceName, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, NEXT_STEP_LABEL, NEXT_STEP_TONE, reasonLabel,
+  type NextStep, type Sort, type SortColumn, type SyncEvent,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
 import { BoxIcon, ChevronLeft, ChevronRight, DownToLineIcon, InfoIcon, IssueIcon, PrIcon, RefreshIcon, SearchIcon, SortIcon, XIcon } from "../icons.tsx";
@@ -250,18 +251,7 @@ function Rows(props: {
                             onClick={() => setWhy(why === r.key ? null : r.key)}>{n}</button>
                   : n}
                 {indicators[r.key] && <span className="indicator">{indicators[r.key]}</span>}
-                {why === r.key && r.reasoning && !r.leaving && (
-                  <div className="rank-why" role="dialog" aria-label={`Why rank ${n}?`}>
-                    <div className="rank-why-body">
-                      <div className="rank-why-head">
-                        <span className="rank-why-title"><InfoIcon /> Why rank #{n}?</span>
-                        <button type="button" className="rank-why-close" aria-label="Close" onClick={closeWhy}><XIcon size={14} /></button>
-                      </div>
-                      <p>{r.reasoning}</p>
-                    </div>
-                    <div className="rank-why-foot">{r.repo} · {r.kind === "pr" ? "PR" : "Issue"} #{r.number}</div>
-                  </div>
-                )}
+                {why === r.key && r.reasoning && !r.leaving && <RankWhy row={r} rank={n} onClose={closeWhy} />}
               </span>
             )}
             <span role="cell" className="issue">
@@ -269,11 +259,15 @@ function Rows(props: {
               <span className="issue-text">
                 <a className="issue-title" href={r.htmlUrl} target="_blank" rel="noreferrer" title={r.title}>{r.title}</a>
                 <span className="issue-meta">
-                  <span className="num">{r.kind === "pr" ? "PR" : "Issue"} #{r.number}</span>
-                  <span className="dot" />
+                  {/* LIST-42: the next step leads the line; the Icebox doesn't show it (ICE-3). */}
+                  {/* The spaces keep the parts apart when the line is copied or read out; flex ignores them. */}
+                  {view === "prioritized" && r.nextStep && <><NextStepChip step={r.nextStep} />{" "}</>}
+                  <span className="num">{r.kind === "pr" ? "PR" : "Issue"} #{r.number}</span>{" "}
+                  <span className="dot" />{" "}
                   {view === "icebox"
-                    ? <span>Moved to Icebox by you · <span title={fullDate(r.iceboxedAt)}>{relativeTime(r.iceboxedAt)}</span></span>
-                    : <span>{reasonLabel(r)}</span>}
+                    ? <span className="reason">Moved to Icebox by you · <span title={fullDate(r.iceboxedAt)}>{relativeTime(r.iceboxedAt)}</span></span>
+                    // LIST-42: only the inclusion reason is cut off when the line doesn't fit.
+                    : <span className="reason" title={reasonLabel(r)}>{reasonLabel(r)}</span>}
                 </span>
               </span>
             </span>
@@ -289,6 +283,37 @@ function Rows(props: {
         );
       })}
     </>
+  );
+}
+
+/** The item's next step as a chip (LIST-42). Not a control: its text says which it is, so nothing depends on its color. */
+export function NextStepChip({ step }: { step: NextStep }) {
+  return <span className={`next-step ${NEXT_STEP_TONE[step]}`}>{NEXT_STEP_LABEL[step]}</span>;
+}
+
+/**
+ * The rank reasoning popup (LIST-24): the "Next" block, with the next step and
+ * the agent's next action, then the reasoning. An item ranked before next steps
+ * existed shows the block without the chip.
+ */
+export function RankWhy({ row: r, rank: n, onClose }: { row: Row; rank: number; onClose: () => void }) {
+  return (
+    <div className="rank-why" role="dialog" aria-label={`Why rank ${n}?`}>
+      <div className="rank-why-body">
+        <div className="rank-why-head">
+          <span className="rank-why-title"><InfoIcon /> Why rank #{n}?</span>
+          <button type="button" className="rank-why-close" aria-label="Close" onClick={onClose}><XIcon size={14} /></button>
+        </div>
+        {(r.nextAction || r.nextStep) && (
+          <div className="rank-why-next">
+            <span className="rank-why-next-head">Next{r.nextStep && <>{" "}<NextStepChip step={r.nextStep} /></>}</span>
+            {r.nextAction && <p>{r.nextAction}</p>}
+          </div>
+        )}
+        <p>{r.reasoning}</p>
+      </div>
+      <div className="rank-why-foot">{r.repo} · {r.kind === "pr" ? "PR" : "Issue"} #{r.number}</div>
+    </div>
   );
 }
 

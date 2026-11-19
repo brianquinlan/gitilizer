@@ -16,14 +16,18 @@ import { UserSettings } from "./context.ts";
 import { IssueRef } from "./github.ts";
 import type { GroundTruth } from "./groundTruth.ts";
 import { allMetrics, discordantPairs, type Metrics } from "./metrics.ts";
-import { Item, prioritize, type LLM, type Scored, type Strategy } from "./prioritizer.ts";
+import { isOnMe, Item, NEXT_STEPS, prioritize, type LLM, type NextStep, type Scored, type Strategy } from "./prioritizer.ts";
 import { fixed } from "./py.ts";
 import { fmean, meanSd } from "./stats.ts";
 
-export type LoadedItems = { truth: string[]; items: Item[]; why: Record<string, string>; subset: Record<string, string>; missing: string[] };
+export type LoadedItems = {
+  truth: string[]; items: Item[]; why: Record<string, string>; subset: Record<string, string>;
+  /** The next step the eval set records for each item that has one (RANK-24). */
+  nextStep: Record<string, NextStep>; missing: string[];
+};
 
 export function loadItems(doc: GroundTruth, fixtures: string): LoadedItems {
-  const out: LoadedItems = { truth: [], items: [], why: {}, subset: {}, missing: [] };
+  const out: LoadedItems = { truth: [], items: [], why: {}, subset: {}, nextStep: {}, missing: [] };
   for (const entry of doc.items) {
     const ref = IssueRef.parse(entry.url);
     const path = join(fixtures, `${ref.key}.json`);
@@ -32,6 +36,10 @@ export function loadItems(doc: GroundTruth, fixtures: string): LoadedItems {
     out.truth.push(rid);
     out.why[rid] = (entry.why ?? "").trim();
     if (entry.set) out.subset[rid] = String(entry.set);
+    if (entry.next_step) {
+      if (!Object.hasOwn(NEXT_STEPS, entry.next_step)) throw new Error(`${rid}: unknown next_step ${JSON.stringify(entry.next_step)}`);
+      out.nextStep[rid] = entry.next_step as NextStep;
+    }
     out.items.push(new Item(rid, JSON.parse(readFileSync(path, "utf8")), entry.thumbs_down_at ?? null, entry.as_of ?? null));
   }
   return out;
@@ -49,6 +57,27 @@ export function subsetMetrics(truth: string[], trials: Scored[][], subset: Recor
   return out;
 }
 
+export type NextStepMetrics = { labelled: number; exact: [number, number]; same_side: [number, number] };
+
+/**
+ * How often each trial's next step was the one the eval set records (`exact`),
+ * and how often it was at least on the same side of "on me" (`same_side`):
+ * mean and sd across trials, over the labelled items that were scored (RANK-24).
+ * Null when no item is labelled or the strategy gives no next steps.
+ */
+export function nextStepMetrics(trials: Scored[][], labels: Record<string, NextStep>): NextStepMetrics | null {
+  const ids = Object.keys(labels);
+  if (!ids.length || !trials.some((t) => t.some((s) => s.next_step))) return null;
+  const exact: number[] = [], side: number[] = [];
+  for (const t of trials) {
+    const got = new Map(t.map((s) => [s.id, s.next_step]));
+    const scored = ids.filter((id) => got.get(id));
+    exact.push(scored.filter((id) => got.get(id) === labels[id]).length / Math.max(1, scored.length));
+    side.push(scored.filter((id) => isOnMe(got.get(id)!) === isOnMe(labels[id])).length / Math.max(1, scored.length));
+  }
+  return { labelled: ids.length, exact: meanSd(exact), same_side: meanSd(side) };
+}
+
 const signed = (x: number, n: number) => (x >= 0 || Object.is(x, 0) ? "+" : "") + fixed(x, n);
 
 export type RunConfig = {
@@ -58,7 +87,7 @@ export type RunConfig = {
 };
 
 export function writeReport(runDir: string, cfg: RunConfig, truth: string[], why: Record<string, string>, trials: Scored[][],
-  trialMetrics: Metrics[], subset: Record<string, string>): string {
+  trialMetrics: Metrics[], subset: Record<string, string>, labels: Record<string, NextStep> = {}): string {
   const n = truth.length;
   const lines = [`# Gitilizer eval: ${cfg.label}`, ""];
   lines.push(
@@ -71,17 +100,25 @@ export function writeReport(runDir: string, cfg: RunConfig, truth: string[], why
     const [m, sd] = meanSd(trialMetrics.map((t) => t[k]));
     lines.push(`| ${k} | ${fixed(m, 3)} ± ${fixed(sd, 3)} |`);
   }
+  const ns = nextStepMetrics(trials, labels);
+  if (ns) {
+    lines.push("", "## Next steps (mean ± sd across trials)", "",
+      `Against the next step the eval set records for ${ns.labelled} items (PRD RANK-24). "Same side" counts a next step on the other side of "on me" as wrong, and any other as right.`,
+      "", "| metric | value |", "|---|---|",
+      `| exact | ${fixed(ns.exact[0], 3)} ± ${fixed(ns.exact[1], 3)} |`,
+      `| same side | ${fixed(ns.same_side[0], 3)} ± ${fixed(ns.same_side[1], 3)} |`);
+  }
   const errors = trials.flat().filter((s) => s.error).length;
   if (errors) lines.push(`\n**${errors} item scoring(s) failed** — see results.json.`);
 
   const ranks = new Map(truth.map((x) => [x, [] as number[]]));
   const prios = new Map(truth.map((x) => [x, [] as number[]]));
-  const act = new Map(truth.map((x) => [x, [] as boolean[]]));
+  const steps = new Map(truth.map((x) => [x, [] as string[]]));
   for (const t of trials) {
     t.forEach((s, pos) => {
       ranks.get(s.id)!.push(pos + 1);
       prios.get(s.id)!.push(s.priority);
-      if (s.actionable !== null && s.actionable !== undefined) act.get(s.id)!.push(Boolean(s.actionable));
+      if (s.next_step) steps.get(s.id)!.push(s.next_step);
     });
   }
   const last = new Map(trials[trials.length - 1].map((s) => [s.id, s]));
@@ -94,7 +131,7 @@ export function writeReport(runDir: string, cfg: RunConfig, truth: string[], why
     }
   }
   lines.push("", "## Per item", "",
-    "| truth | predicted (mean, range) | Δ | priority | actionable | item | set | next action (last trial) |",
+    "| truth | predicted (mean, range) | Δ | priority | next step (expected) | item | set | next action (last trial) |",
     "|---:|---|---:|---:|---|---|---|---|");
   truth.forEach((x, i) => {
     const r = ranks.get(x)!;
@@ -102,8 +139,12 @@ export function writeReport(runDir: string, cfg: RunConfig, truth: string[], why
     const delta = mr - (i + 1);
     const lo = Math.min(...r), hi = Math.max(...r);
     const rng = lo !== hi ? `${lo}–${hi}` : `${r[0]}`;
-    const a = act.get(x)!;
-    const aS = a.length ? `${a.filter(Boolean).length}/${a.length}` : "-";
+    // Each next step given and how many trials gave it; a mismatch with the label is marked.
+    const counts = new Map<string, number>();
+    for (const s of steps.get(x)!) counts.set(s, (counts.get(s) ?? 0) + 1);
+    const given = [...counts.entries()].sort((p, q) => q[1] - p[1]).map(([s, c]) => `${s}${counts.size > 1 || c < trials.length ? ` ${c}/${trials.length}` : ""}`).join(", ");
+    const label = labels[x];
+    const aS = (given || "-") + (label ? (counts.size === 1 && counts.has(label) ? "" : ` (${label}) ⚠️`) : "");
     const flag = Math.abs(delta) >= Math.max(3, n / 4) ? " ⚠️" : "";
     const na = (last.get(x)!.next_action || last.get(x)!.error || "").replaceAll("|", "\\|");
     lines.push(`| ${i + 1} | ${fixed(mr, 1)} (${rng}) | ${signed(delta, 1)}${flag} | ${fixed(fmean(prios.get(x)!), 2)} | ${aS} | ${x} | ${subset[x] ?? ""} | ${na} |`);
@@ -142,6 +183,52 @@ export function writeReport(runDir: string, cfg: RunConfig, truth: string[], why
   return text;
 }
 
+/** The report of a labels-only run (eval/next_steps.yaml): next steps, and nothing about order. */
+export function writeNextStepReport(runDir: string, cfg: RunConfig, ids: string[], why: Record<string, string>, trials: Scored[][],
+  labels: Record<string, NextStep>): string {
+  const lines = [`# Gitilizer eval: ${cfg.label}`, ""];
+  lines.push(
+    `next steps only · model \`${cfg.model || "-"}\` · thinking \`${cfg.thinking || "default"}\` · prompt \`${cfg.prompt || "-"}\` · ` +
+    `${trials.length} trial(s) · ${ids.length} items, ${Object.keys(labels).length} labelled · ${cfg.started_at}`,
+  );
+  const ns = nextStepMetrics(trials, labels);
+  lines.push("", "## Next steps (mean ± sd across trials)", "");
+  if (ns) {
+    lines.push("| metric | value |", "|---|---|",
+      `| exact | ${fixed(ns.exact[0], 3)} ± ${fixed(ns.exact[1], 3)} |`,
+      `| same side | ${fixed(ns.same_side[0], 3)} ± ${fixed(ns.same_side[1], 3)} |`);
+    // For each expected next step, how often each trial gave it (recall), so a rare one isn't lost in the total.
+    const keys = Object.keys(NEXT_STEPS) as NextStep[];
+    lines.push("", "| expected | items | given (all trials) | right |", "|---|---:|---|---:|");
+    for (const k of keys) {
+      const its = ids.filter((id) => labels[id] === k);
+      if (!its.length) continue;
+      const given = new Map<string, number>();
+      for (const t of trials) for (const s of t) if (its.includes(s.id) && s.next_step) given.set(s.next_step, (given.get(s.next_step) ?? 0) + 1);
+      const total = [...given.values()].reduce((a, b) => a + b, 0);
+      const desc = [...given.entries()].sort((a, b) => b[1] - a[1]).map(([s, c]) => `${s} ${c}`).join(", ");
+      lines.push(`| ${k} | ${its.length} | ${desc} | ${total ? fixed((given.get(k) ?? 0) / total, 2) : "-"} |`);
+    }
+  } else {
+    lines.push("No item is labelled yet, or the model gave no next steps.");
+  }
+  const errors = trials.flat().filter((s) => s.error).length;
+  if (errors) lines.push(`\n**${errors} item scoring(s) failed** — see results.json.`);
+  lines.push("", "## Per item", "", "| item | expected | given | next action (last trial) |", "|---|---|---|---|");
+  const last = new Map(trials[trials.length - 1].map((s) => [s.id, s]));
+  for (const id of ids) {
+    const counts = new Map<string, number>();
+    for (const t of trials) for (const s of t) if (s.id === id && s.next_step) counts.set(s.next_step, (counts.get(s.next_step) ?? 0) + 1);
+    const given = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([s, c]) => `${s}${counts.size > 1 || c < trials.length ? ` ${c}/${trials.length}` : ""}`).join(", ") || "-";
+    const wrong = labels[id] && !(counts.size === 1 && counts.has(labels[id])) ? " ⚠️" : "";
+    const na = (last.get(id)?.next_action || last.get(id)?.error || "").replaceAll("|", "\\|");
+    lines.push(`| ${id} | ${labels[id] ?? "-"} | ${given}${wrong} | ${na} |`);
+  }
+  const text = lines.join("\n");
+  writeFileSync(join(runDir, "report.md"), text, "utf8");
+  return text;
+}
+
 export type EvaluateOptions = {
   doc: GroundTruth; fixtures: string; strategy: Strategy; llm: LLM | null; model: string | null; thinking: string | null;
   promptPath: string; signals: boolean; trials: number; now: string | null; label?: string | null; workers: number; out: string;
@@ -149,9 +236,11 @@ export type EvaluateOptions = {
 };
 
 /** Runs the evaluation and writes the run's files. Returns the run directory and the mean metrics. */
-export async function evaluate(o: EvaluateOptions): Promise<{ runDir: string; agg: Record<string, [number, number]> }> {
+export async function evaluate(o: EvaluateOptions): Promise<{ runDir: string; agg: Record<string, [number, number]>; nextStep: NextStepMetrics | null }> {
   const log = o.log ?? ((m: string) => process.stderr.write(`${m}\n`));
-  if (o.doc.ranked === false) throw new Error("the ground truth is not ranked yet (ranked: false): its order is not a ground truth.");
+  const labelsOnly = o.doc.labels_only === true;
+  if (o.doc.ranked === false && !labelsOnly) throw new Error("the ground truth is not ranked yet (ranked: false): its order is not a ground truth.");
+  if (labelsOnly && o.strategy !== "pointwise") throw new Error("a labels-only file is measured pointwise: its items have no order to compare a ranking with.");
   const user = UserSettings.fromDict(o.doc.user);
   const loaded = loadItems(o.doc, o.fixtures);
   if (loaded.missing.length) {
@@ -186,8 +275,13 @@ export async function evaluate(o: EvaluateOptions): Promise<{ runDir: string; ag
       strategy: o.strategy, llm: o.llm, guidance, includeSignals: o.signals, now: o.now, workers: o.workers,
       onContext: k === 0 ? saveCtx : undefined,
     });
-    const m = allMetrics(truth, scored.map((s) => s.id));
     trials.push(scored);
+    if (labelsOnly) {
+      const ns = nextStepMetrics([scored], loaded.nextStep);
+      log(`  next step: exact=${ns ? fixed(ns.exact[0], 3) : "-"} same side=${ns ? fixed(ns.same_side[0], 3) : "-"}`);
+      continue;
+    }
+    const m = allMetrics(truth, scored.map((s) => s.id));
     trialMetrics.push(m);
     log(`  kendall_tau=${signed(m.kendall_tau, 3)} ndcg=${fixed(m.ndcg, 3)} top3=${fixed(m.top3_overlap, 2)}`);
   }
@@ -196,13 +290,22 @@ export async function evaluate(o: EvaluateOptions): Promise<{ runDir: string; ag
   for (const s of trials.flat()) for (const key of Object.keys(usage)) usage[key] += (s.usage as any)?.[key] ?? 0;
   cfg.usage = usage;
 
+  const nextStep = nextStepMetrics(trials, loaded.nextStep);
+  if (labelsOnly) {
+    writeFileSync(join(runDir, "results.json"), JSON.stringify({
+      config: { ...cfg, labels_only: true }, truth, why, trials, next_step_labels: loaded.nextStep, next_step: nextStep,
+    }, null, 1), "utf8");
+    writeNextStepReport(runDir, cfg, truth, why, trials, loaded.nextStep);
+    // index.tsv is for ranking runs; a labels-only run has no ranking metrics to add to it.
+    return { runDir, agg: {}, nextStep };
+  }
   const subs = subsetMetrics(truth, trials, subset);
   writeFileSync(join(runDir, "results.json"), JSON.stringify({
-    config: cfg, truth, why, trials, metrics: trialMetrics,
+    config: cfg, truth, why, trials, metrics: trialMetrics, next_step_labels: loaded.nextStep, next_step: nextStepMetrics(trials, loaded.nextStep),
     subsets: Object.fromEntries(Object.entries(subs).map(([k, v]) => [k, Object.fromEntries(Object.entries(v).map(([m, x]) => [m, x[0]]))])),
     item_sets: subset,
   }, null, 1), "utf8");
-  writeReport(runDir, cfg, truth, why, trials, trialMetrics, subset);
+  writeReport(runDir, cfg, truth, why, trials, trialMetrics, subset, loaded.nextStep);
 
   const index = join(o.out, "index.tsv");
   const agg = Object.fromEntries(Object.keys(trialMetrics[0]).map((k) => [k, meanSd(trialMetrics.map((t) => t[k]))])) as Record<string, [number, number]>;
@@ -212,5 +315,5 @@ export async function evaluate(o: EvaluateOptions): Promise<{ runDir: string; ag
     fixed(agg.kendall_tau[0], 3), fixed(agg.kendall_tau[1], 3), fixed(agg.ndcg[0], 3), fixed(agg.top3_overlap[0], 2),
     fixed(agg.mean_abs_displacement[0], 2),
   ].join("\t") + "\n", "utf8");
-  return { runDir, agg };
+  return { runDir, agg, nextStep };
 }

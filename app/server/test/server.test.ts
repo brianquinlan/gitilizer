@@ -114,7 +114,7 @@ describe("scan and rank cycle", () => {
   let store: FixtureStore;
   let hub: RecordingHub;
   const userId = "u1";
-  const rank = (j: { id: number }, priority = 0.5) => completeJob(ctx, j.id, { priority, actionable: true, next_action: "x", reasoning: "y" });
+  const rank = (j: { id: number }, priority = 0.5) => completeJob(ctx, j.id, { priority, next_step: "todo", next_action: "x", reasoning: "y" });
   const rankAll = async (score = (k: string) => (k.length % 10) / 10) => {
     for (;;) {
       const jobs = await claimJobs(ctx, 50, 60);
@@ -138,7 +138,9 @@ describe("scan and rank cycle", () => {
     const r = await scan(ctx, userId, "test");
     expect(r).toMatchObject({ outcome: "ok", kind: "full" });
     const rows = await listRows(ctx.db, userId);
-    expect(rows.length).toBe(27);
+    // Fixture mode serves every file in eval/fixtures: the 36 ranked items and their related items,
+    // and the 20 production items of eval/next_steps.yaml.
+    expect(rows.length).toBe(46);
     expect(rows.every((x) => x.score === null)).toBe(true);
     expect(rows.find((x) => x.key === "dart-lang/http#2026")!.reasons).toContain("additional_repo");
     expect(rows.find((x) => x.reasons.includes("mentioned"))!.mentionHandle).toBe("@brianquinlan");
@@ -269,7 +271,7 @@ describe("scan and rank cycle", () => {
     expect(CATALOGUE.gemini_backup_model.body(note.params, Date.now())[0].text).toMatch(/^Your Gemini daily quota is used up, so new and changed issues and PRs are being ranked with basic ranking until it resets at /);
     [job] = await claimJobs(ctx, 1, 60);
     expect(job).toMatchObject({ choice: "gemini", agent: "basic", model: "gemini-decision-1", apiKey: "basic-key-1234567890" });
-    await completeJob(ctx, job.id, { priority: 0.6, actionable: true, next_action: "", reasoning: "" });
+    await completeJob(ctx, job.id, { priority: 0.6, next_step: "todo", next_action: "", reasoning: "" });
     expect(await ctx.db.one(`select ranked_agent, ranked_model, reasoning from user_items where user_id = $1 and item_key = $2`, [userId, job.itemKey]))
       .toEqual({ ranked_agent: "basic", ranked_model: "gemini-decision-1", reasoning: "" });
     expect((await listRows(ctx.db, userId)).filter((r) => r.waiting)).toHaveLength(0);
@@ -747,7 +749,7 @@ describe("GitHub client (F24, F25)", () => {
     const queuedAt: number[] = [];
     const batchClosed: boolean[] = [];
     const rankQueued = async () => {
-      for (const j of await claimJobs(ctx, 50, 60)) await completeJob(ctx, j.id, { priority: 0.5, actionable: true, next_action: "x", reasoning: "y" });
+      for (const j of await claimJobs(ctx, 50, 60)) await completeJob(ctx, j.id, { priority: 0.5, next_step: "todo", next_action: "x", reasoning: "y" });
     };
     const firstSync = async () => ctx.db.one(
       `select b.finished_at, u.first_sync_done from rank_batches b join users u on u.id = b.user_id where b.user_id = 'q1' and b.reason = 'first_sync'`,
@@ -800,7 +802,7 @@ describe("sync progress (LIST-33)", () => {
     for (;;) {
       const jobs = await claimJobs(ctx, 50, 60);
       if (!jobs.length) return;
-      for (const j of jobs) await completeJob(ctx, j.id, { priority: 0.5, actionable: true, next_action: "x", reasoning: "y" });
+      for (const j of jobs) await completeJob(ctx, j.id, { priority: 0.5, next_step: "todo", next_action: "x", reasoning: "y" });
     }
   };
 
@@ -863,7 +865,7 @@ describe("sync progress (LIST-33)", () => {
     await rankAll(ctx);
     const total = await items(ctx, "p3");
     expect(await queueFullRerank(ctx, "p3", "ageing")).toBe(total);
-    for (const j of await claimJobs(ctx, 2, 60)) await completeJob(ctx, j.id, { priority: 0.1, actionable: true, next_action: "x", reasoning: "y" });
+    for (const j of await claimJobs(ctx, 2, 60)) await completeJob(ctx, j.id, { priority: 0.1, next_step: "todo", next_action: "x", reasoning: "y" });
     expect(await syncState(ctx, "p3")).toMatchObject({ running: false, progress: null });
 
     hub.lists.length = 0;
