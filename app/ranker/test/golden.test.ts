@@ -1,6 +1,8 @@
 // The TypeScript ranker produces exactly the text the Python ranker did for the
 // eval set (test/golden.json holds hashes of the Python output), so evaluation
 // results measured before the port still compare with results measured after it.
+// The system prompts are the exception: their output section has asked for a next
+// step since 2026-11-18 (PRD RANK-23), so `system` holds hashes of the current ones.
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -25,8 +27,11 @@ function sortedJson(x: unknown): string {
 }
 
 describe("the TypeScript ranker matches the Python one", () => {
-  it("builds the same context for every fixture", () => {
-    const names = readdirSync(join(ROOT, "eval", "fixtures")).filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, "")).sort();
+  it("builds the same context for every fixture the Python ranker saw", () => {
+    // Fixtures added since, for eval/next_steps.yaml, have no Python output to compare with.
+    const names = Object.keys(golden.contexts).sort();
+    const files = new Set(readdirSync(join(ROOT, "eval", "fixtures")).filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, "")));
+    expect(names.filter((n) => !files.has(n))).toEqual([]);
     expect(Object.fromEntries(names.map((n) => [n, h(buildContext(fixture(n), user))]))).toEqual(golden.contexts);
   });
 
@@ -47,7 +52,7 @@ describe("the TypeScript ranker matches the Python one", () => {
     });
     const contexts: Record<string, string> = {};
     const msgs: string[] = [];
-    const spy: LLM = { async generate(_s, msg) { msgs.push(msg); return { result: { actionable: true, next_action: "", priority: 0.5, reasoning: "" } as any, usage: {} }; } };
+    const spy: LLM = { async generate(_s, msg) { msgs.push(msg); return { result: { next_step: "todo", next_action: "", priority: 0.5, reasoning: "" } as any, usage: {} }; } };
     await prioritize(items, user, { llm: spy, guidance: readFileSync(join(ROOT, "prompts", "v4.md"), "utf8"), workers: 1, onContext: (k, v) => { contexts[k] = h(v); } });
     expect(contexts).toEqual(golden.eval);
     expect(msgs.map(h).sort()).toEqual(golden.messages);

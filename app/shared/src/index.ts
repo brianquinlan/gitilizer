@@ -22,6 +22,26 @@ export type ItemStatus = z.infer<typeof ItemStatus>;
 export const RemovalReason = z.enum(["closed", "merged", "iceboxed", "restored", "no_longer_matches", "excluded", "over_limit"]);
 export type RemovalReason = z.infer<typeof RemovalReason>;
 
+/**
+ * Whose move it is on an item, one of seven that ranking gives it (PRD RANK-23).
+ * The ranker defines what each means, in the words the agent is told.
+ */
+export const NextStep = z.enum(["review", "respond", "todo", "backlog", "waiting", "elsewhere", "not_yours"]);
+export type NextStep = z.infer<typeof NextStep>;
+
+/** The chip's text (PRD LIST-42). */
+export const NEXT_STEP_LABEL: Record<NextStep, string> = {
+  review: "Review", respond: "Respond", todo: "To do", backlog: "Backlog", waiting: "Waiting", elsewhere: "Elsewhere", not_yours: "Not yours",
+};
+
+/**
+ * The chip's look (PRD LIST-42): `now` is on the developer (filled blue), `later`
+ * is on them but not pressing (outlined blue), `off` isn't on them (grey).
+ */
+export const NEXT_STEP_TONE: Record<NextStep, "now" | "later" | "off"> = {
+  review: "now", respond: "now", todo: "now", backlog: "later", waiting: "off", elsewhere: "off", not_yours: "off",
+};
+
 export const ItemRow = z.object({
   key: z.string(), // "owner/repo#123"
   repo: z.string(), // "owner/repo"
@@ -37,8 +57,12 @@ export const ItemRow = z.object({
   iceboxedAt: z.string().nullable(),
   /** Agent score 0..1. null = not ranked yet. */
   score: z.number().nullable(),
-  /** Model's explanation of the score (POC: shown on rank hover). */
+  /** The agent's explanation of the score, shown in the rank reasoning popup (LIST-24); null for basic ranking. */
   reasoning: z.string().nullable().optional(),
+  /** Whose move it is (RANK-23); null until the item is ranked with next steps (LIST-42). */
+  nextStep: NextStep.nullable().optional(),
+  /** The agent's one-sentence next action, shown in the rank reasoning popup (LIST-24); null for basic ranking. */
+  nextAction: z.string().nullable().optional(),
   /** True when ranking failed after retries (shown with "–", LIST-30). */
   rankFailed: z.boolean(),
   /**

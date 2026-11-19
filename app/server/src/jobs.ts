@@ -1,6 +1,7 @@
 // The ranking job queue and the worker's side of it (design: Ranking worker).
 import { randomUUID } from "node:crypto";
 import type { NotificationCode, RankingChoice, SyncEvent } from "@gitilizer/shared";
+import { isOnMe, type NextStep } from "@gitilizer/ranker";
 import { AGENT_KIND_SQL, agentInUse, jobFits, keyKindFor, publishQueued } from "./agents.ts";
 import type { Ctx } from "./context.ts";
 import { getCredential } from "./credentials.ts";
@@ -375,7 +376,7 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
 // Results
 // ---------------------------------------------------------------------------
 
-export type RankResult = { priority: number; actionable: boolean; next_action: string; reasoning: string };
+export type RankResult = { priority: number; next_step: NextStep; next_action: string; reasoning: string };
 export type IceboxResult = { bring_back: boolean; reason: string };
 
 /** What a successful request shows has cleared (PRD catalogue, "Clears when"). */
@@ -429,9 +430,10 @@ export async function completeJob(ctx: Ctx, jobId: number, r: RankResult | Icebo
   } else {
     const a = r as RankResult;
     await db.query(
-      `update user_items set score = $3, actionable = $4, next_action = $5, reasoning = $6, ranked_at = now(),
-         ranked_updated_at = $7, ranked_model = $8, ranked_agent = $9, rank_failed = false, rank_error = null where user_id = $1 and item_key = $2`,
-      [userId, job.item_key, a.priority, a.actionable, a.next_action, a.reasoning, job.item_updated_at, job.model, agent],
+      // Whether the item is on the developer follows from its next step (RANK-2, RANK-23).
+      `update user_items set score = $3, next_step = $4, actionable = $5, next_action = $6, reasoning = $7, ranked_at = now(),
+         ranked_updated_at = $8, ranked_model = $9, ranked_agent = $10, rank_failed = false, rank_error = null where user_id = $1 and item_key = $2`,
+      [userId, job.item_key, a.priority, a.next_step, isOnMe(a.next_step), a.next_action, a.reasoning, job.item_updated_at, job.model, agent],
     );
     await db.query(`update users set ever_ranked = true where id = $1`, [userId]);
     const batch = job.batch_id ? await db.one(`select reason from rank_batches where id = $1`, [job.batch_id]) : null;

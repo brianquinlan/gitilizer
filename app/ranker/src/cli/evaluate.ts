@@ -41,15 +41,16 @@ if (strategy !== "recency" && !process.env[keyVar]) {
   process.exit(1);
 }
 try {
-  const { runDir, agg } = await evaluate({
+  const { runDir, agg, nextStep } = await evaluate({
     doc: loadGroundTruth(fromCwd(a.truth!)), fixtures: fromCwd(a.fixtures!), strategy,
     llm: strategy === "recency" ? null : createLLM(agent, { model, thinkingLevel: a.thinking ?? null }),
     model, thinking: a.thinking ?? null, promptPath: fromCwd(a.prompt!), signals: !a["no-signals"], trials: Number(a.trials),
     now: a.now ?? null, label: a.label ?? null, workers: Number(a.workers), out: fromCwd(a.out!),
   });
-  const tau = agg.kendall_tau[0];
-  console.log(`\nKendall tau ${tau >= 0 ? "+" : ""}${fixed(tau, 3)} ± ${fixed(agg.kendall_tau[1], 3)} | NDCG ${fixed(agg.ndcg[0], 3)} | ` +
+  const tau = agg.kendall_tau?.[0];
+  if (tau !== undefined) console.log(`\nKendall tau ${tau >= 0 ? "+" : ""}${fixed(tau, 3)} ± ${fixed(agg.kendall_tau[1], 3)} | NDCG ${fixed(agg.ndcg[0], 3)} | ` +
     `top-3 overlap ${fixed(agg.top3_overlap[0], 2)} | mean |Δrank| ${fixed(agg.mean_abs_displacement[0], 2)}`);
+  if (nextStep) console.log(`Next step: exact ${fixed(nextStep.exact[0], 3)} | same side ${fixed(nextStep.same_side[0], 3)} (${nextStep.labelled} items labelled)`);
   console.log(`Report: ${join(runDir, "report.md")}`);
 } catch (e) {
   console.error((e as Error).message);

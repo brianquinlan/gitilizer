@@ -1,4 +1,4 @@
-// Search and the type filter on the list (PRD LIST-34 to LIST-41, KEY-1, KEY-3), as static markup.
+// The list as static markup: search and the type filter (PRD LIST-34 to LIST-41, KEY-1, KEY-3), and next steps (LIST-42, LIST-24).
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -27,7 +27,7 @@ vi.mock("../live/useLive.ts", () => ({
 }));
 vi.stubGlobal("window", { matchMedia: () => ({ matches: false }) });
 
-import { ListPage } from "./ListPage.tsx";
+import { ListPage, RankWhy } from "./ListPage.tsx";
 
 const item = (number: number, kind: "pr" | "issue", repo: string, title: string, score: number, extra: Partial<ItemRow> = {}): ItemRow => ({
   key: `${repo}#${number}`, repo, number, kind, title, htmlUrl: "", updatedAt: "2026-11-15T00:00:00Z", reasons: ["assigned"], mentionHandle: null,
@@ -141,5 +141,43 @@ describe("search and the type filter on the list", () => {
       expect(html).not.toContain("aria-keyshortcuts");
       expect(html).toContain(PLACEHOLDER);
     }
+  });
+});
+
+describe("next steps on the list (LIST-42, LIST-24)", () => {
+  beforeEach(() => { page.shortcuts = true; page.firstSyncDone = true; });
+  const steps = [
+    item(1842, "issue", "northstar/api", "Connection pool exhausted after database failover", 0.95, { nextStep: "todo", nextAction: "Check the hotfix." }),
+    item(731, "pr", "northstar/api", "Retry failed webhooks with exponential backoff", 0.9, { nextStep: "backlog" }),
+    item(416, "issue", "northstar/cli", "Token refresh fails in headless environments", 0.85, { nextStep: "not_yours" }),
+    item(729, "pr", "northstar/api", "Prevent duplicate events on reconnect", 0.8), // ranked before next steps existed
+  ];
+  const metas = (html: string) => [...html.matchAll(/<span class="issue-meta">(.*?)<\/span><\/span><\/span>/g)].map((m) => m[1]);
+
+  it("starts the line under the title with the next step's chip, before the type and number", () => {
+    const m = metas(render("", list(steps)));
+    expect(m).toHaveLength(4);
+    expect(m[0]).toMatch(/^<span class="next-step now">To do<\/span><span class="num">Issue #1842<\/span>/);
+    expect(m[1]).toMatch(/^<span class="next-step later">Backlog<\/span><span class="num">PR #731<\/span>/);
+    expect(m[2]).toMatch(/^<span class="next-step off">Not yours<\/span>/);
+    expect(m[3]).toMatch(/^<span class="num">PR #729<\/span>/); // no next step, no chip
+    // The inclusion reason is the part that is cut off, with its full text on hover.
+    expect(m[0]).toContain('<span class="reason" title="Assigned to you">Assigned to you');
+  });
+
+  it("doesn't show next steps in the Icebox (ICE-3)", () => {
+    const iced = steps.map((i) => ({ ...i, status: "iceboxed" as const, iceboxedAt: "2026-11-14T00:00:00Z" }));
+    expect(render("", list(iced), "icebox")).not.toContain("next-step");
+  });
+
+  it("puts the next step and the next action above the reasoning in the popup", () => {
+    const html = renderToStaticMarkup(<RankWhy row={{ ...steps[0], reasoning: "Because." }} rank={1} onClose={() => {}} />);
+    expect(text(html)).toContain("Why rank #1? Next To do Check the hotfix. Because. northstar/api · Issue #1842");
+    expect(html).toContain('<span class="rank-why-next-head">Next<span class="next-step now">To do</span></span>');
+    // Ranked before next steps existed: the block without the chip.
+    const old = renderToStaticMarkup(<RankWhy row={{ ...steps[3], reasoning: "Because.", nextAction: "Answer the question." }} rank={4} onClose={() => {}} />);
+    expect(old).toContain('<span class="rank-why-next-head">Next</span><p>Answer the question.</p>');
+    // Nothing to show: no block.
+    expect(renderToStaticMarkup(<RankWhy row={{ ...steps[3], reasoning: "Because." }} rank={4} onClose={() => {}} />)).not.toContain("rank-why-next");
   });
 });

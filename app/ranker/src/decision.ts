@@ -1,11 +1,11 @@
 // Basic ranking (PRD RANK-21): a Gemini decision model, called through the
 // Decisions API with Gitilizer's own key. A decision model answers questions
-// with probabilities and writes no text, so an assessment has a score and
-// whether the item is actionable, and no next action or reasoning (RANK-2).
+// with probabilities and writes no text, so an assessment has a score and a
+// next step, and no next action or reasoning (RANK-2, RANK-21, RANK-23).
 // Plain fetch, like Claude and OpenAI (design: The ranking agent).
 import { Classified, classifyGemini, InvalidOutput } from "./gemini.ts";
 import { classifyCommon, httpError, ProviderHttpError, withRetries, type ProviderOptions } from "./http.ts";
-import type { LLM, OutputSchema, Usage } from "./prioritizer.ts";
+import { NEXT_STEP_QUESTION, NEXT_STEPS, type LLM, type NextStep, type OutputSchema, type Usage } from "./prioritizer.ts";
 
 export const DECISIONS_API = "https://generativelanguage.googleapis.com/v1beta/decisions";
 export const DEFAULT_BASIC_MODEL = "gemini-decision-1";
@@ -63,7 +63,6 @@ export function classifyDecision(e: unknown): Classified {
 
 const PRIORITY_QUESTION = "Following the instructions above, how much does this GitHub item deserve my attention right now? Pick the band from the Scale section.";
 const PRIORITY_QUESTION_GENERIC = "Following the instructions above, how much does this GitHub item deserve my attention right now?";
-const ACTIONABLE_QUESTION = "Following the instructions above, is the next action on this item on me right now (not waiting on someone else)?";
 const BRING_BACK_QUESTION = "Following the instructions above, should this change bring the item back to my prioritized list?";
 
 const probability = (x: unknown, what: string): number => {
@@ -93,7 +92,8 @@ export class DecisionLLM implements LLM {
       bands = scaleBands(system);
       questions = {
         priority: { type: "score", instructions: bands === GENERIC_BANDS ? PRIORITY_QUESTION_GENERIC : PRIORITY_QUESTION, criteria: bands.map((b) => b.text) },
-        actionable: { type: "noul", instructions: ACTIONABLE_QUESTION },
+        // A choice question: the model picks one of the named options, here the seven next steps in RANK-23.
+        next_step: { type: "choice", instructions: NEXT_STEP_QUESTION, criteria: NEXT_STEPS },
       };
     } else if (schema.name === "IceboxDecision") {
       questions = { bring_back: { type: "noul", instructions: BRING_BACK_QUESTION } };
@@ -125,7 +125,9 @@ export class DecisionLLM implements LLM {
           total += weight;
         }
         if (total <= 0) throw new InvalidOutput("the decision model's probabilities for the score add up to nothing");
-        result = { actionable: probability(answers.actionable?.noul, "answer") >= 0.5, next_action: "", priority: priority / total, reasoning: "" };
+        const step = answers.next_step?.choice;
+        if (typeof step !== "string" || !Object.hasOwn(NEXT_STEPS, step)) throw new InvalidOutput(`the decision model chose a next step that wasn't offered: ${JSON.stringify(step)}`);
+        result = { next_step: step as NextStep, next_action: "", priority: priority / total, reasoning: "" };
       } else {
         result = { bring_back: probability(answers.bring_back?.noul, "answer") >= 0.5, reason: "" };
       }

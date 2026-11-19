@@ -1,18 +1,19 @@
 // The agent, the eval harness and the snapshot downloader, on synthetic data.
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { stringify } from "yaml";
 import { describe, expect, it } from "vitest";
 import { InternalError, iceboxCheck, iceboxMessage, scoreItem } from "../src/agent.ts";
 import { classifyFor } from "../src/agents.ts";
 import { UserSettings, buildContext, computeSignals, parseTime } from "../src/context.ts";
-import { evaluate } from "../src/evaluate.ts";
+import { evaluate, nextStepMetrics } from "../src/evaluate.ts";
 import { Classified, FakeLLM, GeminiLLM, InvalidOutput, classifyGemini } from "../src/gemini.ts";
 import { IssueRef } from "../src/github.ts";
 import { loadGroundTruth } from "../src/groundTruth.ts";
+import { agentAnswers, agentName, labelSheet, parseLabels, setNextSteps } from "../src/labelSheet.ts";
 import { allMetrics, discordantPairs, kendallTau, ndcg, spearmanRho, topKOverlap } from "../src/metrics.ts";
-import { DEFAULT_PROMPT_PATH, ICEBOX_DECISION, Item, ROOT, prioritize, type LLM, type OutputSchema } from "../src/prioritizer.ts";
+import { ASSESSMENT, DEFAULT_PROMPT_PATH, ICEBOX_DECISION, Item, NEXT_STEP_KEYS, NEXT_STEPS, POINTWISE_OUTPUT, ROOT, isOnMe, prioritize, systemInstruction, type LLM, type OutputSchema, type Scored } from "../src/prioritizer.ts";
 import { pyRound, repr } from "../src/py.ts";
 import { rewind } from "../src/rewind.ts";
 import { Snapshotter, extractRefs } from "../src/snapshot.ts";
@@ -132,13 +133,13 @@ class Lookup implements LLM {
     this.calls.push([system, user, schema]);
     if (schema.name === "ItemAssessment") {
       for (const [num, p] of Object.entries(this.prios)) {
-        if (user.includes(`#${num}:`)) return { result: { actionable: p > 0.5, next_action: "do it", priority: p, reasoning: "r" } as T, usage: { prompt_tokens: 10, output_tokens: 5, thinking_tokens: 0 } };
+        if (user.includes(`#${num}:`)) return { result: { next_step: p > 0.5 ? "todo" : "waiting", next_action: "do it", priority: p, reasoning: "r" } as T, usage: { prompt_tokens: 10, output_tokens: 5, thinking_tokens: 0 } };
       }
       throw new Error("unknown item");
     }
     const ids = user.split("\n").filter((l) => l.startsWith("======== id: ")).map((l) => l.split("id: ")[1].split(" ")[0]);
     const ordered = [...ids].sort((a, b) => this.prios[Number(b.split("#")[1])] - this.prios[Number(a.split("#")[1])]);
-    return { result: { items: ordered.slice(0, -1).map((id) => ({ id, actionable: true, next_action: "", priority: 0.5, reasoning: "" })) } as T, usage: {} };
+    return { result: { items: ordered.slice(0, -1).map((id) => ({ id, next_step: "review", next_action: "", priority: 0.5, reasoning: "" })) } as T, usage: {} };
   }
 }
 
@@ -188,6 +189,21 @@ describe("prioritize", () => {
     expect(firstLines.some(([k, v]) => k.includes("#1972") && v === "current_time: 2026-08-30T00:00:00Z")).toBe(true);
     expect(firstLines.some(([k, v]) => k.includes("#1:") && v === "current_time: 2026-10-25T16:00:00Z")).toBe(true);
   });
+  it("asks for a next step, with what each means and which comes first (RANK-23)", () => {
+    expect(NEXT_STEP_KEYS).toEqual(["review", "respond", "todo", "backlog", "waiting", "elsewhere", "not_yours"]);
+    expect(NEXT_STEP_KEYS.filter(isOnMe)).toEqual(["review", "respond", "todo", "backlog"]);
+    for (const strategy of ["pointwise", "listwise"] as const) {
+      const system = systemInstruction("g", ME, strategy);
+      for (const k of NEXT_STEP_KEYS) expect(system).toContain(`- \`${k}\`: ${NEXT_STEPS[k]}`);
+      expect(system).toContain("If more than one applies, choose the first of: `not_yours`, `elsewhere`, `review`, `respond`, `waiting`, `todo`, `backlog`.");
+      expect(system).not.toContain("actionable");
+    }
+    expect(POINTWISE_OUTPUT).toContain("Return a JSON object with `next_step`,\n`next_action`, `priority` (0.0-1.0) and `reasoning`.");
+    const json = ASSESSMENT.json as any;
+    expect(json.required).toEqual(["next_step", "next_action", "priority", "reasoning"]);
+    expect(json.properties.next_step.enum).toEqual(NEXT_STEP_KEYS);
+    expect(ASSESSMENT.zod.safeParse({ next_step: "later", next_action: "", priority: 0.5, reasoning: "" }).success).toBe(false);
+  });
   it("normalises YAML dates", () => {
     const item = new Item("dart-lang/http#1972", needsInfoIssue(), new Date(Date.UTC(2026, 7, 1)), new Date(Date.UTC(2026, 7, 30)));
     expect([item.asOf, item.thumbsDownAt]).toEqual(["2026-08-30T00:00:00Z", "2026-08-01T00:00:00Z"]);
@@ -203,7 +219,7 @@ function setupEval(dir: string, extra = false) {
   const truth: any = { user: { github_login: "brianquinlan", interested_repos: [{ repo: "dart-lang/http" }] }, items: [] };
   for (const [n, upd] of [[1, "2026-10-01"], [2, "2026-10-24"], [3, "2026-10-10"]] as const) {
     writeFileSync(join(fixtures, `dart-lang__http__${n}.json`), JSON.stringify(makeSnapshot({ number: n, updated: `${upd}T00:00:00Z` })));
-    truth.items.push({ url: `https://github.com/dart-lang/http/issues/${n}`, why: `reason ${n}`, ...(extra ? { set: "A" } : {}) });
+    truth.items.push({ url: `https://github.com/dart-lang/http/issues/${n}`, why: `reason ${n}`, next_step: n === 2 ? "waiting" : "todo", ...(extra ? { set: "A" } : {}) });
   }
   if (extra) {
     writeFileSync(join(fixtures, "dart-lang__http__4.json"), JSON.stringify(makeSnapshot({ number: 4, updated: "2026-10-02T00:00:00Z" })));
@@ -232,6 +248,23 @@ describe("evaluate", () => {
     expect(res.metrics[0].kendall_tau).toBe(1.0);
     expect(res.trials).toHaveLength(2);
     expect(readdirSync(join(runDir, "contexts")).sort()).toEqual(["_system.txt", "dart-lang__http__1.txt", "dart-lang__http__2.txt", "dart-lang__http__3.txt"]);
+    // Lookup gives todo above 0.5 and waiting otherwise: #2 (0.5, labelled waiting) and #3 (0.1, labelled todo).
+    expect(res.next_step_labels).toEqual({ "dart-lang/http#1": "todo", "dart-lang/http#2": "waiting", "dart-lang/http#3": "todo" });
+    expect(res.next_step.exact[0]).toBeCloseTo(2 / 3);
+    expect(res.next_step.same_side[0]).toBeCloseTo(2 / 3);
+    const report = readFileSync(join(runDir, "report.md"), "utf8");
+    expect(report).toContain("## Next steps");
+    expect(report).toContain("| waiting (todo) ⚠️ | dart-lang/http#3 |");
+  });
+  it("measures next steps against the eval set's (RANK-24)", () => {
+    const s = (id: string, next_step: Scored["next_step"]): Scored => ({ id, priority: 0, next_step, next_action: "", reasoning: "", last_activity: null, usage: {}, error: null });
+    const labels = { a: "todo", b: "backlog", c: "elsewhere" } as const;
+    const m = nextStepMetrics([[s("a", "todo"), s("b", "todo"), s("c", "not_yours")], [s("a", "todo"), s("b", "backlog"), s("c", null)]], labels)!;
+    expect(m.labelled).toBe(3);
+    expect(m.exact[0]).toBeCloseTo((1 / 3 + 2 / 2) / 2); // an item that failed isn't counted
+    expect(m.same_side[0]).toBeCloseTo((3 / 3 + 2 / 2) / 2); // todo for backlog is on the same side
+    expect(nextStepMetrics([[s("a", null)]], labels)).toBeNull(); // recency gives none
+    expect(nextStepMetrics([[s("a", "todo")]], {})).toBeNull();
   });
   it("reports each set of the eval", async () => {
     const dir = mkdtempSync(join(tmpdir(), "eval-"));
@@ -242,12 +275,74 @@ describe("evaluate", () => {
     expect(Object.keys(res.subsets)).toEqual(["A"]); // B has fewer than 3 items
     expect(readFileSync(join(runDir, "report.md"), "utf8")).toContain("## By set");
   });
+  it("measures a labels-only file on next steps alone (RANK-24)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "eval-"));
+    const s = setupEval(dir);
+    const doc = { ...s.doc, ranked: false, labels_only: true };
+    const { runDir, agg, nextStep } = await evaluate({ ...s, doc, ...evalOpts, strategy: "pointwise", llm: new Lookup({ 1: 0.9, 2: 0.5, 3: 0.1 }), trials: 1, label: "ns" });
+    expect(agg).toEqual({});
+    expect(nextStep!.exact[0]).toBeCloseTo(2 / 3);
+    const report = readFileSync(join(runDir, "report.md"), "utf8");
+    expect(report).toContain("next steps only");
+    expect(report).toContain("| todo | 2 | todo 1, waiting 1 | 0.50 |");
+    expect(report).not.toContain("kendall_tau");
+    expect(readdirSync(s.out)).toEqual([basename(runDir)]); // no index.tsv line: it has no ranking metrics
+    await expect(evaluate({ ...s, doc, ...evalOpts, strategy: "listwise", llm: new Lookup({}), trials: 1 })).rejects.toThrow(/pointwise/);
+  });
   it("the ground truth file is complete", () => {
     const doc = loadGroundTruth(join(ROOT, "eval", "ground_truth.yaml"));
     expect(doc.ranked).toBe(true);
     expect(new Set(doc.items.map((i) => i.set))).toEqual(new Set(["A", "B"]));
     expect(doc.items).toHaveLength(36);
     expect(new Set(doc.items.map((i) => String(IssueRef.parse(i.url)))).size).toBe(36);
+    expect(doc.items.filter((i) => !(i.next_step && NEXT_STEP_KEYS.includes(i.next_step as any)))).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------- the labelling page
+
+describe("the next-step labelling page (RANK-24)", () => {
+  it("shows each item once, with its draft, its source and, on request, the agents' answers", () => {
+    const dir = mkdtempSync(join(tmpdir(), "label-"));
+    const s = setupEval(dir);
+    const run = join(dir, "run");
+    mkdirSync(run);
+    const scored = (id: string, next_step: string, next_action: string) => ({ id, next_step, next_action });
+    writeFileSync(join(run, "results.json"), JSON.stringify({ config: { model: "gemini-decision-1" }, trials: [
+      [scored("dart-lang/http#1", "todo", ""), scored("dart-lang/http#2", "review", "")],
+      [scored("dart-lang/http#1", "todo", ""), scored("dart-lang/http#2", "waiting", "")],
+      [scored("dart-lang/http#1", "backlog", ""), scored("dart-lang/http#2", "waiting", "")],
+    ] }));
+    const extra = { ...s.doc, labels_only: true, items: [{ url: "https://github.com/dart-lang/http/issues/3" }, { url: "https://github.com/dart-lang/http/issues/1" }] };
+    const data = labelSheet([{ doc: s.doc }, { doc: extra as any }], s.fixtures, agentAnswers([run]));
+    expect(data.items.map((x: any) => [x.id, x.source, x.draft])).toEqual([
+      ["dart-lang/http#1", "eval", "todo"], ["dart-lang/http#2", "eval", "waiting"], ["dart-lang/http#3", "eval", "todo"],
+    ]);
+    expect(data.items[1].agents).toEqual([{ who: "Basic", step: "waiting", text: "" }]);
+    expect(data.items[0].why).toBe("reason 1");
+    expect(data.steps.map((x) => [x.key, x.label, x.tone])).toEqual([
+      ["review", "Review", "now"], ["respond", "Respond", "now"], ["todo", "To do", "now"], ["backlog", "Backlog", "later"],
+      ["waiting", "Waiting", "off"], ["elsewhere", "Elsewhere", "off"], ["not_yours", "Not yours", "off"],
+    ]);
+    expect(data.precedence[0]).toBe("not_yours");
+    expect([agentName("gpt-6.1-sol"), agentName("claude-sonnet-5-5"), agentName("gemini-3.8-flash"), agentName("gemini-3.5-flash-lite")]).toEqual(["OpenAI", "Claude", "Gemini", "Gemini lite"]);
+  });
+  it("writes the labels into the eval files, keeping their comments and layout", () => {
+    const file = [
+      "# a comment", "items:", "  # 1", "  - url: https://github.com/a/b/issues/1", "    set: A", "    why: 'one',", "      more", "  # 2",
+      "  - url: https://github.com/a/b/pull/2", "    next_step: todo", "  - url: https://github.com/a/b/issues/3", "    why: three", "",
+    ].join("\n");
+    const labels = "next_steps:\n  - url: https://github.com/a/b/issues/1\n    next_step: review\n    note: \"x\"\n  - url: https://github.com/a/b/pull/2\n    next_step: waiting\n  - url: https://github.com/c/d/issues/9\n    next_step: backlog\n";
+    const { text, changed, unknown } = setNextSteps(file, labels);
+    expect(text.split("\n")).toEqual([
+      "# a comment", "items:", "  # 1", "  - url: https://github.com/a/b/issues/1", "    set: A", "    next_step: review", "    why: 'one',", "      more", "  # 2",
+      "  - url: https://github.com/a/b/pull/2", "    next_step: waiting", "  - url: https://github.com/a/b/issues/3", "    why: three", "",
+    ]);
+    expect(changed).toBe(2);
+    expect([...unknown]).toEqual(["c/d#9"]);
+    // The page's saved document works too, and a next step it doesn't know is refused.
+    expect([...parseLabels(JSON.stringify({ labels: { "a/b#3": "backlog" }, notes: {} }))]).toEqual([["a/b#3", "backlog"]]);
+    expect(() => parseLabels(JSON.stringify({ labels: { "a/b#3": "later" } }))).toThrow(/unknown next step/);
   });
 });
 
@@ -459,7 +554,7 @@ const withComment = (j: any, login: string, body: string, when = "2099-01-01T00:
 describe("the worker's calls", () => {
   it("scores one item with the real agent code, as of now", async () => {
     const seen: string[] = [];
-    const spy: LLM = { async generate(system, user) { seen.push(system, user); return { result: { actionable: true, next_action: "n", priority: 1.4, reasoning: "r" } as any, usage: {} }; } };
+    const spy: LLM = { async generate(system, user) { seen.push(system, user); return { result: { next_step: "todo", next_action: "n", priority: 1.4, reasoning: "r" } as any, usage: {} }; } };
     const a = await scoreItem(job(), spy, Date.parse("2026-11-02T10:00:00Z"));
     expect(a.priority).toBe(1); // clamped
     expect(seen[0]).toContain("not responsible for http2");
@@ -483,7 +578,7 @@ describe("the worker's calls", () => {
     expect(iceboxMessage(withComment(base, "github-actions", "CI passed"))).toContain("github-actions[bot] commented");
   });
   it("ranks an item whose stored issue has no times instead of crashing", async () => {
-    const spy: LLM = { async generate() { return { result: { actionable: false, next_action: "n", priority: 0.2, reasoning: "r" } as any, usage: {} }; } };
+    const spy: LLM = { async generate() { return { result: { next_step: "not_yours", next_action: "n", priority: 0.2, reasoning: "r" } as any, usage: {} }; } };
     const j = job();
     const { created_at: _c, updated_at: _u, ...issue } = j.snapshot.issue;
     expect((await scoreItem({ ...j, snapshot: { ...j.snapshot, issue } }, spy)).priority).toBe(0.2);

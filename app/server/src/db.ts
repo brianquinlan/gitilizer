@@ -148,6 +148,7 @@ create table if not exists user_items (
   iceboxed_at timestamptz,
   score double precision,
   actionable boolean,
+  next_step text,
   next_action text,
   reasoning text,
   ranked_at timestamptz,
@@ -316,6 +317,7 @@ update user_items set ranked_agent = 'gemini' where ranked_agent is null and ran
 alter table rank_jobs add column if not exists agent text;
 alter table user_items add column if not exists rank_error text;
 alter table user_items add column if not exists gone_at timestamptz;
+alter table user_items add column if not exists next_step text;
 update user_items set reasons = array_replace(reasons, 'interested_repo', 'additional_repo') where 'interested_repo' = any(reasons);
 alter table scans add column if not exists kind text not null default 'full';
 alter table rank_jobs add column if not exists kind text not null default 'rank';

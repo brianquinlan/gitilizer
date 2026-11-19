@@ -2,7 +2,7 @@
 // fixture mode (design: Ranking worker).
 import { createHash } from "node:crypto";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
-import { DEFAULT_MODEL, ICEBOX_DECISION, type LLM, type OutputSchema, type Usage } from "./prioritizer.ts";
+import { DEFAULT_MODEL, ICEBOX_DECISION, NEXT_STEP_KEYS, type LLM, type OutputSchema, type Usage } from "./prioritizer.ts";
 
 /** A Gemini failure sorted into the codes the server understands (design: Ranking worker, "Error codes"). */
 export class Classified extends Error {
@@ -173,7 +173,9 @@ export class FakeLLM implements LLM {
     }
     const h = parseInt(createHash("sha256").update(user).digest("hex").slice(0, 8), 16);
     const priority = Math.round(h % 1000) / 1000;
-    const result = { actionable: priority > 0.5, next_action: "(fake) Look at this.", priority, reasoning: "Fake model: score derived from the item's content." };
+    // Each next step at least once in a fixture list: a high score is on the developer, a low one isn't.
+    const next_step = NEXT_STEP_KEYS[Math.min(NEXT_STEP_KEYS.length - 1, Math.floor((1 - priority) * NEXT_STEP_KEYS.length))];
+    const result = { next_step, next_action: "(fake) Look at this.", priority, reasoning: "Fake model: score derived from the item's content." };
     return { result: result as T, usage: {} };
   }
 }

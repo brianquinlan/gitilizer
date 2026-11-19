@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   agentForModel, checkAgentKey, ClaudeLLM, classifyClaude, classifyDecision, classifyOpenAI, createLLM, DecisionLLM, defaultPrompt, GENERIC_BANDS, OpenAILLM,
-  ProviderHttpError, scaleBands, strictSchema, ASSESSMENT, ICEBOX_DECISION, RANKING,
+  ProviderHttpError, scaleBands, strictSchema, ASSESSMENT, ICEBOX_DECISION, NEXT_STEP_QUESTION, NEXT_STEPS, RANKING,
 } from "../src/index.ts";
 
 type Call = { url: string; init: RequestInit };
@@ -19,7 +19,7 @@ function fakeFetch(responses: (Response | Error)[]) {
 }
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
-const assessment = { actionable: true, next_action: "Review it.", priority: 0.8, reasoning: "Asked for your review." };
+const assessment = { next_step: "review", next_action: "Review it.", priority: 0.8, reasoning: "Asked for your review." };
 
 describe("strictSchema", () => {
   it("requires every property and forbids others, at every level", () => {
@@ -104,7 +104,7 @@ describe("OpenAILLM", () => {
     const { f } = fakeFetch([json({
       status: "completed",
       output: [
-        { type: "message", content: [{ type: "output_text", text: '{"actionable":true,"next_action":"Review. JSON.' }] },
+        { type: "message", content: [{ type: "output_text", text: '{"next_step":"review","next_action":"Review. JSON.' }] },
         { type: "message", content: [{ type: "output_text", text: JSON.stringify(assessment) }] },
       ],
       usage: {},
@@ -178,8 +178,8 @@ describe("scaleBands", () => {
 
 describe("DecisionLLM", () => {
   const system = "Rank my items.\n\n## Scale\n- 0.5–1.0: Needs me\n- 0.0–0.5: Doesn't need me\n";
-  const answer = (probabilities: Record<string, number>, actionable = 0.9) =>
-    json({ answers: { priority: { score: 1, probabilities }, actionable: { noul: actionable } }, usage: { total_input_tokens: 5100 } });
+  const answer = (probabilities: Record<string, number>, step = "respond") =>
+    json({ answers: { priority: { score: 1, probabilities }, next_step: { choice: step, probabilities: { [step]: 0.9 } } }, usage: { total_input_tokens: 5100 } });
 
   it("asks one question per answer and turns the probabilities into a score", async () => {
     const { f, calls } = fakeFetch([answer({ "0": 0.2, "1": 0.8 })]);
@@ -187,7 +187,7 @@ describe("DecisionLLM", () => {
     expect(llm).toBeInstanceOf(DecisionLLM);
     const r = await llm.generate(system, "the item", ASSESSMENT);
     expect(r.result.priority).toBeCloseTo(0.2 * 0.25 + 0.8 * 0.75);
-    expect(r.result).toMatchObject({ actionable: true, next_action: "", reasoning: "" });
+    expect(r.result).toMatchObject({ next_step: "respond", next_action: "", reasoning: "" });
     expect(r.usage).toEqual({ prompt_tokens: 5100, output_tokens: 0, thinking_tokens: 0 });
     expect(calls[0].url).toBe("https://generativelanguage.googleapis.com/v1beta/decisions");
     expect((calls[0].init.headers as Record<string, string>)["x-goog-api-key"]).toBe("g-key");
@@ -195,7 +195,15 @@ describe("DecisionLLM", () => {
     expect(body.model).toBe("gemini-decision-1");
     expect(body.input).toEqual([{ type: "text", text: `${system}\n\n` }, { type: "text", text: "the item" }]);
     expect(body.questions.priority).toMatchObject({ type: "score", criteria: ["Doesn't need me", "Needs me"] });
-    expect(body.questions.actionable.type).toBe("noul");
+    // The next step is a choice question whose options are the seven next steps, in the agent's words (RANK-23).
+    expect(Object.keys(body.questions)).toEqual(["priority", "next_step"]);
+    expect(body.questions.next_step).toEqual({ type: "choice", instructions: NEXT_STEP_QUESTION, criteria: NEXT_STEPS });
+    expect(NEXT_STEP_QUESTION).toContain("`not_yours`, `elsewhere`, `review`, `respond`, `waiting`, `todo`, `backlog`");
+  });
+
+  it("rejects a next step that wasn't offered", async () => {
+    const { f } = fakeFetch([answer({ "1": 1 }, "ship_it"), answer({ "1": 1 }, "ship_it"), answer({ "1": 1 }, "ship_it")]);
+    await expect(new DecisionLLM({ apiKey: "k", fetch: f }).generate(system, "u", ASSESSMENT)).rejects.toMatchObject({ code: "invalid_output" });
   });
 
   it("answers the Icebox check with a yes or no and no reason", async () => {

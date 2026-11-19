@@ -2,6 +2,8 @@
 // pausing when its key or credits stop working, and switching.
 import type { FastifyInstance } from "fastify";
 import { beforeAll, describe, expect, it } from "vitest";
+import { NEXT_STEP_KEYS, isOnMe } from "@gitilizer/ranker";
+import { NEXT_STEP_LABEL, NEXT_STEP_TONE, NextStep } from "@gitilizer/shared";
 import { buildApp } from "../src/app.ts";
 import type { Ctx } from "../src/context.ts";
 import { claimJobs, completeJob, failJob, syncState } from "../src/jobs.ts";
@@ -32,9 +34,11 @@ describe("ranking with Claude or OpenAI (RANK-19, RANK-20)", () => {
   it("claims jobs with the agent's key and model, and records who scored the item (RANK-16)", async () => {
     const [job] = await claimJobs(ctx, 1, 60);
     expect(job).toMatchObject({ agent: "claude", model: "claude-sonnet-5-5", apiKey: "anthropic_key-secret-123" });
-    await completeJob(ctx, job.id, { priority: 0.7, actionable: true, next_action: "x", reasoning: "y" });
-    const row = await ctx.db.one(`select ranked_agent, ranked_model from user_items where user_id = $1 and item_key = $2`, [userId, job.itemKey]);
-    expect(row).toEqual({ ranked_agent: "claude", ranked_model: "claude-sonnet-5-5" });
+    await completeJob(ctx, job.id, { priority: 0.7, next_step: "todo", next_action: "x", reasoning: "y" });
+    const row = await ctx.db.one(`select ranked_agent, ranked_model, next_step, actionable, next_action from user_items where user_id = $1 and item_key = $2`, [userId, job.itemKey]);
+    expect(row).toEqual({ ranked_agent: "claude", ranked_model: "claude-sonnet-5-5", next_step: "todo", actionable: true, next_action: "x" });
+    // The row carries the next step for its chip and the next action for the popup (LIST-42, LIST-24).
+    expect((await listRows(ctx.db, userId, [job.itemKey]))[0]).toMatchObject({ nextStep: "todo", nextAction: "x", reasoning: "y" });
   });
 
   it("pauses when credits run out: items wait with \"–\", the sync ends, and ranking tries again in 15 minutes (RANK-20, LIST-30, LIST-32)", async () => {
@@ -53,7 +57,7 @@ describe("ranking with Claude or OpenAI (RANK-19, RANK-20)", () => {
     // After the pause, a request that succeeds clears the error.
     await ctx.db.query(`update users set ranking_paused_until = now() - interval '1 second' where id = $1`, [userId]);
     const [next] = await claimJobs(ctx, 1, 60);
-    await completeJob(ctx, next.id, { priority: 0.5, actionable: true, next_action: "x", reasoning: "y" });
+    await completeJob(ctx, next.id, { priority: 0.5, next_step: "todo", next_action: "x", reasoning: "y" });
     expect(await codes()).toEqual([]);
   });
 
@@ -171,5 +175,14 @@ describe("choosing and switching agents in Settings (SET-38 to SET-40)", () => {
   it("shows items as ranked by whichever agent scored them, and none as waiting while ranking runs (LIST-30)", async () => {
     const rows = await listRows(ctx.db, userId);
     expect(rows.every((r) => !r.waiting)).toBe(true);
+  });
+});
+
+describe("next steps (RANK-23, LIST-42)", () => {
+  it("are the same seven, in the same order, in the ranker and in what the web app shows", () => {
+    expect(NextStep.options).toEqual(NEXT_STEP_KEYS);
+    expect(Object.keys(NEXT_STEP_LABEL)).toEqual(NEXT_STEP_KEYS);
+    // Blue for the four on the developer, grey for the rest.
+    for (const k of NEXT_STEP_KEYS) expect(NEXT_STEP_TONE[k] !== "off").toBe(isOnMe(k));
   });
 });

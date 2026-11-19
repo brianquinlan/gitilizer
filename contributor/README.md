@@ -78,7 +78,7 @@ npm run evaluate -- --no-signals           # ablation: raw context only
 
 Each run writes `eval/runs/<timestamp>-<label>/`:
 
-- `report.md`: the metrics (mean ± sd over trials), a per-item table (true rank against predicted rank and range, priority, actionable votes, next action), the largest inversions, and the model's reasoning next to the ranker's "why" for every item;
+- `report.md`: the metrics (mean ± sd over trials), how often the next step matched the eval set's (PRD `RANK-24`), a per-item table (true rank against predicted rank and range, priority, the next steps given against the expected one, next action), the largest inversions, and the model's reasoning next to the ranker's "why" for every item;
 - `results.json`: everything, machine-readable;
 - `contexts/`: the exact text the model saw, including the system prompt.
 
@@ -95,7 +95,7 @@ Each run writes `eval/runs/<timestamp>-<label>/`:
 
 ### The eval set
 
-`eval/ground_truth.yaml` is one ranked list of 36 issues and PRs (first = rank 1), ranked by hand with `eval/ranker.html`. Each item has a `set`: `A` for the PRD's original 16, `B` for 20 added later to cover more cases. The report scores the whole list and each set on its own; prompts v1–v3 were written before set B existed, so its numbers are a held-out check.
+`eval/ground_truth.yaml` is one ranked list of 36 issues and PRs (first = rank 1), ranked by hand with `eval/ranker.html`. Each item also has its `next_step`, one of the seven in PRD `RANK-23`, which the report compares with the agent's. Each item has a `set`: `A` for the PRD's original 16, `B` for 20 added later to cover more cases. The report scores the whole list and each set on its own; prompts v1–v3 were written before set B existed, so its numbers are a held-out check.
 
 Entries can also have:
 
@@ -110,6 +110,24 @@ npm run ranking-sheet -- eval/ground_truth.yaml --out eval/ranking.json --html e
 ```
 
 A snapshot stores the GitHub responses verbatim: the repository, the issue, every comment and the full timeline, and for PRs the pull, reviews, inline comments, commits and files, plus everything it links to and the PRs stacked above and below it. Evaluations read only these files, so every run sees the same state.
+
+### Next steps
+
+`eval/next_steps.yaml` holds production items with a next step and no rank
+(`labels_only: true`), so every next step has enough examples (PRD `RANK-24`).
+`npm run evaluate -- --truth eval/next_steps.yaml` measures next steps on them
+alone, with a table of how often each expected next step was given, and adds no
+line to `index.tsv`. The labels come from the labelling page:
+
+```powershell
+npm run label-sheet -- eval/ground_truth.yaml eval/next_steps.yaml --html eval/labeler.html --runs eval/runs/<run> …
+npm run set-next-steps -- labels.yaml eval/ground_truth.yaml eval/next_steps.yaml
+```
+
+The page shows each item as the ranking page does, with the seven next steps as
+buttons, the file's current next step as a draft, and, after you choose, what
+the agents said in the `--runs` given. It saves to its own database when
+published as an artifact; "Copy as YAML" gives what `set-next-steps` reads.
 
 ### History
 

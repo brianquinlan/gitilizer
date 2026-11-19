@@ -107,7 +107,7 @@ export class RankingWorker {
         log.debug("worker", "icebox check", { item: job.itemKey, bringBack: d.bring_back, ms: Date.now() - started });
       } else {
         const scored = await scoreItem(job, llm);
-        // Basic ranking stores a score and whether the item is actionable, and no text (RANK-2), whatever the model sent.
+        // Basic ranking stores a score and a next step, and no text (RANK-2, RANK-21), whatever the model sent.
         const a = job.agent === "basic" ? { ...scored, next_action: "", reasoning: "" } : scored;
         await completeJob(this.ctx, job.id, a);
         this.record(started);
