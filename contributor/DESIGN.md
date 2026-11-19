@@ -904,10 +904,10 @@ the key is Gitilizer's and one refusal concerns every developer who uses it:
 - **Item-level failures** (`blocked`, `invalid_output`, `unknown`) retry and
   then fail the item as for an agent (`RANK-6`).
 
-**Storing a result.** `completeJob()` writes the score, `next_step`, `actionable`
-(`isOnMe(next_step)`), `next_action` and `reasoning` together. For basic ranking
-the worker blanks `next_action` and `reasoning` first, and keeps the next step
-(`RANK-21`).
+**Storing a result.** `completeJob()` writes the score, `next_step`,
+`actionable` (`isOnMe(next_step)`), `next_action` and `reasoning` together. For
+basic ranking the worker blanks `next_action` and `reasoning` first, and keeps
+the next step (`RANK-21`).
 
 **Pauses** (`RANK-20`). A key-level code pauses ranking for the developer: `ranking_paused_until` is set, queued jobs stay queued, the items waiting are published with `waiting: true` and shown with "–" (`LIST-30`), and `syncState()` stops counting them, so Sync now stops turning (`LIST-32`). An invalid or leaked key, or one without permission, pauses until a new key is saved. Credits and billing can be fixed outside Gitilizer, so they pause for 15 minutes; the next job then tries again, and the error clears when it succeeds ([D-16](#d-16)). A missing model pauses for an hour. Saving a new key for the agent in use ends the pause at once, and the waiting items are published again without their "–" once the save has committed, as after a switch.
 

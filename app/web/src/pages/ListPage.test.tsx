@@ -157,8 +157,10 @@ describe("next steps on the list (LIST-42, LIST-24)", () => {
   it("starts the line under the title with the next step's chip, before the type and number", () => {
     const m = metas(render("", list(steps)));
     expect(m).toHaveLength(4);
-    expect(m[0]).toMatch(/^<span class="next-step now">To do<\/span><span class="num">Issue #1842<\/span>/);
-    expect(m[1]).toMatch(/^<span class="next-step later">Backlog<\/span><span class="num">PR #731<\/span>/);
+    expect(m[0]).toMatch(/^<span class="next-step now">To do<\/span> <span class="num">Issue #1842<\/span> /);
+    expect(m[1]).toMatch(/^<span class="next-step later">Backlog<\/span> <span class="num">PR #731<\/span> /);
+    // Read in order, the parts are separate words ("To do Issue #1842 Assigned to you").
+    expect(text(m[0]).trim()).toBe("To do Issue #1842 Assigned to you");
     expect(m[2]).toMatch(/^<span class="next-step off">Not yours<\/span>/);
     expect(m[3]).toMatch(/^<span class="num">PR #729<\/span>/); // no next step, no chip
     // The inclusion reason is the part that is cut off, with its full text on hover.
@@ -173,7 +175,7 @@ describe("next steps on the list (LIST-42, LIST-24)", () => {
   it("puts the next step and the next action above the reasoning in the popup", () => {
     const html = renderToStaticMarkup(<RankWhy row={{ ...steps[0], reasoning: "Because." }} rank={1} onClose={() => {}} />);
     expect(text(html)).toContain("Why rank #1? Next To do Check the hotfix. Because. northstar/api · Issue #1842");
-    expect(html).toContain('<span class="rank-why-next-head">Next<span class="next-step now">To do</span></span>');
+    expect(html).toContain('<span class="rank-why-next-head">Next <span class="next-step now">To do</span></span>');
     // Ranked before next steps existed: the block without the chip.
     const old = renderToStaticMarkup(<RankWhy row={{ ...steps[3], reasoning: "Because.", nextAction: "Answer the question." }} rank={4} onClose={() => {}} />);
     expect(old).toContain('<span class="rank-why-next-head">Next</span><p>Answer the question.</p>');

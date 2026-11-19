@@ -138,7 +138,9 @@ describe("scan and rank cycle", () => {
     const r = await scan(ctx, userId, "test");
     expect(r).toMatchObject({ outcome: "ok", kind: "full" });
     const rows = await listRows(ctx.db, userId);
-    expect(rows.length).toBe(27);
+    // Fixture mode serves every file in eval/fixtures: the 36 ranked items and their related items,
+    // and the 20 production items of eval/next_steps.yaml.
+    expect(rows.length).toBe(46);
     expect(rows.every((x) => x.score === null)).toBe(true);
     expect(rows.find((x) => x.key === "dart-lang/http#2026")!.reasons).toContain("additional_repo");
     expect(rows.find((x) => x.reasons.includes("mentioned"))!.mentionHandle).toBe("@brianquinlan");

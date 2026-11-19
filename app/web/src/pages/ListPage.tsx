@@ -260,9 +260,10 @@ function Rows(props: {
                 <a className="issue-title" href={r.htmlUrl} target="_blank" rel="noreferrer" title={r.title}>{r.title}</a>
                 <span className="issue-meta">
                   {/* LIST-42: the next step leads the line; the Icebox doesn't show it (ICE-3). */}
-                  {view === "prioritized" && r.nextStep && <NextStepChip step={r.nextStep} />}
-                  <span className="num">{r.kind === "pr" ? "PR" : "Issue"} #{r.number}</span>
-                  <span className="dot" />
+                  {/* The spaces keep the parts apart when the line is copied or read out; flex ignores them. */}
+                  {view === "prioritized" && r.nextStep && <><NextStepChip step={r.nextStep} />{" "}</>}
+                  <span className="num">{r.kind === "pr" ? "PR" : "Issue"} #{r.number}</span>{" "}
+                  <span className="dot" />{" "}
                   {view === "icebox"
                     ? <span className="reason">Moved to Icebox by you · <span title={fullDate(r.iceboxedAt)}>{relativeTime(r.iceboxedAt)}</span></span>
                     // LIST-42: only the inclusion reason is cut off when the line doesn't fit.
@@ -305,7 +306,7 @@ export function RankWhy({ row: r, rank: n, onClose }: { row: Row; rank: number; 
         </div>
         {(r.nextAction || r.nextStep) && (
           <div className="rank-why-next">
-            <span className="rank-why-next-head">Next{r.nextStep && <NextStepChip step={r.nextStep} />}</span>
+            <span className="rank-why-next-head">Next{r.nextStep && <>{" "}<NextStepChip step={r.nextStep} /></>}</span>
             {r.nextAction && <p>{r.nextAction}</p>}
           </div>
         )}
