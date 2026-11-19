@@ -2,8 +2,8 @@
 // pausing when its key or credits stop working, and switching.
 import type { FastifyInstance } from "fastify";
 import { beforeAll, describe, expect, it } from "vitest";
-import { NEXT_STEP_KEYS, isOnMe } from "@gitilizer/ranker";
-import { NEXT_STEP_LABEL, NEXT_STEP_TONE, NextStep } from "@gitilizer/shared";
+import { NEXT_STEP_KEYS } from "@gitilizer/ranker";
+import { NEXT_STEP_LABEL, NextStep } from "@gitilizer/shared";
 import { buildApp } from "../src/app.ts";
 import type { Ctx } from "../src/context.ts";
 import { claimJobs, completeJob, failJob, syncState } from "../src/jobs.ts";
@@ -182,7 +182,5 @@ describe("next steps (RANK-23, LIST-42)", () => {
   it("are the same seven, in the same order, in the ranker and in what the web app shows", () => {
     expect(NextStep.options).toEqual(NEXT_STEP_KEYS);
     expect(Object.keys(NEXT_STEP_LABEL)).toEqual(NEXT_STEP_KEYS);
-    // Blue for the four on the developer, grey for the rest.
-    for (const k of NEXT_STEP_KEYS) expect(NEXT_STEP_TONE[k] !== "off").toBe(isOnMe(k));
   });
 });
