@@ -34,14 +34,6 @@ export const NEXT_STEP_LABEL: Record<NextStep, string> = {
   review: "Review", respond: "Respond", todo: "To do", backlog: "Backlog", waiting: "Waiting", elsewhere: "Elsewhere", not_yours: "Not yours",
 };
 
-/**
- * The chip's look (PRD LIST-42): `now` is on the developer (filled blue), `later`
- * is on them but not pressing (outlined blue), `off` isn't on them (grey).
- */
-export const NEXT_STEP_TONE: Record<NextStep, "now" | "later" | "off"> = {
-  review: "now", respond: "now", todo: "now", backlog: "later", waiting: "off", elsewhere: "off", not_yours: "off",
-};
-
 export const ItemRow = z.object({
   key: z.string(), // "owner/repo#123"
   repo: z.string(), // "owner/repo"

@@ -1,7 +1,7 @@
 // Prioritized list and Icebox (PRD "Prioritized list", "Live updates", "Icebox").
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  choiceName, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, NEXT_STEP_LABEL, NEXT_STEP_TONE, reasonLabel,
+  choiceName, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, NEXT_STEP_LABEL, reasonLabel,
   scanBlocker, type NextStep, type ScanBlocker, type Sort, type SortColumn, type SyncEvent,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
@@ -288,7 +288,7 @@ function Rows(props: {
 
 /** The item's next step as a chip (LIST-42). Not a control: its text says which it is, so nothing depends on its color. */
 export function NextStepChip({ step }: { step: NextStep }) {
-  return <span className={`next-step ${NEXT_STEP_TONE[step]}`}>{NEXT_STEP_LABEL[step]}</span>;
+  return <span className={`next-step ${step.replace("_", "-")}`}>{NEXT_STEP_LABEL[step]}</span>;
 }
 
 /**
