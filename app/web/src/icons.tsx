@@ -21,6 +21,7 @@ export const DownToLineIcon = ({ size = 16 }) => (
 export const RefreshIcon = ({ size = 16, className = "" }) => (
   <svg {...base(size)} className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>
 );
+export const ChevronDown = ({ size = 14 }) => <svg {...base(size)}><path d="m6 9 6 6 6-6" /></svg>;
 export const ChevronLeft = ({ size = 14 }) => <svg {...base(size)}><path d="m15 18-6-6 6-6" /></svg>;
 export const ChevronRight = ({ size = 14 }) => <svg {...base(size)}><path d="m9 18 6-6-6-6" /></svg>;
 export const SortIcon = ({ dir }: { dir: "asc" | "desc" | null }) => (

@@ -1,4 +1,4 @@
-// The list as static markup: search and the type filter (PRD LIST-34 to LIST-41, KEY-1, KEY-3), next steps (LIST-42, LIST-24),
+// The list as static markup: search and the type filter (PRD LIST-34 to LIST-41, KEY-1, KEY-3), next steps and the chip that opens the rank reasoning popup (LIST-42, LIST-24),
 // and Sync now while GitHub can't be read (LIST-43).
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -177,15 +177,32 @@ describe("next steps on the list (LIST-42, LIST-24)", () => {
     expect(render("", list(iced), "icebox")).not.toContain("next-step");
   });
 
-  it("puts the next step and the next action above the reasoning in the popup", () => {
-    const html = renderToStaticMarkup(<RankWhy row={{ ...steps[0], reasoning: "Because." }} rank={1} onClose={() => {}} />);
-    expect(text(html)).toContain("Why rank #1? Next To do Check the hotfix. Because. northstar/api · Issue #1842");
-    expect(html).toContain('<span class="rank-why-next-head">Next <span class="next-step todo">To do</span></span>');
-    // Ranked before next steps existed: the block without the chip.
-    const old = renderToStaticMarkup(<RankWhy row={{ ...steps[3], reasoning: "Because.", nextAction: "Answer the question." }} rank={4} onClose={() => {}} />);
-    expect(old).toContain('<span class="rank-why-next-head">Next</span><p>Answer the question.</p>');
-    // Nothing to show: no block.
-    expect(renderToStaticMarkup(<RankWhy row={{ ...steps[3], reasoning: "Because." }} rank={4} onClose={() => {}} />)).not.toContain("rank-why-next");
+  it("makes the chip a button that opens the popup when the item has reasoning, and leaves the rank plain", () => {
+    const why = [{ ...steps[0], reasoning: "Because." }, { ...steps[1], reasoning: "Because." }, steps[2], { ...steps[3], reasoning: "Because." }];
+    const html = render("", list(why));
+    const m = metas(html);
+    expect(m[0]).toMatch(/^<span class="next-step-cell"><button type="button" class="next-step todo" aria-expanded="false" aria-haspopup="dialog" aria-label="To do, why rank #1\?">To do<svg /);
+    expect(m[1]).toContain('aria-label="Backlog, why rank #2?"');
+    expect(m[2]).toMatch(/^<span class="next-step not-yours">Not yours<\/span>/); // no reasoning (basic ranking): a label
+    expect(m[3]).toMatch(/^<span class="num">PR #729<\/span>/); // reasoning but no next step yet: no chip, no popup
+    expect(html).not.toContain("rank-btn");
+    expect(html).toMatch(/<span role="cell" class="rank">1<\/span>/);
+    // Closed until the chip is clicked.
+    expect(html).not.toContain("rank-why");
+  });
+
+  it("leads the popup with the next action, tinted like the chip, then the reasoning and a link to the item", () => {
+    const row = { ...steps[0], reasoning: "Because.", htmlUrl: "https://github.com/northstar/api/issues/1842" };
+    const html = renderToStaticMarkup(<RankWhy row={row} rank={1} />);
+    expect(text(html).trim()).toBe("Next action Check the hotfix. Why rank #1? Because. northstar/api · Issue #1842");
+    expect(html).toContain('<div class="rank-why-next todo"><span class="rank-why-label">Next action</span><p>Check the hotfix.</p></div>');
+    expect(html).toContain('<a href="https://github.com/northstar/api/issues/1842" target="_blank" rel="noreferrer">Issue #1842<svg');
+    expect(html).toContain('aria-label="Why rank #1?"');
+    expect(html).not.toContain("rank-why-close");
+    const notYours = renderToStaticMarkup(<RankWhy row={{ ...steps[2], reasoning: "Because.", nextAction: "Nothing to do." }} rank={3} />);
+    expect(notYours).toContain('class="rank-why-next not-yours"');
+    // No next action: no panel.
+    expect(renderToStaticMarkup(<RankWhy row={{ ...steps[1], reasoning: "Because." }} rank={2} />)).not.toContain("rank-why-next");
   });
 });
 

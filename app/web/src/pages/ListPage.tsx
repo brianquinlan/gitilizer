@@ -5,7 +5,7 @@ import {
   scanBlocker, type NextStep, type ScanBlocker, type Sort, type SortColumn, type SyncEvent,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
-import { BoxIcon, ChevronLeft, ChevronRight, DownToLineIcon, InfoIcon, IssueIcon, PrIcon, RefreshIcon, SearchIcon, SortIcon, XIcon } from "../icons.tsx";
+import { BoxIcon, ChevronDown, ChevronLeft, ChevronRight, DownToLineIcon, ExternalIcon, IssueIcon, PrIcon, RefreshIcon, SearchIcon, SortIcon, XIcon } from "../icons.tsx";
 import { clampPage, PAGE_SIZE, pageCount, ranks, rowsFor, sortRows, type Row, type View } from "../live/engine.ts";
 import { countText, isFiltering, listUrl, matches, NO_FILTER, parseFilter, words, type Filter, type TypeFilter } from "../live/filter.ts";
 import { useLive } from "../live/useLive.ts";
@@ -188,23 +188,20 @@ function Rows(props: {
   const els = useRef(new Map<string, HTMLDivElement>());
   const tops = useRef(new Map<string, number>());
   const lastStep = useRef(step);
-  // POC: the rank reasoning popup (Figma "Issue inbox · Rank reasoning"). Opens on click; closes on ×, Escape or a click elsewhere.
+  // The rank reasoning popup (Figma "Issue inbox · Rank reasoning"), opened by the row's next step chip (LIST-24, LIST-42).
+  // A second click on the chip, Escape or a click elsewhere closes it.
   const [why, setWhy] = useState<string | null>(null);
-  const rankBtns = useRef(new Map<string, HTMLButtonElement>());
-  // × and Escape return focus to the row's rank button, as for the notification popover (LIST-24, NFR-2, NOTIF-20).
-  // A click elsewhere leaves focus where that click puts it.
-  const closeWhy = () => {
-    if (why) rankBtns.current.get(why)?.focus();
-    setWhy(null);
-  };
+  const chipBtns = useRef(new Map<string, HTMLButtonElement>());
   useEffect(() => {
     if (!why) return;
+    // Escape returns focus to the chip, as for the notification popover (LIST-24, NFR-2, NOTIF-20).
+    // A click elsewhere leaves focus where that click puts it; a click on the chip keeps it there.
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      rankBtns.current.get(why)?.focus();
+      chipBtns.current.get(why)?.focus();
       setWhy(null);
     };
-    const onDown = (e: MouseEvent) => { if (!(e.target as Element).closest?.(".rank-cell-open")) setWhy(null); };
+    const onDown = (e: MouseEvent) => { if (!(e.target as Element).closest?.(".next-step-cell.open")) setWhy(null); };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown);
     return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("mousedown", onDown); };
@@ -212,7 +209,8 @@ function Rows(props: {
 
   // Live updates hold while the popup is showing, so rows don't shift mid-read (LIVE-27).
   // If its row is no longer on screen (paged away, left the list), the popup is closed rather than left holding.
-  const whyShown = why !== null && rows.some((r) => r.key === why && r.reasoning && !r.leaving && rank[r.key] !== undefined);
+  const hasWhy = (r: Row) => view === "prioritized" && !!r.nextStep && !!r.reasoning && !r.leaving && rank[r.key] !== undefined;
+  const whyShown = why !== null && rows.some((r) => r.key === why && hasWhy(r));
   useEffect(() => { if (why !== null && !whyShown) setWhy(null); }, [why, whyShown]);
   useEffect(() => { onPopup(whyShown); }, [whyShown, onPopup]);
   useEffect(() => () => onPopup(false), [onPopup]);
@@ -243,15 +241,10 @@ function Rows(props: {
                ref={(el) => { if (el) els.current.set(r.key, el); else els.current.delete(r.key); }}
                className={`tr ${indicators[r.key] ? "highlight" : ""} ${r.leaving ? "leaving" : ""} ${collapsing.has(r.key) ? "collapse" : ""}`}>
             {view === "prioritized" && (
-              <span role="cell" className={`rank ${why === r.key ? "rank-cell-open" : ""}`}>
-                {/* Ranks are never zero-padded; unranked items show "–" (Columns, LIST-30). */}
-                {r.leaving ? "" : n === undefined ? "–" : r.reasoning
-                  ? <button type="button" className="rank-btn" aria-expanded={why === r.key} aria-label={`Why rank ${n}?`}
-                            ref={(el) => { if (el) rankBtns.current.set(r.key, el); else rankBtns.current.delete(r.key); }}
-                            onClick={() => setWhy(why === r.key ? null : r.key)}>{n}</button>
-                  : n}
+              <span role="cell" className="rank">
+                {/* Ranks are never zero-padded; unranked items show "–" (Columns, LIST-30). Not clickable: the chip opens the popup (LIST-24). */}
+                {r.leaving ? "" : n === undefined ? "–" : n}
                 {indicators[r.key] && <span className="indicator">{indicators[r.key]}</span>}
-                {why === r.key && r.reasoning && !r.leaving && <RankWhy row={r} rank={n} onClose={closeWhy} />}
               </span>
             )}
             <span role="cell" className="issue">
@@ -261,7 +254,13 @@ function Rows(props: {
                 <span className="issue-meta">
                   {/* LIST-42: the next step leads the line; the Icebox doesn't show it (ICE-3). */}
                   {/* The spaces keep the parts apart when the line is copied or read out; flex ignores them. */}
-                  {view === "prioritized" && r.nextStep && <><NextStepChip step={r.nextStep} />{" "}</>}
+                  {view === "prioritized" && r.nextStep && <>{hasWhy(r)
+                    ? <span className={`next-step-cell${why === r.key ? " open" : ""}`}>
+                        <NextStepChip step={r.nextStep} rank={n} open={why === r.key} onToggle={() => setWhy(why === r.key ? null : r.key)}
+                                      buttonRef={(el) => { if (el) chipBtns.current.set(r.key, el); else chipBtns.current.delete(r.key); }} />
+                        {why === r.key && <RankWhy row={r} rank={n} />}
+                      </span>
+                    : <NextStepChip step={r.nextStep} />}{" "}</>}
                   <span className="num">{r.kind === "pr" ? "PR" : "Issue"} #{r.number}</span>{" "}
                   <span className="dot" />{" "}
                   {view === "icebox"
@@ -286,33 +285,46 @@ function Rows(props: {
   );
 }
 
-/** The item's next step as a chip (LIST-42). Not a control: its text says which it is, so nothing depends on its color. */
-export function NextStepChip({ step }: { step: NextStep }) {
-  return <span className={`next-step ${step.replace("_", "-")}`}>{NEXT_STEP_LABEL[step]}</span>;
+/**
+ * The item's next step as a chip (LIST-42). Its text says which it is, so nothing depends on its color.
+ * With `onToggle`, a button that opens the rank reasoning popup (LIST-24): a caret, and `aria-expanded` while it is open.
+ * Without, a label: basic ranking, no stored reasoning, the sign-in preview.
+ */
+export function NextStepChip({ step, rank, open = false, onToggle, buttonRef }: {
+  step: NextStep; rank?: number; open?: boolean; onToggle?: () => void; buttonRef?: (el: HTMLButtonElement | null) => void;
+}) {
+  const className = `next-step ${step.replace("_", "-")}`;
+  if (!onToggle) return <span className={className}>{NEXT_STEP_LABEL[step]}</span>;
+  return (
+    <button type="button" className={className} aria-expanded={open} aria-haspopup="dialog"
+            aria-label={`${NEXT_STEP_LABEL[step]}, why rank #${rank}?`} ref={buttonRef} onClick={onToggle}>
+      {NEXT_STEP_LABEL[step]}<ChevronDown size={10} />
+    </button>
+  );
 }
 
 /**
- * The rank reasoning popup (LIST-24): the "Next" block, with the next step and
- * the agent's next action, then the reasoning. An item ranked before next steps
- * existed shows the block without the chip.
+ * The rank reasoning popup (LIST-24): the agent's next action in a panel tinted like the chip,
+ * "Why rank #{n}?" and the reasoning, then the repository and a link to the item on GitHub.
  */
-export function RankWhy({ row: r, rank: n, onClose }: { row: Row; rank: number; onClose: () => void }) {
+export function RankWhy({ row: r, rank: n }: { row: Row; rank: number }) {
+  const kind = r.kind === "pr" ? "PR" : "Issue";
   return (
-    <div className="rank-why" role="dialog" aria-label={`Why rank ${n}?`}>
+    <div className="rank-why" role="dialog" aria-label={`Why rank #${n}?`}>
       <div className="rank-why-body">
-        <div className="rank-why-head">
-          <span className="rank-why-title"><InfoIcon /> Why rank #{n}?</span>
-          <button type="button" className="rank-why-close" aria-label="Close" onClick={onClose}><XIcon size={14} /></button>
-        </div>
-        {(r.nextAction || r.nextStep) && (
-          <div className="rank-why-next">
-            <span className="rank-why-next-head">Next{r.nextStep && <>{" "}<NextStepChip step={r.nextStep} /></>}</span>
-            {r.nextAction && <p>{r.nextAction}</p>}
+        {r.nextAction && (
+          <div className={`rank-why-next ${r.nextStep ? r.nextStep.replace("_", "-") : ""}`}>
+            <span className="rank-why-label">Next action</span>
+            <p>{r.nextAction}</p>
           </div>
         )}
+        <span className="rank-why-sub">Why rank #{n}?</span>
         <p>{r.reasoning}</p>
       </div>
-      <div className="rank-why-foot">{r.repo} · {r.kind === "pr" ? "PR" : "Issue"} #{r.number}</div>
+      <div className="rank-why-foot">
+        {r.repo} ·{" "}
+        <a href={r.htmlUrl} target="_blank" rel="noreferrer">{kind} #{r.number}<ExternalIcon size={11} /></a>
+      </div>
     </div>
   );
 }
