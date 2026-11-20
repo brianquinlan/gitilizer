@@ -1,7 +1,8 @@
 // Fake GitHub backed by eval/fixtures (design: Testing, "fixture mode").
 // Search qualifiers are evaluated against the snapshots, so discovery,
 // diffing and removal behave as they would against GitHub. Dev endpoints can
-// "touch" or close an item to exercise live updates.
+// "touch" or close an item to exercise live updates, and Sync now touches a
+// few listed items at random so their ranks change.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { GitHubProblem, itemKey, limitSnapshot, type AccountInfo, type GitHubApi, type ItemState, type RepoInfo, type SearchHit } from "./types.ts";
@@ -43,6 +44,19 @@ export class FixtureStore {
       comments: [...e.snap.comments, comment],
       timeline: [...e.snap.timeline, { event: "commented", actor: comment.user, user: comment.user, created_at: now, body }],
     };
+  }
+
+  /**
+   * Touches `count` items picked at random from `keys` (open fixtures only), so that a sync ranks them again. The
+   * fake model's score comes from the item's text, so each gets a new, effectively random, rank. Used by Sync now
+   * in fixture mode, to show live updates; a few at a time play one by one rather than together (LIVE-8, LIVE-9).
+   */
+  scramble(keys: string[], count = 3, random: () => number = Math.random): string[] {
+    const open = [...new Set(keys)].filter((k) => this.entries.has(k) && !this.entries.get(k)!.closed);
+    const picked: string[] = [];
+    while (picked.length < count && open.length) picked.push(...open.splice(Math.floor(random() * open.length), 1));
+    for (const key of picked) this.touch(key);
+    return picked;
   }
 
   close(key: string, merged = false): void {

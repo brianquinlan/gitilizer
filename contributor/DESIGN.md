@@ -583,7 +583,7 @@ JSON over HTTPS. Every request and response body is defined by a zod schema in `
 | `DELETE /api/account` | `SET-17`. Sent after the confirmation dialog; requires `{ confirm: true }` so a stray request can't delete an account. |
 | `POST /api/telemetry` | Browser timings for `METRIC-3` (time to a usable list, web vitals). Accepts small JSON bodies only, rate-limited per session. |
 | `GET /internal/metrics` | `METRIC-1` counts, including deleted accounts, and `ranking`, the rows of `ranking_volume` for the last 30 days (`METRIC-5`). On the internal port, not exposed to the internet. |
-| `POST /api/dev/fixtures/touch`, `…/close`, `POST /api/dev/notify` | Fixture mode only: simulate GitHub activity, a closed item or a notification. |
+| `POST /api/dev/fixtures/touch`, `…/close`, `POST /api/dev/notify` | Fixture mode only: simulate GitHub activity, a closed item or a notification. In fixture mode, Sync now (`POST /api/sync`) also touches 3 items in the list at random, so the fake model ranks them again and they move. |
 
 ---
 
