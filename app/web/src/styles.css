@@ -117,8 +117,8 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .th { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 0; cursor: pointer; color: inherit; font: inherit; }
 .th[aria-sort="ascending"], .th[aria-sort="descending"] { color: var(--accent); font-weight: 600; }
 .rank { font-family: var(--mono); color: var(--muted); font-size: 13.5px; font-variant-numeric: tabular-nums; display: flex; gap: 10px; align-items: baseline; }
+/* LIVE-18: the indicator and the row's --highlight fade out after a change; ListPage.tsx animates both. */
 .indicator { font-family: var(--font); font-size: 11.5px; font-weight: 600; color: var(--accent); }
-.tr.highlight { background: var(--highlight); transition: background-color .6s; }
 .issue { display: flex; gap: 14px; align-items: center; min-width: 0; }
 .issue .kind { color: var(--muted); flex: none; display: grid; }
 .issue .kind.pr { color: var(--accent); }
@@ -145,9 +145,10 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .td-actions { display: flex; justify-content: flex-end; }
 .chip { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--error-tint); color: var(--error); }
 .tr.leaving .issue-title { text-decoration: line-through; color: var(--muted); }
-.tr.collapse { animation: collapse .4s ease forwards; overflow: hidden; }
+/* Rows move, expand and collapse over 0.7 s: MOVE_MS in live/indicators.ts (LIVE-11..16). */
+.tr.collapse { animation: collapse .7s ease forwards; overflow: hidden; }
 @keyframes collapse { to { min-height: 0; height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; border-width: 0; } }
-.tr.enter { animation: enter .4s ease; }
+.tr.enter { animation: enter .7s ease; }
 @keyframes enter { from { opacity: 0; transform: scaleY(.6); } }
 .reduced .tr.enter { animation: fade .15s ease; }
 .reduced .tr.collapse { animation: fade-out .15s ease forwards; }

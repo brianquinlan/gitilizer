@@ -265,6 +265,8 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   // --- Sync and presence -----------------------------------------------------
   // LIST-28: never refused; a request while a sync runs joins it (SCAN-4).
   app.post("/api/sync", async (req, reply) => {
+    // Fixture mode: new activity on a few random items in the list, so the sync moves them (design: Testing).
+    if (fixtures) fixtures.scramble((await listRows(db, uid(req))).filter((r) => r.status === "active").map((r) => r.key));
     scheduler.trigger(uid(req), "manual");
     return reply.code(202).send({ ok: true });
   });

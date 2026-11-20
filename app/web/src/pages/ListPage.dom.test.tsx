@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, type ItemRow } from "@gitilizer/shared";
 import { init, type Live } from "../live/engine.ts";
 
-const page = vi.hoisted(() => ({ live: null as unknown, hold: (_open: boolean) => {} }));
+const page = vi.hoisted(() => ({ live: null as unknown, hold: (_open: boolean) => {}, indicators: {} as Record<string, { text: string; seq: number; at: number }>, step: 0 }));
 vi.mock("../store.tsx", () => ({
   useStore: () => ({
     me: { firstSyncDone: true, rankingAgent: "gemini" },
@@ -25,7 +25,7 @@ vi.mock("../router.tsx", async () => {
 });
 vi.mock("../live/useLive.ts", () => ({
   useLive: () => ({
-    live: page.live, indicators: {}, collapsing: new Set(), announcement: "", step: 0, tableProps: {},
+    live: page.live, indicators: page.indicators, collapsing: new Set(), announcement: "", step: page.step, tableProps: {},
     holdForPopup: page.hold, moveToIcebox: () => {}, restore: () => {},
   }),
 }));
@@ -46,6 +46,8 @@ const hold = vi.fn();
 beforeEach(() => {
   window.matchMedia = ((q: string) => ({ matches: false, media: q, addEventListener: () => {}, removeEventListener: () => {} })) as never;
   hold.mockClear();
+  page.indicators = {};
+  page.step = 0;
   page.hold = hold;
   page.live = init([
     item(1842, { nextStep: "todo", nextAction: "Check the hotfix.", reasoning: "Because." }),
@@ -110,5 +112,61 @@ describe("the next step chip and the rank reasoning popup (LIST-24, LIST-42)", (
     act(() => { document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); });
     expect(popup()).toBeNull();
     expect(lastHold()).toBe(false);
+  });
+});
+
+describe("row indicators (LIVE-18, LIVE-22)", () => {
+  const NOW = 50_000;
+  const KEY = "northstar/api#1843";
+  let animate: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    animate = vi.fn();
+    Element.prototype.animate = animate as never;
+  });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  const show = (seq: number, step: number, at = NOW) => {
+    page.indicators = { [KEY]: { text: "↑2", seq, at } };
+    page.step = step;
+    act(() => root.render(<ListPage view="prioritized" />));
+  };
+  /** The fades started so far: the row's highlight and the indicator text. */
+  const fades = () => ({
+    highlight: animate.mock.calls.filter(([frames]) => frames[0].backgroundColor !== undefined).map(([, t]) => t),
+    text: animate.mock.calls.filter(([frames]) => frames.length === 2 && frames[1].opacity === 0).map(([, t]) => t),
+  });
+
+  it("show the change, and fade it and the highlight over 2.5 s with ease-in once the row is in place", () => {
+    show(1, 1);
+    expect(host.querySelector(".indicator")?.textContent).toBe("↑2");
+    const { highlight, text } = fades();
+    expect(highlight).toEqual([expect.objectContaining({ duration: 2500, delay: 700, easing: "ease-in" })]);
+    expect(text).toEqual([expect.objectContaining({ duration: 2500, delay: 700, easing: "ease-in" })]);
+  });
+
+  it("with reduced motion, still fade, starting after the 150 ms cross-fade", () => {
+    window.matchMedia = ((q: string) => ({ matches: true, media: q, addEventListener: () => {}, removeEventListener: () => {} })) as never;
+    show(1, 1);
+    expect(host.querySelector(".table")?.classList.contains("reduced")).toBe(true);
+    const { highlight, text } = fades();
+    expect(highlight.map((t) => t.delay)).toEqual([150]);
+    expect(text.map((t) => t.delay)).toEqual([150]);
+  });
+
+  it("restart for a new change to the row, but not for another row's update", () => {
+    show(1, 1);
+    show(2, 2);
+    expect(fades().highlight).toHaveLength(2);
+    expect(fades().text).toHaveLength(2);
+    show(2, 3);
+    expect(fades().highlight).toHaveLength(2);
+    expect(fades().text).toHaveLength(2);
+  });
+
+  it("pick up part-way through on a row that comes into view later", () => {
+    show(1, 0, NOW - 1000); // changed 1 s ago, on another page; no step plays here
+    expect(fades().highlight.map((t) => t.delay)).toEqual([-300]);
+    expect(fades().text.map((t) => t.delay)).toEqual([-300]);
   });
 });

@@ -125,7 +125,7 @@ export function nextBatch(s: Live): Change[] {
 
 export type Applied = {
   state: Live;
-  /** Row indicators to show for 3 s (LIVE-18): "↑5", "↓3" or "New". */
+  /** Row indicators to show (LIVE-18): "↑5", "↓3" or "New". `useLive` keeps them for `INDICATOR_MS`. */
   indicators: Record<string, string>;
   /** Keys that started their leave label; finalize() removes them after the label has shown. */
   leaving: string[];
