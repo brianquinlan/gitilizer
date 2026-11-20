@@ -655,7 +655,9 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
   to show (`LIST-24`), the chip is a button that opens it: it ends with a small
   caret pointing down, its fill or outline darkens slightly on hover, and while
   its popup is open it has a 2 px ring in the accent color and the caret points
-  up ([Q-102](#q-102)). Its accessible name is the next step and "why rank
+  up ([Q-102](#q-102)). The row itself doesn't change. The chip's text keeps a
+  contrast of at least 4.5:1 in every state (`NFR-10`), so "Not yours" has
+  darker text on hover. Its accessible name is the next step and "why rank
   #{n}?", and it says whether its popup is open. Otherwise the chip is a label,
   with no caret. The list can't be filtered or sorted by next step
   ([Non-goals](#non-goals)). An item with no next step has no chip, and its line
@@ -1475,7 +1477,8 @@ Figma: [Settings / Preferences](https://www.figma.com/design/J94JKJLNCcFUovvwfaF
   the model recorded with each score (`RANK-16`). The model answers fixed
   questions and writes no text, so basic ranking stores a score and the item's
   next step (`RANK-23`, `RANK-24`), and no next action or reasoning: rows show
-  the next step (`LIST-42`) and ranks aren't clickable (`LIST-24`). The Icebox
+  the next step as a label, with no caret, that doesn't open the rank reasoning
+  popup (`LIST-42`, `LIST-24`). The Icebox
   check (`ICE-6`) is a yes-or-no question to the same
   model, not yet measured against its labelled examples (`ICE-13`). Evaluation
   (`RANK-7`) measured basic ranking at Kendall tau 0.55 with the default prompt,
@@ -2507,7 +2510,7 @@ The clickable rank wasn't obvious, so the rank reasoning popup was easy to miss
 - The next step chip opens the popup, and the rank is no longer clickable. A
   chip with a popup to show ends with a caret, darkens slightly on hover and has
   an accent ring while its popup is open; other chips are labels (`LIST-42`,
-  `LIST-24`).
+  `LIST-24`, `RANK-21`).
 - The popup leads with a "Next action" panel tinted to match the chip, then "Why
   rank #{n}?" and the reasoning. The type and number at the bottom links to the
   item on GitHub. The popup has no header or close button, and points at the
