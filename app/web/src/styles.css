@@ -297,8 +297,27 @@ input.invalid, textarea.invalid, .secret.invalid input { border-color: var(--err
 .list-rows .lr.collab-row { display: flex; gap: 12px; align-items: center; }
 .lr-main { display: flex; gap: 10px; align-items: center; color: var(--muted); }
 .lr-main .mono, .collab-row .mono { color: var(--ink); padding: 0; }
-.lr-prompt { display: grid; gap: 4px; padding: 8px 0 0 34px; }
-.lr-prompt .caption { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+.lr-prompt { display: grid; gap: 4px; padding: 8px 0 0 28px; }
+.lr-prompt .caption { font-family: var(--mono); font-size: 12px; color: var(--faint); padding-left: 6px; }
+/* SET-9, Figma "Settings / Repository prompt": the prompt is a button that looks like text until hovered or
+   focused, when it takes a tint and a pencil; the 6 px padding keeps its text in line with the caption. */
+.prompt-text { justify-self: start; max-width: 100%; display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 6px;
+  background: none; padding: 4px 6px; font-family: var(--mono); font-size: 13px; line-height: 1.6; color: var(--muted); text-align: left;
+  cursor: text; white-space: pre-wrap; overflow-wrap: anywhere; }
+.prompt-text svg { flex: none; opacity: 0; }
+.prompt-text:hover, .prompt-text:focus-visible { background: #f0f2f5; color: var(--ink); }
+.prompt-text:hover svg, .prompt-text:focus-visible svg { opacity: 1; }
+.link-btn.accent.add-prompt { justify-self: start; display: inline-flex; align-items: center; gap: 5px; padding: 4px 6px; border-radius: 6px; }
+.prompt-editor { display: grid; gap: 6px; padding-left: 6px; }
+.prompt-editor textarea { min-height: 64px; resize: none; overflow: hidden; background: var(--surface); border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(49 91 222 / 18%); outline: none; }
+.prompt-editor textarea.invalid { border-color: var(--error); box-shadow: 0 0 0 3px rgb(183 68 57 / 18%); }
+.prompt-editor .below { display: flex; gap: 12px; align-items: baseline; }
+.prompt-editor .below .field-error { margin: 0; }
+.prompt-editor .count { margin-left: auto; font-size: 12px; color: var(--faint); white-space: nowrap; }
+.prompt-editor .count.error-text { color: var(--error); }
+/* SET-9, Figma "Settings / Edited label": a prompt changed since the last save. #86560b on #fcf1dc is 6:1 (NFR-10). */
+.edited { font-size: 11px; font-weight: 500; line-height: 1.4; color: #86560b; background: #fcf1dc; border-radius: 5px; padding: 2px 7px; }
 .access.ok { color: var(--ok); }
 /* Repository and owner rows (SET-8, SET-36): a 24 px slot so every name lines up, as in Collaborators. */
 .icon-slot { width: 24px; height: 24px; display: grid; place-items: center; flex: none; color: var(--muted); }

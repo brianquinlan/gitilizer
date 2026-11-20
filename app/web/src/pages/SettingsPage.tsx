@@ -13,7 +13,7 @@ import { CredentialField, type Check } from "../components/CredentialField.tsx";
 import { CHIPS, GitHubCard, useConnectResult, useGitHubConnection } from "../components/GitHubConnection.tsx";
 import { Preferences } from "../components/Preferences.tsx";
 import {
-  AlertIcon, ExternalIcon, EyeOffIcon, FolderGitIcon, GitHubIcon, ListIcon, PlugIcon, PlusIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
+  AlertIcon, ExternalIcon, EyeOffIcon, FolderGitIcon, GitHubIcon, ListIcon, PencilIcon, PlugIcon, PlusIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
 } from "../icons.tsx";
 import { focusTarget, navigate, setNavigationGuard } from "../router.tsx";
 import { useStore } from "../store.tsx";
@@ -57,7 +57,8 @@ export function SettingsPage() {
   const dirty = useMemo(() => {
     if (!server || !draft) return false;
     return Object.values(secrets).some(Boolean) || agent !== server.rankingAgent || removals.length > 0
-      || JSON.stringify(draft.repos.map((r) => [r.fullName, r.prioritizationPrompt])) !== JSON.stringify(server.additionalRepos.map((r) => [r.fullName, r.prioritizationPrompt]))
+      // Prompts as they will be saved: an open prompt field's text counts, without its outer spaces (SET-9, SET-26).
+      || JSON.stringify(draft.repos.map((r) => [r.fullName, r.prioritizationPrompt.trim()])) !== JSON.stringify(server.additionalRepos.map((r) => [r.fullName, r.prioritizationPrompt]))
       || JSON.stringify(draft.exclusions.map((e) => e.name)) !== JSON.stringify(server.excludedRepos.map((e) => e.name))
       || JSON.stringify(draft.collaborators.map((c) => c.login)) !== JSON.stringify(server.collaborators.map((c) => c.login))
       || draft.prompt !== (server.customPrompt ?? server.defaultPrompt);
@@ -195,7 +196,7 @@ export function SettingsPage() {
           <section className="section" id="additional-repositories">
             <SectionHead n="02" title="Additional repositories" badge="Optional" />
             <p>Follow repositories beyond your assigned, created and @mention issues and PRs. Their open issues and PRs join the same list.</p>
-            <RepoList repos={draft.repos} excluded={draft.exclusions} errors={allErrors} setError={setError} app={me.github.method === "app"}
+            <RepoList repos={draft.repos} saved={server.additionalRepos} excluded={draft.exclusions} errors={allErrors} setError={setError} app={me.github.method === "app"}
                       onChange={(repos) => setDraft((d) => d && { ...d, repos: typeof repos === "function" ? repos(d.repos) : repos })} />
           </section>
 
@@ -392,12 +393,11 @@ function accessView(r: AdditionalRepo, app: boolean): { className: string; text:
   }
 }
 
-function RepoList({ repos, excluded, onChange, errors, setError, app }: {
-  app: boolean;
+export function RepoList({ repos, saved, excluded, onChange, errors, setError, app }: {
+  app: boolean; saved: AdditionalRepo[];
   repos: AdditionalRepo[]; excluded: ExcludedRepo[]; onChange: Setter<AdditionalRepo[]>; errors: Errors; setError: (f: string, m: string | null) => void;
 }) {
   const [name, setName] = useState("");
-  const [prompt, setPrompt] = useState("");
   const add = () => {
     const full = parseRepo(name);
     const err = !full ? MESSAGES.repoFormat
@@ -406,9 +406,9 @@ function RepoList({ repos, excluded, onChange, errors, setError, app }: {
       : repos.length >= MAX_REPOS ? MESSAGES.repoLimit : null;
     setError("add-repository", err);
     if (err || !full) return;
-    if (prompt.length > MAX_REPO_PROMPT_LENGTH) return;
-    onChange([...repos, { fullName: full, prioritizationPrompt: prompt.trim(), access: "checking", tokenType: null, ownerAvatarUrl: null, ownerType: null }]);
-    setName(""); setPrompt("");
+    // A new repository has no prompt: the developer adds one on its row (SET-7, SET-9).
+    onChange([...repos, { fullName: full, prioritizationPrompt: "", access: "checking", tokenType: null, ownerAvatarUrl: null, ownerType: null }]);
+    setName("");
     // Check access at once (SET-8). GitHub follows renames, so the row shows the current name.
     api.post<Omit<AdditionalRepo, "prioritizationPrompt">>("/api/repos/check", { fullName: full })
       .then((r) => onChange((cur) => cur.map((x) => (x.fullName === full ? {
@@ -417,18 +417,21 @@ function RepoList({ repos, excluded, onChange, errors, setError, app }: {
       } : x))))
       .catch(() => {});
   };
-  const promptError = prompt.length > MAX_REPO_PROMPT_LENGTH ? MESSAGES.repoPromptLength(prompt.length) : undefined;
-  useEffect(() => setError("add-repository-prompt", promptError ?? null), [promptError]);
   return (
     <div className="panel list-rows">
       {repos.map((r) => {
         const a = accessView(r, app);
         const rowId = repoControlId(r.fullName);
+        // "Edited" compares with the saved prompt; a repository added since the last save has none to compare with (SET-9).
+        const savedPrompt = saved.find((x) => x.fullName.toLowerCase() === r.fullName.toLowerCase())?.prioritizationPrompt;
+        const edited = savedPrompt !== undefined && r.prioritizationPrompt.trim() !== savedPrompt;
+        const setPrompt = (p: string) => onChange((cur) => cur.map((x) => (x.fullName === r.fullName ? { ...x, prioritizationPrompt: p } : x)));
         return (
           <div className="lr repo-row" key={r.fullName} id={rowId}>
             <div className="lr-main">
               <OwnerAvatar url={r.access === "ok" || r.access === "archived" ? r.ownerAvatarUrl : null} type={r.ownerType} />
               <span className="mono">{r.fullName}</span>
+              {edited && <span className="edited">Edited</span>}
               <span className="spacer" />
               <span className={`access ${a.className}`} title={a.title} tabIndex={a.title ? 0 : undefined}>
                 {a.className === "bad" && <XCircleIcon size={12} />} {a.text}
@@ -436,9 +439,8 @@ function RepoList({ repos, excluded, onChange, errors, setError, app }: {
               <button className="link-btn" aria-label={`Remove ${r.fullName}`}
                       onClick={() => { onChange(repos.filter((x) => x !== r)); setError(rowId, null); clearConflict(errors, setError, r.fullName); }}><XIcon size={12} /> Remove</button>
             </div>
-            {r.prioritizationPrompt && (
-              <div className="lr-prompt"><span className="caption">Prioritization prompt</span><span className="mono">{r.prioritizationPrompt}</span></div>
-            )}
+            <RepoPrompt repo={r.fullName} prompt={r.prioritizationPrompt} onChange={setPrompt}
+                        error={errors[promptControlId(r.fullName)]} setError={(m) => setError(promptControlId(r.fullName), m)} />
             <FieldMessage message={errors[rowId]} />
           </div>
         );
@@ -449,13 +451,93 @@ function RepoList({ repos, excluded, onChange, errors, setError, app }: {
                value={name} aria-invalid={Boolean(errors["add-repository"])}
                onChange={(e) => { setName(e.target.value); setError("add-repository", null); }} onKeyDown={(e) => e.key === "Enter" && add()} />
         <FieldMessage message={errors["add-repository"]} />
-        <label htmlFor="add-repository-prompt">Prioritization prompt</label>
-        <textarea id="add-repository-prompt" className={promptError ? "invalid" : ""} rows={3} value={prompt} aria-invalid={Boolean(promptError)}
-                  placeholder="Prioritize security reviews, production failures and blocked teammates. Include recent comments and reviews in the ranking context."
-                  onChange={(e) => setPrompt(e.target.value)} />
-        <FieldMessage message={promptError} />
-        <div><button className="btn" onClick={add} disabled={Boolean(promptError)}><PlusIcon /> Add repository</button></div>
+        <div><button className="btn" onClick={add}><PlusIcon /> Add repository</button></div>
       </div>
+    </div>
+  );
+}
+
+const promptControlId = (repo: string) => `${repoControlId(repo)}-prompt`;
+
+/**
+ * A repository's prioritization prompt, edited in place on its row (SET-9), as in Figma "Settings / Repository
+ * prompt". The text is a button that opens a multi-line field; a repository without a prompt shows "Add
+ * prioritization prompt" instead. While the field is open, every keystroke goes into the draft, so "Edited", the
+ * save buttons and the question on leaving (SET-26) all see what is typed. Leaving the field keeps the text without
+ * its outer spaces; Escape puts back what it held when it opened. Over 500 characters it stays open, with an error
+ * that blocks saving (SET-27).
+ */
+export function RepoPrompt({ repo, prompt, onChange, error, setError }: {
+  repo: string; prompt: string; onChange: (prompt: string) => void; error?: string; setError: (message: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const before = useRef(""); // the text when the field opened, for Escape
+  const closing = useRef(false); // Escape closes the field: the blur that follows must not keep the text
+  const field = useRef<HTMLTextAreaElement>(null);
+  const opener = useRef<HTMLButtonElement>(null);
+  const refocus = useRef(false);
+  const id = promptControlId(repo);
+  const tooLong = prompt.length > MAX_REPO_PROMPT_LENGTH;
+  const message = tooLong ? MESSAGES.repoPromptLength(prompt.length) : null;
+  useEffect(() => setError(message), [message]);
+  useEffect(() => () => setError(null), []); // a removed repository takes its error with it
+
+  // The field opens with the cursor at the end, and grows with its text.
+  useEffect(() => {
+    const el = field.current;
+    if (!open || !el) return;
+    if (document.activeElement !== el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [open, prompt]);
+  // After Escape, focus goes back to what opened the field.
+  useEffect(() => { if (!open && refocus.current) { refocus.current = false; opener.current?.focus(); } }, [open]);
+
+  const start = () => { before.current = prompt; closing.current = false; setOpen(true); };
+  const keep = () => {
+    if (closing.current) return;
+    if (prompt.length > MAX_REPO_PROMPT_LENGTH) return; // stays open until it fits, or Escape
+    onChange(prompt.trim());
+    setOpen(false);
+  };
+  const cancel = () => { closing.current = true; refocus.current = true; onChange(before.current); setOpen(false); };
+
+  if (open) {
+    return (
+      <div className="lr-prompt">
+        <label className="caption" htmlFor={id}>Prioritization prompt</label>
+        <div className="prompt-editor">
+          <textarea id={id} ref={field} rows={2} value={prompt} className={tooLong ? "invalid" : ""} spellCheck={false}
+                    aria-invalid={tooLong} aria-describedby={`${id}-count${tooLong ? ` ${id}-error` : ""}`}
+                    placeholder="Security issues only"
+                    onChange={(e) => onChange(e.target.value)} onBlur={keep}
+                    onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cancel(); } }} />
+          <div className="below">
+            {error && <span className="field-error" id={`${id}-error`} role="alert">{error}</span>}
+            <span className={`count ${tooLong ? "error-text" : ""}`} id={`${id}-count`}>
+              {prompt.length.toLocaleString("en-US")} / {MAX_REPO_PROMPT_LENGTH} characters
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (!prompt) {
+    return (
+      <div className="lr-prompt">
+        <button ref={opener} type="button" className="link-btn accent add-prompt" onClick={start}>
+          <PlusIcon size={12} /> Add prioritization prompt<span className="sr-only"> for {repo}</span>
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="lr-prompt">
+      <span className="caption" aria-hidden="true">Prioritization prompt</span>
+      <button ref={opener} type="button" className="prompt-text" onClick={start}>
+        <span className="sr-only">Edit the prioritization prompt for {repo}: </span>
+        <span>{prompt}</span><PencilIcon size={14} />
+      </button>
     </div>
   );
 }

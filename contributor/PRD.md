@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -196,7 +196,8 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Icebox, empty | [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593) | [Icebox](#icebox) |
 | Icebox row | [Icebox / Issue row · Restore](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=180-1403) | [Icebox](#icebox) |
 | Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), including the Ranking agent card, Additional repositories, Excluded repositories, Collaborators, Preferences, Delete account, and the save and cancel buttons | [Settings](#settings) |
-| Settings with errors | [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237): a failed Validate, a ranking agent chosen without its API key, a duplicate repository, an excluded repository that can't be found, an exclusion that is already an additional repository, a prompt that's too long, a duplicate collaborator, and the save buttons disabled | [Saving](#saving) |
+| Settings with errors | [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237): a failed Validate, a ranking agent chosen without its API key, a duplicate repository, a repository's prioritization prompt that's too long, an excluded repository that can't be found, an exclusion that is already an additional repository, a prompt that's too long, a duplicate collaborator, and the save buttons disabled | [Saving](#saving) |
+| Repository prompt | [Settings / Repository prompt](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=438-3686), with its states, and [Settings / Edited label](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=438-3687); both in a section: [Settings · Repository prompt · Editing](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=438-3741) | [Additional repositories](#additional-repositories) |
 | Switching ranking agent | [Settings · Switch ranking agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631) | [Connections](#connections) |
 | GitHub card | Connected with the Gitilizer app: in [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802). Its other states: [Settings · GitHub card · Reconnect needed](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2937), [Settings · GitHub card · Missing permission](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2955), [Settings · GitHub card · Token in use](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-3015), [Settings · GitHub card · Not set](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=397-2761) | [Connecting GitHub](#connecting-github) |
 | Ranking agent choices | [Settings / Ranking agent option](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=383-2497), whose "No key" variant is basic ranking | [Connections](#connections) |
@@ -1210,7 +1211,13 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 
 ### Additional repositories
 
-- **SET-7** The developer must be able to add a repository by typing `owner/name`, or pasting its GitHub URL (`https://github.com/owner/name`, with anything after the name ignored), and choosing "Add repository", and remove one with "Remove". Any other format, or a repository already in the list, is an error (`SET-27`). There can be at most 25 repositories.
+- **SET-7** The developer must be able to add a repository by typing
+  `owner/name`, or pasting its GitHub URL (`https://github.com/owner/name`, with
+  anything after the name ignored), and choosing "Add repository", and remove
+  one with "Remove". The add form has only the repository field and the button:
+  a new repository has no prioritization prompt, and the developer adds one on
+  its row (`SET-9`). Any other format, or a repository already in the list, is
+  an error (`SET-27`). There can be at most 25 repositories.
 - **SET-8** Each repository must show one of four access states: "Checking…" in grey while Gitilizer checks it; "Access confirmed", as in Figma; "Archived" in grey, where hovering shows "{repo} is archived, so its issues and PRs aren't shown." (`LIST-1` excludes archived repositories); or "Can't access" with a red ✗. Hovering over "Can't access" must say why, as precisely as GitHub's answer allows:
 
   | What GitHub answered | Hover text |
@@ -1222,7 +1229,43 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
   If GitHub can't be reached, the repository keeps its last known state. A renamed repository keeps working: GitHub forwards the old name, and Gitilizer shows the new one.
 
   Each repository starts with its owner's GitHub avatar, as GitHub shows a repository: with rounded corners for an organization and round for a personal account, in a 24 px space so the names line up with Collaborators. Until GitHub has found the repository, and while it can't be accessed, the repository icon takes the avatar's place.
-- **SET-9** Each repository may have a prioritization prompt: free text that tells the ranking agent what the developer cares about in it, for example "Security issues only". It is entered in the "Prioritization prompt" field when adding the repository, and shown under the repository's name. The agent receives it as a note on that repository. It can be at most 500 characters. It can't be edited after the repository is added: to change it, the developer removes the repository and adds it again.
+- **SET-9** Each repository may have a prioritization prompt: free text that
+  tells the ranking agent what the developer cares about in it, for example
+  "Security issues only". The agent receives it as a note on that repository.
+  It can be at most 500 characters. It is shown under the repository's name,
+  below the caption "Prioritization prompt", and the developer edits it there,
+  in place, as in
+  [Settings / Repository prompt](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=438-3686):
+  - The prompt's text is the control. Hovering over it, or focusing it with the
+    keyboard, tints it and shows a pencil icon after it. Clicking it, or
+    pressing Enter or Space while it has focus, turns it into a text field
+    holding the prompt, with the cursor at the end and "{n} / 500 characters"
+    under it.
+  - A repository without a prompt shows "Add prioritization prompt", with a plus
+    icon, in the prompt's place. It opens the same field, empty.
+  - The field is multi-line and grows with its text: Enter starts a new line.
+    Clicking outside the field, or moving focus out of it (with Tab, for
+    example), keeps what was typed, without leading and trailing spaces, and
+    turns the field back into text. Escape puts back what the field held when it
+    opened, and does the same.
+  - Emptying the field removes the prompt, which isn't an error: the row shows
+    "Add prioritization prompt" again.
+  - A prompt over 500 characters is an error under the field as soon as it goes
+    over: "A prioritization prompt can be at most 500 characters. This one has
+    {n}." (`SET-27`). The field stays open until the prompt is short enough or
+    the developer presses Escape.
+  - A changed prompt, like every change in Settings, takes effect only when
+    saved (`SET-14`). Until then the row shows "Edited" after the repository's
+    name. "Edited" follows the text as it is typed, without leading and trailing
+    spaces, while the field is still open, including while the prompt is over
+    500 characters; changing it back to the saved text removes "Edited". A
+    repository added since the last save never shows "Edited", because nothing
+    about it is saved yet.
+  - Leaving Settings while a field is open counts its text as typed: if it
+    differs from the saved prompt, leaving asks first (`SET-26`).
+  - Saving with "Save and re-rank" re-ranks every item with the new prompt
+    (`SET-15`). With "Save changes", items already ranked keep their scores
+    until they change on GitHub or the daily re-rank (`RANK-9`) reaches them.
 - **SET-31** Additional repositories are repositories the developer follows, not ones they're responsible for. The agent's "About me" text and the default prompt must describe them that way, measured as in `RANK-7`. A developer who is responsible for a repository can say so in its prioritization prompt.
 
 ### Excluded repositories
@@ -1722,7 +1765,7 @@ came from opening the rank reasoning popup from the next step chip.
 | <a id="q-38"></a>Q-38 | Validate states | Red ✗ and red text for a failure; messages as proposed; saving doesn't validate. | `SET-28` to `SET-30` |
 | <a id="q-39"></a>Q-39 | Model | Gitilizer chooses; Settings doesn't show it. | `SET-22` |
 | <a id="q-40"></a>Q-40 | Token kinds | Accept both, recommend fine-grained, explain in the documentation behind "Learn more". One token per developer. Changed on 2026-11-14: a token is now the alternative to the Gitilizer app, and a developer has one or the other ([Q-87](#q-87)). | `SET-20`, [Non-goals](#non-goals) |
-| <a id="q-41"></a>Q-41 | Additional repositories | `owner/name` or a URL; duplicates and bad formats are errors; at most 25; prompts up to 500 characters and not editable; states "Checking…", "Access confirmed" and "Can't access", with the reason on hover. | `SET-7` to `SET-9` |
+| <a id="q-41"></a>Q-41 | Additional repositories | `owner/name` or a URL; duplicates and bad formats are errors; at most 25; prompts up to 500 characters, edited in place on the repository's row ([Q-103](#q-103)); states "Checking…", "Access confirmed" and "Can't access", with the reason on hover. | `SET-7` to `SET-9` |
 | <a id="q-42"></a>Q-42 | Collaborators | As suggested: tooltip on the error icon, "@" removed, duplicates rejected, at most 50. Generic avatar drawn in Figma. | `SET-19`, `SET-25` |
 | <a id="q-43"></a>Q-43 | Review teams | Out of scope for now; listed in non-goals to revisit. | [Non-goals](#non-goals) |
 | <a id="q-44"></a>Q-44 | Ranking prompt | New section description (in Figma); default `prompts/v4.md`; 20,000 characters; defaults update automatically. | `SET-23`, `SET-24` |
@@ -1784,6 +1827,7 @@ came from opening the rank reasoning popup from the next step chip.
 | <a id="q-100"></a>Q-100 | Showing what the developer should do next on each item | Ranking gives each item one of seven next steps: "Review", "Respond", "To do" and "Backlog" are on the developer; "Waiting", "Elsewhere" and "Not yours" are not. A chip with the next step starts the line under the title, and the agent's one-sentence next action is in the rank reasoning popup, above the reasoning. A fixed set was chosen for the row over the agent's own words because the words don't fit: at 1024 px (`PLAT-6`) the line shows about 38 characters, and the next actions agents write have a median of 68 to 123 characters, depending on the agent. A fixed set also reads the same whichever agent ranked the item, and basic ranking, which writes no text, can give it. The seven came from sorting the next actions of 1,000 items in production. With a finer set for what is on the developer (reply, revise, build, decide, verify, merge), two thirds of those items named two at once. Old items in the developer's own areas with nothing pressing, about a fifth of the list, fitted nowhere, which is why "Backlog" exists; it counts as on the developer because the developer can act on it, and its low score keeps it below the rest. Showing a short phrase on the row, in place of the inclusion reason or on a line of its own, a "Next step" column, and marking only the items that aren't on the developer were considered and not chosen. Filtering by next step, such as "On you" and "Not on you", is left for later, to keep the first change small. Basic ranking gives next steps too: evaluation found its next steps match the eval set about as often as Claude's do ([evaluation](../eval/next-step-2026-11-18.md)). | `LIST-42`, `LIST-24`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, [Non-goals](#non-goals) |
 | <a id="q-101"></a>Q-101 | What Sync now does while GitHub can't be read at all | It is disabled, with "Reconnect GitHub to sync" (or "Connect GitHub" or "Replace your token") next to it, linking to Settings. "Haven't updated since" isn't shown while that error is, because it has the same cause and tells the developer to try Sync now. Until now the button stayed enabled, and a sync failed in milliseconds, so the progress text flashed and the icon didn't visibly turn. | `LIST-43`, `LIST-28`, `NOTIF-24` |
 | <a id="q-102"></a>Q-102 | Making it clear that the rank reasoning popup can be opened | The next step chip opens it, and the rank no longer does. The clickable rank wasn't obvious: it looked like the plain numbers around it. The chip already looks like something to press, and the popup's first part, the next action, is about the chip's next step. Only a chip with a popup to show gets a caret, so the caret also says which items have reasoning. The popup leads with the next action, in a panel tinted to match the chip, then "Why rank #{n}?" and the reasoning, then a link to the item on GitHub, so the developer can act from the popup. The panel's text is a darker shade of the chip's color rather than the color itself, because some chip colors don't reach 4.5:1 on their own tint (Backlog's yellow is about 2.8:1); every label and text color in the panels reaches at least 4.5:1, and most 7:1. Considered and not chosen: styling the rank as a button, an info icon after the rank, a "Why?" link shown when the pointer is over the row, and a hint in the line above the list; for the popup, 17 other layouts, including the next action and reasoning as tabs, the reasoning collapsed, a header in the chip's color, and the next action in a subtler tint or an outline. | `LIST-24`, `LIST-42` |
+| <a id="q-103"></a>Q-103 | Changing a repository's prioritization prompt | In place: the prompt's text opens as a field when clicked, and a repository without a prompt has "Add prioritization prompt" in its place. The add form no longer has a prompt field, so there is one way to give a repository a prompt. A changed prompt applies to every item with "Save and re-rank", and to items ranked from then on with "Save changes". Until now a prompt couldn't be changed: the developer removed the repository and added it again, and a repository added without a prompt could never get one. An "Edit" button beside "Remove", a field that is always open and a dialog were also considered. Editing the text keeps the section as quiet as it is, and the hover tint and pencil make the text look clickable, which plain text doesn't ([Q-102](#q-102)). | `SET-7`, `SET-9` |
 
 ---
 
@@ -2531,3 +2575,34 @@ changes (`LIST-42`).
 - Changed Figma: every variant of
   [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240),
   and the chips in the frames that use it.
+
+### Forty-eighth revision (2026-11-20, editing a repository's prompt)
+
+A repository's prioritization prompt couldn't be changed after the repository
+was added, and a repository added without one could never get one
+([Q-103](#q-103)):
+
+- The developer edits the prompt in place: clicking its text, or pressing Enter
+  or Space on it, opens a field, and a repository without a prompt shows "Add
+  prioritization prompt". Clicking away keeps the change, Escape undoes it, and
+  emptying the field removes the prompt. The field is multi-line, so Enter
+  starts a new line. A changed prompt marks its row "Edited" as it is typed,
+  until it is saved; a repository added since the last save isn't marked
+  (`SET-9`, `SET-26`).
+- "Add repository" has only the repository field; the prompt is added on the
+  new repository's row (`SET-7`).
+- A changed prompt is applied to every item by "Save and re-rank", and to items
+  ranked from then on by "Save changes" (`SET-9`, `SET-15`).
+- Changed Figma: the new
+  [Settings / Repository prompt](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=438-3686)
+  (Default, Hover, Editing, Empty and Error) and
+  [Settings / Edited label](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=438-3687);
+  [Settings · Repository prompt · Editing](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=438-3741),
+  which shows them in the section; and section 02 of
+  [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802),
+  [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
+  and
+  [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237),
+  where the prompts use the new component, northstar/cli shows "Add
+  prioritization prompt", the add form has no prompt field, and Settings ·
+  Errors shows a prompt that's too long, marked "Edited".

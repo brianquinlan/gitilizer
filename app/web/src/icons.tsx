@@ -105,6 +105,9 @@ export const GlobeIcon = ({ size = 16 }) => (
 export const LockIcon = ({ size = 16 }) => (
   <svg {...base(size)}><rect width="18" height="11" x="3" y="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
 );
+export const PencilIcon = ({ size = 14 }) => (
+  <svg {...base(size)}><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></svg>
+);
 export const PlusIcon = ({ size = 14 }) => <svg {...base(size)}><path d="M5 12h14" /><path d="M12 5v14" /></svg>;
 export const UserIcon = ({ size = 14 }) => <svg {...base(size)}><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /></svg>;
 export const XCircleIcon = ({ size = 14 }) => <svg {...base(size)}><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></svg>;
