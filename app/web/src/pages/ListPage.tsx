@@ -8,7 +8,8 @@ import { api, ApiError } from "../api.ts";
 import { BoxIcon, ChevronDown, ChevronLeft, ChevronRight, DownToLineIcon, ExternalIcon, IssueIcon, PrIcon, RefreshIcon, SearchIcon, SortIcon, XIcon } from "../icons.tsx";
 import { clampPage, PAGE_SIZE, pageCount, ranks, rowsFor, sortRows, type Row, type View } from "../live/engine.ts";
 import { countText, isFiltering, listUrl, matches, NO_FILTER, parseFilter, words, type Filter, type TypeFilter } from "../live/filter.ts";
-import { useLive, type Indicator } from "../live/useLive.ts";
+import { fadeDelay, FADE_MS, MOVE_MS, REDUCED_MS, type Indicators } from "../live/indicators.ts";
+import { useLive } from "../live/useLive.ts";
 import { useSyncProgress } from "../live/useSyncProgress.ts";
 import { Link, navigate, useRoute } from "../router.tsx";
 import { useShortcut, useShortcutsOn } from "../shortcuts.ts";
@@ -16,11 +17,6 @@ import { useStore } from "../store.tsx";
 import { fullDate, relativeTime, useNow } from "../time.ts";
 
 const SEARCH_ID = "list-search";
-// Row animations (LIVE-11..16), the reduced-motion cross-fade (LIVE-22) and the indicator fade (LIVE-18), in ms.
-// Keep in step with STEP_MS in useLive.ts and with .indicator and .tr.collapse in styles.css.
-const MOVE_MS = 700;
-const REDUCED_MS = 150;
-const FADE_MS = 2500;
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function ListPage({ view }: { view: View }) {
@@ -186,14 +182,16 @@ function SortHeader({ label, column, sort, onSort }: { label: string; column: So
 }
 
 function Rows(props: {
-  rows: Row[]; rank: Record<string, number>; view: View; indicators: Record<string, Indicator>; collapsing: Set<string>; step: number;
+  rows: Row[]; rank: Record<string, number>; view: View; indicators: Indicators; collapsing: Set<string>; step: number;
   onIcebox: (r: Row) => void; onRestore: (r: Row) => void; onPopup: (open: boolean) => void;
 }) {
   const { rows, rank, view, indicators, collapsing, step, onPopup } = props;
   const els = useRef(new Map<string, HTMLDivElement>());
   const tops = useRef(new Map<string, number>());
   const lastStep = useRef(step);
-  const faded = useRef(new Map<string, number>());
+  // The indicator each row and indicator element has started fading; a remounted element (after changing page,
+  // search or filter) starts again, part-way through (LIVE-18).
+  const faded = useRef(new WeakMap<Element, number>());
   // The rank reasoning popup (Figma "Issue inbox · Rank reasoning"), opened by the row's next step chip (LIST-24, LIST-42).
   // A second click on the chip, Escape or a click elsewhere closes it.
   const [why, setWhy] = useState<string | null>(null);
@@ -234,16 +232,23 @@ function Rows(props: {
         else if (prev === undefined) el.animate([{ opacity: 0, transform: "scaleY(.6)" }, { opacity: 1, transform: "none" }], { duration: MOVE_MS, easing: "ease-out" });
         else if (prev !== top) el.animate([{ transform: `translateY(${prev - top}px)` }, { transform: "none" }], { duration: MOVE_MS, easing: "ease-in-out" });
       }
-      // LIVE-18, LIVE-22: the highlight starts at full strength and fades out over 2.5 s once the row is in place,
-      // slowly at first (ease-in). The indicator text fades the same way in CSS (.indicator).
+      // LIVE-18, LIVE-22: the indicator and the row's highlight start at full strength and fade out over 2.5 s once
+      // the row is in place, slowly at first (ease-in). Reduced motion keeps the fade: nothing moves.
       const ind = indicators[key];
-      if (animate && ind && faded.current.get(key) !== ind.seq) {
-        faded.current.set(key, ind.seq);
-        const highlight = getComputedStyle(el).getPropertyValue("--highlight");
-        el.animate([{ backgroundColor: highlight, offset: 0 }], { duration: FADE_MS, delay: reduced ? REDUCED_MS : MOVE_MS, easing: "ease-in", fill: "backwards" });
+      if (ind) {
+        const timing = { duration: FADE_MS, delay: fadeDelay(ind, Date.now(), reduced), easing: "ease-in" };
+        if (faded.current.get(el) !== ind.seq) {
+          faded.current.set(el, ind.seq);
+          const highlight = getComputedStyle(el).getPropertyValue("--highlight");
+          el.animate([{ backgroundColor: highlight, offset: 0 }], { ...timing, fill: "backwards" });
+        }
+        const text = el.querySelector(".indicator");
+        if (text && faded.current.get(text) !== ind.seq) {
+          faded.current.set(text, ind.seq);
+          text.animate([{ opacity: 1 }, { opacity: 0 }], { ...timing, fill: "both" });
+        }
       }
     }
-    for (const key of faded.current.keys()) if (!indicators[key]) faded.current.delete(key);
     tops.current = new Map([...els.current].map(([k, el]) => [k, el.offsetTop]));
   });
 
