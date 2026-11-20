@@ -6,9 +6,13 @@ import { useStore } from "../store.tsx";
 import { apply, finalize, init, nextBatch, own, receive, type Change, type Live, type View } from "./engine.ts";
 
 const HOLD_AFTER_MS = 1000; // LIVE-4, LIVE-5
-const STEP_MS = 400; // "Each animation takes about 0.4 seconds"
+const STEP_MS = 700; // "Each animation takes about 0.7 seconds" (LIVE-11..16)
 const LABEL_MS = 600; // how long a leave label shows before the row collapses
-const INDICATOR_MS = 3000; // LIVE-18
+const FADE_MS = 2500; // LIVE-18: indicators fade out over 2.5 s once the row is in place
+const INDICATOR_MS = STEP_MS + FADE_MS;
+
+/** A row indicator (LIVE-18). `seq` is new for every change, so a row that changes again restarts its fade. */
+export type Indicator = { text: string; seq: number };
 
 export function useLive(view: View) {
   const { onList } = useStore();
@@ -18,7 +22,8 @@ export function useLive(view: View) {
   viewRef.current = view;
   const holds = useRef({ pointerInside: false, pointerLeftAt: 0, focusInside: false, popupOpen: false, popupClosedAt: 0 });
   const busyUntil = useRef(0);
-  const [indicators, setIndicators] = useState<Record<string, string>>({});
+  const [indicators, setIndicators] = useState<Record<string, Indicator>>({});
+  const indicatorSeq = useRef(0);
   const [collapsing, setCollapsing] = useState<Set<string>>(new Set());
   const [announcement, setAnnouncement] = useState("");
   /** Increments each time server changes are applied, so the table knows to animate. */
@@ -69,10 +74,15 @@ export function useLive(view: View) {
       commit(r.state);
       setStep((n) => n + 1);
       busyUntil.current = now + STEP_MS;
-      const keys = Object.keys(r.indicators);
-      if (keys.length) {
-        setIndicators((p) => ({ ...p, ...r.indicators }));
-        setTimeout(() => setIndicators((p) => { const n = { ...p }; keys.forEach((k) => delete n[k]); return n; }), INDICATOR_MS);
+      const added = Object.fromEntries(Object.entries(r.indicators).map(([k, text]) => [k, { text, seq: ++indicatorSeq.current }]));
+      if (Object.keys(added).length) {
+        setIndicators((p) => ({ ...p, ...added }));
+        // Only clears indicators that haven't been replaced by a later change to the same row.
+        setTimeout(() => setIndicators((p) => {
+          const n = { ...p };
+          for (const [k, v] of Object.entries(added)) if (n[k]?.seq === v.seq) delete n[k];
+          return n;
+        }), INDICATOR_MS);
       }
       if (r.leaving.length) leave(r.leaving);
       // One announcement per group of updates; none for a bulk re-rank's silent reorder.

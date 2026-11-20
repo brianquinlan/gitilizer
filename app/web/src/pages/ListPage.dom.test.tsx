@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, type ItemRow } from "@gitilizer/shared";
 import { init, type Live } from "../live/engine.ts";
 
-const page = vi.hoisted(() => ({ live: null as unknown, hold: (_open: boolean) => {} }));
+const page = vi.hoisted(() => ({ live: null as unknown, hold: (_open: boolean) => {}, indicators: {} as Record<string, { text: string; seq: number }>, step: 0 }));
 vi.mock("../store.tsx", () => ({
   useStore: () => ({
     me: { firstSyncDone: true, rankingAgent: "gemini" },
@@ -25,7 +25,7 @@ vi.mock("../router.tsx", async () => {
 });
 vi.mock("../live/useLive.ts", () => ({
   useLive: () => ({
-    live: page.live, indicators: {}, collapsing: new Set(), announcement: "", step: 0, tableProps: {},
+    live: page.live, indicators: page.indicators, collapsing: new Set(), announcement: "", step: page.step, tableProps: {},
     holdForPopup: page.hold, moveToIcebox: () => {}, restore: () => {},
   }),
 }));
@@ -46,6 +46,8 @@ const hold = vi.fn();
 beforeEach(() => {
   window.matchMedia = ((q: string) => ({ matches: false, media: q, addEventListener: () => {}, removeEventListener: () => {} })) as never;
   hold.mockClear();
+  page.indicators = {};
+  page.step = 0;
   page.hold = hold;
   page.live = init([
     item(1842, { nextStep: "todo", nextAction: "Check the hotfix.", reasoning: "Because." }),
@@ -110,5 +112,19 @@ describe("the next step chip and the rank reasoning popup (LIST-24, LIST-42)", (
     act(() => { document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); });
     expect(popup()).toBeNull();
     expect(lastHold()).toBe(false);
+  });
+});
+
+describe("row indicators (LIVE-18)", () => {
+  it("show the change and fade the row's highlight over 2.5 s once the row is in place", () => {
+    const animate = vi.fn();
+    Element.prototype.animate = animate as never;
+    page.indicators = { "northstar/api#1843": { text: "↑2", seq: 1 } };
+    page.step = 1;
+    act(() => root.render(<ListPage view="prioritized" />));
+    expect(host.querySelector(".indicator")?.textContent).toBe("↑2");
+    const fades = animate.mock.calls.filter(([frames]) => frames[0].backgroundColor !== undefined);
+    expect(fades).toHaveLength(1);
+    expect(fades[0][1]).toMatchObject({ duration: 2500, delay: 700, easing: "ease-in" });
   });
 });
