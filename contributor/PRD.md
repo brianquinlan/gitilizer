@@ -1211,7 +1211,13 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 
 ### Additional repositories
 
-- **SET-7** The developer must be able to add a repository by typing `owner/name`, or pasting its GitHub URL (`https://github.com/owner/name`, with anything after the name ignored), and choosing "Add repository", and remove one with "Remove". The add form has only the repository field and the button: a new repository has no prioritization prompt, and the developer adds one on its row (`SET-9`). Any other format, or a repository already in the list, is an error (`SET-27`). There can be at most 25 repositories.
+- **SET-7** The developer must be able to add a repository by typing
+  `owner/name`, or pasting its GitHub URL (`https://github.com/owner/name`, with
+  anything after the name ignored), and choosing "Add repository", and remove
+  one with "Remove". The add form has only the repository field and the button:
+  a new repository has no prioritization prompt, and the developer adds one on
+  its row (`SET-9`). Any other format, or a repository already in the list, is
+  an error (`SET-27`). There can be at most 25 repositories.
 - **SET-8** Each repository must show one of four access states: "Checking…" in grey while Gitilizer checks it; "Access confirmed", as in Figma; "Archived" in grey, where hovering shows "{repo} is archived, so its issues and PRs aren't shown." (`LIST-1` excludes archived repositories); or "Can't access" with a red ✗. Hovering over "Can't access" must say why, as precisely as GitHub's answer allows:
 
   | What GitHub answered | Hover text |
@@ -1237,9 +1243,11 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
     under it.
   - A repository without a prompt shows "Add prioritization prompt", with a plus
     icon, in the prompt's place. It opens the same field, empty.
-  - Clicking outside the field, or moving focus out of it, keeps what was typed,
-    without leading and trailing spaces, and turns the field back into text.
-    Escape puts back what the field held when it opened, and does the same.
+  - The field is multi-line and grows with its text: Enter starts a new line.
+    Clicking outside the field, or moving focus out of it (with Tab, for
+    example), keeps what was typed, without leading and trailing spaces, and
+    turns the field back into text. Escape puts back what the field held when it
+    opened, and does the same.
   - Emptying the field removes the prompt, which isn't an error: the row shows
     "Add prioritization prompt" again.
   - A prompt over 500 characters is an error under the field as soon as it goes
@@ -1248,8 +1256,13 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
     the developer presses Escape.
   - A changed prompt, like every change in Settings, takes effect only when
     saved (`SET-14`). Until then the row shows "Edited" after the repository's
-    name, and leaving Settings asks first (`SET-26`). Changing the prompt back
-    to its saved text removes "Edited".
+    name. "Edited" follows the text as it is typed, without leading and trailing
+    spaces, while the field is still open, including while the prompt is over
+    500 characters; changing it back to the saved text removes "Edited". A
+    repository added since the last save never shows "Edited", because nothing
+    about it is saved yet.
+  - Leaving Settings while a field is open counts its text as typed: if it
+    differs from the saved prompt, leaving asks first (`SET-26`).
   - Saving with "Save and re-rank" re-ranks every item with the new prompt
     (`SET-15`). With "Save changes", items already ranked keep their scores
     until they change on GitHub or the daily re-rank (`RANK-9`) reaches them.
@@ -2572,8 +2585,10 @@ was added, and a repository added without one could never get one
 - The developer edits the prompt in place: clicking its text, or pressing Enter
   or Space on it, opens a field, and a repository without a prompt shows "Add
   prioritization prompt". Clicking away keeps the change, Escape undoes it, and
-  emptying the field removes the prompt. A changed prompt marks its row
-  "Edited" until it is saved (`SET-9`).
+  emptying the field removes the prompt. The field is multi-line, so Enter
+  starts a new line. A changed prompt marks its row "Edited" as it is typed,
+  until it is saved; a repository added since the last save isn't marked
+  (`SET-9`, `SET-26`).
 - "Add repository" has only the repository field; the prompt is added on the
   new repository's row (`SET-7`).
 - A changed prompt is applied to every item by "Save and re-rank", and to items
@@ -2590,4 +2605,4 @@ was added, and a repository added without one could never get one
   [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237),
   where the prompts use the new component, northstar/cli shows "Add
   prioritization prompt", the add form has no prompt field, and Settings ·
-  Errors shows a prompt that's too long.
+  Errors shows a prompt that's too long, marked "Edited".
