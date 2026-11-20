@@ -324,32 +324,52 @@ input.invalid, textarea.invalid, .secret.invalid input { border-color: var(--err
 /* LIST-17: while syncing, the button is disabled but the turning icon stays in the accent color. */
 .btn.sync.syncing:disabled { opacity: 1; color: var(--muted); cursor: default; }
 
-/* POC: rank reasoning popup (Figma "Issue inbox · Rank reasoning"). Opens below the rank, or above it
-   in the last three rows when at least three rows are above it, so it stays near the rows on a long page. */
-.rank { position: relative; }
-.tr:has(.rank-cell-open) { z-index: 3; }
-.rank-btn { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; border-radius: 4px; }
-.rank-btn:hover, .rank-btn[aria-expanded="true"] { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+/* LIST-42, LIST-24: a next step chip that opens the rank reasoning popup is a button, as in Figma "Shared / Next step
+   chip" (State=Button, Hover, Open): a caret, one shade darker on hover, and the accent ring while its popup is open.
+   The hover colors keep the text at 4.5:1 or more (NFR-10), so "Not yours" takes darker text. */
+button.next-step { gap: 3px; padding: 0 5px 0 7px; cursor: pointer; }
+button.next-step svg { flex: none; stroke-width: 2.5; transition: transform .15s; }
+button.next-step[aria-expanded="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.next-step[aria-expanded="true"] svg { transform: rotate(180deg); }
+button.next-step.review:hover { background: #2645b0; }
+button.next-step.respond:hover { background: #5932b3; }
+button.next-step.todo:hover { background: #0b5f51; }
+button.next-step.backlog:hover { background: #fcebb8; border-color: #d9b85e; }
+button.next-step.waiting:hover { background: #dce1e8; }
+button.next-step.elsewhere:hover { background: #f1f3f6; border-color: #a9b1bc; }
+button.next-step.not-yours:hover { background: #f1f3f6; border-color: #a9b1bc; color: #5e6673; }
+@media (prefers-reduced-motion: reduce) { button.next-step svg { transition: none; } }
+
+/* The rank reasoning popup (Figma "Issue inbox · Rank reasoning"), pointing at the chip. It opens below the chip, or
+   above it in the last three rows when at least three rows are above it, so it stays near the rows on a long page. */
+.next-step-cell { position: relative; flex: none; display: inline-flex; }
+.tr:has(.next-step-cell.open) { z-index: 3; }
 .rank-why { position: absolute; left: -10px; top: calc(100% + 12px); z-index: 5; width: 380px; background: var(--surface);
   border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(20, 30, 50, .14);
-  font-family: var(--font); font-weight: 400; color: var(--ink); white-space: normal; cursor: auto; }
-.rank-why::before { content: ""; position: absolute; left: 10px; top: -8px; border: 6px solid transparent; border-top: 0;
+  font-family: var(--font); font-size: 14px; font-weight: 400; color: var(--ink); white-space: normal; cursor: auto; text-align: left; }
+.rank-why::before { content: ""; position: absolute; left: 16px; top: -8px; border: 6px solid transparent; border-top: 0;
   border-bottom: 8px solid var(--line); }
-.rank-why::after { content: ""; position: absolute; left: 11px; top: -6px; border: 5px solid transparent; border-top: 0;
+.rank-why::after { content: ""; position: absolute; left: 17px; top: -6px; border: 5px solid transparent; border-top: 0;
   border-bottom: 7px solid var(--surface); }
 .rank-why-body { padding: 16px; }
-.rank-why-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.rank-why-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
-.rank-why-title svg { color: var(--accent); }
-.rank-why-close { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px;
-  background: none; color: var(--muted); cursor: pointer; }
-.rank-why-close:hover { color: var(--ink); background: var(--surface-2); }
 .rank-why p { margin: 0; font-size: 14px; line-height: 20px; user-select: text; }
-/* LIST-24: the "Next" block above the reasoning. */
-.rank-why-next { display: grid; gap: 6px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); }
-.rank-why-next-head { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
-.rank-why-next p { font-weight: 500; }
+.rank-why-sub { display: block; margin-bottom: 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+/* The "Next action" panel (Figma "Shared / Next action panel"), tinted like the chip. Its label and text are darker
+   shades of the chip's color, each at least 4.5:1 on the panel (Q-102). */
+.rank-why-next { --tint: var(--surface-2); --tint-line: var(--line); --tint-label: var(--muted); --tint-text: var(--ink);
+  display: grid; gap: 4px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--tint-line); border-radius: 6px; background: var(--tint); }
+.rank-why-next.review { --tint: #eaeefb; --tint-line: #eaeefb; --tint-label: #23409f; --tint-text: #1c337f; }
+.rank-why-next.respond { --tint: #f0ecfa; --tint-line: #f0ecfa; --tint-label: #502f9d; --tint-text: #40267d; }
+.rank-why-next.todo { --tint: #e7f2f0; --tint-line: #e7f2f0; --tint-label: #0b5c4e; --tint-text: #09493e; }
+.rank-why-next.backlog { --tint: #fff6dc; --tint-line: #ecd28a; --tint-label: #8a5a00; --tint-text: #735300; }
+.rank-why-next.waiting { --tint: #f0f1f2; --tint-line: #f0f1f2; --tint-label: #4e555f; --tint-text: #3e444c; }
+.rank-why-next.elsewhere { --tint: #ffffff; --tint-line: #c9cfd7; --tint-label: #4e555f; --tint-text: #3e444c; }
+.rank-why-next.not-yours { --tint: #ffffff; --tint-line: #c9cfd7; --tint-label: #505660; --tint-text: #40454d; border-style: dashed; }
+.rank-why-label { font-size: 11.5px; font-weight: 600; color: var(--tint-label); }
+.rank-why-next p { font-weight: 500; color: var(--tint-text); }
 .rank-why-foot { padding: 12px 16px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.rank-why-foot a { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); text-decoration: none; }
+.rank-why-foot a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .tr:nth-child(n+4):nth-last-child(-n+3) .rank-why { top: auto; bottom: calc(100% + 12px); }
 .tr:nth-child(n+4):nth-last-child(-n+3) .rank-why::before { top: auto; bottom: -8px; border-bottom: 0; border-top: 8px solid var(--line); }
 .tr:nth-child(n+4):nth-last-child(-n+3) .rank-why::after { top: auto; bottom: -6px; border-bottom: 0; border-top: 7px solid var(--surface); }
