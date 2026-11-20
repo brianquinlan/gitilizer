@@ -132,8 +132,8 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .issue-meta .reason { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* LIST-42: the next step chip, as in Figma "Shared / Next step chip", a color for each next step:
    solid for the three that are on the developer now, a yellow tint for Backlog, grey for the rest. */
-.next-step { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 7px; box-sizing: border-box; border-radius: 999px;
-  border: 1px solid transparent; font-family: var(--font); font-size: 11px; font-weight: 600; line-height: 1; white-space: nowrap; }
+.next-step { flex: none; display: inline-flex; align-items: center; height: 21px; padding: 0 9px; box-sizing: border-box; border-radius: 999px;
+  border: 1px solid transparent; font-family: var(--font); font-size: 12.5px; font-weight: 600; line-height: 1; white-space: nowrap; }
 .next-step.review { background: #2f55d4; color: #ffffff; }
 .next-step.respond { background: #6b3fd1; color: #ffffff; }
 .next-step.todo { background: #0f7a68; color: #ffffff; }
@@ -327,7 +327,7 @@ input.invalid, textarea.invalid, .secret.invalid input { border-color: var(--err
 /* LIST-42, LIST-24: a next step chip that opens the rank reasoning popup is a button, as in Figma "Shared / Next step
    chip" (State=Button, Hover, Open): a caret, one shade darker on hover, and the accent ring while its popup is open.
    The hover colors keep the text at 4.5:1 or more (NFR-10), so "Not yours" takes darker text. */
-button.next-step { gap: 3px; padding: 0 5px 0 7px; cursor: pointer; }
+button.next-step { gap: 4px; padding: 0 7px 0 9px; cursor: pointer; }
 button.next-step svg { flex: none; stroke-width: 2.5; transition: transform .15s; }
 button.next-step[aria-expanded="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
 button.next-step[aria-expanded="true"] svg { transform: rotate(180deg); }

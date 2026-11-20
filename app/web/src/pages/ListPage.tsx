@@ -298,7 +298,7 @@ export function NextStepChip({ step, rank, open = false, onToggle, buttonRef }: 
   return (
     <button type="button" className={className} aria-expanded={open} aria-haspopup="dialog"
             aria-label={`${NEXT_STEP_LABEL[step]}, why rank #${rank}?`} ref={buttonRef} onClick={onToggle}>
-      {NEXT_STEP_LABEL[step]}<ChevronDown size={10} />
+      {NEXT_STEP_LABEL[step]}<ChevronDown size={11} />
     </button>
   );
 }
