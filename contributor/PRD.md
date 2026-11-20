@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -90,7 +90,8 @@ These are out of scope for the first release.
 - Choosing the model. Gitilizer chooses one for each ranking agent (`SET-22`).
 - Review requests made to a GitHub team the developer belongs to, and the ranking agent's "review teams" setting. Only review requests made to the developer personally count. **Revisit after the first release** (see [Q-43](#q-43)).
 - Filtering or sorting the list by next step. The list shows each item's next
-  step (`LIST-42`) and nothing more for now ([Q-100](#q-100)).
+  step, which opens the rank reasoning popup (`LIST-42`, `LIST-24`), and
+  nothing more for now ([Q-100](#q-100)).
 - Mentions of a GitHub team the developer belongs to (`@org/team`). Only mentions of the developer by name count ([Q-65](#q-65)).
 - More than one GitHub connection per developer, for example a token for each
   organization, or the Gitilizer app and a token together ([Q-40](#q-40),
@@ -142,7 +143,7 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
 | Priority | Used only as the name of the column that shows the rank, and of the sort order that puts rank 1 first. |
 | Inclusion reason | Why an item is on the developer's list, for example "Assigned to you". See [Which items appear](#which-items-appear). |
 | Next step | One of seven categories that ranking gives each item, saying whose move it is: "Review", "Respond", "To do" and "Backlog" are on the developer; "Waiting", "Elsewhere" and "Not yours" are not (`RANK-23`). Each row shows it as a chip (`LIST-42`). |
-| Next action | One sentence from the ranking agent saying what the developer should do next on an item, or who or what it is waiting on (`RANK-2`). The rank reasoning popup shows it (`LIST-24`). Basic ranking gives none. |
+| Next action | One sentence from the ranking agent saying what the developer should do next on an item, or who or what it is waiting on (`RANK-2`). The rank reasoning popup, which opens from the next step chip, shows it first (`LIST-24`). Basic ranking gives none. |
 | Additional repository | A repository the developer added in Settings. Its open items appear in the list even if the developer isn't otherwise involved. Earlier versions of this document called it an "interested repository". |
 | Prioritization prompt | Optional free text that the developer gives one additional repository, telling the ranking agent what matters in it, for example "Security issues only". |
 | Excluded repository | A repository, or an owner (an organization or a personal account), that the developer added under Excluded repositories in Settings. None of its items appear, whatever their inclusion reason. |
@@ -186,8 +187,9 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Prioritized list, empty | [Issue inbox · No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-897) | [Empty, loading and first-sync states](#empty-loading-and-first-sync-states) |
 | Prioritized list, first sync | [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689), using [Shared / Skeleton rows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=301-1433) on the Animations page (present it to see the pulse) | [Empty, loading and first-sync states](#empty-loading-and-first-sync-states) |
 | List layout component | [Shared / Inbox layout](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-1000) | [Prioritized list](#prioritized-list) |
-| Rank reasoning popup | [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443) | [Columns](#columns) |
-| Next step chip | [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240), with a variant for each of the seven next steps; shown on every row of the list frames and in the rank reasoning popup | [Columns](#columns), [Ranking](#ranking) |
+| Rank reasoning popup | [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443), opened from the first row's next step chip | [Columns](#columns) |
+| Next action panel | [Shared / Next action panel](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=429-3546), with a variant for each of the seven next steps; the first part of the rank reasoning popup | [Columns](#columns) |
+| Next step chip | [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240), with a variant for each of the seven next steps in each state: Label (no popup, as in the sign-in preview), Button, Hover and Open; shown as a button on every row of the list frames | [Columns](#columns), [Ranking](#ranking) |
 | Search and type filter | [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2738), shown above the column headings in the list and Icebox frames; with a search and a filter in use: [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904); with nothing matching: [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161) | [Search and type filter](#search-and-type-filter) |
 | Sync now button | [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369) on the Animations page (Idle and Syncing; present it to see the icon turn); while GitHub can't be read: [Inbox controls · GitHub can't be read](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=425-3408) | [Sync now](#sync-now) |
 | Icebox | [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947) | [Icebox](#icebox) |
@@ -617,36 +619,52 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 - **LIST-5** Relative times must update while the page is open, at least once a minute.
 - **LIST-22** Relative times must follow these thresholds: under 1 minute "just now"; then minutes ("12m ago"), hours ("3h ago") and days ("2d ago"). After 30 days: the month and day ("Mar 4") for a date in the current calendar year; "last year" for a date in the previous calendar year, until a full year (365.25 days) has passed; after that, the whole years passed ("1y ago", "2y ago"). For example, on November 3, 2026, November 25, 2025 is "last year" and November 1, 2025 is "1y ago". Hovering over any relative time (the Modified column, the Icebox line in `ICE-3`, and notifications in `NOTIF-8`) must show the full date and time.
 - **LIST-23** Titles and repository names must stay on one line. A title that doesn't fit is cut off at the end with "…". A repository name that doesn't fit is cut off at the **start** ("…le-cloud-dart"), because the owner, at the start, is usually the least useful part. Hovering must show the full text.
-- **LIST-24** Clicking a rank must open a popup that explains it, as in
-  [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443):
-  an info icon and "Why rank #{n}?", a close button, a "Next" block, the
-  agent's reasoning (`RANK-2`), and below it the repository and the type and
-  number ("northstar/api · Issue #1842"). The "Next" block holds the label
-  "Next", the item's next step chip (`LIST-42`) and, under them, the agent's
-  next action (`RANK-2`). An item that has no next step yet shows the block
-  without the chip. The next action and the reasoning are text that can be
-  selected and copied. The popup points at the rank. It opens below the rank,
-  or above it near the end of the list so it isn't cut off. It closes with the
-  close button, Esc or a click elsewhere. Only ranked items with stored
-  reasoning have a clickable rank, so an item scored by basic ranking doesn't
-  (`RANK-21`). When the popup closes with the close button or Esc, keyboard
-  focus returns to the rank; a click elsewhere leaves focus where the click
-  puts it. The popup closes if its item leaves the page.
+- **LIST-24** Clicking an item's next step chip (`LIST-42`) must open a popup
+  that explains the item's rank, as in
+  [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443).
+  From the top: a "Next action" panel, holding the label "Next action" and the
+  agent's next action (`RANK-2`); the subheading "Why rank #{n}?" and the
+  agent's reasoning (`RANK-2`); and, below a rule, the repository and the type
+  and number ("northstar/api · Issue #1842"), where the type and number is a
+  link that opens the item on GitHub in a new tab, as the title does (`LIST-4`).
+  The panel is tinted to match the chip, as in
+  [Shared / Next action panel](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=429-3546):
+  a pale blue, violet or teal wash for "Review", "Respond" and "To do"; the
+  chip's own yellow fill and border for "Backlog"; a grey fill for "Waiting"; a
+  grey outline for "Elsewhere"; and a dashed grey outline for "Not yours". The
+  panel's label and text are darker shades of the chip's color, with a contrast
+  of at least 4.5:1 against the panel ([Q-102](#q-102)). An item with no next
+  action shows no panel. The next action and the reasoning are text that can be
+  selected and copied. The popup has no close button: it closes with Esc, a
+  second click on the chip or a click elsewhere. It points at the chip, and
+  opens below the chip, or above it near the end of the list so it isn't cut
+  off. Only a ranked item with a next step and stored reasoning has a chip that
+  opens the popup, so an item scored by basic ranking doesn't (`RANK-21`), and
+  an item last ranked before next steps existed has no popup until it is ranked
+  again. The rank itself isn't clickable. When the popup closes with Esc or the
+  chip, keyboard focus returns to the chip; a click elsewhere leaves focus where
+  the click puts it. The popup closes if its item leaves the page.
 - **LIST-42** The line under the title must start with the item's next step
   (`RANK-23`), before the type and number, as a chip like those in
   [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240),
   each next step in its own color: "Review" in solid blue, "Respond" in solid
-  violet and "To do" in solid teal, with white text; "Backlog" in a yellow
-  tint; "Waiting" in grey; "Elsewhere" with a grey outline; and "Not yours"
-  with a dashed grey outline ([Q-100](#q-100)). The chip's text says which
-  next step it is, so nothing depends on telling the colors apart. The chip is not a control: it can't be clicked, and the list
-  can't be filtered or sorted by next step ([Non-goals](#non-goals)). An item
-  with no next step has no chip, and its line starts with the type and number:
-  an unranked item (`LIST-30`), and an item last ranked before next steps
-  existed, until it is ranked again (`RANK-5`, `RANK-9`). When the line
-  doesn't fit, the inclusion reason is cut off at the end with "…" and
-  hovering shows it in full, as for titles (`LIST-23`); the chip and the type
-  and number are never cut off. The Icebox doesn't show next steps (`ICE-3`).
+  violet and "To do" in solid teal, with white text; "Backlog" in a yellow tint;
+  "Waiting" in grey; "Elsewhere" with a grey outline; and "Not yours" with a
+  dashed grey outline ([Q-100](#q-100)). The chip's text says which next step it
+  is, so nothing depends on telling the colors apart. When the item has a popup
+  to show (`LIST-24`), the chip is a button that opens it: it ends with a small
+  caret pointing down, its fill or outline darkens slightly on hover, and while
+  its popup is open it has a 2 px ring in the accent color and the caret points
+  up ([Q-102](#q-102)). Its accessible name is the next step and "why rank
+  #{n}?", and it says whether its popup is open. Otherwise the chip is a label,
+  with no caret. The list can't be filtered or sorted by next step
+  ([Non-goals](#non-goals)). An item with no next step has no chip, and its line
+  starts with the type and number: an unranked item (`LIST-30`), and an item
+  last ranked before next steps existed, until it is ranked again (`RANK-5`,
+  `RANK-9`). When the line doesn't fit, the inclusion reason is cut off at the
+  end with "…" and hovering shows it in full, as for titles (`LIST-23`); the
+  chip and the type and number are never cut off. The Icebox doesn't show next
+  steps (`ICE-3`).
 
 ### Sorting the list
 
@@ -1654,7 +1672,8 @@ environment; Q-84 to Q-86 came from adding Claude and OpenAI; Q-87 to Q-90 came
 from connecting GitHub with the Gitilizer app; Q-91 to Q-97 came from making
 the ranking agent's API key optional; Q-98 and Q-99 came from adding search,
 the type filter and the first keyboard shortcut; Q-100 came from showing each
-item's next step.
+item's next step; Q-101 came from Sync now while GitHub can't be read; Q-102
+came from opening the rank reasoning popup from the next step chip.
 
 ### Answered questions
 
@@ -1690,7 +1709,7 @@ item's next step.
 | <a id="q-28"></a>Q-28 | First sync; unranked and failed items | Skeleton rows that pulse (drawn in Figma); items hidden until ranked; failed items at the end with "–" and a warning. | `LIST-15`, `LIST-30` |
 | <a id="q-29"></a>Q-29 | Sync now | Spins for any sync, and is disabled while it does (corrected on 2026-11-02: the earlier record said "never disabled"); no other throttle; finished when the scan is done and every item is ranked, has failed or is waiting for quota. Spinning state drawn in Figma. | `LIST-17`, `LIST-28`, `LIST-32` |
 | <a id="q-30"></a>Q-30 | Labels on leaving rows; undo | As suggested; no undo. | `LIVE-25`, `LIST-31` |
-| <a id="q-31"></a>Q-31 | Showing the agent's next action and reasoning | Both are shown in the popup that opens when the rank is clicked, the next action above the reasoning (changed on 2026-11-18, with [Q-100](#q-100): the next action is shown; changed on 2026-11-04: the reasoning is shown; before that, neither was). | `LIST-24` |
+| <a id="q-31"></a>Q-31 | Showing the agent's next action and reasoning | Both are shown in the popup that opens when the item's next step chip is clicked: the next action first, in a panel tinted to match the chip, then the reasoning under "Why rank #{n}?" (changed on 2026-11-19, with [Q-102](#q-102): the popup opens from the chip instead of the rank and leads with the next action; changed on 2026-11-18, with [Q-100](#q-100): the next action is shown; changed on 2026-11-04: the reasoning is shown; before that, neither was). | `LIST-24` |
 | <a id="q-32"></a>Q-32 | Update latency | Within 5 seconds of ranking finishing. | `LIVE-23` |
 | <a id="q-33"></a>Q-33 | How the Icebox updates | The leave animation, without holding rules. | `ICE-9` |
 | <a id="q-34"></a>Q-34 | Where a restored item goes | It keeps its last score. | `ICE-10` |
@@ -1761,6 +1780,7 @@ item's next step.
 | <a id="q-99"></a>Q-99 | A keyboard shortcut for search, and turning shortcuts off | "/" moves focus to the search field, with a key cap in the field as a hint. A "Keyboard shortcuts" switch in Settings turns off every shortcut, this one and any added later, which WCAG 2.2 level AA requires for single-character shortcuts. The switch turns off shortcuts only, never ordinary keyboard operation such as Tab, Enter and Esc. A switch for "/" alone, letting the developer change the key, and Ctrl+K or Command+K in its place, which would need no switch, were considered and not chosen. | `KEY-1` to `KEY-3`, `SET-50`, `SET-14`, `LIST-35`, `NFR-10` |
 | <a id="q-100"></a>Q-100 | Showing what the developer should do next on each item | Ranking gives each item one of seven next steps: "Review", "Respond", "To do" and "Backlog" are on the developer; "Waiting", "Elsewhere" and "Not yours" are not. A chip with the next step starts the line under the title, and the agent's one-sentence next action is in the rank reasoning popup, above the reasoning. A fixed set was chosen for the row over the agent's own words because the words don't fit: at 1024 px (`PLAT-6`) the line shows about 38 characters, and the next actions agents write have a median of 68 to 123 characters, depending on the agent. A fixed set also reads the same whichever agent ranked the item, and basic ranking, which writes no text, can give it. The seven came from sorting the next actions of 1,000 items in production. With a finer set for what is on the developer (reply, revise, build, decide, verify, merge), two thirds of those items named two at once. Old items in the developer's own areas with nothing pressing, about a fifth of the list, fitted nowhere, which is why "Backlog" exists; it counts as on the developer because the developer can act on it, and its low score keeps it below the rest. Showing a short phrase on the row, in place of the inclusion reason or on a line of its own, a "Next step" column, and marking only the items that aren't on the developer were considered and not chosen. Filtering by next step, such as "On you" and "Not on you", is left for later, to keep the first change small. Basic ranking gives next steps too: evaluation found its next steps match the eval set about as often as Claude's do ([evaluation](../eval/next-step-2026-11-18.md)). | `LIST-42`, `LIST-24`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, [Non-goals](#non-goals) |
 | <a id="q-101"></a>Q-101 | What Sync now does while GitHub can't be read at all | It is disabled, with "Reconnect GitHub to sync" (or "Connect GitHub" or "Replace your token") next to it, linking to Settings. "Haven't updated since" isn't shown while that error is, because it has the same cause and tells the developer to try Sync now. Until now the button stayed enabled, and a sync failed in milliseconds, so the progress text flashed and the icon didn't visibly turn. | `LIST-43`, `LIST-28`, `NOTIF-24` |
+| <a id="q-102"></a>Q-102 | Making it clear that the rank reasoning popup can be opened | The next step chip opens it, and the rank no longer does. The clickable rank wasn't obvious: it looked like the plain numbers around it. The chip already looks like something to press, and the popup's first part, the next action, is about the chip's next step. Only a chip with a popup to show gets a caret, so the caret also says which items have reasoning. The popup leads with the next action, in a panel tinted to match the chip, then "Why rank #{n}?" and the reasoning, then a link to the item on GitHub, so the developer can act from the popup. The panel's text is a darker shade of the chip's color rather than the color itself, because some chip colors don't reach 4.5:1 on their own tint (Backlog's yellow is about 2.8:1); every label and text color in the panels reaches at least 4.5:1, and most 7:1. Considered and not chosen: styling the rank as a button, an info icon after the rank, a "Why?" link shown when the pointer is over the row, and a hint in the line above the list; for the popup, 17 other layouts, including the next action and reasoning as tabs, the reasoning collapsed, a header in the chip's color, and the next action in a subtler tint or an outline. | `LIST-24`, `LIST-42` |
 
 ---
 
@@ -2478,3 +2498,23 @@ simplified setup:
   [Sign in · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=304-1734)
   and
   [Sign in · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=306-1355).
+
+### Forty-sixth revision (2026-11-19, the chip opens the rank reasoning popup)
+
+The clickable rank wasn't obvious, so the rank reasoning popup was easy to miss
+([Q-102](#q-102)):
+
+- The next step chip opens the popup, and the rank is no longer clickable. A
+  chip with a popup to show ends with a caret, darkens slightly on hover and has
+  an accent ring while its popup is open; other chips are labels (`LIST-42`,
+  `LIST-24`).
+- The popup leads with a "Next action" panel tinted to match the chip, then "Why
+  rank #{n}?" and the reasoning. The type and number at the bottom links to the
+  item on GitHub. The popup has no header or close button, and points at the
+  chip (`LIST-24`, [Q-31](#q-31)).
+- Changed Figma: the button states on
+  [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240),
+  the new
+  [Shared / Next action panel](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=429-3546)
+  and
+  [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443).
