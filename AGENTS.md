@@ -15,6 +15,25 @@ it to this file rather than anywhere else.
   asked for that change explicitly. For example, "add this to PRD.md" is
   permission to change PRD.md, but not to go on to DESIGN.md or the code.
 
+## Privacy
+
+- [docs/privacy-policy.md](docs/privacy-policy.md) is the privacy policy that
+  gitilizer.com shows at `/docs/privacy` (PRD `PRIV-6`). A change to what
+  Gitilizer collects or stores about people, how it uses it, who it sends it
+  to, or how long it keeps it must update the policy in the same pull request,
+  with a new "Last updated" date. For example: a new column or log field about
+  a developer, a new site the browser or server contacts, a new use of data
+  Gitilizer already has, or a new sign-in scope.
+- When you propose such a change, tell the repository owner in so many words
+  which statements in the policy it changes. Don't leave it for them to find in
+  the diff.
+- The policy promises to email users before a change to how Gitilizer uses
+  Google user data (what Google sign-in provides) takes effect, and Google's
+  Limited Use rules limit what that data may be used for (PRD `PRIV-7`). Don't
+  make such a change without the owner's explicit decision: it can't ship until
+  users have been told, and a new Google scope also needs Google's review
+  again.
+
 ## Formatting
 
 - Wrap Markdown files at 80 columns. Lines that can't be broken, such as table

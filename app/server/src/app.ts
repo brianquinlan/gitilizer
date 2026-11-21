@@ -23,6 +23,7 @@ import { currentVersion, listRows, publish } from "./list.ts";
 import { clear, clearForCredential, markSeen, raise, shownNotifications } from "./notify.ts";
 import { localUserId } from "./local.ts";
 import { registerSignIn } from "./auth.ts";
+import { homePage, privacyPage, signInLinks } from "./site.ts";
 import { accountAllowed, completeSignIn } from "./signin.ts";
 import type { Scheduler } from "./scheduler.ts";
 
@@ -32,14 +33,14 @@ const SESSION_DAYS = 30; // AUTH-8
 const PUBLIC_API = /^\/api\/(health$|auth\/(config|dev|google\/|github\/))/;
 
 /**
- * The deployed site's Content Security Policy: scripts and styles from Gitilizer itself, fonts from Google
- * Fonts, and avatars from GitHub and Google.
+ * The deployed site's Content Security Policy: scripts, styles and fonts from Gitilizer itself (PRD HOME-7), and
+ * avatars from GitHub and Google.
  */
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
   "img-src 'self' data: https://avatars.githubusercontent.com https://github.com https://*.googleusercontent.com",
   "connect-src 'self'",
   "frame-ancestors 'none'",
@@ -82,6 +83,12 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       reply.header("content-security-policy", CSP);
     }
     if (req.url.startsWith("/api/")) reply.header("cache-control", "no-store");
+    // `/` is the home page or the web app, depending on the session cookie (HOME-1), so no cache may share it
+    // between visitors (design: Public pages). Set here, after @fastify/static's own header for index.html.
+    if (req.url === "/" || req.url.startsWith("/?")) {
+      reply.header("cache-control", "private, no-cache");
+      reply.header("vary", "Cookie");
+    }
   });
 
   // --- Health (the uptime check, design: Hosting) -----------------------------
@@ -101,13 +108,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     if (req.method !== "GET" && req.headers[CSRF_HEADER] !== "1") return bad(reply, 403, "missing CSRF header");
     if (PUBLIC_API.test(req.url.split("?")[0])) return;
     const sid = req.cookies[SESSION_COOKIE];
-    const s = sid
-      ? await db.one(
-          `select s.user_id, u.provider, u.provider_user_id, u.email, u.sign_in_login
-             from sessions s join users u on u.id = s.user_id where s.id = $1 and s.expires_at > now()`,
-          [sid],
-        )
-      : undefined;
+    const s = await sessionOf(req);
     if (!s && ctx.config.localMode && !req.url.startsWith("/api/auth/logout")) {
       // Local mode: there is only one developer, so sign them in without asking.
       req.userId = await startSession(reply, await localUserId(ctx));
@@ -128,6 +129,18 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     );
   });
   const uid = (req: FastifyRequest) => req.userId as string;
+
+  /** The request's session and its account, if the session cookie names one that hasn't expired. */
+  async function sessionOf(req: FastifyRequest) {
+    const sid = req.cookies[SESSION_COOKIE];
+    return sid
+      ? await db.one(
+          `select s.user_id, u.provider, u.provider_user_id, u.email, u.sign_in_login
+             from sessions s join users u on u.id = s.user_id where s.id = $1 and s.expires_at > now()`,
+          [sid],
+        )
+      : undefined;
+  }
 
   async function startSession(reply: any, userId: string): Promise<string> {
     const sid = randomBytes(32).toString("base64url");
@@ -584,12 +597,17 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     });
   }
 
-  // --- Documentation (FOOT-3, FOOT-4) ---------------------------------------
-  // Stable addresses on gitilizer.com for the user guide and its privacy section, which live on GitHub for
-  // now. The Google sign-in consent screen links to /docs/privacy.
+  // --- Public pages (PRD "Home page", PRIV-6; design: Public pages) ------------------
+  // Finished HTML, built once: Google's checker reads them without JavaScript (HOME-4).
+  const homeHtml = homePage(signInLinks(
+    { google: Boolean(ctx.config.oauth.google), github: Boolean(ctx.config.oauth.github) }, ctx.config.devSignIn));
+  const privacyHtml = privacyPage(ctx.config.privacyPolicy);
+  // The privacy policy, at the address Google's sign-in screen links to. The same for everyone.
+  app.get("/docs/privacy", async (_req, reply) =>
+    reply.header("cache-control", "no-cache").type("text/html; charset=utf-8").send(privacyHtml));
+  // The user guide lives on GitHub (FOOT-3).
   const USER_GUIDE = "https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md";
   app.get("/docs", async (_req, reply) => reply.redirect(USER_GUIDE, 302));
-  app.get("/docs/privacy", async (_req, reply) => reply.redirect(`${USER_GUIDE}#privacy`, 302));
 
   // --- The web app (design: Hosting) -----------------------------------------
   // The built app is served from the same origin as the API. Vite's hashed files never change, so browsers
@@ -599,12 +617,23 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     app.register(fastifyStatic, {
       root: webDir,
       wildcard: false,
+      index: false, // `/` is decided below (HOME-1)
       cacheControl: false, // set below instead
       setHeaders: (res, path) => {
         res.setHeader("cache-control", /[\\/]assets[\\/]/.test(path) ? "public, max-age=31536000, immutable" : "no-cache");
       },
     });
   }
+  // HOME-1: a signed-in developer gets the web app at `/`, and anyone else the home page. Local mode signs everyone
+  // in (design: Local development), so it always gets the web app.
+  app.get("/", async (req, reply) => {
+    const s = ctx.config.localMode ? null : await sessionOf(req);
+    const signedIn = ctx.config.localMode || (s !== undefined && s !== null && accountAllowed(ctx, s));
+    if (!signedIn) return reply.type("text/html; charset=utf-8").send(homeHtml);
+    if (webDir) return reply.type("text/html").sendFile("index.html", webDir);
+    return reply.code(404).send({ error: "the web app isn't built (npm run build -w app/web)" });
+  });
+
   app.setNotFoundHandler((req, reply) => {
     // Any other page is a route in the app (PRD NAV-3), so it gets index.html; unknown API routes are 404s.
     if (webDir && req.method === "GET" && !req.url.startsWith("/api/") && !/\.[a-z0-9]+$/i.test(req.url.split("?")[0])) {

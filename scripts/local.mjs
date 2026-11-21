@@ -190,6 +190,7 @@ await waitForPort(API_PORT).catch((e) => { console.error(`[api]    ${e.message}`
 await waitForPort(API_PORT + 1).catch((e) => { console.error(`[api]    ${e.message}`); stopAll(1); });
 if (stopping) await new Promise(() => {});
 
-run("web", process.execPath, [viteCli, "--port", String(WEB_PORT), "--strictPort"], { cwd: join(ROOT, "app", "web") });
+// GITILIZER_LOCAL: the server signs everyone in, so Vite serves the web app at `/` (DESIGN.md "Public pages").
+run("web", process.execPath, [viteCli, "--port", String(WEB_PORT), "--strictPort"], { cwd: join(ROOT, "app", "web"), env: { ...process.env, GITILIZER_LOCAL: "1" } });
 await waitForPort(WEB_PORT).catch((e) => { console.error(`[web]    ${e.message}`); stopAll(1); });
 if (!stopping) console.log(`\nReady: open http://localhost:${WEB_PORT}  (Ctrl+C stops everything)\n`);

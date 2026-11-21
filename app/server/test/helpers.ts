@@ -15,7 +15,8 @@ export function testConfig(over: Partial<Config> = {}): Config {
   return {
     port: 0, internalPort: 0, workerToken: "t", githubMode: "fixtures", geminiMode: "fake", models: MODELS,
     agentModels: { claude: "claude-sonnet-5-5", openai: "gpt-6.1-sol" }, basic: { key: "basic-key-1234567890", model: "gemini-decision-1" },
-    defaultPrompt: "default prompt", shortLivedSeconds: 0, staleAfterSeconds: 3600,
+    defaultPrompt: "default prompt", privacyPolicy: "# Gitilizer privacy policy\n\nLast updated: November 20, 2026\n\nPolicy text.\n",
+    shortLivedSeconds: 0, staleAfterSeconds: 3600,
     intervals: { visible: 300, open: 1800, background: 7200 }, inactiveDays: 7, maxItems: 1000, fullScanSeconds: 3600,
     perDeveloperConcurrency: 4, schedulerTickMs: 1000, localMode: false, autoScan: true, allowlist: null,
     publicUrl: "http://localhost:8787", oauth: { google: null, github: null }, githubApp: null, devSignIn: true, secure: false,

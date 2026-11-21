@@ -24,6 +24,8 @@ export type Config = {
    */
   basic: { key: string | null; model: string };
   defaultPrompt: string;
+  /** docs/privacy-policy.md, which the privacy policy page shows (PRD PRIV-6). */
+  privacyPolicy: string;
   /** Short-lived notifications wait this long before showing (PRD NOTIF-21: 15 min). */
   shortLivedSeconds: number;
   staleAfterSeconds: number;

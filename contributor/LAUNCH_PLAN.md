@@ -253,7 +253,7 @@ Start this early: the certificate needs a DNS record at GoDaddy, and issuing it 
 | Production | `414241858841-f5lds4k46l1mp7p8fcj1m1rldujp2bhh.apps.googleusercontent.com` | `Ov23liIiw0R6mUml6Xih` | `prod-google-client-secret`, `prod-github-client-secret` |
 | Development | `414241858841-cdlbk8ut6f4acf5ff8gt0r0vt8jng230.apps.googleusercontent.com` | `Ov23li4RXtmFzE7VGfjD` | `dev-google-client-secret`, `dev-github-client-secret` |
 
-- **Privacy policy URL:** `https://gitilizer.com/docs/privacy`, which the server redirects to the Privacy section of the user guide on GitHub (`/docs` goes to the guide itself). It works once `gitilizer.com` points at Google (7.4); until then the link on Google's consent screen goes to GoDaddy's page.
+- **Privacy policy URL:** `https://gitilizer.com/docs/privacy`, a page the server sends from `docs/privacy-policy.md` (`/docs` goes to the user guide). It replaced a redirect to the user guide's Privacy section, which Google's branding review refused, as it did a home page that was only the sign-in page. It works once `gitilizer.com` points at Google (7.4); until then the link on Google's consent screen goes to GoDaddy's page.
 - **Logo, later:** upload `app/web/public/brand/gitilizer-logo-120.png` (120 × 120 PNG, the Gitilizer symbol) under Google Auth Platform → Branding → App logo. Google then reviews the branding, which can take a few days; sign-in keeps working meanwhile.
 
 The steps, for reference:
