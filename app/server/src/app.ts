@@ -22,7 +22,7 @@ import { pushSync, queueFullRerank, queueRankJobs, syncState } from "./jobs.ts";
 import { currentVersion, listRows, publish } from "./list.ts";
 import { clear, clearForCredential, markSeen, raise, shownNotifications } from "./notify.ts";
 import { localUserId } from "./local.ts";
-import { registerSignIn, safeNext, type SignInFailure } from "./auth.ts";
+import { homeWithNext, registerSignIn, safeNext, type SignInFailure } from "./auth.ts";
 import { homePage, privacyPage, signInMethods, type Provider } from "./site.ts";
 import { accountAllowed, completeSignIn } from "./signin.ts";
 import type { Scheduler } from "./scheduler.ts";
@@ -215,7 +215,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       const userId = await devSignIn(body);
       if (!userId) {
         setNotice(reply, "not_allowed", provider);
-        return reply.redirect("/", 302);
+        return reply.redirect(homeWithNext(f.next), 302);
       }
       await startSession(reply, userId);
       return reply.redirect(safeNext(f.next), 302);
@@ -700,15 +700,14 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
 
   // There is no sign-in page (AUTH-4): its old address goes to the home page.
   app.get("/sign-in", async (req, reply) => {
-    const next = safeNext(((req.query ?? {}) as Record<string, string | undefined>).next);
-    return reply.redirect(next !== "/" ? `/?next=${encodeURIComponent(next)}` : "/", 302);
+    return reply.redirect(homeWithNext(((req.query ?? {}) as Record<string, string | undefined>).next), 302);
   });
 
   app.setNotFoundHandler(async (req, reply) => {
     // Any other page is a route in the app (PRD NAV-3), so it gets index.html, if the visitor is signed in. Anyone else
     // goes to the home page, which brings them back after signing in (NAV-10). Unknown API routes are 404s.
     if (req.method === "GET" && isAppPage(req.url)) {
-      if (!(await signedIn(req))) return reply.redirect(`/?next=${encodeURIComponent(safeNext(req.url))}`, 302);
+      if (!(await signedIn(req))) return reply.redirect(homeWithNext(req.url), 302);
       if (webDir) return reply.type("text/html").sendFile("index.html", webDir);
     }
     return reply.code(404).send({ error: "not found" });

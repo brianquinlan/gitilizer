@@ -42,6 +42,12 @@ export class SignInError extends Error {
 const b64url = (b: Buffer) => b.toString("base64url");
 export const pkceChallenge = (verifier: string) => b64url(createHash("sha256").update(verifier).digest());
 
+/** The home page, remembering where the developer was going (NAV-10), if anywhere but `/`. */
+export function homeWithNext(next: unknown): string {
+  const n = safeNext(next);
+  return n === "/" ? "/" : `/?next=${encodeURIComponent(n)}`;
+}
+
 /** Where to go after signing in: a path on this site, never another site (`//evil.example` or `/\evil`). */
 export function safeNext(next: unknown): string {
   return typeof next === "string" && /^\/(?![/\\])/.test(next) && next.length <= 2000 ? next : "/";
@@ -197,10 +203,11 @@ export function registerSignIn(app: FastifyInstance, ctx: Ctx, h: Helpers) {
   const cookie = h.cookieName(OAUTH_COOKIE);
 
   for (const provider of PROVIDERS) {
-    const failed = (reply: FastifyReply, category: SignInFailure) => {
+    /** Back to the home page with the notice, keeping where the developer was going, so a retry goes there (NAV-10). */
+    const failed = (reply: FastifyReply, category: SignInFailure, next?: string | null) => {
       reply.clearCookie(cookie, h.cookieOptions());
       h.setNotice(reply, category, provider);
-      return reply.redirect("/", 302);
+      return reply.redirect(homeWithNext(next), 302);
     };
 
     app.get(`/api/auth/${provider}/start`, async (req, reply) => {
@@ -229,8 +236,8 @@ export function registerSignIn(app: FastifyInstance, ctx: Ctx, h: Helpers) {
         log[category === "cancelled" ? "info" : "warn"]("auth", "sign-in failed at the provider", {
           provider, category, error: q.error, description: q.error_description, uri: q.error_uri,
         });
-        if (q.state) await db.query(`delete from oauth_states where state = $1`, [q.state]);
-        return failed(reply, category);
+        const gone = q.state ? await db.one(`delete from oauth_states where state = $1 returning next`, [q.state]) : undefined;
+        return failed(reply, category, gone?.next);
       }
 
       // The state must be one we issued, to this browser, in the last 10 minutes, for this provider. It is used once.
@@ -245,7 +252,7 @@ export function registerSignIn(app: FastifyInstance, ctx: Ctx, h: Helpers) {
         log.info("auth", "sign-in expired", {
           provider, problem: !q.code ? "no code" : !row ? "unknown state" : !row.fresh ? "old state" : row.provider !== provider ? "other provider" : "cookie missing or different",
         });
-        return failed(reply, "expired");
+        return failed(reply, "expired", row?.next);
       }
 
       let profile: SignInProfile;
@@ -256,7 +263,7 @@ export function registerSignIn(app: FastifyInstance, ctx: Ctx, h: Helpers) {
       } catch (e) {
         const err = e instanceof SignInError ? e : new SignInError("gitilizer_error", { error: String((e as Error)?.stack ?? e) });
         log.warn("auth", "sign-in failed", { provider, category: err.category, ...err.detail });
-        return failed(reply, err.category);
+        return failed(reply, err.category, row.next);
       }
 
       let userId: string | null;
@@ -264,9 +271,9 @@ export function registerSignIn(app: FastifyInstance, ctx: Ctx, h: Helpers) {
         userId = await completeSignIn(ctx, profile);
       } catch (e) {
         log.error("auth", "sign-in failed", { provider, category: "gitilizer_error", error: String((e as Error)?.stack ?? e) });
-        return failed(reply, "gitilizer_error");
+        return failed(reply, "gitilizer_error", row.next);
       }
-      if (!userId) return failed(reply, "not_allowed");
+      if (!userId) return failed(reply, "not_allowed", row.next);
       await h.startSession(reply, userId);
       reply.clearCookie(cookie, h.cookieOptions());
       log.info("auth", "signed in", { provider, user: userId });

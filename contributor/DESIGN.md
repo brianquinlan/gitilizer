@@ -323,17 +323,27 @@ GitHub sign-in uses an OAuth app with only the `user:email` scope, decided in [D
 - **Sign out (`ACCT-3`, `AUTH-9`).** Deletes the current session row only. Deleting the account deletes every session.
 - **Allowlist (development only, `NFR-12`, [Q-80](PRD.md#q-80)).** `SIGN_IN_ALLOWLIST` lists who may sign in, as `google:<email>`, `github:<username>` or `github-id:<number>` entries separated by spaces ([DEPLOYMENT.md](DEPLOYMENT.md#who-can-sign-in-to-development) explains how to change it). It is a setting on the Cloud Run service, not a file in the repository, so testers' addresses stay out of Git and changing the list needs no release.
   - **Matching.** Google accounts match by email, ignoring case, and only when the ID token's `email_verified` is true. GitHub accounts match by username, ignoring case, or by numeric ID. Anyone can claim a username after its owner renames, so the ID is the safer entry. Both come from `GET /user` with the sign-in token, which needs no scope.
-  - **At sign-in.** `completeSignIn()` (`app/server/src/signin.ts`) checks the list before it creates or updates anything. A refused sign-in creates no account, settings or session; it returns to the home page with the `not_allowed` notice ([Public pages](#public-pages)) and logs `sign-in refused` with the provider only, because the logs name people only by account ID ([Logging](#logging)).
+  - **At sign-in.** `completeSignIn()` (`app/server/src/signin.ts`) checks the
+    list before it creates or updates anything. A refused sign-in creates no
+    account, settings or session; it returns to the home page with the
+    `not_allowed` notice ([Public pages](#public-pages)) and logs `sign-in
+    refused` with the provider only, because the logs name people only by
+    account ID ([Logging](#logging)).
   - **On every request.** The session lookup already joins `users`, and the list is in memory, so checking the account again costs nothing. A changed setting starts a new revision, so someone removed from the list is signed out at their next request: their sessions are deleted and the API answers 401 `not_allowed`, which the web app turns into the same notice. Their account and data stay. The check needs the GitHub username from sign-in, which `users.sign_in_login` keeps (`github_login` is the connected account, which may differ).
   - **Failing closed.** With `GITILIZER_ENV=development` the server refuses to start without a list, and any entry it can't read stops it too, naming the entry. A lost or mistyped setting therefore leaves the previous revision serving rather than opening development to everyone. Without `GITILIZER_ENV=development` and without a list, everyone can sign in. Local mode ignores the list.
-- **Failed sign-in (`AUTH-10` to `AUTH-14`).** The callback sorts every failure into one of five categories, `cancelled`, `provider_unavailable`, `expired`, `not_allowed` or `gitilizer_error`, and returns to the home page with it ([Public pages](#public-pages)):
+- **Failed sign-in (`AUTH-10` to `AUTH-14`).** The callback sorts every failure
+  into one of five categories, `cancelled`, `provider_unavailable`, `expired`,
+  `not_allowed` or `gitilizer_error`, and returns to the home page with it
+  ([Public pages](#public-pages)):
   - `cancelled`: the provider returned `error=access_denied`;
   - `provider_unavailable`: the provider returned `server_error` or `temporarily_unavailable`, or the code exchange or profile request timed out or returned 5xx;
   - `expired`: the `state` value is missing, unknown or older than 10 minutes, or the PKCE verifier cookie is missing (often blocked cookies);
   - `not_allowed`: only in development, the account isn't on the allowlist (below);
   - `gitilizer_error`: anything else, including other provider error codes and Gitilizer's own failures.
 
-  The provider's `error`, `error_description` and `error_uri`, and any exception, are logged with the category; none of them reach the page. The home page shows the matching message once ([Public pages](#public-pages)).
+  The provider's `error`, `error_description` and `error_uri`, and any
+  exception, are logged with the category; none of them reach the page. The home
+  page shows the matching message once ([Public pages](#public-pages)).
 
 ---
 
@@ -374,7 +384,9 @@ server.
 **A failed sign-in's notice (`AUTH-10` to `AUTH-15`).** The callback, the
 development form and the allowlist check on API requests leave the failure's
 category (and provider) in a `gitilizer_signin_notice` cookie for 5 minutes
-(`__Host-` when deployed, like the session cookie) and go to `/`. The home page
+(`__Host-` when deployed, like the session cookie) and go to `/`, with the
+`next` the sign-in started with (`oauth_states.next`, or the form's), so a
+retry still goes there. The home page
 shows the matching message above the buttons, grey for `cancelled` and red for
 the rest, and clears the cookie in the same response, so a reload shows the
 plain page (`AUTH-13`) with no script. An unknown value shows the
@@ -393,9 +405,11 @@ the session cookie as the API does: a valid session whose account is allowed
   `/?next={the address}`.
 - `/sign-in`, the old sign-in page's address, redirects to `/`, keeping its
   `next`.
-- A tab of the web app whose session ends while it's open (the API answers
-  401) replaces itself with `/?next={its address}`. After `not_allowed`, it
-  goes to `/`, where the notice says why.
+- A tab of the web app whose session ends while it's open replaces itself
+  with `/?next={its address}`: when an API call answers 401, and when the live
+  update stream fails and the check after its grace period gets a 401 from
+  `GET /api/me`. After `not_allowed`, it goes to `/`, where the notice says
+  why.
 
 These answers depend on the cookie, so they are sent with `Cache-Control:
 private, no-cache` and `Vary: Cookie`, and no cache can give one visitor's page
@@ -861,7 +875,9 @@ Details that need more than markup:
   `github-connect`, which the connection's notifications link to (`NOTIF-9`);
   where only a token can be used, Settings focuses the token field instead.
 - **Account menu.** Closes on a click outside, on Esc and when an item is chosen (`ACCT-4`). The action is "Sign out" everywhere (`ACCT-5`).
-- **Delete account.** A simple confirmation dialog, then `DELETE /api/account` and a redirect to the home page (`SET-17`). Signing out goes there too (`ACCT-3`).
+- **Delete account.** A simple confirmation dialog, then `DELETE /api/account`
+  and a redirect to the home page (`SET-17`). Signing out goes there too
+  (`ACCT-3`).
 - **Switching agents** (`SET-39`, `SET-40`). "Remove {agent} key" only marks the key for removal: the line goes at once, the key goes when the page is saved, and Cancel keeps it. "Save changes" with a different agent first checks that it has a key, then opens the switch dialog when `rankedBy` for what is in use isn't 0, naming it ("basic ranking" for a developer on basic ranking); "Switch" and "Switch and re-rank" send `PUT /api/settings` with `rerank` false or true. Choosing "Basic ranking" saves without the dialog, because it can't rank the items again.
 - **Screens and browsers.** Layouts are for 1024 px and wider; there are no touch handlers (`PLAT-6`). Everything meets WCAG 2.2 AA (`NFR-10`); the Playwright run includes an automated accessibility check.
 - **First sync.** Three skeleton rows whose placeholders pulse with a CSS opacity animation (0.8 s each way), turned off under `prefers-reduced-motion` (`LIST-15`).
@@ -1108,7 +1124,11 @@ Changes are pushed to the browser as `notifications` events.
   account to a session. The app's client secret and optional private key are
   secrets like the sign-in apps'.
 - **Operator endpoint.** `GET /internal/metrics` is on a separate port that isn't exposed to the internet and needs a bearer token.
-- **Sessions.** See [Sign-in and sessions](#sign-in-and-sessions). State-changing requests also need an `X-Gitilizer: 1` header, which a cross-site form can't send. The one exception is the development sign-in's form, which exists only on a developer's computer ([Public pages](#public-pages)).
+- **Sessions.** See [Sign-in and sessions](#sign-in-and-sessions).
+  State-changing requests also need an `X-Gitilizer: 1` header, which a
+  cross-site form can't send. The one exception is the development sign-in's
+  form, which exists only on a developer's computer
+  ([Public pages](#public-pages)).
 - **Logging.** Log fields whose names look like secrets are replaced with `[redacted]`, and request bodies aren't logged ([Logging](#logging)).
 - **Deployed servers fail closed.** With `GITILIZER_ENV` set, the server refuses to start without its database, credential key, worker token, `https://` address and both sign-in apps, and refuses local mode, fixtures and the development sign-in form, which signs anyone in as anyone ([DEPLOYMENT.md](DEPLOYMENT.md#settings)).
 - **Headers.** The deployed server sends `Strict-Transport-Security`, a Content Security Policy (scripts, styles and fonts from Gitilizer only; images also from GitHub and Google avatars; no framing) and `X-Frame-Options: DENY`; every response sends `X-Content-Type-Options: nosniff`, and API responses `Cache-Control: no-store`.
@@ -1330,13 +1350,21 @@ Developers run the whole application on their own computer with one command; [LO
 **`npm run local`** (`scripts/local.mjs`, plain Node with no extra packages) starts two processes in one terminal and stops them both on Ctrl+C:
 
 1. the server (`app/server/src/main.ts --local`, through `tsx`), which also runs the ranking worker, with `LOCAL_MODE=1`, `PGLITE_DIR=.local/{real|fixtures}/db`, `AUTO_SCAN=off` (unless `--scheduler`), `LOG_LEVEL=debug` and a `CREDENTIAL_KEY` generated once and kept in `.local/{real|fixtures}/credential-key`;
-2. the Vite dev server for the web app on port 5173, which proxies `/api` and `/docs` to the server. Outside `npm run local` (with `npm run dev:server` and `npm run dev:web`), it also proxies `/` to the server when the browser has no session cookie, so the home page can be seen there ([Public pages](#public-pages)); `npm run local` signs in automatically, so `/` is always the web app.
+2. the Vite dev server for the web app on port 5173, which proxies `/api` and
+   `/docs` to the server. Outside `npm run local` (with `npm run dev:server`
+   and `npm run dev:web`), it also proxies `/` to the server when the browser
+   has no session cookie, so the home page can be seen there
+   ([Public pages](#public-pages)); `npm run local` signs in automatically, so
+   `/` is always the web app.
 
 Only Node is needed. `--fixtures` adds `--fixtures` to the server, which serves `eval/fixtures/` as GitHub and uses the fake model, and keeps its data in a separate folder. `--reset` deletes the mode's data folder first.
 
 **Local mode in the server** (`config.localMode`, `app/server/src/local.ts`):
 
-- There is one account, provider `local`. The session hook signs any request without a session in as that account, and `POST /api/auth/dev` always signs in as it, so signing out returns straight to the same account: `/` is always the web app.
+- There is one account, provider `local`. The session hook signs any request
+  without a session in as that account, and `POST /api/auth/dev` always signs in
+  as it, so signing out returns straight to the same account: `/` is always the
+  web app.
 - At startup, any credential the account doesn't have is saved from `LOCAL_GITHUB_TOKEN` and `LOCAL_GEMINI_API_KEY`, which the launcher fills from `.env` (`GITHUB_TOKEN`, `GEMINI_API_KEY`), or with placeholder values in fixture mode. A saved credential is never replaced, so Settings stays in charge after the first run. A key for a ranking agent chooses the ranking; with a token and a key, setup is complete and the first sync starts (`SET-5`). With a token and no key, Warm Welcome opens at step 2. Basic ranking uses `BASIC_RANKING_API_KEY` from `.env`, or the Gemini key there if it isn't set; with neither it stays paused.
 - With `config.autoScan` off, the scheduler still promotes short-lived notifications and resets quotas, but doesn't start scans on its own, doesn't scan when a tab becomes visible, and skips the daily re-rank and the stale-list check. Only Sync now and saving Settings scan.
 

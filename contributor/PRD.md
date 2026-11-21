@@ -247,7 +247,15 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 
 ### Routes
 
-- **NAV-3** The screens must have these URLs on `https://gitilizer.com`: `/` for the Prioritized list (and for the home page, `HOME-1`, when the visitor isn't signed in) and `/icebox` for the Icebox (each with `?page=N` for pages after the first, and with `?q=` and `?type=` while a search or type filter is in use, `LIST-40`), `/settings` (with `#connections`, `#additional-repositories`, `#excluded-repositories`, `#ranking-prompt`, `#collaborators` and `#account` for its sections), and `/docs/privacy` for the privacy policy (`PRIV-6`). There is no sign-in page: `/sign-in`, its address in earlier versions, goes to `/`. Sort order is a stored preference, not part of the URL.
+- **NAV-3** The screens must have these URLs on `https://gitilizer.com`: `/` for
+  the Prioritized list (and for the home page, `HOME-1`, when the visitor isn't
+  signed in) and `/icebox` for the Icebox (each with `?page=N` for pages after
+  the first, and with `?q=` and `?type=` while a search or type filter is in
+  use, `LIST-40`), `/settings` (with `#connections`, `#additional-repositories`,
+  `#excluded-repositories`, `#ranking-prompt`, `#collaborators` and `#account`
+  for its sections), and `/docs/privacy` for the privacy policy (`PRIV-6`).
+  There is no sign-in page: `/sign-in`, its address in earlier versions, goes to
+  `/`. Sort order is a stored preference, not part of the URL.
 - **NAV-4** Moving between these screens must not reload the page.
 - **NAV-10** A visitor who isn't signed in and opens any address of the app
   other than `/`, such as `/settings` or `/icebox?page=2`, must be sent to the
@@ -378,7 +386,10 @@ Figma: [Home · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 
 Signing in uses full-page redirects, not a pop-up. "Continue with Google" or "Continue with GitHub" takes the browser to the provider's own pages, and the provider sends it back to Gitilizer with either a one-time code or an error. Gitilizer's server then finishes the sign-in. A failure is therefore found either by the provider, which sends back an error code (for example `access_denied` when the developer cancels), or by Gitilizer's server while it finishes the sign-in.
 
-- **AUTH-10** When a sign-in fails, Gitilizer must return the developer to the home page with a message in a notice above the sign-in buttons, as in Figma. The message depends on what went wrong:
+- **AUTH-10** When a sign-in fails, Gitilizer must return the developer to the
+  home page with a message in a notice above the sign-in buttons, as in Figma.
+  The home page still remembers where the developer was going (`NAV-10`), so
+  trying again goes there. The message depends on what went wrong:
 
   | Category | When | Message |
   |---|---|---|
@@ -453,7 +464,9 @@ Figma: [Shared / App bar](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gi
   privacy policy page, which is the same whether or not the developer is signed
   in (`PRIV-6`).
 - **BAR-2** The app bar must show, from left to right: the Gitilizer symbol and wordmark (a link to the Prioritized list, `NAV-7`), the [notification bell](#bell) and the [account menu](#account-menu) avatar.
-- **BAR-3** The browser tab must show the Gitilizer symbol (the blue square from the app bar) as the page's icon (favicon), on every page, including the home page and the privacy policy page.
+- **BAR-3** The browser tab must show the Gitilizer symbol (the blue square from
+  the app bar) as the page's icon (favicon), on every page, including the home
+  page and the privacy policy page.
 
 ---
 
@@ -463,7 +476,9 @@ Figma: [Account menu · Open](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaq
 
 - **ACCT-1** The avatar must be the image from the sign-in provider. If the provider has no image, show the developer's initials on a colored circle, as in Figma ("MC").
 - **ACCT-2** Clicking the avatar must open a menu showing the developer's full name and email, a "Settings" item and a "Sign out" item, each with its icon as in Figma. "Sign out" is shown in red.
-- **ACCT-3** "Settings" must open the [Settings](#settings) page. "Sign out", here and in Settings (`SET-16`), must end the session (`AUTH-9`) and go to the home page.
+- **ACCT-3** "Settings" must open the [Settings](#settings) page. "Sign out",
+  here and in Settings (`SET-16`), must end the session (`AUTH-9`) and go to the
+  home page.
 - **ACCT-4** The menu must close on a click outside it, on Esc and when an item is chosen, like the notification popover (`NOTIF-20`).
 - **ACCT-5** The action is called "Sign out" everywhere, in this menu and in Settings (`SET-16`), with no external-link arrow.
 
@@ -1480,7 +1495,15 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 ### Account
 
 - **SET-16** The account panel must show the developer's name, email, sign-in provider and a "Sign out" link (`ACCT-5`).
-- **SET-17** The developer must be able to delete their Gitilizer account from the Delete account panel in the left column, which says: "Deleting your account is permanent and cannot be reversed." Choosing "Delete account" must ask for confirmation with a simple dialog: "Delete your Gitilizer account? This can't be undone.", with "Cancel" and "Delete account". Deletion is immediate: it deletes all data about the developer from the live database (see [Data and privacy](#data-and-privacy)), ends all their sessions and goes to the home page. Copies remain in database backups for up to 6 months (`PRIV-4`).
+- **SET-17** The developer must be able to delete their Gitilizer account from
+  the Delete account panel in the left column, which says: "Deleting your
+  account is permanent and cannot be reversed." Choosing "Delete account" must
+  ask for confirmation with a simple dialog: "Delete your Gitilizer account?
+  This can't be undone.", with "Cancel" and "Delete account". Deletion is
+  immediate: it deletes all data about the developer from the live database (see
+  [Data and privacy](#data-and-privacy)), ends all their sessions and goes to
+  the home page. Copies remain in database backups for up to 6 months
+  (`PRIV-4`).
 
 ### Preferences
 
@@ -2816,7 +2839,8 @@ second, nearly identical page for signed-out visitors ([Q-105](#q-105)):
   `AUTH-15`, `HOME-2`).
 - A visitor who isn't signed in and opens another address, or whose session
   ends with a tab open, goes to the home page, which brings them back to that
-  address after signing in (`NAV-10`). `/sign-in` goes to `/` (`NAV-3`).
+  address after signing in, also when a first try fails (`NAV-10`,
+  `AUTH-10`). `/sign-in` goes to `/` (`NAV-3`).
 - Signing out and deleting the account go to the home page (`ACCT-3`,
   `SET-17`).
 - Changed Figma: [Home · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-3827) and

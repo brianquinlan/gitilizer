@@ -100,7 +100,7 @@ async function signInApp(over: Parameters<typeof makeCtx>[0] = {}) {
  * wrong instead.
  */
 function noticeOf(r: { headers: Record<string, unknown> }): string {
-  if (r.headers.location !== "/") return `went to ${String(r.headers.location)}`;
+  if (!/^\/(\?next=[^&]*)?$/.test(String(r.headers.location))) return `went to ${String(r.headers.location)}`;
   const m = String(r.headers["set-cookie"]).match(/gitilizer_signin_notice=([^;]+)/);
   return m ? m[1] : "no notice";
 }
@@ -176,7 +176,7 @@ describe("Google sign-in", () => {
     await s.app.close();
   });
 
-  it("sorts every failure into the sign-in page's categories (AUTH-10 to AUTH-14)", async () => {
+  it("sorts every failure into the home page notice's categories (AUTH-10 to AUTH-14)", async () => {
     const s = await signInApp({ allowlist: Allowlist.parse("google:maya@example.com") });
     ctx = s.ctx;
     const where = (r: any) => r.headers.location;
@@ -449,6 +449,17 @@ describe("the home page and the privacy policy", () => {
     await app.close();
   });
 
+  it("keeps where the developer was going when a sign-in fails, so a retry goes there (NAV-10, AUTH-10)", async () => {
+    const s = await signInApp();
+    const a = await start(s.app, "google", "/icebox?page=2");
+    const r = await callback(s.app, "google", `error=access_denied&state=${a.state}`, a.cookie);
+    expect(r.headers.location).toBe("/?next=%2Ficebox%3Fpage%3D2");
+    expect(noticeOf(r)).toBe("cancelled.google");
+    // A state Gitilizer doesn't know carries no address: just the home page.
+    expect((await callback(s.app, "google", `code=c&state=nope`, a.cookie)).headers.location).toBe("/");
+    await s.app.close();
+  });
+
   it("sends the old sign-in page's address to the home page (AUTH-4, NAV-3)", async () => {
     const { app } = await signInApp();
     expect((await app.inject({ method: "GET", url: "/sign-in" })).headers.location).toBe("/");
@@ -511,9 +522,9 @@ describe("the home page and the privacy policy", () => {
     const { app } = await signInApp({ oauth: { google: null, github: null }, devSignIn: true, allowlist: Allowlist.parse("google:someone@example.com") });
     const r = await app.inject({
       method: "POST", url: "/api/auth/dev/form", headers: { "content-type": "application/x-www-form-urlencoded" },
-      payload: "provider=google&name=Kim&email=kim%40example.com&next=%2F",
+      payload: "provider=google&name=Kim&email=kim%40example.com&next=%2Fsettings",
     });
-    expect(r.headers.location).toBe("/");
+    expect(r.headers.location).toBe("/?next=%2Fsettings");
     expect(String(r.headers["set-cookie"])).toContain("gitilizer_signin_notice=not_allowed.google");
     await app.close();
   });

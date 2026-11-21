@@ -42,7 +42,7 @@ describe("local mode", () => {
     expect(first.headers["set-cookie"]).toBeTruthy();
     const second = await app.inject({ method: "GET", url: "/api/me" });
     expect(second.json().user.id).toBe(first.json().user.id);
-    // Any sign-in from the sign-in page is the local developer too.
+    // Any development sign-in is the local developer too.
     const dev = await app.inject({ method: "POST", url: "/api/auth/dev", headers: { "x-gitilizer": "1" }, payload: {} });
     expect(dev.statusCode).toBe(200);
     expect(await ctx.db.query(`select id from users`)).toHaveLength(1);
