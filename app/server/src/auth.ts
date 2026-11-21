@@ -2,7 +2,8 @@
 //
 //   GET /api/auth/{google|github}/start?next=/path   redirects to the provider
 //   GET /api/auth/{google|github}/callback           finishes, then redirects to `next`,
-//                                                    or to /sign-in?error={category}&provider=...
+//                                                    or, on failure, to the home page, with the category
+//                                                    in a cookie that it shows once (AUTH-10)
 //
 // Both use the authorization code flow with PKCE and a `state` value. The state, the PKCE verifier and
 // (for Google) the nonce are kept in `oauth_states` for 10 minutes, and the state is also put in a cookie,
@@ -16,7 +17,7 @@ import { completeSignIn, type SignInProfile } from "./signin.ts";
 
 export type Provider = "google" | "github";
 export const PROVIDERS: Provider[] = ["google", "github"];
-/** The categories the sign-in page shows (AUTH-10 to AUTH-14). */
+/** The categories the home page's notice shows (AUTH-10 to AUTH-14). */
 export type SignInFailure = "cancelled" | "provider_unavailable" | "expired" | "not_allowed" | "gitilizer_error";
 
 const STATE_SECONDS = 600;
@@ -33,7 +34,7 @@ const GITHUB = {
   api: "https://api.github.com",
 };
 
-/** A failure sorted into the category the sign-in page shows. `detail` goes to the log, never to the page. */
+/** A failure sorted into the category the home page shows. `detail` goes to the log, never to the page. */
 export class SignInError extends Error {
   constructor(public category: SignInFailure, public detail: Record<string, unknown> = {}) { super(category); }
 }
@@ -184,25 +185,22 @@ type Helpers = {
   startSession(reply: FastifyReply, userId: string): Promise<string>;
   cookieName(base: string): string;
   cookieOptions(maxAgeSeconds?: number): Record<string, unknown>;
+  /** Leaves a failed sign-in's category for the home page to show once (AUTH-10, AUTH-13). */
+  setNotice(reply: FastifyReply, category: SignInFailure, provider: string | null): void;
 };
 
 const OAUTH_COOKIE = "gitilizer_oauth";
 
-/** Registers /api/auth/config and, for each configured provider, its start and callback routes. */
+/** Registers each configured provider's start and callback routes. */
 export function registerSignIn(app: FastifyInstance, ctx: Ctx, h: Helpers) {
   const db = ctx.db;
   const cookie = h.cookieName(OAUTH_COOKIE);
 
-  // What the sign-in page offers. Public: it is read before anyone has signed in.
-  app.get("/api/auth/config", async () => ({
-    providers: { google: Boolean(ctx.config.oauth.google), github: Boolean(ctx.config.oauth.github) },
-    devSignIn: ctx.config.devSignIn,
-  }));
-
   for (const provider of PROVIDERS) {
     const failed = (reply: FastifyReply, category: SignInFailure) => {
       reply.clearCookie(cookie, h.cookieOptions());
-      return reply.redirect(`/sign-in?error=${category}&provider=${provider}`, 302);
+      h.setNotice(reply, category, provider);
+      return reply.redirect("/", 302);
     };
 
     app.get(`/api/auth/${provider}/start`, async (req, reply) => {

@@ -181,7 +181,7 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 /* LIST-33: how far a sync has got. Tabular digits so the count doesn't jitter. */
 .sync-progress { color: var(--muted); font-size: 12px; line-height: 16px; white-space: nowrap; font-variant-numeric: tabular-nums; margin-right: 6px; }
 
-/* --- Panels: Warm Welcome, sign-in ----------------------------------------- */
+/* --- Panels: Warm Welcome ----------------------------------------- */
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 /* Warm Welcome, as in Figma "Warm Welcome" (WEL-2): one 510 px column, credential fields left-aligned. */
 .welcome { min-height: 684px; display: grid; place-items: center; padding: 40px; }
@@ -204,17 +204,6 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 /* WEL-3: the credential fields and the save note use the same type as in Settings. */
 .welcome-save .save-note { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.5; }
 /* PLAT-6: from 1024 px the left column gives up width so the right one keeps the 392 px box and 32 px gutters. */
-.signin { flex: 1; display: grid; grid-template-columns: minmax(0, 688px) minmax(456px, 1fr); }
-.signin-left { padding: 56px 64px; border-right: 1px solid var(--line); background: var(--surface); }
-.signin-left h1 { font-size: 64px; line-height: 1.08; font-weight: 400; letter-spacing: -0.02em; margin: 24px 0 18px; }
-.signin-left p { color: var(--muted); font-size: 16px; }
-.signin-right { display: grid; place-items: center; padding: 0 32px; background: var(--surface); }
-.signin-box { width: 392px; max-width: 100%; display: grid; gap: 12px; }
-.signin-box h2 { font-size: 30px; margin: 0 0 18px; font-weight: 600; letter-spacing: -0.01em; }
-.provider { height: 48px; justify-content: center; }
-.provider.dark { background: #20252d; color: #fff; border-color: #20252d; }
-.callout { margin-top: 16px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 16px; font-size: 13px; color: var(--muted); }
-.callout strong { color: var(--ink); font-weight: 500; display: block; margin-bottom: 6px; }
 
 /* --- Settings --------------------------------------------------------------- */
 .settings { display: grid; grid-template-columns: 208px minmax(0, 1fr); gap: 48px; }
@@ -259,11 +248,6 @@ textarea { font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: 
 .dialog p { margin: 0; color: var(--muted); }
 .menu button.danger { color: var(--error); }
 .popover:focus { outline: none; }
-/* AUTH-10, AUTH-15: grey for a cancelled sign-in, red for the other failures. */
-.signin-notice { border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); border-radius: 6px; padding: 12px 14px; font-size: 13px; line-height: 1.45; margin-bottom: 12px; }
-.signin-notice.error { border-color: var(--error); background: var(--error-tint); color: var(--error); }
-.table.preview .th { font-size: 12px; font-weight: 500; color: var(--muted); }
-.table.preview .th.active { color: var(--accent); }
 
 /* Settings, as in Figma "Settings" and "Settings · Errors" (SET-1..31). */
 .settings-page h1 { font-size: 32px; margin: 8px 0 6px; letter-spacing: -0.01em; }

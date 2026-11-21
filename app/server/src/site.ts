@@ -3,10 +3,49 @@
 // they are finished HTML, built once when the server starts. They load only gitilizer.com's own files (HOME-7):
 // /site.css, /fonts/fonts.css and /favicon.svg, all from app/web/public.
 import { marked } from "marked";
-import { NEXT_STEP_LABEL, SIGN_IN_PREVIEW } from "@gitilizer/shared";
+import { NEXT_STEP_LABEL, type NextStep } from "@gitilizer/shared";
+import type { SignInFailure } from "./auth.ts";
 
-/** Where each sign-in button goes: a link, or null for a provider Gitilizer isn't set up for (a disabled button). */
-export type SignInLinks = { google: string | null; github: string | null };
+export type Provider = "google" | "github";
+
+/** How each provider's button signs in: with the provider, with the development form, or not at all (disabled). */
+export type SignInMethods = Record<Provider, "provider" | "dev" | null>;
+
+/** What the home page shows besides its fixed content (HOME-2, HOME-3, AUTH-10). */
+export type HomeOptions = {
+  methods: SignInMethods;
+  /** Where to go after signing in (NAV-10): a path on this site, "/" for none. */
+  next: string;
+  /** A failed sign-in's notice (AUTH-10), shown once. */
+  failure?: { category: SignInFailure; provider: Provider | null } | null;
+  /** The development sign-in form, opened by a button whose provider isn't set up (HOME-3). */
+  dev?: Provider | null;
+};
+
+/** The static list preview (HOME-2), as in Figma: each row's type, title, next step (LIST-42), number and reason. */
+const PREVIEW: { kind: "issue" | "pr"; title: string; step: NextStep; meta: string }[] = [
+  { kind: "issue", title: "Connection pool exhausted after database failover", step: "todo", meta: "Issue #1842 · Assigned to you" },
+  { kind: "pr", title: "Retry failed webhooks with exponential backoff", step: "review", meta: "PR #731 · Assigned to you" },
+  { kind: "issue", title: "Token refresh fails in headless environments", step: "backlog", meta: "Issue #416 · Created by you" },
+  { kind: "pr", title: "Prevent duplicate events on reconnect", step: "respond", meta: "PR #729 · @maya" },
+  { kind: "issue", title: "Session cookie expires during active use", step: "waiting", meta: "Issue #962 · northstar/web" },
+  { kind: "issue", title: "Document environment variable precedence", step: "respond", meta: "Issue #408 · @maya" },
+  { kind: "pr", title: "Add keyboard navigation to command menu", step: "review", meta: "PR #955 · Assigned to you" },
+  { kind: "issue", title: "Missing trace context in background jobs", step: "not_yours", meta: "Issue #1821 · northstar/api" },
+  { kind: "issue", title: "Support Node.js 24 in the release pipeline", step: "todo", meta: "Issue #397 · Created by you" },
+  { kind: "issue", title: "Clarify workspace setup in onboarding", step: "elsewhere", meta: "Issue #918 · northstar/web" },
+];
+
+/** A failed sign-in's message (AUTH-10). Only "cancelled" is neutral; the rest are errors (AUTH-15). */
+export function failureMessage(category: SignInFailure, provider: Provider | null): string {
+  switch (category) {
+    case "cancelled": return "Sign-in was cancelled. Choose an option below to try again.";
+    case "provider_unavailable": return `${provider === "github" ? "GitHub" : "Google"} isn't responding right now. Try again in a few minutes.`;
+    case "expired": return "Sign-in didn't finish. Try again, and make sure your browser allows cookies for gitilizer.com.";
+    case "not_allowed": return "This is Gitilizer's development site, and only invited accounts can sign in. Ask the owner for access.";
+    default: return "Something went wrong on our side. Try again. If it keeps happening, report it using the GitHub link below.";
+  }
+}
 
 const USER_GUIDE = "https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md";
 const REPOSITORY = "https://github.com/brianquinlan/gitilizer";
@@ -80,9 +119,35 @@ function metaHtml(meta: string): string {
 const blocks = (items: [string, string][]) =>
   `<div class="blocks">${items.map(([h, p]) => `<div class="block"><h3>${escapeHtml(h)}</h3><p>${escapeHtml(p)}</p></div>`).join("")}</div>`;
 
-/** The home page (HOME-1 to HOME-7). */
-export function homePage(links: SignInLinks): string {
-  const rows = SIGN_IN_PREVIEW.map(({ kind, title, step, meta }, i) => `<div class="tr">
+/** Where a button goes (HOME-3): straight to the provider, to the development form, or nowhere (disabled). */
+function buttonHref(p: Provider, o: HomeOptions): string | null {
+  const next = o.next !== "/" ? o.next : null;
+  if (o.methods[p] === "provider") return `/api/auth/${p}/start?next=${encodeURIComponent(next ?? "/")}`;
+  if (o.methods[p] === "dev") return `/?dev=${p}${next ? `&next=${encodeURIComponent(next)}` : ""}`;
+  return null;
+}
+
+/** The development sign-in (design: Public pages): a plain form, on a developer's own computer only. */
+function devForm(p: Provider, next: string): string {
+  const field = (label: string, name: string, type: string, value: string) =>
+    `<label>${label}<input type="${type}" name="${name}" value="${escapeHtml(value)}" required></label>`;
+  return `<form class="dev-form" method="post" action="/api/auth/dev/form">
+<strong>Development sign-in</strong>
+<span class="hint">Only on your own computer: ${p === "github" ? "GitHub" : "Google"} sign-in isn't set up here.</span>
+<input type="hidden" name="provider" value="${p}"><input type="hidden" name="next" value="${escapeHtml(next)}">
+${field("Name", "name", "text", "Brian Quinlan")}
+${field("Email", "email", "email", "brian@sweetapp.com")}
+${p === "github" ? field("GitHub username", "login", "text", "brianquinlan") : ""}
+<button class="btn primary" type="submit">Sign in</button>
+</form>`;
+}
+
+/** The home page (HOME-1 to HOME-7), with a failed sign-in's notice (AUTH-10) and the development form if asked for. */
+export function homePage(o: HomeOptions): string {
+  const notice = o.failure
+    ? `<div class="notice${o.failure.category === "cancelled" ? "" : " error"}" role="alert">${escapeHtml(failureMessage(o.failure.category, o.failure.provider))}</div>\n`
+    : "";
+  const rows = PREVIEW.map(({ kind, title, step, meta }, i) => `<div class="tr">
 <span class="rank">${i + 1}</span>
 <span class="issue"><span class="kind ${kind}">${kind === "pr" ? PR_ICON : ISSUE_ICON}</span><span class="issue-text"><span class="issue-title">${escapeHtml(title)}</span><span class="issue-meta"><span class="next-step ${step.replace("_", "-")}">${NEXT_STEP_LABEL[step]}</span>${metaHtml(meta)}</span></span></span>
 </div>`).join("\n");
@@ -91,10 +156,11 @@ export function homePage(links: SignInLinks): string {
 <div class="promise">
 <h1>Less triage.<br>More shipping.</h1>
 <p class="lede">${escapeHtml(DESCRIPTION)}</p>
-<div class="providers">
-${providerButton(links.google, "Continue with Google", `<span class="g" aria-hidden="true">G</span>`, false)}
-${providerButton(links.github, "Continue with GitHub", GITHUB_ICON, true)}
+${notice}<div class="providers">
+${providerButton(buttonHref("google", o), "Continue with Google", `<span class="g" aria-hidden="true">G</span>`, false)}
+${providerButton(buttonHref("github", o), "Continue with GitHub", GITHUB_ICON, true)}
 </div>
+${o.dev && o.methods[o.dev] === "dev" ? devForm(o.dev, o.next) : ""}
 </div>
 <div class="preview" aria-hidden="true">
 <div class="tr thead"><span class="th active">Priority ↑</span><span class="th">Issue</span></div>
@@ -120,12 +186,8 @@ export function privacyPage(markdown: string): string {
 ${html}</main>`);
 }
 
-/**
- * Where the home page's buttons go (HOME-3): straight to the provider, coming back to `/`. A provider without its
- * sign-in app is disabled, except where the development sign-in stands in for it: then the sign-in page, which offers
- * its form.
- */
-export function signInLinks(configured: { google: boolean; github: boolean }, devSignIn: boolean): SignInLinks {
-  const link = (p: "google" | "github") => (configured[p] ? `/api/auth/${p}/start?next=%2F` : devSignIn ? "/sign-in" : null);
-  return { google: link("google"), github: link("github") };
+/** How each provider signs in here: its sign-in app, the development sign-in in its place, or neither. */
+export function signInMethods(configured: Record<Provider, boolean>, devSignIn: boolean): SignInMethods {
+  const method = (p: Provider) => (configured[p] ? "provider" : devSignIn ? "dev" : null);
+  return { google: method("google"), github: method("github") };
 }

@@ -112,7 +112,7 @@ function AccountMenu() {
   const [open, setOpen] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
   if (!me) return null;
-  const signOut = async () => { await api.post("/api/auth/logout"); location.href = "/sign-in"; };
+  const signOut = async () => { await api.post("/api/auth/logout"); location.href = "/"; }; // ACCT-3: the home page
   return (
     <div className="bell-wrap" ref={ref}>
       <button className="avatar-btn" aria-label="Account" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)}>

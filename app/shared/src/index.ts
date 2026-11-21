@@ -34,23 +34,6 @@ export const NEXT_STEP_LABEL: Record<NextStep, string> = {
   review: "Review", respond: "Respond", todo: "To do", backlog: "Backlog", waiting: "Waiting", elsewhere: "Elsewhere", not_yours: "Not yours",
 };
 
-/**
- * The static list preview on the sign-in page and the home page (PRD AUTH-4, HOME-2), as in Figma: each row's type,
- * title, next step (LIST-42), and its type and number with a reason (repository names as reasons, LIST-3).
- */
-export const SIGN_IN_PREVIEW: { kind: "issue" | "pr"; title: string; step: NextStep; meta: string }[] = [
-  { kind: "issue", title: "Connection pool exhausted after database failover", step: "todo", meta: "Issue #1842 · Assigned to you" },
-  { kind: "pr", title: "Retry failed webhooks with exponential backoff", step: "review", meta: "PR #731 · Assigned to you" },
-  { kind: "issue", title: "Token refresh fails in headless environments", step: "backlog", meta: "Issue #416 · Created by you" },
-  { kind: "pr", title: "Prevent duplicate events on reconnect", step: "respond", meta: "PR #729 · @maya" },
-  { kind: "issue", title: "Session cookie expires during active use", step: "waiting", meta: "Issue #962 · northstar/web" },
-  { kind: "issue", title: "Document environment variable precedence", step: "respond", meta: "Issue #408 · @maya" },
-  { kind: "pr", title: "Add keyboard navigation to command menu", step: "review", meta: "PR #955 · Assigned to you" },
-  { kind: "issue", title: "Missing trace context in background jobs", step: "not_yours", meta: "Issue #1821 · northstar/api" },
-  { kind: "issue", title: "Support Node.js 24 in the release pipeline", step: "todo", meta: "Issue #397 · Created by you" },
-  { kind: "issue", title: "Clarify workspace setup in onboarding", step: "elsewhere", meta: "Issue #918 · northstar/web" },
-];
-
 export const ItemRow = z.object({
   key: z.string(), // "owner/repo#123"
   repo: z.string(), // "owner/repo"

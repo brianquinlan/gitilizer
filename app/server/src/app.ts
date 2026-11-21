@@ -22,15 +22,27 @@ import { pushSync, queueFullRerank, queueRankJobs, syncState } from "./jobs.ts";
 import { currentVersion, listRows, publish } from "./list.ts";
 import { clear, clearForCredential, markSeen, raise, shownNotifications } from "./notify.ts";
 import { localUserId } from "./local.ts";
-import { registerSignIn } from "./auth.ts";
-import { homePage, privacyPage, signInLinks } from "./site.ts";
+import { registerSignIn, safeNext, type SignInFailure } from "./auth.ts";
+import { homePage, privacyPage, signInMethods, type Provider } from "./site.ts";
 import { accountAllowed, completeSignIn } from "./signin.ts";
 import type { Scheduler } from "./scheduler.ts";
 
 const SESSION_DAYS = 30; // AUTH-8
 
 /** Routes that work without a session: the health check and signing in. */
-const PUBLIC_API = /^\/api\/(health$|auth\/(config|dev|google\/|github\/))/;
+const PUBLIC_API = /^\/api\/(health$|auth\/(dev|google\/|github\/))/;
+
+/** The development sign-in form posts here as an ordinary HTML form (design: Public pages). */
+const DEV_FORM = "/api/auth/dev/form";
+
+/**
+ * A page of the web app, which needs a session (NAV-10): any GET outside the API, the public pages and files.
+ * `/` and `/docs/...` have their own routes.
+ */
+const isAppPage = (url: string) => {
+  const path = url.split("?")[0];
+  return !path.startsWith("/api/") && !path.startsWith("/docs") && !/\.[a-z0-9]+$/i.test(path);
+};
 
 /**
  * The deployed site's Content Security Policy: scripts, styles and fonts from Gitilizer itself (PRD HOME-7), and
@@ -72,6 +84,10 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     ...(maxAgeSeconds !== undefined ? { maxAge: maxAgeSeconds } : {}),
   });
   const SESSION_COOKIE = cookieName("gitilizer_session");
+  // A failed sign-in's notice, shown once by the home page (AUTH-10, AUTH-13; design: Public pages).
+  const NOTICE_COOKIE = cookieName("gitilizer_signin_notice");
+  const setNotice = (reply: any, category: SignInFailure, provider: string | null) =>
+    reply.setCookie(NOTICE_COOKIE, provider ? `${category}.${provider}` : category, cookieOptions(300));
 
   // --- Security headers (design: Security) ----------------------------------
   app.addHook("onSend", async (req, reply) => {
@@ -83,9 +99,10 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       reply.header("content-security-policy", CSP);
     }
     if (req.url.startsWith("/api/")) reply.header("cache-control", "no-store");
-    // `/` is the home page or the web app, depending on the session cookie (HOME-1), so no cache may share it
-    // between visitors (design: Public pages). Set here, after @fastify/static's own header for index.html.
-    if (req.url === "/" || req.url.startsWith("/?")) {
+    // `/` and the app's pages depend on the session cookie: the home page or the app, the web app or a redirect to
+    // the home page (HOME-1, NAV-10). So no cache may share them between visitors (design: Public pages). Set here,
+    // after @fastify/static's own header for index.html.
+    if (req.method === "GET" && (req.url === "/" || req.url.startsWith("/?") || isAppPage(req.url))) {
       reply.header("cache-control", "private, no-cache");
       reply.header("vary", "Cookie");
     }
@@ -105,7 +122,10 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   // --- Sessions and CSRF (design: Security) ---------------------------------
   app.addHook("preHandler", async (req, reply) => {
     if (!req.url.startsWith("/api/")) return;
-    if (req.method !== "GET" && req.headers[CSRF_HEADER] !== "1") return bad(reply, 403, "missing CSRF header");
+    // The development form is a plain HTML form, which can't send the header. It signs anyone in as anyone, so
+    // there is nothing for a cross-site request to gain, and it exists only on a developer's computer.
+    const devForm = ctx.config.devSignIn && req.url.split("?")[0] === DEV_FORM;
+    if (req.method !== "GET" && req.headers[CSRF_HEADER] !== "1" && !devForm) return bad(reply, 403, "missing CSRF header");
     if (PUBLIC_API.test(req.url.split("?")[0])) return;
     const sid = req.cookies[SESSION_COOKIE];
     const s = await sessionOf(req);
@@ -119,6 +139,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       // Taken off the allowlist since signing in: the session ends at once (contributor/DEPLOYMENT.md).
       await db.query(`delete from sessions where user_id = $1`, [s.user_id]);
       reply.clearCookie(SESSION_COOKIE, cookieOptions());
+      setNotice(reply, "not_allowed", null); // the web app goes to the home page, which says why (AUTH-10)
       return bad(reply, 401, "not_allowed");
     }
     req.userId = s.user_id;
@@ -150,34 +171,56 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   }
 
   // --- Sign-in (design: Sign-in and sessions) ---------------------------------
-  registerSignIn(app, ctx, { startSession, cookieName, cookieOptions });
+  registerSignIn(app, ctx, { startSession, cookieName, cookieOptions, setNotice });
 
   // The development stub signs anyone in as anyone. It exists only in local mode, fixture mode and tests
   // (config.devSignIn); a deployed environment refuses to start with it (contributor/DEPLOYMENT.md).
-  if (ctx.config.devSignIn) app.post("/api/auth/dev", async (req, reply) => {
-    if (ctx.config.localMode) {
-      // Local mode: any sign-in is the local developer.
-      await startSession(reply, await localUserId(ctx));
-      return { ok: true };
-    }
-    // The stub stands in for both providers. "Continue with GitHub" also sends a username;
-    // `id` (tests only) stands in for GitHub's numeric user ID.
-    const body = z.object({
-      name: z.string().min(1), email: z.string().email(),
-      provider: z.enum(["dev", "github"]).default("dev"),
-      login: z.string().min(1).optional(), id: z.string().regex(/^[0-9]+$/).optional(),
-    }).parse(req.body);
+  const DevSignIn = z.object({
+    name: z.string().min(1), email: z.string().email(),
+    provider: z.enum(["dev", "github"]).default("dev"),
+    login: z.string().min(1).optional(), id: z.string().regex(/^[0-9]+$/).optional(),
+  });
+  /** Signs in with the development stub; the account's ID, or null if the allowlist refuses it. */
+  async function devSignIn(body: z.infer<typeof DevSignIn>): Promise<string | null> {
+    if (ctx.config.localMode) return localUserId(ctx); // local mode: any sign-in is the local developer
     const github = body.provider === "github";
-    if (github && !body.login) return bad(reply, 400, "GitHub sign-in needs a username");
-    const userId = await completeSignIn(ctx, {
+    return completeSignIn(ctx, {
       provider: body.provider,
       providerUserId: github ? (body.id ?? body.login!.toLowerCase()) : body.email,
       name: body.name, email: body.email, emailVerified: true, login: github ? body.login! : null,
     });
-    if (!userId) return bad(reply, 403, "not_allowed");
-    await startSession(reply, userId);
-    return { ok: true };
-  });
+  }
+  if (ctx.config.devSignIn) {
+    // The stub stands in for both providers. GitHub also sends a username; `id` (tests only) stands in for
+    // GitHub's numeric user ID.
+    app.post("/api/auth/dev", async (req, reply) => {
+      const body = ctx.config.localMode ? DevSignIn.parse({ name: "local", email: "local@example.com" }) : DevSignIn.parse(req.body);
+      if (body.provider === "github" && !body.login) return bad(reply, 400, "GitHub sign-in needs a username");
+      const userId = await devSignIn(body);
+      if (!userId) return bad(reply, 403, "not_allowed");
+      await startSession(reply, userId);
+      return { ok: true };
+    });
+    // The home page's form (HOME-3): an ordinary form post, answered with a redirect like a provider's callback.
+    app.addContentTypeParser("application/x-www-form-urlencoded", { parseAs: "string" }, (_req, body, done) => {
+      done(null, Object.fromEntries(new URLSearchParams(body as string)));
+    });
+    app.post(DEV_FORM, async (req, reply) => {
+      const f = (req.body ?? {}) as Record<string, string | undefined>;
+      const provider: Provider = f.provider === "github" ? "github" : "google";
+      const body = DevSignIn.parse({
+        name: f.name, email: f.email, provider: provider === "github" ? "github" : "dev", login: f.login || undefined,
+      });
+      if (provider === "github" && !body.login) return bad(reply, 400, "GitHub sign-in needs a username");
+      const userId = await devSignIn(body);
+      if (!userId) {
+        setNotice(reply, "not_allowed", provider);
+        return reply.redirect("/", 302);
+      }
+      await startSession(reply, userId);
+      return reply.redirect(safeNext(f.next), 302);
+    });
+  }
 
   app.post("/api/auth/logout", async (req, reply) => {
     await db.query(`delete from sessions where id = $1`, [req.cookies[SESSION_COOKIE]]);
@@ -598,10 +641,16 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   }
 
   // --- Public pages (PRD "Home page", PRIV-6; design: Public pages) ------------------
-  // Finished HTML, built once: Google's checker reads them without JavaScript (HOME-4).
-  const homeHtml = homePage(signInLinks(
-    { google: Boolean(ctx.config.oauth.google), github: Boolean(ctx.config.oauth.github) }, ctx.config.devSignIn));
+  // Finished HTML: Google's checker reads them without JavaScript (HOME-4).
+  const methods = signInMethods(
+    { google: Boolean(ctx.config.oauth.google), github: Boolean(ctx.config.oauth.github) }, ctx.config.devSignIn);
   const privacyHtml = privacyPage(ctx.config.privacyPolicy);
+  /** Whether the request has a session whose account may sign in (NFR-12). Local mode signs everyone in. */
+  const signedIn = async (req: FastifyRequest) => {
+    if (ctx.config.localMode) return true;
+    const s = await sessionOf(req);
+    return s !== undefined && s !== null && accountAllowed(ctx, s);
+  };
   // The privacy policy, at the address Google's sign-in screen links to. The same for everyone.
   app.get("/docs/privacy", async (_req, reply) =>
     reply.header("cache-control", "no-cache").type("text/html; charset=utf-8").send(privacyHtml));
@@ -624,20 +673,43 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       },
     });
   }
-  // HOME-1: a signed-in developer gets the web app at `/`, and anyone else the home page. Local mode signs everyone
-  // in (design: Local development), so it always gets the web app.
+  const webApp = (reply: any) =>
+    webDir ? reply.type("text/html").sendFile("index.html", webDir) : reply.code(404).send({ error: "the web app isn't built (npm run build -w app/web)" });
+
+  // HOME-1: a signed-in developer gets the web app at `/`, and anyone else the home page. `next` is where a signed-out
+  // visitor was going (NAV-10): the buttons carry it, and a visitor who is signed in by now goes straight there.
   app.get("/", async (req, reply) => {
-    const s = ctx.config.localMode ? null : await sessionOf(req);
-    const signedIn = ctx.config.localMode || (s !== undefined && s !== null && accountAllowed(ctx, s));
-    if (!signedIn) return reply.type("text/html; charset=utf-8").send(homeHtml);
-    if (webDir) return reply.type("text/html").sendFile("index.html", webDir);
-    return reply.code(404).send({ error: "the web app isn't built (npm run build -w app/web)" });
+    const q = (req.query ?? {}) as Record<string, string | undefined>;
+    const next = safeNext(q.next);
+    if (await signedIn(req)) return next !== "/" ? reply.redirect(next, 302) : webApp(reply);
+    // A failed sign-in's notice, shown once: clearing the cookie means a reload shows the plain page (AUTH-13).
+    const raw = req.cookies[NOTICE_COOKIE];
+    let failure: { category: SignInFailure; provider: Provider | null } | null = null;
+    if (raw) {
+      reply.clearCookie(NOTICE_COOKIE, cookieOptions());
+      const [category, provider] = raw.split(".");
+      const known = ["cancelled", "provider_unavailable", "expired", "not_allowed", "gitilizer_error"];
+      failure = {
+        category: (known.includes(category) ? category : "gitilizer_error") as SignInFailure,
+        provider: provider === "google" || provider === "github" ? provider : null,
+      };
+    }
+    const dev = q.dev === "google" || q.dev === "github" ? q.dev : null;
+    return reply.type("text/html; charset=utf-8").send(homePage({ methods, next, failure, dev }));
   });
 
-  app.setNotFoundHandler((req, reply) => {
-    // Any other page is a route in the app (PRD NAV-3), so it gets index.html; unknown API routes are 404s.
-    if (webDir && req.method === "GET" && !req.url.startsWith("/api/") && !/\.[a-z0-9]+$/i.test(req.url.split("?")[0])) {
-      return reply.header("cache-control", "no-cache").type("text/html").sendFile("index.html", webDir);
+  // There is no sign-in page (AUTH-4): its old address goes to the home page.
+  app.get("/sign-in", async (req, reply) => {
+    const next = safeNext(((req.query ?? {}) as Record<string, string | undefined>).next);
+    return reply.redirect(next !== "/" ? `/?next=${encodeURIComponent(next)}` : "/", 302);
+  });
+
+  app.setNotFoundHandler(async (req, reply) => {
+    // Any other page is a route in the app (PRD NAV-3), so it gets index.html, if the visitor is signed in. Anyone else
+    // goes to the home page, which brings them back after signing in (NAV-10). Unknown API routes are 404s.
+    if (req.method === "GET" && isAppPage(req.url)) {
+      if (!(await signedIn(req))) return reply.redirect(`/?next=${encodeURIComponent(safeNext(req.url))}`, 302);
+      if (webDir) return reply.type("text/html").sendFile("index.html", webDir);
     }
     return reply.code(404).send({ error: "not found" });
   });

@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-21 (no sign-in page: signing in starts from the home page, which shows failed sign-ins and remembers the address a signed-out visitor asked for; signing out and deleting the account go to the home page, `AUTH-4`, `AUTH-10`, `AUTH-15`, `HOME-2`, `HOME-3`, `NAV-3`, `NAV-10`, `ACCT-3`, `SET-17`, `FOOT-1`, `FOOT-2`, `BAR-3`, [Q-105](#q-105)); 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -174,8 +174,7 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 |---|---|---|
 | Home page | [Home](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=457-3750), and at 390 px: [Home · Narrow](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=457-3969); both use [Shared / Site header](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=457-3733), also on the privacy policy page, and [Home / Info block](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=457-3747) | [Home page](#home-page) |
 | Privacy policy | [Privacy policy · Layout sample](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=460-3815): the layout only; the text is [docs/privacy-policy.md](../docs/privacy-policy.md) | [Data and privacy](#data-and-privacy) |
-| Sign-in page | [Sign in](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2978) | [Sign-in](#sign-in) |
-| Sign-in page after a failed sign-in | [Sign in · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=304-1734), [Sign in · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=306-1355) | [Failed sign-in](#failed-sign-in) |
+| Home page after a failed sign-in | [Home · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-3827), [Home · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-4008) | [Failed sign-in](#failed-sign-in) |
 | Footer | [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-346) | [Footer](#footer) |
 | App bar | [Shared / App bar](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-323) | [App bar](#app-bar) |
 | Account menu | [Account menu · Open](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=286-1722) | [Account menu](#account-menu) |
@@ -237,7 +236,7 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 
 | # | Condition | Screen |
 |---|---|---|
-| 1 | Not signed in | The [home page](#home-page) at `/`, the privacy policy at `/docs/privacy` (`PRIV-6`), and [Sign-in](#sign-in) for every other URL. After signing in, the developer returns to the URL they asked for, or to `/` from the home page. |
+| 1 | Not signed in | The [home page](#home-page) at `/`, and the privacy policy at `/docs/privacy` (`PRIV-6`). Every other address goes to the home page, which remembers it, so that signing in returns there (`NAV-10`). |
 | 2 | Signed in, and the developer hasn't yet completed setup. Setup is complete once GitHub is connected (with the Gitilizer app or a PAT) and the developer has chosen how their items are ranked: with "Continue with basic ranking" or "Save and start" on Warm Welcome (`WEL-4`), or by saving Settings with "Basic ranking", or a ranking agent that has a key, chosen (`SET-38`) | [Warm Welcome](#warm-welcome) |
 | 3 | Signed in, anything else | The screen the developer navigated to. The default is the [Prioritized list](#prioritized-list). |
 
@@ -248,8 +247,13 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
 
 ### Routes
 
-- **NAV-3** The screens must have these URLs on `https://gitilizer.com`: `/` for the Prioritized list (and for the home page, `HOME-1`, when the visitor isn't signed in) and `/icebox` for the Icebox (each with `?page=N` for pages after the first, and with `?q=` and `?type=` while a search or type filter is in use, `LIST-40`), `/settings` (with `#connections`, `#additional-repositories`, `#excluded-repositories`, `#ranking-prompt`, `#collaborators` and `#account` for its sections), `/sign-in`, and `/docs/privacy` for the privacy policy (`PRIV-6`). Sort order is a stored preference, not part of the URL.
+- **NAV-3** The screens must have these URLs on `https://gitilizer.com`: `/` for the Prioritized list (and for the home page, `HOME-1`, when the visitor isn't signed in) and `/icebox` for the Icebox (each with `?page=N` for pages after the first, and with `?q=` and `?type=` while a search or type filter is in use, `LIST-40`), `/settings` (with `#connections`, `#additional-repositories`, `#excluded-repositories`, `#ranking-prompt`, `#collaborators` and `#account` for its sections), and `/docs/privacy` for the privacy policy (`PRIV-6`). There is no sign-in page: `/sign-in`, its address in earlier versions, goes to `/`. Sort order is a stored preference, not part of the URL.
 - **NAV-4** Moving between these screens must not reload the page.
+- **NAV-10** A visitor who isn't signed in and opens any address of the app
+  other than `/`, such as `/settings` or `/icebox?page=2`, must be sent to the
+  home page, which remembers that address, so that signing in returns to it
+  (`HOME-3`). The same happens when the session ends while a tab of the app is
+  open.
 
 ### Moving between screens
 
@@ -288,10 +292,11 @@ signing in, before it shows Gitilizer's name and logo on its sign-in screen
   - a header with the Gitilizer symbol and wordmark, and nothing else;
   - the headline "Less triage. More shipping.", the description "Gitilizer puts
     all of your open GitHub issues and pull requests in one list, ranked by how
-    much each one needs you right now.", the "Continue with Google" and
-    "Continue with GitHub" buttons from the sign-in page (`AUTH-2`), side by
-    side (stacked on narrow screens, `HOME-5`), and the static preview of the
-    list from the sign-in page (`AUTH-4`);
+    much each one needs you right now.", the notice of a failed sign-in, if
+    there is one (`AUTH-10`), the "Continue with Google" and "Continue with
+    GitHub" buttons (`AUTH-2`), side by side (stacked on narrow screens,
+    `HOME-5`), and a static preview of the list, whose rows look like the
+    Prioritized list's, with each row's next step chip (`LIST-42`);
   - "How it works", three short blocks:
 
     | Heading | Text |
@@ -311,17 +316,15 @@ signing in, before it shows Gitilizer's name and logo on its sign-in screen
 
   - the [footer](#footer).
 - **HOME-3** The home page's "Continue with Google" and "Continue with GitHub"
-  buttons must start signing in with that provider at once, as they do on the
-  sign-in page, without going through it. They are ordinary links, so they work
-  without JavaScript (`HOME-4`). After signing in, the developer goes to `/`,
-  which then shows Warm Welcome or the Prioritized list. A sign-in that fails
-  returns to the sign-in page with its notice, as from the sign-in page itself
-  (`AUTH-10`). A provider Gitilizer isn't set up for is shown disabled, as on
-  the sign-in page, except on a developer's computer where the development
-  sign-in stands in for it ([design doc](DESIGN.md)): there the button goes to
-  the sign-in page, which offers that form. The sign-in page stays, for failed
-  sign-ins and for every other address a visitor who isn't signed in opens
-  ([Which screen is shown](#which-screen-is-shown)).
+  buttons must start signing in with that provider at once. They are ordinary
+  links, so they work without JavaScript (`HOME-4`). After signing in, the
+  developer goes to the address the home page remembered (`NAV-10`), if any,
+  and otherwise to `/`, which then shows Warm Welcome or the Prioritized list.
+  A sign-in that fails returns to the home page with a notice (`AUTH-10`). A
+  provider Gitilizer isn't set up for is shown disabled, except on a
+  developer's computer, where the development sign-in stands in for it
+  ([design doc](DESIGN.md)): there its button opens the development sign-in
+  form on the home page.
 - **HOME-4** The home page and the privacy policy page (`PRIV-6`) must be
   complete in the HTML the server sends, with all their text and links, so
   they can be read without running JavaScript. Each must be served at its own
@@ -348,13 +351,14 @@ signing in, before it shows Gitilizer's name and logo on its sign-in screen
 
 ## Sign-in
 
-Figma: [Sign in](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2978)
+Figma: [Home](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=457-3750)
 
 - **AUTH-1** Every Gitilizer feature must require sign-in. Only the
   [home page](#home-page) and the privacy policy page (`PRIV-6`) don't.
 - **AUTH-2** The developer must be able to sign in with Google or with GitHub ("Continue with Google", "Continue with GitHub"). The design must allow more providers to be added later.
 - **AUTH-3** The first successful sign-in must create a Gitilizer account.
-- **AUTH-4** The sign-in page must show the product introduction (headline, description and a static preview of the list), the sign-in buttons, the "Sign in first. Connect your tools next." explanation and the [footer](#footer). It has no app bar. The Gitilizer symbol and wordmark link to the home page (`HOME-1`). The preview's rows look like the Prioritized list's, with each row's next step chip (`LIST-42`). The explanation describes setup as Warm Welcome does it (`WEL-2`): "You'll connect GitHub in one click, so that Gitilizer can read your issues and PRs (it can't change anything on GitHub). Then add a free Gemini API key for the best ranking, or skip it for now."
+- **AUTH-4** Signing in starts from the home page's buttons (`HOME-2`,
+  `HOME-3`). Gitilizer has no separate sign-in page ([Q-105](#q-105)).
 - **AUTH-5** Signing in with GitHub must not give Gitilizer access to the
   developer's items. Scanning always uses the developer's GitHub connection: the
   Gitilizer app, which the developer connects as a separate step on Warm Welcome
@@ -370,11 +374,11 @@ Google and GitHub don't limit the session. They only confirm who the developer i
 
 ### Failed sign-in
 
-Figma: [Sign in · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=304-1734), [Sign in · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=306-1355)
+Figma: [Home · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-3827), [Home · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-4008)
 
 Signing in uses full-page redirects, not a pop-up. "Continue with Google" or "Continue with GitHub" takes the browser to the provider's own pages, and the provider sends it back to Gitilizer with either a one-time code or an error. Gitilizer's server then finishes the sign-in. A failure is therefore found either by the provider, which sends back an error code (for example `access_denied` when the developer cancels), or by Gitilizer's server while it finishes the sign-in.
 
-- **AUTH-10** When a sign-in fails, Gitilizer must return the developer to the sign-in page with a message in a notice above the sign-in buttons, as in Figma. The message depends on what went wrong:
+- **AUTH-10** When a sign-in fails, Gitilizer must return the developer to the home page with a message in a notice above the sign-in buttons, as in Figma. The message depends on what went wrong:
 
   | Category | When | Message |
   |---|---|---|
@@ -384,7 +388,7 @@ Signing in uses full-page redirects, not a pop-up. "Continue with Google" or "Co
   | Not allowed | Only in the development environment: the account isn't on its allowlist (`NFR-12`) | "This is Gitilizer's development site, and only invited accounts can sign in. Ask the owner for access." |
   | Gitilizer error | Anything else, including problems on Gitilizer's side and unexpected provider errors | "Something went wrong on our side. Try again. If it keeps happening, report it using the GitHub link below." |
 
-- **AUTH-15** The "Cancelled" notice must be neutral (grey), because cancelling isn't an error. The other categories must use the same notice in red: the error color (#B74439) for the border and the text, on a light red background, as in [Sign in · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=306-1355).
+- **AUTH-15** The "Cancelled" notice must be neutral (grey), because cancelling isn't an error. The other categories must use the same notice in red: the error color (#B74439) for the border and the text, on a light red background, as in [Home · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-4008).
 - **AUTH-11** The message must not include the provider's own error description, which is written for programmers and often missing. The server must log the provider's error code and description, and any error of its own, for the owner (`NFR-6`).
 - **AUTH-12** The messages must not suggest signing in with the other provider, because that creates a separate, empty account (`AUTH-7`).
 - **AUTH-13** The notice must disappear when the developer reloads the page or starts another sign-in.
@@ -396,16 +400,16 @@ Signing in uses full-page redirects, not a pop-up. "Continue with Google" or "Co
 
 Figma: [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-346)
 
-- **FOOT-1** Every page, including the home page, the privacy policy page and
-  the sign-in page, must show the footer.
+- **FOOT-1** Every page, including the home page and the privacy policy page,
+  must show the footer.
 - **FOOT-2** The footer must show the tagline "Less triage. More shipping."
   and three links:
   - "Privacy": the privacy policy, `/docs/privacy` (`PRIV-6`);
   - "Documentation": the user documentation, hosted in the GitHub repository (`https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md`);
   - "GitHub": the project's GitHub page, [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer).
 
-  In the app and on the sign-in page, the links open in a new tab, so the
-  developer keeps their place. On the home page and the privacy policy page
+  In the app, the links open in a new tab, so the developer keeps their
+  place. On the home page and the privacy policy page
   they open in the same tab, as ordinary links on a website do.
 - **FOOT-3** The user documentation must exist at launch. At least, it must
   explain how connecting GitHub works: what the Gitilizer app can read, how to
@@ -449,7 +453,7 @@ Figma: [Shared / App bar](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gi
   privacy policy page, which is the same whether or not the developer is signed
   in (`PRIV-6`).
 - **BAR-2** The app bar must show, from left to right: the Gitilizer symbol and wordmark (a link to the Prioritized list, `NAV-7`), the [notification bell](#bell) and the [account menu](#account-menu) avatar.
-- **BAR-3** The browser tab must show the Gitilizer symbol (the blue square from the app bar) as the page's icon (favicon), on every page including the sign-in page.
+- **BAR-3** The browser tab must show the Gitilizer symbol (the blue square from the app bar) as the page's icon (favicon), on every page, including the home page and the privacy policy page.
 
 ---
 
@@ -459,7 +463,7 @@ Figma: [Account menu · Open](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaq
 
 - **ACCT-1** The avatar must be the image from the sign-in provider. If the provider has no image, show the developer's initials on a colored circle, as in Figma ("MC").
 - **ACCT-2** Clicking the avatar must open a menu showing the developer's full name and email, a "Settings" item and a "Sign out" item, each with its icon as in Figma. "Sign out" is shown in red.
-- **ACCT-3** "Settings" must open the [Settings](#settings) page. "Sign out" must end the session (`AUTH-9`) and show the sign-in page.
+- **ACCT-3** "Settings" must open the [Settings](#settings) page. "Sign out", here and in Settings (`SET-16`), must end the session (`AUTH-9`) and go to the home page.
 - **ACCT-4** The menu must close on a click outside it, on Esc and when an item is chosen, like the notification popover (`NOTIF-20`).
 - **ACCT-5** The action is called "Sign out" everywhere, in this menu and in Settings (`SET-16`), with no external-link arrow.
 
@@ -1476,7 +1480,7 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 ### Account
 
 - **SET-16** The account panel must show the developer's name, email, sign-in provider and a "Sign out" link (`ACCT-5`).
-- **SET-17** The developer must be able to delete their Gitilizer account from the Delete account panel in the left column, which says: "Deleting your account is permanent and cannot be reversed." Choosing "Delete account" must ask for confirmation with a simple dialog: "Delete your Gitilizer account? This can't be undone.", with "Cancel" and "Delete account". Deletion is immediate: it deletes all data about the developer from the live database (see [Data and privacy](#data-and-privacy)), ends all their sessions and shows the sign-in page. Copies remain in database backups for up to 6 months (`PRIV-4`).
+- **SET-17** The developer must be able to delete their Gitilizer account from the Delete account panel in the left column, which says: "Deleting your account is permanent and cannot be reversed." Choosing "Delete account" must ask for confirmation with a simple dialog: "Delete your Gitilizer account? This can't be undone.", with "Cancel" and "Delete account". Deletion is immediate: it deletes all data about the developer from the live database (see [Data and privacy](#data-and-privacy)), ends all their sessions and goes to the home page. Copies remain in database backups for up to 6 months (`PRIV-4`).
 
 ### Preferences
 
@@ -1843,7 +1847,8 @@ the ranking agent's API key optional; Q-98 and Q-99 came from adding search,
 the type filter and the first keyboard shortcut; Q-100 came from showing each
 item's next step; Q-101 came from Sync now while GitHub can't be read; Q-102
 came from opening the rank reasoning popup from the next step chip; Q-104
-came from Google's review of the sign-in screen's branding.
+came from Google's review of the sign-in screen's branding; Q-105 came from
+removing the sign-in page.
 
 ### Answered questions
 
@@ -1953,6 +1958,7 @@ came from Google's review of the sign-in screen's branding.
 | <a id="q-102"></a>Q-102 | Making it clear that the rank reasoning popup can be opened | The next step chip opens it, and the rank no longer does. The clickable rank wasn't obvious: it looked like the plain numbers around it. The chip already looks like something to press, and the popup's first part, the next action, is about the chip's next step. Only a chip with a popup to show gets a caret, so the caret also says which items have reasoning. The popup leads with the next action, in a panel tinted to match the chip, then "Why rank #{n}?" and the reasoning, then a link to the item on GitHub, so the developer can act from the popup. The panel's text is a darker shade of the chip's color rather than the color itself, because some chip colors don't reach 4.5:1 on their own tint (Backlog's yellow is about 2.8:1); every label and text color in the panels reaches at least 4.5:1, and most 7:1. Considered and not chosen: styling the rank as a button, an info icon after the rank, a "Why?" link shown when the pointer is over the row, and a hint in the line above the list; for the popup, 17 other layouts, including the next action and reasoning as tabs, the reasoning collapsed, a header in the chip's color, and the next action in a subtler tint or an outline. | `LIST-24`, `LIST-42` |
 | <a id="q-103"></a>Q-103 | Changing a repository's prioritization prompt | In place: the prompt's text opens as a field when clicked, and a repository without a prompt has "Add prioritization prompt" in its place. The add form no longer has a prompt field, so there is one way to give a repository a prompt. A changed prompt applies to every item with "Save and re-rank", and to items ranked from then on with "Save changes". Until now a prompt couldn't be changed: the developer removed the repository and added it again, and a repository added without a prompt could never get one. An "Edit" button beside "Remove", a field that is always open and a dialog were also considered. Editing the text keeps the section as quiet as it is, and the hover tint and pencil make the text look clickable, which plain text doesn't ([Q-102](#q-102)). | `SET-7`, `SET-9` |
 | <a id="q-104"></a>Q-104 | A home page and privacy policy that Google accepts | A public home page at `/` and a privacy policy page at `/docs/privacy`, both on gitilizer.com and complete without JavaScript. Google refused to show Gitilizer's logo on its sign-in screen for three reasons: `/docs/privacy` redirected to the user guide on GitHub, whose Privacy section doesn't cover everything Google asks for; gitilizer.com showed only the sign-in page; and that page is drawn by JavaScript, so Google's checker saw an empty page. A separate `/about` page, with `/` staying the sign-in page, was considered: it is smaller, but every visitor to gitilizer.com would still land on sign-in. The policy names Brian Quinlan as the operator, with brian@sweetapp.com as the contact. | `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `FOOT-2` |
+| <a id="q-105"></a>Q-105 | Whether to keep a sign-in page | No. Signing in starts from the home page's buttons, failed sign-ins show their notice there, and a signed-out visitor at any other address is sent to the home page, which brings them back after signing in. Signing out and deleting the account go to the home page too. With a home page that already had both buttons, the sign-in page was a second, nearly identical page for signed-out visitors, kept only for failure notices, returning to a deep link and the development sign-in. | `AUTH-4`, `AUTH-10`, `HOME-3`, `NAV-10`, `ACCT-3`, `SET-17` |
 
 ---
 
@@ -2799,3 +2805,20 @@ on the same site that covers what Google asks for ([Q-104](#q-104)):
   [Privacy policy](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=460-3815),
   and the "Privacy" link in
   [Shared / Footer](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-346).
+
+### Fifty-second revision (2026-11-21, no sign-in page)
+
+The home page already had both sign-in buttons, so the sign-in page was a
+second, nearly identical page for signed-out visitors ([Q-105](#q-105)):
+
+- Signing in starts only from the home page (`AUTH-4`, `HOME-3`). A failed
+  sign-in returns there, with its notice above the buttons (`AUTH-10`,
+  `AUTH-15`, `HOME-2`).
+- A visitor who isn't signed in and opens another address, or whose session
+  ends with a tab open, goes to the home page, which brings them back to that
+  address after signing in (`NAV-10`). `/sign-in` goes to `/` (`NAV-3`).
+- Signing out and deleting the account go to the home page (`ACCT-3`,
+  `SET-17`).
+- Changed Figma: [Home · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-3827) and
+  [Home · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-4008) replace the sign-in page's frames, which
+  are gone.

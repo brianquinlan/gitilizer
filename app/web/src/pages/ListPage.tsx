@@ -323,7 +323,7 @@ function Rows(props: {
 /**
  * The item's next step as a chip (LIST-42). Its text says which it is, so nothing depends on its color.
  * With `onToggle`, a button that opens the rank reasoning popup (LIST-24): a caret, and `aria-expanded` while it is open.
- * Without, a label: basic ranking, no stored reasoning, the sign-in preview.
+ * Without, a label: basic ranking, or no stored reasoning.
  */
 export function NextStepChip({ step, rank, open = false, onToggle, buttonRef }: {
   step: NextStep; rank?: number; open?: boolean; onToggle?: () => void; buttonRef?: (el: HTMLButtonElement | null) => void;

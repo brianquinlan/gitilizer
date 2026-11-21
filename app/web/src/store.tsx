@@ -45,8 +45,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSync(m.sync);
       setSignedOut(false);
     } catch (e) {
-      // Taken off the development site's allowlist: show why on the sign-in page (AUTH-10).
-      if (e instanceof ApiError && e.status === 401 && e.message === "not_allowed") location.replace("/sign-in?error=not_allowed");
+      // Taken off the development site's allowlist: the home page says why (AUTH-10), from the cookie the server set.
+      if (e instanceof ApiError && e.status === 401 && e.message === "not_allowed") location.replace("/");
       else if (e instanceof ApiError && e.status === 401) setSignedOut(true);
       else throw e;
     }
