@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2026-11-20. **Done.** All phases are complete: `gitilizer.com` is served by `gitilizer-api` on Google Cloud, with monitoring, alerts and a budget, and passed the launch checks (Phase 9) after `release-2026-11-20`. Waiting on Google: the review of the sign-in screen's branding (the logo), resubmitted on 2026-11-20. |
+| **Status** | 2026-11-20. **Done.** All phases are complete: `gitilizer.com` is served by `gitilizer-api` on Google Cloud, with monitoring, alerts and a budget, and passed the launch checks (Phase 9) after `release-2026-11-20`. Google verified the sign-in screen's branding (name and logo) on 2026-11-20. |
 | **Goal** | `dev.gitilizer.com` and `gitilizer.com` running on Google Cloud as [DESIGN.md](DESIGN.md#hosting-on-google-cloud) and [DEPLOYMENT.md](DEPLOYMENT.md) describe, with the old configuration in the `gitilizer` project removed first. |
 | **Region** | `us-east4` ([D-3](DESIGN.md#d-3)) |
 
@@ -246,7 +246,7 @@ Start this early: the certificate needs a DNS record at GoDaddy, and issuing it 
 
 ## Phase 5: sign-in apps
 
-**Done** (you, 2026-11-02), except the logo. The client secrets are in Secret Manager, each readable only by its environment's service account; they were briefly in this file and never committed. The client IDs aren't secret:
+**Done** (you, 2026-11-02; the logo and Google's verification of the branding, 2026-11-20). The client secrets are in Secret Manager, each readable only by its environment's service account; they were briefly in this file and never committed. The client IDs aren't secret:
 
 | | Google client ID | GitHub OAuth app client ID | Secrets |
 |---|---|---|---|
@@ -254,7 +254,7 @@ Start this early: the certificate needs a DNS record at GoDaddy, and issuing it 
 | Development | `414241858841-cdlbk8ut6f4acf5ff8gt0r0vt8jng230.apps.googleusercontent.com` | `Ov23li4RXtmFzE7VGfjD` | `dev-google-client-secret`, `dev-github-client-secret` |
 
 - **Home page and privacy policy URLs:** `https://gitilizer.com` and `https://gitilizer.com/docs/privacy`. Since `release-2026-11-20`, both are pages the server sends as finished HTML, readable without signing in or JavaScript, and the policy's text is `docs/privacy-policy.md` (PRs #59 and #60). Before that, `/docs/privacy` redirected to the user guide on GitHub and `gitilizer.com` showed only the sign-in page, so Google's first branding review refused them.
-- **Logo:** `app/web/public/brand/gitilizer-logo-120.png` (120 × 120 PNG, the Gitilizer symbol), uploaded under Google Auth Platform → Branding → App logo. Branding resubmitted for verification on 2026-11-20; Google's review can take a few days, and sign-in keeps working meanwhile.
+- **Logo:** `app/web/public/brand/gitilizer-logo-120.png` (120 × 120 PNG, the Gitilizer symbol), uploaded under Google Auth Platform → Branding → App logo. Branding resubmitted for verification on 2026-11-20, and verified by Google the same day.
 
 The steps, for reference:
 
@@ -400,7 +400,7 @@ Before telling anyone about `gitilizer.com`:
     give them to the services; then `infra/monitoring.sh` again, for the
     ranking-volume charts and the key alert
     ([DEPLOYMENT.md](DEPLOYMENT.md#the-basic-ranking-key)).
-17. Wait for Google's branding review (5.3); nothing to do unless it asks for changes.
+17. ~~Wait for Google's branding review (5.3).~~ Verified, 2026-11-20.
 
 ---
 
