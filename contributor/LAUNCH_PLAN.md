@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2026-11-06. Phases 1 to 8 done: `gitilizer.com` is served by `gitilizer-api` on Google Cloud, released once through the Release workflow and rolled back and forward once, with monitoring, alerts and a budget. Phase 9: only Google sign-in on `gitilizer.com` is left. |
+| **Status** | 2026-11-20. **Done.** All phases are complete: `gitilizer.com` is served by `gitilizer-api` on Google Cloud, with monitoring, alerts and a budget, and passed the launch checks (Phase 9) after `release-2026-11-20`. Waiting on Google: the review of the sign-in screen's branding (the logo), resubmitted on 2026-11-20. |
 | **Goal** | `dev.gitilizer.com` and `gitilizer.com` running on Google Cloud as [DESIGN.md](DESIGN.md#hosting-on-google-cloud) and [DEPLOYMENT.md](DEPLOYMENT.md) describe, with the old configuration in the `gitilizer` project removed first. |
 | **Region** | `us-east4` ([D-3](DESIGN.md#d-3)) |
 
@@ -253,8 +253,8 @@ Start this early: the certificate needs a DNS record at GoDaddy, and issuing it 
 | Production | `414241858841-f5lds4k46l1mp7p8fcj1m1rldujp2bhh.apps.googleusercontent.com` | `Ov23liIiw0R6mUml6Xih` | `prod-google-client-secret`, `prod-github-client-secret` |
 | Development | `414241858841-cdlbk8ut6f4acf5ff8gt0r0vt8jng230.apps.googleusercontent.com` | `Ov23li4RXtmFzE7VGfjD` | `dev-google-client-secret`, `dev-github-client-secret` |
 
-- **Privacy policy URL:** `https://gitilizer.com/docs/privacy`, a page the server sends from `docs/privacy-policy.md` (`/docs` goes to the user guide). It replaced a redirect to the user guide's Privacy section, which Google's branding review refused, as it did a home page that was only the sign-in page. It works once `gitilizer.com` points at Google (7.4); until then the link on Google's consent screen goes to GoDaddy's page.
-- **Logo, later:** upload `app/web/public/brand/gitilizer-logo-120.png` (120 × 120 PNG, the Gitilizer symbol) under Google Auth Platform → Branding → App logo. Google then reviews the branding, which can take a few days; sign-in keeps working meanwhile.
+- **Home page and privacy policy URLs:** `https://gitilizer.com` and `https://gitilizer.com/docs/privacy`. Since `release-2026-11-20`, both are pages the server sends as finished HTML, readable without signing in or JavaScript, and the policy's text is `docs/privacy-policy.md` (PRs #59 and #60). Before that, `/docs/privacy` redirected to the user guide on GitHub and `gitilizer.com` showed only the sign-in page, so Google's first branding review refused them.
+- **Logo:** `app/web/public/brand/gitilizer-logo-120.png` (120 × 120 PNG, the Gitilizer symbol), uploaded under Google Auth Platform → Branding → App logo. Branding resubmitted for verification on 2026-11-20; Google's review can take a few days, and sign-in keeps working meanwhile.
 
 The steps, for reference:
 
@@ -365,14 +365,15 @@ add a second channel.
 
 Before telling anyone about `gitilizer.com`:
 
-- [ ] Everything in the 6.7 checklist, repeated on `gitilizer.com` (except the allowlist, which production doesn't have). (2026-11-06: GitHub sign-in, the first sync with all 390 items ranked by `gemini-3.8-flash` and no failed jobs, live updates in a second tab, `POST /api/auth/dev` 404, `__Host-` cookies, `www` and `http://` redirects, the `*.run.app` address refused, and 1,169 log entries with no tokens, keys or emails. Still to do: Google sign-in.)
+- [x] Everything in the 6.7 checklist, repeated on `gitilizer.com` (except the allowlist, which production doesn't have). (2026-11-06: GitHub sign-in, the first sync with all 390 items ranked by `gemini-3.8-flash` and no failed jobs, live updates in a second tab, `POST /api/auth/dev` 404, `__Host-` cookies, `www` and `http://` redirects, the `*.run.app` address refused, and 1,169 log entries with no tokens, keys or emails. 2026-11-20: Google sign-in, from the new home page, after `release-2026-11-20`.)
+- [x] The home page and the privacy policy work without signing in, as Google's branding review requires. (2026-11-20, checked from outside after `release-2026-11-20`: `/` is the home page, `/docs/privacy` the policy, `/sign-in` and app pages such as `/settings` redirect to the home page, and fonts come from `gitilizer.com`, not Google Fonts.)
 - [x] Production and development data are separate: an account on one doesn't exist on the other. (2026-11-06: production has 1 account and development 2, with no ID in common.)
 - [x] `run-dev` can't read any `prod-*` secret: `gcloud secrets get-iam-policy prod-credential-key` lists only `run-prod`.
 - [x] No service account holds Owner or Editor: `gcloud projects get-iam-policy gitilizer`.
 - [x] Backups run, and a restore works: `gcloud sql instances clone gitilizer-pg gitilizer-restore-test --point-in-time=...`, check the data, delete the clone. (2026-11-06: daily backups since 11-03; a clone at 17:50 UTC took about 9 minutes and had the same users and scans as the source up to that time, in both databases; then deleted.)
 - [x] The uptime alert fires: briefly change the check's path to one that returns 404, confirm the email, change it back. (2026-11-06: path changed at 17:55 UTC; every location failed by 18:00, and "gitilizer.com is down" opened at 18:00:27, and the email arrived.)
 - [x] A release and a rollback have each been done once (7.5).
-- [x] The privacy section and the user guide are reachable from the footer.
+- [x] The privacy policy and the user guide are reachable from the footer.
 
 ---
 
@@ -392,13 +393,14 @@ Before telling anyone about `gitilizer.com`:
 12. ~~Lower the TTLs a day ahead (0.5), then the cutover at GoDaddy (7.4).~~ Done. Raise the `@` TTLs to 1 hour on 2026-11-07.
 13. ~~First release and a practice rollback (7.5).~~ Done.
 14. ~~Budget and `monitoring.sh` (8.1, 8.2).~~ Done.
-15. Launch checks (Phase 9).
+15. ~~Launch checks (Phase 9).~~ Done, 2026-11-20.
 16. Before the first release that has basic ranking: create Gitilizer's own
     Gemini API keys, on a paid tier, and store them with
     `infra/basic-ranking-secret.sh`; run `infra/services.sh dev` and `prod` to
     give them to the services; then `infra/monitoring.sh` again, for the
     ranking-volume charts and the key alert
     ([DEPLOYMENT.md](DEPLOYMENT.md#the-basic-ranking-key)).
+17. Wait for Google's branding review (5.3); nothing to do unless it asks for changes.
 
 ---
 
