@@ -137,21 +137,21 @@ describe("row indicators (LIVE-18, LIVE-22)", () => {
     text: animate.mock.calls.filter(([frames]) => frames.length === 2 && frames[1].opacity === 0).map(([, t]) => t),
   });
 
-  it("show the change, and fade it and the highlight over 2.5 s with ease-in once the row is in place", () => {
+  it("show the change at full strength for 10 s, then fade it and the highlight over 2.5 s with ease-in", () => {
     show(1, 1);
     expect(host.querySelector(".indicator")?.textContent).toBe("↑2");
     const { highlight, text } = fades();
-    expect(highlight).toEqual([expect.objectContaining({ duration: 2500, delay: 700, easing: "ease-in" })]);
-    expect(text).toEqual([expect.objectContaining({ duration: 2500, delay: 700, easing: "ease-in" })]);
+    expect(highlight).toEqual([expect.objectContaining({ duration: 2500, delay: 10_000, easing: "ease-in" })]);
+    expect(text).toEqual([expect.objectContaining({ duration: 2500, delay: 10_000, easing: "ease-in" })]);
   });
 
-  it("with reduced motion, still fade, starting after the 150 ms cross-fade", () => {
+  it("with reduced motion, still hold and fade", () => {
     window.matchMedia = ((q: string) => ({ matches: true, media: q, addEventListener: () => {}, removeEventListener: () => {} })) as never;
     show(1, 1);
     expect(host.querySelector(".table")?.classList.contains("reduced")).toBe(true);
     const { highlight, text } = fades();
-    expect(highlight.map((t) => t.delay)).toEqual([150]);
-    expect(text.map((t) => t.delay)).toEqual([150]);
+    expect(highlight.map((t) => t.delay)).toEqual([10_000]);
+    expect(text.map((t) => t.delay)).toEqual([10_000]);
   });
 
   it("restart for a new change to the row, but not for another row's update", () => {
@@ -164,9 +164,24 @@ describe("row indicators (LIVE-18, LIVE-22)", () => {
     expect(fades().text).toHaveLength(2);
   });
 
+  it("pause while the tab is hidden", () => {
+    const anim = { pause: vi.fn(), play: vi.fn(), cancel: vi.fn(), playState: "running" };
+    animate.mockReturnValue(anim);
+    show(1, 1);
+    const setHidden = (hidden: boolean) => {
+      Object.defineProperty(document, "hidden", { value: hidden, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+    setHidden(true);
+    expect(anim.pause).toHaveBeenCalledTimes(2); // the highlight and the indicator
+    setHidden(false);
+    expect(anim.play).toHaveBeenCalledTimes(2);
+    delete (document as { hidden?: boolean }).hidden;
+  });
+
   it("pick up part-way through on a row that comes into view later", () => {
     show(1, 0, NOW - 1000); // changed 1 s ago, on another page; no step plays here
-    expect(fades().highlight.map((t) => t.delay)).toEqual([-300]);
-    expect(fades().text.map((t) => t.delay)).toEqual([-300]);
+    expect(fades().highlight.map((t) => t.delay)).toEqual([9_000]);
+    expect(fades().text.map((t) => t.delay)).toEqual([9_000]);
   });
 });

@@ -23,6 +23,16 @@ describe("live update engine", () => {
     expect(r.indicators).toEqual({ "o/r#3": "↑2" }); // only the moved item gets an indicator (LIVE-18)
   });
 
+  it("gives no indicator to an item that only moved because another passed it in the same step (LIVE-18)", () => {
+    let s = init([row(1, 0.9), row(2, 0.5), row(3, 0.1)], 1);
+    // #2 has new activity but hasn't been ranked again; #3 has, and jumps to the top.
+    s = receive(s, { version: 2, bulk: false, upserts: [row(2, 0.5, { updatedAt: "2026-11-20T00:00:00Z" }), row(3, 0.95)], removals: [] });
+    const r = apply(s, s.queue);
+    expect(ordered(r.state)).toEqual([3, 1, 2]);
+    expect(r.indicators).toEqual({ "o/r#3": "↑2" });
+    expect(r.changed).toBe(1);
+  });
+
   it("marks new items 'New' and hides unranked ones (LIST-30)", () => {
     let s = init([row(1, 0.9)], 1);
     s = receive(s, { version: 2, bulk: false, upserts: [row(5, null)], removals: [] });

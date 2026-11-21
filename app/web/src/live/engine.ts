@@ -165,6 +165,10 @@ export function apply(s: Live, batch: Change[]): Applied {
     const a = after[c.key];
     const b = before[c.key];
     if (a === undefined) continue;
+    // Only an item that moved itself gets an indicator (LIVE-18). One whose rank changed only because another item
+    // in the same step passed it doesn't, such as an item with new activity that hasn't been ranked again yet.
+    const prev = s.shown[c.key];
+    if (b !== undefined && prev && prev.score === c.row.score && prev.rankFailed === c.row.rankFailed) continue;
     if (b === undefined) { indicators[c.key] = "New"; changed++; }
     else if (a < b) { indicators[c.key] = `↑${b - a}`; changed++; }
     else if (a > b) { indicators[c.key] = `↓${a - b}`; changed++; }

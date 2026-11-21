@@ -9,6 +9,7 @@ import { BoxIcon, ChevronDown, ChevronLeft, ChevronRight, DownToLineIcon, Extern
 import { clampPage, PAGE_SIZE, pageCount, ranks, rowsFor, sortRows, type Row, type View } from "../live/engine.ts";
 import { countText, isFiltering, listUrl, matches, NO_FILTER, parseFilter, words, type Filter, type TypeFilter } from "../live/filter.ts";
 import { fadeDelay, FADE_MS, MOVE_MS, REDUCED_MS, type Indicators } from "../live/indicators.ts";
+import { visibleNow } from "../live/visibleClock.ts";
 import { useLive } from "../live/useLive.ts";
 import { useSyncProgress } from "../live/useSyncProgress.ts";
 import { Link, navigate, useRoute } from "../router.tsx";
@@ -189,9 +190,20 @@ function Rows(props: {
   const els = useRef(new Map<string, HTMLDivElement>());
   const tops = useRef(new Map<string, number>());
   const lastStep = useRef(step);
-  // The indicator each row and indicator element has started fading; a remounted element (after changing page,
-  // search or filter) starts again, part-way through (LIVE-18).
-  const faded = useRef(new WeakMap<Element, number>());
+  // The fade each row and indicator element is running, by indicator. A remounted element (after changing page,
+  // search or filter) starts again, part-way through; a new change to the row replaces it (LIVE-18).
+  const fades = useRef(new Map<Element, { seq: number; anim: Animation | undefined }>());
+  // The hold and fade only count time the tab is visible, like the indicators themselves (visibleClock.ts).
+  useEffect(() => {
+    const onVisibility = () => {
+      for (const { anim } of fades.current.values()) {
+        if (!anim || anim.playState === "finished") continue;
+        if (document.hidden) anim.pause(); else anim.play();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
   // The rank reasoning popup (Figma "Issue inbox · Rank reasoning"), opened by the row's next step chip (LIST-24, LIST-42).
   // A second click on the chip, Escape or a click elsewhere closes it.
   const [why, setWhy] = useState<string | null>(null);
@@ -232,23 +244,25 @@ function Rows(props: {
         else if (prev === undefined) el.animate([{ opacity: 0, transform: "scaleY(.6)" }, { opacity: 1, transform: "none" }], { duration: MOVE_MS, easing: "ease-out" });
         else if (prev !== top) el.animate([{ transform: `translateY(${prev - top}px)` }, { transform: "none" }], { duration: MOVE_MS, easing: "ease-in-out" });
       }
-      // LIVE-18, LIVE-22: the indicator and the row's highlight start at full strength and fade out over 2.5 s once
-      // the row is in place, slowly at first (ease-in). Reduced motion keeps the fade: nothing moves.
+      // LIVE-18, LIVE-22: the indicator and the row's highlight stay at full strength for 10 s, then fade out over
+      // 2.5 s, slowly at first (ease-in). Reduced motion keeps them: nothing moves.
       const ind = indicators[key];
       if (ind) {
-        const timing = { duration: FADE_MS, delay: fadeDelay(ind, Date.now(), reduced), easing: "ease-in" };
-        if (faded.current.get(el) !== ind.seq) {
-          faded.current.set(el, ind.seq);
-          const highlight = getComputedStyle(el).getPropertyValue("--highlight");
-          el.animate([{ backgroundColor: highlight, offset: 0 }], { ...timing, fill: "backwards" });
-        }
+        const timing = { duration: FADE_MS, delay: fadeDelay(ind, visibleNow()), easing: "ease-in" };
+        const fade = (target: Element, frames: Keyframe[], fill: FillMode) => {
+          const old = fades.current.get(target);
+          if (old?.seq === ind.seq) return;
+          old?.anim?.cancel();
+          const anim = target.animate(frames, { ...timing, fill });
+          if (anim && document.hidden) anim.pause();
+          fades.current.set(target, { seq: ind.seq, anim });
+        };
+        fade(el, [{ backgroundColor: getComputedStyle(el).getPropertyValue("--highlight"), offset: 0 }], "backwards");
         const text = el.querySelector(".indicator");
-        if (text && faded.current.get(text) !== ind.seq) {
-          faded.current.set(text, ind.seq);
-          text.animate([{ opacity: 1 }, { opacity: 0 }], { ...timing, fill: "both" });
-        }
+        if (text) fade(text, [{ opacity: 1 }, { opacity: 0 }], "both");
       }
     }
+    for (const target of fades.current.keys()) if (!target.isConnected) fades.current.delete(target);
     tops.current = new Map([...els.current].map(([k, el]) => [k, el.offsetTop]));
   });
 

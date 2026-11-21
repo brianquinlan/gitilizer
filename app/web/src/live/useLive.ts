@@ -4,7 +4,8 @@ import type { ItemRow, ListResponse } from "@gitilizer/shared";
 import { api } from "../api.ts";
 import { useStore } from "../store.tsx";
 import { apply, finalize, init, nextBatch, own, receive, type Change, type Live, type View } from "./engine.ts";
-import { addIndicators, clearIndicators, INDICATOR_MS, MOVE_MS, type Indicators } from "./indicators.ts";
+import { addIndicators, expireIndicators, MOVE_MS, type Indicators } from "./indicators.ts";
+import { visibleNow } from "./visibleClock.ts";
 
 const HOLD_AFTER_MS = 1000; // LIVE-4, LIVE-5
 const STEP_MS = MOVE_MS; // "Each animation takes about 0.7 seconds" (LIVE-11..16)
@@ -50,6 +51,9 @@ export function useLive(view: View) {
 
   useEffect(() => {
     const t = setInterval(() => {
+      // Indicators run out on the visible clock, so not while the tab is hidden (LIVE-18).
+      const expired = expireIndicators(indicatorsRef.current, visibleNow());
+      if (expired !== indicatorsRef.current) { indicatorsRef.current = expired; setIndicators(expired); }
       const s = ref.current;
       if (!s || !s.queue.length) return;
       const now = Date.now();
@@ -72,12 +76,10 @@ export function useLive(view: View) {
       setStep((n) => n + 1);
       busyUntil.current = now + STEP_MS;
       if (Object.keys(r.indicators).length) {
-        const { next, added, seq } = addIndicators(indicatorsRef.current, r.indicators, indicatorSeq.current, now);
+        const { next, seq } = addIndicators(indicatorsRef.current, r.indicators, indicatorSeq.current, visibleNow());
         indicatorSeq.current = seq;
         indicatorsRef.current = next;
         setIndicators(next);
-        // Only clears indicators that a later change to the same row hasn't replaced (LIVE-18).
-        setTimeout(() => { indicatorsRef.current = clearIndicators(indicatorsRef.current, added); setIndicators(indicatorsRef.current); }, INDICATOR_MS);
       }
       if (r.leaving.length) leave(r.leaving);
       // One announcement per group of updates; none for a bulk re-rank's silent reorder.
