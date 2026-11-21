@@ -96,7 +96,7 @@ After that:
 - **Sync now** (above the list) looks for new and changed issues and PRs and ranks them. In local mode this is the only way the list is refreshed, unless you turn on scheduled scans (below).
 - **Settings → Save and re-rank** saves your settings and ranks every item again, for example after you change the ranking prompt. In real mode this uses one Gemini request per item.
 - **Settings → Save changes** saves without re-ranking.
-- **Sign out** takes you to the sign-in page. Choose either sign-in button and then **Sign in**: you're back in as the same local account, whatever name you type.
+- **Sign out** takes you to `/`, which in local mode is the app again: local mode signs you straight back in as the same local account.
 
 Fixture mode has a few extra tricks for testing live updates: see the `/api/dev/...` routes in the [design doc](DESIGN.md#http-api).
 

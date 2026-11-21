@@ -2,7 +2,8 @@
 //
 //   GET /api/auth/{google|github}/start?next=/path   redirects to the provider
 //   GET /api/auth/{google|github}/callback           finishes, then redirects to `next`,
-//                                                    or to /sign-in?error={category}&provider=...
+//                                                    or, on failure, to the home page, with the category
+//                                                    in a cookie that it shows once (AUTH-10)
 //
 // Both use the authorization code flow with PKCE and a `state` value. The state, the PKCE verifier and
 // (for Google) the nonce are kept in `oauth_states` for 10 minutes, and the state is also put in a cookie,
@@ -16,7 +17,7 @@ import { completeSignIn, type SignInProfile } from "./signin.ts";
 
 export type Provider = "google" | "github";
 export const PROVIDERS: Provider[] = ["google", "github"];
-/** The categories the sign-in page shows (AUTH-10 to AUTH-14). */
+/** The categories the home page's notice shows (AUTH-10 to AUTH-14). */
 export type SignInFailure = "cancelled" | "provider_unavailable" | "expired" | "not_allowed" | "gitilizer_error";
 
 const STATE_SECONDS = 600;
@@ -33,13 +34,19 @@ const GITHUB = {
   api: "https://api.github.com",
 };
 
-/** A failure sorted into the category the sign-in page shows. `detail` goes to the log, never to the page. */
+/** A failure sorted into the category the home page shows. `detail` goes to the log, never to the page. */
 export class SignInError extends Error {
   constructor(public category: SignInFailure, public detail: Record<string, unknown> = {}) { super(category); }
 }
 
 const b64url = (b: Buffer) => b.toString("base64url");
 export const pkceChallenge = (verifier: string) => b64url(createHash("sha256").update(verifier).digest());
+
+/** The home page, remembering where the developer was going (NAV-10), if anywhere but `/`. */
+export function homeWithNext(next: unknown): string {
+  const n = safeNext(next);
+  return n === "/" ? "/" : `/?next=${encodeURIComponent(n)}`;
+}
 
 /** Where to go after signing in: a path on this site, never another site (`//evil.example` or `/\evil`). */
 export function safeNext(next: unknown): string {
@@ -184,25 +191,23 @@ type Helpers = {
   startSession(reply: FastifyReply, userId: string): Promise<string>;
   cookieName(base: string): string;
   cookieOptions(maxAgeSeconds?: number): Record<string, unknown>;
+  /** Leaves a failed sign-in's category for the home page to show once (AUTH-10, AUTH-13). */
+  setNotice(reply: FastifyReply, category: SignInFailure, provider: string | null): void;
 };
 
 const OAUTH_COOKIE = "gitilizer_oauth";
 
-/** Registers /api/auth/config and, for each configured provider, its start and callback routes. */
+/** Registers each configured provider's start and callback routes. */
 export function registerSignIn(app: FastifyInstance, ctx: Ctx, h: Helpers) {
   const db = ctx.db;
   const cookie = h.cookieName(OAUTH_COOKIE);
 
-  // What the sign-in page offers. Public: it is read before anyone has signed in.
-  app.get("/api/auth/config", async () => ({
-    providers: { google: Boolean(ctx.config.oauth.google), github: Boolean(ctx.config.oauth.github) },
-    devSignIn: ctx.config.devSignIn,
-  }));
-
   for (const provider of PROVIDERS) {
-    const failed = (reply: FastifyReply, category: SignInFailure) => {
+    /** Back to the home page with the notice, keeping where the developer was going, so a retry goes there (NAV-10). */
+    const failed = (reply: FastifyReply, category: SignInFailure, next?: string | null) => {
       reply.clearCookie(cookie, h.cookieOptions());
-      return reply.redirect(`/sign-in?error=${category}&provider=${provider}`, 302);
+      h.setNotice(reply, category, provider);
+      return reply.redirect(homeWithNext(next), 302);
     };
 
     app.get(`/api/auth/${provider}/start`, async (req, reply) => {
@@ -231,8 +236,8 @@ export function registerSignIn(app: FastifyInstance, ctx: Ctx, h: Helpers) {
         log[category === "cancelled" ? "info" : "warn"]("auth", "sign-in failed at the provider", {
           provider, category, error: q.error, description: q.error_description, uri: q.error_uri,
         });
-        if (q.state) await db.query(`delete from oauth_states where state = $1`, [q.state]);
-        return failed(reply, category);
+        const gone = q.state ? await db.one(`delete from oauth_states where state = $1 returning next`, [q.state]) : undefined;
+        return failed(reply, category, gone?.next);
       }
 
       // The state must be one we issued, to this browser, in the last 10 minutes, for this provider. It is used once.
@@ -247,7 +252,7 @@ export function registerSignIn(app: FastifyInstance, ctx: Ctx, h: Helpers) {
         log.info("auth", "sign-in expired", {
           provider, problem: !q.code ? "no code" : !row ? "unknown state" : !row.fresh ? "old state" : row.provider !== provider ? "other provider" : "cookie missing or different",
         });
-        return failed(reply, "expired");
+        return failed(reply, "expired", row?.next);
       }
 
       let profile: SignInProfile;
@@ -258,7 +263,7 @@ export function registerSignIn(app: FastifyInstance, ctx: Ctx, h: Helpers) {
       } catch (e) {
         const err = e instanceof SignInError ? e : new SignInError("gitilizer_error", { error: String((e as Error)?.stack ?? e) });
         log.warn("auth", "sign-in failed", { provider, category: err.category, ...err.detail });
-        return failed(reply, err.category);
+        return failed(reply, err.category, row.next);
       }
 
       let userId: string | null;
@@ -266,9 +271,9 @@ export function registerSignIn(app: FastifyInstance, ctx: Ctx, h: Helpers) {
         userId = await completeSignIn(ctx, profile);
       } catch (e) {
         log.error("auth", "sign-in failed", { provider, category: "gitilizer_error", error: String((e as Error)?.stack ?? e) });
-        return failed(reply, "gitilizer_error");
+        return failed(reply, "gitilizer_error", row.next);
       }
-      if (!userId) return failed(reply, "not_allowed");
+      if (!userId) return failed(reply, "not_allowed", row.next);
       await h.startSession(reply, userId);
       reply.clearCookie(cookie, h.cookieOptions());
       log.info("auth", "signed in", { provider, user: userId });

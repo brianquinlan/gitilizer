@@ -171,7 +171,7 @@ export function SettingsPage() {
             <span className="small">{me.user.email}</span>
             <span className="small">{me.user.provider === "github" ? <GitHubIcon size={12} /> : null} Signed in with {providerName(me.user.provider)}</span>
             {/* SET-16, ACCT-5: "Sign out", with no arrow. */}
-            <button className="link-btn plain" onClick={async () => { await api.post("/api/auth/logout"); location.href = "/sign-in"; }}>Sign out</button>
+            <button className="link-btn plain" onClick={async () => { await api.post("/api/auth/logout"); location.href = "/"; }}>Sign out</button>
           </div>
           <hr />
           {/* SET-50: the store has the switch's current state; until it has loaded, what this page read. */}
@@ -712,7 +712,7 @@ function DeleteAccount() {
   const remove = async () => {
     setBusy(true);
     await api.del("/api/account", { confirm: true });
-    location.href = "/sign-in";
+    location.href = "/"; // SET-17: the home page
   };
   return (
     <div className="delete-panel">

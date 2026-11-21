@@ -95,6 +95,16 @@ async function signInApp(over: Parameters<typeof makeCtx>[0] = {}) {
   return { ctx, app };
 }
 
+/**
+ * Where a failed sign-in went: the home page, with the notice's cookie (AUTH-10). "category.provider", or what went
+ * wrong instead.
+ */
+function noticeOf(r: { headers: Record<string, unknown> }): string {
+  if (!/^\/(\?next=[^&]*)?$/.test(String(r.headers.location))) return `went to ${String(r.headers.location)}`;
+  const m = String(r.headers["set-cookie"]).match(/gitilizer_signin_notice=([^;]+)/);
+  return m ? m[1] : "no notice";
+}
+
 /** A built web app with index.html and one hashed asset. */
 function webDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "gitilizer-web-"));
@@ -162,51 +172,51 @@ describe("Google sign-in", () => {
     const session = String(r.headers["set-cookie"]).match(/gitilizer_session=[^;]+/)![0];
     expect((await s.app.inject({ method: "GET", url: "/api/me", headers: { cookie: session } })).statusCode).toBe(200);
     // The state is used once.
-    expect((await callback(s.app, "google", `code=abc&state=${state}`, cookie)).headers.location).toBe("/sign-in?error=expired&provider=google");
+    expect(noticeOf(await callback(s.app, "google", `code=abc&state=${state}`, cookie))).toBe("expired.google");
     await s.app.close();
   });
 
-  it("sorts every failure into the sign-in page's categories (AUTH-10 to AUTH-14)", async () => {
+  it("sorts every failure into the home page notice's categories (AUTH-10 to AUTH-14)", async () => {
     const s = await signInApp({ allowlist: Allowlist.parse("google:maya@example.com") });
     ctx = s.ctx;
     const where = (r: any) => r.headers.location;
     const token = (claims: object) => ({ body: { id_token: jwt({ iss: "accounts.google.com", aud: "g-id", exp: Date.now() / 1000 + 600, sub: "9", email: "sam@example.com", email_verified: true, ...claims }) } });
 
     let a = await start(s.app, "google");
-    expect(where(await callback(s.app, "google", `error=access_denied&state=${a.state}`, a.cookie))).toBe("/sign-in?error=cancelled&provider=google");
+    expect(noticeOf(await callback(s.app, "google", `error=access_denied&state=${a.state}`, a.cookie))).toBe("cancelled.google");
     a = await start(s.app, "google");
-    expect(where(await callback(s.app, "google", `error=temporarily_unavailable&state=${a.state}`, a.cookie))).toBe("/sign-in?error=provider_unavailable&provider=google");
+    expect(noticeOf(await callback(s.app, "google", `error=temporarily_unavailable&state=${a.state}`, a.cookie))).toBe("provider_unavailable.google");
     a = await start(s.app, "google");
-    expect(where(await callback(s.app, "google", `error=invalid_scope&state=${a.state}`, a.cookie))).toBe("/sign-in?error=gitilizer_error&provider=google");
+    expect(noticeOf(await callback(s.app, "google", `error=invalid_scope&state=${a.state}`, a.cookie))).toBe("gitilizer_error.google");
 
     // No cookie (blocked cookies), an unknown state, or an old one: "expired".
     a = await start(s.app, "google");
-    expect(where(await callback(s.app, "google", `code=c&state=${a.state}`, ""))).toBe("/sign-in?error=expired&provider=google");
-    expect(where(await callback(s.app, "google", `code=c&state=nope`, a.cookie))).toBe("/sign-in?error=expired&provider=google");
+    expect(noticeOf(await callback(s.app, "google", `code=c&state=${a.state}`, ""))).toBe("expired.google");
+    expect(noticeOf(await callback(s.app, "google", `code=c&state=nope`, a.cookie))).toBe("expired.google");
     a = await start(s.app, "google");
     await ctx.db.query(`update oauth_states set created_at = now() - interval '11 minutes'`);
-    expect(where(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("/sign-in?error=expired&provider=google");
+    expect(noticeOf(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("expired.google");
 
     // Google down, or timing out.
     ctx.http = providers({ "https://oauth2.googleapis.com/token": { status: 503 } }).http;
     a = await start(s.app, "google");
-    expect(where(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("/sign-in?error=provider_unavailable&provider=google");
+    expect(noticeOf(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("provider_unavailable.google");
     ctx.http = providers({ "https://oauth2.googleapis.com/token": { throws: true } }).http;
     a = await start(s.app, "google");
-    expect(where(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("/sign-in?error=provider_unavailable&provider=google");
+    expect(noticeOf(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("provider_unavailable.google");
 
     // A token for someone else's app, or with the wrong nonce, is our error, and signs no one in.
     a = await start(s.app, "google");
     ctx.http = providers({ "https://oauth2.googleapis.com/token": token({ aud: "other", nonce: a.to.searchParams.get("nonce") }) }).http;
-    expect(where(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("/sign-in?error=gitilizer_error&provider=google");
+    expect(noticeOf(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("gitilizer_error.google");
     a = await start(s.app, "google");
     ctx.http = providers({ "https://oauth2.googleapis.com/token": token({ nonce: "wrong" }) }).http;
-    expect(where(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("/sign-in?error=gitilizer_error&provider=google");
+    expect(noticeOf(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("gitilizer_error.google");
 
     // Not on the development allowlist.
     a = await start(s.app, "google");
     ctx.http = providers({ "https://oauth2.googleapis.com/token": token({ nonce: a.to.searchParams.get("nonce") }) }).http;
-    expect(where(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("/sign-in?error=not_allowed&provider=google");
+    expect(noticeOf(await callback(s.app, "google", `code=c&state=${a.state}`, a.cookie))).toBe("not_allowed.google");
     expect(await ctx.db.one(`select count(*)::int as n from users`)).toEqual({ n: 0 });
     await s.app.close();
   });
@@ -246,16 +256,15 @@ describe("GitHub sign-in", () => {
     const s = await signInApp();
     const { state, cookie } = await start(s.app, "github");
     s.ctx.http = providers({ "https://github.com/login/oauth/access_token": { body: { error: "bad_verification_code" } } }).http;
-    expect((await callback(s.app, "github", `code=abc&state=${state}`, cookie)).headers.location).toBe("/sign-in?error=expired&provider=github");
+    expect(noticeOf(await callback(s.app, "github", `code=abc&state=${state}`, cookie))).toBe("expired.github");
     await s.app.close();
   });
 });
 
 describe("the development stub and cookies in a deployed environment", () => {
-  it("has no stub, uses a __Host- cookie, and says which providers are configured", async () => {
+  it("has no stub and uses a __Host- cookie", async () => {
     const { app } = await signInApp({ secure: true });
     expect((await app.inject({ method: "POST", url: "/api/auth/dev", headers: { "x-gitilizer": "1" }, payload: { name: "X", email: "x@example.com" } })).statusCode).toBe(404);
-    expect((await app.inject({ method: "GET", url: "/api/auth/config" })).json()).toEqual({ providers: { google: true, github: true }, devSignIn: false });
     const r = await app.inject({ method: "GET", url: "/api/auth/google/start" });
     expect(String(r.headers["set-cookie"])).toMatch(/^__Host-gitilizer_oauth=.*; Path=\/; HttpOnly; Secure; SameSite=Lax/);
     expect(r.headers["strict-transport-security"]).toBe("max-age=31536000; includeSubDomains");
@@ -276,10 +285,12 @@ describe("serving the web app", () => {
     const dir = webDir();
     const { ctx } = await makeCtx({ webDir: dir, secure: true });
     const app = buildApp(ctx, new Scheduler(ctx), null);
-    const route = await app.inject({ method: "GET", url: "/settings?x=1" });
+    const cookie = await sessionCookie(ctx, true);
+    const route = await app.inject({ method: "GET", url: "/settings?x=1", headers: { cookie } });
     expect(route.statusCode).toBe(200);
     expect(route.body).toContain("<div id=root>");
-    expect(route.headers["cache-control"]).toBe("no-cache");
+    expect(route.headers["cache-control"]).toBe("private, no-cache");
+    expect(route.headers.vary).toBe("Cookie");
     expect(route.headers["content-security-policy"]).toContain("frame-ancestors 'none'");
     const asset = await app.inject({ method: "GET", url: "/assets/index-abc123.js" });
     expect(asset.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
@@ -356,8 +367,8 @@ describe("the home page and the privacy policy", () => {
     await off.app.close();
     const dev = await signInApp({ oauth: { google: null, github: null }, devSignIn: true });
     const devBody = (await dev.app.inject({ method: "GET", url: "/" })).body;
-    expect(devBody).toContain('<a class="btn provider" href="/sign-in">');
-    expect(devBody).toContain('<a class="btn provider dark" href="/sign-in">');
+    expect(devBody).toContain('<a class="btn provider" href="/?dev=google">');
+    expect(devBody).toContain('<a class="btn provider dark" href="/?dev=github">');
     await dev.app.close();
   });
 
@@ -417,6 +428,105 @@ describe("the home page and the privacy policy", () => {
     expect(html).toContain("Limited Use requirements");
     expect(html).toMatch(/<h1>Gitilizer privacy policy<\/h1>\s*<p>Last updated: /);
     expect(html).not.toMatch(/fonts\.googleapis|Google Fonts/);
+  });
+
+  it("sends a signed-out visitor at another address to the home page, and back after signing in (NAV-10, HOME-3)", async () => {
+    const { ctx, app } = await signInApp({ webDir: webDir() });
+    const r = await app.inject({ method: "GET", url: "/icebox?page=2" });
+    expect(r.statusCode).toBe(302);
+    expect(r.headers.location).toBe("/?next=%2Ficebox%3Fpage%3D2");
+    expect(r.headers["cache-control"]).toBe("private, no-cache");
+    const home = (await app.inject({ method: "GET", url: "/?next=%2Ficebox%3Fpage%3D2" })).body;
+    expect(home).toContain('href="/api/auth/google/start?next=%2Ficebox%3Fpage%3D2"');
+    expect(home).toContain('href="/api/auth/github/start?next=%2Ficebox%3Fpage%3D2"');
+    // Only addresses on this site are remembered.
+    expect((await app.inject({ method: "GET", url: "/?next=%2F%2Fevil.example" })).body).toContain('href="/api/auth/google/start?next=%2F"');
+    // Signed in by now (another tab): straight there.
+    const cookie = await sessionCookie(ctx, false);
+    const back = await app.inject({ method: "GET", url: "/?next=%2Ficebox", headers: { cookie } });
+    expect(back.statusCode).toBe(302);
+    expect(back.headers.location).toBe("/icebox");
+    await app.close();
+  });
+
+  it("keeps where the developer was going when a sign-in fails, so a retry goes there (NAV-10, AUTH-10)", async () => {
+    const s = await signInApp();
+    const a = await start(s.app, "google", "/icebox?page=2");
+    const r = await callback(s.app, "google", `error=access_denied&state=${a.state}`, a.cookie);
+    expect(r.headers.location).toBe("/?next=%2Ficebox%3Fpage%3D2");
+    expect(noticeOf(r)).toBe("cancelled.google");
+    // A state Gitilizer doesn't know carries no address: just the home page.
+    expect((await callback(s.app, "google", `code=c&state=nope`, a.cookie)).headers.location).toBe("/");
+    await s.app.close();
+  });
+
+  it("sends the old sign-in page's address to the home page (AUTH-4, NAV-3)", async () => {
+    const { app } = await signInApp();
+    expect((await app.inject({ method: "GET", url: "/sign-in" })).headers.location).toBe("/");
+    expect((await app.inject({ method: "GET", url: "/sign-in?next=%2Fsettings" })).headers.location).toBe("/?next=%2Fsettings");
+    await app.close();
+  });
+
+  it("shows a failed sign-in's notice once, grey when cancelled and red otherwise (AUTH-10, AUTH-13, AUTH-15)", async () => {
+    const { app } = await signInApp();
+    const get = (cookie: string) => app.inject({ method: "GET", url: "/", headers: { cookie } });
+    const cancelled = await get("gitilizer_signin_notice=cancelled.google");
+    expect(cancelled.body).toContain('<div class="notice" role="alert">Sign-in was cancelled. Choose an option below to try again.</div>');
+    // The cookie is cleared, so a reload shows the plain page.
+    expect(String(cancelled.headers["set-cookie"])).toMatch(/^gitilizer_signin_notice=; Max-Age=0/);
+    const unavailable = await get("gitilizer_signin_notice=provider_unavailable.github");
+    expect(unavailable.body).toContain('<div class="notice error" role="alert">GitHub isn&#39;t responding right now. Try again in a few minutes.</div>');
+    expect((await get("gitilizer_signin_notice=whatever")).body).toContain("Something went wrong on our side.");
+    expect((await get("")).body).not.toContain('class="notice');
+    await app.close();
+  });
+
+  it("tells a developer taken off the allowlist why, on the home page (AUTH-10, NFR-12)", async () => {
+    const { ctx, app } = await signInApp({ allowlist: Allowlist.parse("google:someone@example.com") });
+    const cookie = await sessionCookie(ctx, false);
+    const r = await app.inject({ method: "GET", url: "/api/me", headers: { cookie } });
+    expect(r.statusCode).toBe(401);
+    expect(String(r.headers["set-cookie"])).toContain("gitilizer_signin_notice=not_allowed;");
+    await app.close();
+  });
+
+  it("signs in with the development form on the home page, on a developer's computer only (HOME-3)", async () => {
+    const { ctx, app } = await signInApp({ oauth: { google: null, github: null }, devSignIn: true, webDir: webDir() });
+    const page = (await app.inject({ method: "GET", url: "/?dev=github&next=%2Fsettings" })).body;
+    expect(page).toContain('<form class="dev-form" method="post" action="/api/auth/dev/form">');
+    expect(page).toContain('name="login"');
+    expect(page).toContain('<input type="hidden" name="next" value="/settings">');
+    // An ordinary form post: no CSRF header, a redirect like a provider's callback.
+    const r = await app.inject({
+      method: "POST", url: "/api/auth/dev/form", headers: { "content-type": "application/x-www-form-urlencoded" },
+      payload: "provider=github&name=Maya&email=maya%40example.com&login=maya&next=%2Fsettings",
+    });
+    expect(r.statusCode).toBe(302);
+    expect(r.headers.location).toBe("/settings");
+    const cookie = String(r.headers["set-cookie"]).split(";")[0];
+    expect((await app.inject({ method: "GET", url: "/settings", headers: { cookie } })).body).toContain("<div id=root>");
+    const u = await ctx.db.one(`select provider, sign_in_login from users where email = 'maya@example.com'`);
+    expect(u).toMatchObject({ provider: "github", sign_in_login: "maya" });
+    await app.close();
+    // Not on a deployed server: no form, and no route for it.
+    const deployed = await signInApp({ secure: true });
+    expect((await deployed.app.inject({ method: "GET", url: "/?dev=google" })).body).not.toContain("dev-form");
+    const post = await deployed.app.inject({
+      method: "POST", url: "/api/auth/dev/form", headers: { "content-type": "application/x-www-form-urlencoded" }, payload: "provider=google",
+    });
+    expect(post.statusCode).toBe(403);
+    await deployed.app.close();
+  });
+
+  it("refuses the development form for an account the allowlist leaves out, with the notice (AUTH-10)", async () => {
+    const { app } = await signInApp({ oauth: { google: null, github: null }, devSignIn: true, allowlist: Allowlist.parse("google:someone@example.com") });
+    const r = await app.inject({
+      method: "POST", url: "/api/auth/dev/form", headers: { "content-type": "application/x-www-form-urlencoded" },
+      payload: "provider=google&name=Kim&email=kim%40example.com&next=%2Fsettings",
+    });
+    expect(r.headers.location).toBe("/?next=%2Fsettings");
+    expect(String(r.headers["set-cookie"])).toContain("gitilizer_signin_notice=not_allowed.google");
+    await app.close();
   });
 
   it("escapes what it puts into HTML", () => {

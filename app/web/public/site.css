@@ -40,6 +40,19 @@ a { color: var(--accent); }
 .btn[aria-disabled="true"] { opacity: .55; cursor: default; }
 .btn .g { color: #315bde; font-size: 18px; font-weight: 700; }
 
+/* A failed sign-in (AUTH-10, AUTH-15; Figma "Home · Cancelled", "Home · Error"): grey when cancelled, red otherwise. */
+.notice { max-width: 492px; margin: 0 0 24px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2);
+  color: var(--muted); font-size: 13px; line-height: 1.45; }
+.notice.error { border-color: #b74439; background: #fbeceb; color: #b74439; }
+
+/* The development sign-in (HOME-3), on a developer's own computer only. */
+.dev-form { display: grid; gap: 10px; max-width: 492px; margin-top: 20px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.dev-form .hint { color: var(--muted); font-size: 13px; }
+.dev-form label { display: grid; gap: 4px; font-size: 13px; }
+.dev-form input { font: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; background: var(--surface); color: var(--ink); }
+.dev-form .btn { width: auto; height: 40px; justify-self: start; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; font-weight: 600; cursor: pointer; }
+
 /* The list preview, like the Prioritized list's rows (LIST-42 chips). */
 .preview { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .preview .tr { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; padding: 0 20px; min-height: 59px; border-bottom: 1px solid var(--line); }

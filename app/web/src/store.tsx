@@ -45,8 +45,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSync(m.sync);
       setSignedOut(false);
     } catch (e) {
-      // Taken off the development site's allowlist: show why on the sign-in page (AUTH-10).
-      if (e instanceof ApiError && e.status === 401 && e.message === "not_allowed") location.replace("/sign-in?error=not_allowed");
+      // Taken off the development site's allowlist: the home page says why (AUTH-10), from the cookie the server set.
+      if (e instanceof ApiError && e.status === 401 && e.message === "not_allowed") location.replace("/");
       else if (e instanceof ApiError && e.status === 401) setSignedOut(true);
       else throw e;
     }
@@ -84,7 +84,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       check = setTimeout(async () => {
         check = null;
         if (downSince === null) return;
-        try { await api.get("/api/me"); } catch { setCannotConnect(new Date(downSince).toISOString()); }
+        try { await api.get("/api/me"); } catch (e) {
+          // The session ended while the tab was open: refreshMe() signs the tab out, which goes to the home page
+          // (NAV-10), or says why the allowlist refused it (AUTH-10). Anything else is a lost connection.
+          if (e instanceof ApiError && e.status === 401) await refreshMe();
+          else setCannotConnect(new Date(downSince).toISOString());
+        }
       }, DISCONNECTED_GRACE_MS);
     };
     return () => { clearInterval(t); document.removeEventListener("visibilitychange", report); es.close(); if (check) clearTimeout(check); };
