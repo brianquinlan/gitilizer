@@ -78,6 +78,7 @@ export function loadConfig(e: Record<string, string | undefined> = env, argv: st
       model: e.GITILIZER_BASIC_MODEL?.trim() || DEFAULT_AGENT_MODELS.basic,
     },
     defaultPrompt: readFileSync(join(ROOT, "prompts", "v4.md"), "utf8"),
+    privacyPolicy: readFileSync(join(ROOT, "docs", "privacy-policy.md"), "utf8"),
     shortLivedSeconds: num(e.SHORT_LIVED_SECONDS, 15 * 60),
     staleAfterSeconds: num(e.STALE_AFTER_SECONDS, 3 * 3600),
     intervals: {

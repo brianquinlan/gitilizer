@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft, with a working prototype of the end-to-end slice (see [Prototype status](#prototype-status)). The prototype follows the 2026-11-01 PRD except where [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd) says otherwise. |
 | **Author** | brian@sweetapp.com (drafted with Claude) |
-| **Last updated** | 2026-11-20 (row indicators stay for 10 s on a clock that stops while the tab is hidden, then fade over 2.5 s, and only items whose own score changed get them, PRD `LIVE-18`, [Live updates](#live-updates); `live/visibleClock.ts`); 2026-11-20 (row animations take 0.7 s, and row indicators fade out over 2.5 s once the row is in place, PRD `LIVE-11` to `LIVE-18`, `LIVE-22`, [Live updates](#live-updates); `live/indicators.ts` and its tests); 2026-11-20 (a repository's prioritization prompt is edited in place, PRD `SET-7`, `SET-9`: `RepoPrompt` on each row, with the field's text in the page's draft while it is open, and no prompt field in the add form, [Web app](#web-app); `SettingsPage.repos.dom.test.tsx`, [Testing](#testing)); 2026-11-19 (the next step chip opens the rank reasoning popup, PRD `LIST-24`, `LIST-42`: `NextStepChip` is a button when the row has a popup, the popup sits in `.next-step-cell` and leads with a `.rank-why-next` panel tinted per next step, and the rank is plain text, [Web app](#web-app); `ListPage.dom.test.tsx` runs the popup in jsdom, the first web test with a DOM, [Testing](#testing)); 2026-11-19 (next step chips, PRD `LIST-42`: a class and colors for each next step, in place of `NEXT_STEP_TONE`, [Web app](#web-app)); 2026-11-18 (Sync now while GitHub can't be read, PRD `LIST-43` and `NOTIF-24`: `scanBlocker()` and `withoutCovered()` in the shared notification module; the button is disabled with a link to the fix, and `shownNotifications()` leaves out `stale` while an error that stops every scan shows, [Web app](#web-app), [Notifications](#notifications), [D-26](#d-26)); 2026-11-18 (next steps, PRD `RANK-23`, `RANK-24`, `LIST-42`, `LIST-24`: the agent's output asks for `next_step` in place of `actionable`, basic ranking asks a `choice` question, `user_items.next_step`, the chip on each row and the "Next" block in the rank reasoning popup, and the harness measures next steps against `next_step` in the eval set, [Next steps](#the-ranking-agent), [D-25](#d-25)); 2026-11-16 (an alert for a `LISTEN` connection that keeps dropping or can't be restored, [Monitoring](#hosting-on-google-cloud)); 2026-11-16 (the `LISTEN` connection checks itself every 30 seconds and reconnects when Postgres doesn't answer, [F28](#findings-from-the-prototype)); 2026-11-15 (search and the type filter, PRD `LIST-34` to `LIST-41`: done in the browser, with the URL as their only state, [D-24](#d-24); keyboard shortcuts, PRD `KEY-1` to `KEY-3` and `SET-50`: `useShortcut`, the `settings.keyboard_shortcuts` column and `PUT /api/preferences`); 2026-11-15 (an issue response that isn't an issue fails the scan instead of being stored as a snapshot; the worker's `internal` code for its own failures, logged with the stack); 2026-11-15 (simplified setup and basic ranking, PRD `WEL-2` to `WEL-6`, `SET-15`, `SET-38` to `SET-40`, `RANK-13`, `RANK-21`, `RANK-22`, `METRIC-5`: the Decisions API client in the ranker, [D-20](#d-20); `users.ranking_agent` may be `basic`, `users.ranking_chosen_at`, and setup completes when GitHub is connected and the ranking is chosen; Gemini falls back to `gemini-3.5-flash-lite` and then to basic ranking, for new and changed items only; basic ranking's pause, `basic_pause` and the `basic_paused` warning, which replaces `gemini_daily_quota`, [D-21](#d-21); `ranking_volume`, the "ranking volume" log line and two dashboard charts, [D-22](#d-22); `BASIC_RANKING_API_KEY`; the two-step Warm Welcome and `POST /api/setup` with an optional Gemini key); 2026-11-15 (`GITHUB_APP_SLUG` may be the app's public link); 2026-11-14 (GitHub connection, PRD `SET-42` to `SET-49`, `WEL-6`: a GitHub App whose user tokens the scanner reads GitHub with, beside the PAT, [GitHub connection](#github-connection), [D-17](#d-17) to [D-19](#d-19); `credentials` gains the `github_app` kind with its refresh token; `GET /api/connect/github/start` and `callback`, `GET /api/github/connection`; the codes `github_connection_ended` and `github_app_permission`; the `GITHUB_APP_*` settings); 2026-11-14 (Gemini is the recommended agent: one `AgentPicker` component for Warm Welcome and Settings, PRD `WEL-5` and `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (OpenAI answers whose first message is a garbled draft, and prompts its content filter refuses; prompt v5 measured for all three agents); 2026-11-07 (ranking agents, PRD `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`: Claude and OpenAI clients in the ranker, called with `fetch`, [D-15](#d-15); `users.ranking_agent`, `user_items.ranked_agent` and `rank_jobs.agent`; a key per agent, kept while another is in use; per-agent error codes and notifications; ranking pauses for every key-level failure, and tries again every 15 minutes after credits or billing fail, [D-16](#d-16); switching agents); 2026-11-07 (only the newest release running claims scans and ranking jobs, because Cloud Run kept the previous revision working for over 15 minutes after a release: `releases` and `processes`, [D-14](#d-14); repositories show their owner's avatar, `SET-8` and `SET-36`, from the `owner` in GitHub's repository response; excluded repositories, `SET-33` to `SET-37`: the `excluded_repos` table, exclusions stored by GitHub ID, negated qualifiers on the personal searches, the reason searches again for additional repositories inside an excluded owner, and the `excluded` leave reason; [D-13](#d-13)); 2026-11-06 (a worker that can't reach the database to record a failure logs it and leaves the job to its lease, instead of stopping the process); 2026-11-04 (the eye button's icon and label name what a click does, with no `aria-pressed`, `SET-21`; "PRs" and "issues and PRs" in the UI text, and the missing GitHub permission named in lowercase, `SET-28`; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles, `SET-1`; rank reasoning popup holds updates and returns focus, `LIVE-27`, `LIST-24`; credentials entered and checked on Warm Welcome, `WEL-2` to `WEL-4`, `POST /api/setup`, D-12; rank reasoning popup, `LIST-24`, not clipped on short pages; sync progress, `LIST-33`; "Save and re-rank" is a sync; a Gemini request can't outlive its ranking lease, and expired leases are logged, GitHub issue #3); 2026-11-03 (relative times, `LIST-22`); 2026-11-02 (production: Google and GitHub sign-in, several processes on one database, the container image, pipeline and infrastructure scripts; D-10 and D-11) |
+| **Last updated** | 2026-11-20 (the home page and the privacy policy, sent by the server as finished HTML, `/` choosing between the home page and the web app by the session cookie, and fonts served from gitilizer.com, PRD `HOME-1` to `HOME-7`, `PRIV-6`, [Public pages](#public-pages); `app/server/src/site.ts`, `app/web/public/site.css`, `app/web/public/fonts/`); 2026-11-20 (row indicators stay for 10 s on a clock that stops while the tab is hidden, then fade over 2.5 s, and only items whose own score changed get them, PRD `LIVE-18`, [Live updates](#live-updates); `live/visibleClock.ts`); 2026-11-20 (row animations take 0.7 s, and row indicators fade out over 2.5 s once the row is in place, PRD `LIVE-11` to `LIVE-18`, `LIVE-22`, [Live updates](#live-updates); `live/indicators.ts` and its tests); 2026-11-20 (a repository's prioritization prompt is edited in place, PRD `SET-7`, `SET-9`: `RepoPrompt` on each row, with the field's text in the page's draft while it is open, and no prompt field in the add form, [Web app](#web-app); `SettingsPage.repos.dom.test.tsx`, [Testing](#testing)); 2026-11-19 (the next step chip opens the rank reasoning popup, PRD `LIST-24`, `LIST-42`: `NextStepChip` is a button when the row has a popup, the popup sits in `.next-step-cell` and leads with a `.rank-why-next` panel tinted per next step, and the rank is plain text, [Web app](#web-app); `ListPage.dom.test.tsx` runs the popup in jsdom, the first web test with a DOM, [Testing](#testing)); 2026-11-19 (next step chips, PRD `LIST-42`: a class and colors for each next step, in place of `NEXT_STEP_TONE`, [Web app](#web-app)); 2026-11-18 (Sync now while GitHub can't be read, PRD `LIST-43` and `NOTIF-24`: `scanBlocker()` and `withoutCovered()` in the shared notification module; the button is disabled with a link to the fix, and `shownNotifications()` leaves out `stale` while an error that stops every scan shows, [Web app](#web-app), [Notifications](#notifications), [D-26](#d-26)); 2026-11-18 (next steps, PRD `RANK-23`, `RANK-24`, `LIST-42`, `LIST-24`: the agent's output asks for `next_step` in place of `actionable`, basic ranking asks a `choice` question, `user_items.next_step`, the chip on each row and the "Next" block in the rank reasoning popup, and the harness measures next steps against `next_step` in the eval set, [Next steps](#the-ranking-agent), [D-25](#d-25)); 2026-11-16 (an alert for a `LISTEN` connection that keeps dropping or can't be restored, [Monitoring](#hosting-on-google-cloud)); 2026-11-16 (the `LISTEN` connection checks itself every 30 seconds and reconnects when Postgres doesn't answer, [F28](#findings-from-the-prototype)); 2026-11-15 (search and the type filter, PRD `LIST-34` to `LIST-41`: done in the browser, with the URL as their only state, [D-24](#d-24); keyboard shortcuts, PRD `KEY-1` to `KEY-3` and `SET-50`: `useShortcut`, the `settings.keyboard_shortcuts` column and `PUT /api/preferences`); 2026-11-15 (an issue response that isn't an issue fails the scan instead of being stored as a snapshot; the worker's `internal` code for its own failures, logged with the stack); 2026-11-15 (simplified setup and basic ranking, PRD `WEL-2` to `WEL-6`, `SET-15`, `SET-38` to `SET-40`, `RANK-13`, `RANK-21`, `RANK-22`, `METRIC-5`: the Decisions API client in the ranker, [D-20](#d-20); `users.ranking_agent` may be `basic`, `users.ranking_chosen_at`, and setup completes when GitHub is connected and the ranking is chosen; Gemini falls back to `gemini-3.5-flash-lite` and then to basic ranking, for new and changed items only; basic ranking's pause, `basic_pause` and the `basic_paused` warning, which replaces `gemini_daily_quota`, [D-21](#d-21); `ranking_volume`, the "ranking volume" log line and two dashboard charts, [D-22](#d-22); `BASIC_RANKING_API_KEY`; the two-step Warm Welcome and `POST /api/setup` with an optional Gemini key); 2026-11-15 (`GITHUB_APP_SLUG` may be the app's public link); 2026-11-14 (GitHub connection, PRD `SET-42` to `SET-49`, `WEL-6`: a GitHub App whose user tokens the scanner reads GitHub with, beside the PAT, [GitHub connection](#github-connection), [D-17](#d-17) to [D-19](#d-19); `credentials` gains the `github_app` kind with its refresh token; `GET /api/connect/github/start` and `callback`, `GET /api/github/connection`; the codes `github_connection_ended` and `github_app_permission`; the `GITHUB_APP_*` settings); 2026-11-14 (Gemini is the recommended agent: one `AgentPicker` component for Warm Welcome and Settings, PRD `WEL-5` and `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (OpenAI answers whose first message is a garbled draft, and prompts its content filter refuses; prompt v5 measured for all three agents); 2026-11-07 (ranking agents, PRD `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`: Claude and OpenAI clients in the ranker, called with `fetch`, [D-15](#d-15); `users.ranking_agent`, `user_items.ranked_agent` and `rank_jobs.agent`; a key per agent, kept while another is in use; per-agent error codes and notifications; ranking pauses for every key-level failure, and tries again every 15 minutes after credits or billing fail, [D-16](#d-16); switching agents); 2026-11-07 (only the newest release running claims scans and ranking jobs, because Cloud Run kept the previous revision working for over 15 minutes after a release: `releases` and `processes`, [D-14](#d-14); repositories show their owner's avatar, `SET-8` and `SET-36`, from the `owner` in GitHub's repository response; excluded repositories, `SET-33` to `SET-37`: the `excluded_repos` table, exclusions stored by GitHub ID, negated qualifiers on the personal searches, the reason searches again for additional repositories inside an excluded owner, and the `excluded` leave reason; [D-13](#d-13)); 2026-11-06 (a worker that can't reach the database to record a failure logs it and leaves the job to its lease, instead of stopping the process); 2026-11-04 (the eye button's icon and label name what a click does, with no `aria-pressed`, `SET-21`; "PRs" and "issues and PRs" in the UI text, and the missing GitHub permission named in lowercase, `SET-28`; credential cards in Settings titled "GitHub" and "Gemini", with no description under the titles, `SET-1`; rank reasoning popup holds updates and returns focus, `LIVE-27`, `LIST-24`; credentials entered and checked on Warm Welcome, `WEL-2` to `WEL-4`, `POST /api/setup`, D-12; rank reasoning popup, `LIST-24`, not clipped on short pages; sync progress, `LIST-33`; "Save and re-rank" is a sync; a Gemini request can't outlive its ranking lease, and expired leases are logged, GitHub issue #3); 2026-11-03 (relative times, `LIST-22`); 2026-11-02 (production: Google and GitHub sign-in, several processes on one database, the container image, pipeline and infrastructure scripts; D-10 and D-11) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Google Cloud project** | `gitilizer` |
 | **Source** | [github.com/brianquinlan/gitilizer](https://github.com/brianquinlan/gitilizer) |
@@ -23,26 +23,27 @@ Questions about the design itself are marked the same way as in the PRD: **TODO:
 4. [The ranking agent](#the-ranking-agent)
 5. [Hosting on Google Cloud](#hosting-on-google-cloud)
 6. [Sign-in and sessions](#sign-in-and-sessions)
-7. [GitHub connection](#github-connection)
-8. [Repository layout](#repository-layout)
-9. [Data model](#data-model)
-10. [HTTP API](#http-api)
-11. [Live updates](#live-updates)
-12. [Web app](#web-app)
-13. [Scanner](#scanner)
-14. [Scheduler](#scheduler)
-15. [Ranking worker](#ranking-worker)
-16. [Notifications](#notifications)
-17. [Security](#security)
-18. [Scale](#scale)
-19. [Testing](#testing)
-20. [Logging](#logging)
-21. [Deployment](#deployment)
-22. [Prototype status](#prototype-status)
-23. [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd)
-24. [Findings from the prototype](#findings-from-the-prototype)
-25. [Local development](#local-development)
-26. [Open questions](#open-questions)
+7. [Public pages](#public-pages)
+8. [GitHub connection](#github-connection)
+9. [Repository layout](#repository-layout)
+10. [Data model](#data-model)
+11. [HTTP API](#http-api)
+12. [Live updates](#live-updates)
+13. [Web app](#web-app)
+14. [Scanner](#scanner)
+15. [Scheduler](#scheduler)
+16. [Ranking worker](#ranking-worker)
+17. [Notifications](#notifications)
+18. [Security](#security)
+19. [Scale](#scale)
+20. [Testing](#testing)
+21. [Logging](#logging)
+22. [Deployment](#deployment)
+23. [Prototype status](#prototype-status)
+24. [Changes from the 2026-11-01 PRD](#changes-from-the-2026-11-01-prd)
+25. [Findings from the prototype](#findings-from-the-prototype)
+26. [Local development](#local-development)
+27. [Open questions](#open-questions)
 
 ---
 
@@ -336,6 +337,61 @@ GitHub sign-in uses an OAuth app with only the `user:email` scope, decided in [D
 
 ---
 
+## Public pages
+
+Two pages work without signing in: the home page at `/` (PRD
+[Home page](PRD.md#home-page)) and the privacy policy at `/docs/privacy`
+(`PRIV-6`). Google's checker reads them without running JavaScript (`HOME-4`),
+so the server sends them as finished HTML, rather than the web app drawing
+them. Both are built once, when the server starts, by
+`app/server/src/site.ts`:
+
+- **The home page** is a template in `site.ts`. Its list preview uses the same
+  rows as the sign-in page's, `SIGN_IN_PREVIEW` in `@gitilizer/shared`, so the
+  two can't drift apart. Below 900 px the preview moves under the description,
+  the blocks stack and the preview shows its first five rows (`HOME-5`).
+- **The privacy policy** is [docs/privacy-policy.md](../docs/privacy-policy.md),
+  turned into HTML with `marked` (the file is Gitilizer's own, so nothing is
+  sanitized). Its date is the "Last updated" line in the file. The Dockerfile
+  copies the file into the image.
+- **Styles** are `app/web/public/site.css`, a small stylesheet for these two
+  pages only, with the app's colors. They load no script.
+
+**Signing in from the home page (`HOME-3`).** Each provider's button is a link
+to `/api/auth/{provider}/start`, which sends the developer back to `/` after
+signing in, as the sign-in page does. A provider whose sign-in app isn't
+configured is a disabled button, except where the development sign-in is on
+(a developer's computer): there the button links to `/sign-in`, which shows
+the development form.
+
+**What `/` serves (`HOME-1`).** The server checks the session cookie as the API
+does: a valid session whose account is allowed (`NFR-12`) gets the web app's
+`index.html`, and anyone else the home page. Local mode signs everyone in
+([Local development](#local-development)), so it always gets the web app. The
+answer depends on the cookie, so `/` is sent with `Cache-Control: private,
+no-cache` and `Vary: Cookie`, and no cache can give one visitor's page to
+another. `@fastify/static` is told not to serve `index.html` at `/` itself
+(`index: false`). `/docs/privacy` is the same for everyone, and is sent with
+`Cache-Control: no-cache` like `index.html`. `/docs` still redirects to the
+user guide on GitHub.
+
+A tab of the web app whose session ends while it's open shows the sign-in page,
+as before; only a fresh load of `/` shows the home page.
+
+**Fonts (`HOME-7`).** Inter and IBM Plex Mono are served from gitilizer.com:
+`app/web/public/fonts/` holds the WOFF2 files from Fontsource (Inter as one
+variable font, IBM Plex Mono at weights 400 and 500, each in the Latin and
+Latin Extended subsets, which `unicode-range` loads only when a page needs
+them), their SIL Open Font License, and `fonts.css`, which declares them. The
+web app's `index.html` and both public pages link `/fonts/fonts.css`. Like the
+rest of `public/`, they are copied into the build unchanged and sent with
+`Cache-Control: no-cache`, so a browser checks them with a conditional request
+and gets a 304. The files are committed rather than installed, so the image
+needs no font package; `fonts.css` says which Fontsource version they came
+from.
+
+---
+
 ## GitHub connection
 
 The scanner reads GitHub as the developer, with one of two credentials
@@ -561,7 +617,8 @@ JSON over HTTPS. Every request and response body is defined by a zod schema in `
 | `GET /api/auth/{google,github}/start?next=`, `GET /api/auth/{google,github}/callback` | Sign-in ([Sign-in and sessions](#sign-in-and-sessions)). No session needed. |
 | `POST /api/auth/dev` | A developer's own computer only (local mode, fixture mode, `--dev-sign-in`): sign in as a named test user. A deployed server doesn't have it. |
 | `GET /api/health` | The uptime check: answers `{ ok: true }` when the database does. No session needed. |
-| `GET /docs`, `GET /docs/privacy` | Redirect to the user guide on GitHub, and to its Privacy section (`FOOT-3`, `FOOT-4`), so gitilizer.com has stable addresses for them; the Google consent screen links to `/docs/privacy`. |
+| `GET /`, `GET /docs/privacy` | The home page, or the web app for a signed-in developer, and the privacy policy, which the Google consent screen links to ([Public pages](#public-pages)). |
+| `GET /docs` | Redirects to the user guide on GitHub (`FOOT-3`), so gitilizer.com has a stable address for it. |
 | `POST /api/auth/logout` | "Sign out" (`ACCT-3`). Ends the current session. |
 | `GET /api/me` | Account, which screen to show (`NAV-1`), the status of each credential (`SET-30`), the GitHub connection (`github`: which method, the account, its chip, and whether this server offers the app), the agent in use or `basic` (`rankingAgent`), whether the developer has chosen it yet (`rankingChosen`), whether the first sync has finished. |
 | `GET /api/connect/github/start?next=`, `GET /api/connect/github/callback` | "Connect GitHub" (`SET-43`): GitHub's authorization page for the Gitilizer app and back, saving the connection ([GitHub connection](#github-connection)). `start` answers 404 where the app isn't configured. |
@@ -1029,7 +1086,7 @@ Changes are pushed to the browser as `notifications` events.
 - **Sessions.** See [Sign-in and sessions](#sign-in-and-sessions). State-changing requests also need an `X-Gitilizer: 1` header, which a cross-site form can't send.
 - **Logging.** Log fields whose names look like secrets are replaced with `[redacted]`, and request bodies aren't logged ([Logging](#logging)).
 - **Deployed servers fail closed.** With `GITILIZER_ENV` set, the server refuses to start without its database, credential key, worker token, `https://` address and both sign-in apps, and refuses local mode, fixtures and the development sign-in form, which signs anyone in as anyone ([DEPLOYMENT.md](DEPLOYMENT.md#settings)).
-- **Headers.** The deployed server sends `Strict-Transport-Security`, a Content Security Policy (scripts from Gitilizer only; styles also from Google Fonts; images also from GitHub and Google avatars; no framing) and `X-Frame-Options: DENY`; every response sends `X-Content-Type-Options: nosniff`, and API responses `Cache-Control: no-store`.
+- **Headers.** The deployed server sends `Strict-Transport-Security`, a Content Security Policy (scripts, styles and fonts from Gitilizer only; images also from GitHub and Google avatars; no framing) and `X-Frame-Options: DENY`; every response sends `X-Content-Type-Options: nosniff`, and API responses `Cache-Control: no-store`.
 
 ---
 
@@ -1248,7 +1305,7 @@ Developers run the whole application on their own computer with one command; [LO
 **`npm run local`** (`scripts/local.mjs`, plain Node with no extra packages) starts two processes in one terminal and stops them both on Ctrl+C:
 
 1. the server (`app/server/src/main.ts --local`, through `tsx`), which also runs the ranking worker, with `LOCAL_MODE=1`, `PGLITE_DIR=.local/{real|fixtures}/db`, `AUTO_SCAN=off` (unless `--scheduler`), `LOG_LEVEL=debug` and a `CREDENTIAL_KEY` generated once and kept in `.local/{real|fixtures}/credential-key`;
-2. the Vite dev server for the web app on port 5173, which proxies `/api` to the server.
+2. the Vite dev server for the web app on port 5173, which proxies `/api` and `/docs` to the server. Outside `npm run local` (with `npm run dev:server` and `npm run dev:web`), it also proxies `/` to the server when the browser has no session cookie, so the home page can be seen there ([Public pages](#public-pages)); `npm run local` signs in automatically, so `/` is always the web app.
 
 Only Node is needed. `--fixtures` adds `--fixtures` to the server, which serves `eval/fixtures/` as GitHub and uses the fake model, and keeps its data in a separate folder. `--reset` deletes the mode's data folder first.
 

@@ -131,6 +131,8 @@ function AccountMenu() {
 }
 
 /** The user documentation and the project page (FOOT-2). */
+/** The privacy policy, a page the server sends (PRD FOOT-2, PRIV-6). */
+export const PRIVACY_URL = "/docs/privacy";
 export const DOCS_URL = "https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md";
 export const GITHUB_URL = "https://github.com/brianquinlan/gitilizer";
 
@@ -139,6 +141,7 @@ export function Footer() {
     <footer className="footer">
       <span>Less triage. More shipping.</span>
       <span className="spacer" />
+      <a href={PRIVACY_URL} target="_blank" rel="noreferrer">Privacy <ExternalIcon /></a>
       <a href={DOCS_URL} target="_blank" rel="noreferrer">Documentation <ExternalIcon /></a>
       <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub <ExternalIcon /></a>
     </footer>

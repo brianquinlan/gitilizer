@@ -1,6 +1,6 @@
 // What the deployed environments need (contributor/DEPLOYMENT.md): the startup checks, Google and GitHub
 // sign-in, the web app served by the server, and several processes sharing the scheduler's work.
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -10,7 +10,8 @@ import type { Ctx } from "../src/context.ts";
 import { Allowlist } from "../src/allowlist.ts";
 import { loadConfig } from "../src/main.ts";
 import { Scheduler } from "../src/scheduler.ts";
-import { addUser, makeCtx } from "./helpers.ts";
+import { escapeHtml, privacyPage } from "../src/site.ts";
+import { addUser, makeCtx, ROOT } from "./helpers.ts";
 
 const DEPLOYED = {
   GITILIZER_ENV: "production", NODE_ENV: "production", DATABASE_URL: "postgresql://u:p@/db?host=/cloudsql/x",
@@ -92,6 +93,22 @@ async function signInApp(over: Parameters<typeof makeCtx>[0] = {}) {
   });
   const app = buildApp(ctx, new Scheduler(ctx), null);
   return { ctx, app };
+}
+
+/** A built web app with index.html and one hashed asset. */
+function webDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), "gitilizer-web-"));
+  mkdirSync(join(dir, "assets"));
+  writeFileSync(join(dir, "index.html"), "<!doctype html><div id=root></div>");
+  writeFileSync(join(dir, "assets", "index-abc123.js"), "console.log(1)");
+  return dir;
+}
+
+/** A session for u1 (addUser), as the cookie a browser would send. */
+async function sessionCookie(ctx: Ctx, secure: boolean): Promise<string> {
+  await addUser(ctx);
+  await ctx.db.query(`insert into sessions (id, user_id, expires_at) values ('sid-1', 'u1', now() + interval '1 day')`);
+  return `${secure ? "__Host-" : ""}gitilizer_session=sid-1`;
 }
 
 /** Starts a sign-in; returns the state, the cookie that carries it, and the provider URL's parameters. */
@@ -256,20 +273,14 @@ describe("the development stub and cookies in a deployed environment", () => {
 
 describe("serving the web app", () => {
   it("serves the built app, sends app routes to index.html, and keeps API 404s as JSON", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "gitilizer-web-"));
-    mkdirSync(join(dir, "assets"));
-    writeFileSync(join(dir, "index.html"), "<!doctype html><div id=root></div>");
-    writeFileSync(join(dir, "assets", "index-abc123.js"), "console.log(1)");
+    const dir = webDir();
     const { ctx } = await makeCtx({ webDir: dir, secure: true });
     const app = buildApp(ctx, new Scheduler(ctx), null);
-    const index = await app.inject({ method: "GET", url: "/" });
-    expect(index.statusCode).toBe(200);
-    expect(index.body).toContain("<div id=root>");
-    expect(index.headers["cache-control"]).toBe("no-cache");
-    expect(index.headers["content-security-policy"]).toContain("frame-ancestors 'none'");
     const route = await app.inject({ method: "GET", url: "/settings?x=1" });
     expect(route.statusCode).toBe(200);
     expect(route.body).toContain("<div id=root>");
+    expect(route.headers["cache-control"]).toBe("no-cache");
+    expect(route.headers["content-security-policy"]).toContain("frame-ancestors 'none'");
     const asset = await app.inject({ method: "GET", url: "/assets/index-abc123.js" });
     expect(asset.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
     expect((await app.inject({ method: "GET", url: "/assets/missing.js" })).statusCode).toBe(404);
@@ -278,14 +289,11 @@ describe("serving the web app", () => {
     await app.close();
   });
 
-  it("sends /docs and /docs/privacy to the user guide, without a session (FOOT-3, FOOT-4)", async () => {
+  it("still sends /docs to the user guide, without a session (FOOT-3)", async () => {
     const { ctx } = await makeCtx();
     const app = buildApp(ctx, new Scheduler(ctx), null);
-    const guide = "https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md";
-    expect((await app.inject({ method: "GET", url: "/docs" })).headers.location).toBe(guide);
-    const privacy = await app.inject({ method: "GET", url: "/docs/privacy" });
-    expect(privacy.statusCode).toBe(302);
-    expect(privacy.headers.location).toBe(`${guide}#privacy`);
+    expect((await app.inject({ method: "GET", url: "/docs" })).headers.location)
+      .toBe("https://github.com/brianquinlan/gitilizer/blob/main/docs/user-guide.md");
     await app.close();
   });
 
@@ -297,6 +305,122 @@ describe("serving the web app", () => {
     expect(r.json()).toEqual({ ok: true });
     expect(r.headers["cache-control"]).toBe("no-store");
     await app.close();
+  });
+});
+
+// --- The home page and the privacy policy (PRD "Home page", PRIV-6; design: Public pages) ---
+
+/** Every address a page makes the browser load: stylesheets, scripts, images and icons. */
+const loads = (html: string) =>
+  [...html.matchAll(/<(?:link|script|img)\b[^>]*?(?:href|src)="([^"]+)"/g)].map((m) => m[1]);
+
+describe("the home page and the privacy policy", () => {
+  it("shows the home page at / to a visitor who isn't signed in, as finished HTML (HOME-1, HOME-2, HOME-4)", async () => {
+    const { ctx, app } = await signInApp({ webDir: webDir(), secure: true });
+    const r = await app.inject({ method: "GET", url: "/" });
+    expect(r.statusCode).toBe(200);
+    expect(r.headers["content-type"]).toBe("text/html; charset=utf-8");
+    expect(r.body).toContain("<title>Gitilizer: your GitHub issues and PRs, prioritized</title>");
+    expect(r.body).toContain("Less triage.<br>More shipping.");
+    expect(r.body).toContain("How it works");
+    expect(r.body).toContain("What Gitilizer uses, and why");
+    expect(r.body).toContain('<a href="/docs/privacy">Read the privacy policy →</a>');
+    expect(r.body).not.toContain("<div id=root>");
+    expect(r.body).not.toMatch(/<script/);
+    // The preview's ten rows, each with its next step chip.
+    expect(r.body.match(/class="next-step /g)).toHaveLength(10);
+    // No cache may give one visitor's `/` to another (design: Public pages).
+    expect(r.headers["cache-control"]).toBe("private, no-cache");
+    expect(r.headers.vary).toBe("Cookie");
+    expect(r.headers["content-security-policy"]).toContain("font-src 'self'");
+    expect((await app.inject({ method: "HEAD", url: "/" })).statusCode).toBe(200);
+    expect((await app.inject({ method: "GET", url: "/?utm_source=x" })).body).toContain("How it works");
+    void ctx;
+    await app.close();
+  });
+
+  it("starts signing in straight from the home page's buttons, back to / (HOME-3)", async () => {
+    const { app } = await signInApp();
+    const body = (await app.inject({ method: "GET", url: "/" })).body;
+    expect(body).toContain('<a class="btn provider" href="/api/auth/google/start?next=%2F">');
+    expect(body).toContain('<a class="btn provider dark" href="/api/auth/github/start?next=%2F">');
+    const start = await app.inject({ method: "GET", url: "/api/auth/google/start?next=%2F" });
+    expect(start.statusCode).toBe(302);
+    await app.close();
+  });
+
+  it("disables a provider that isn't set up, or links to the development sign-in (HOME-3)", async () => {
+    const off = await signInApp({ oauth: { google: { clientId: "g", clientSecret: "s" }, github: null } });
+    const body = (await off.app.inject({ method: "GET", url: "/" })).body;
+    expect(body).toContain('<span class="btn provider dark" aria-disabled="true">');
+    await off.app.close();
+    const dev = await signInApp({ oauth: { google: null, github: null }, devSignIn: true });
+    const devBody = (await dev.app.inject({ method: "GET", url: "/" })).body;
+    expect(devBody).toContain('<a class="btn provider" href="/sign-in">');
+    expect(devBody).toContain('<a class="btn provider dark" href="/sign-in">');
+    await dev.app.close();
+  });
+
+  it("gives a signed-in developer the web app at /, and local mode always (HOME-1)", async () => {
+    const { ctx, app } = await signInApp({ webDir: webDir(), secure: true });
+    const cookie = await sessionCookie(ctx, true);
+    const r = await app.inject({ method: "GET", url: "/", headers: { cookie } });
+    expect(r.body).toContain("<div id=root>");
+    expect(r.headers["cache-control"]).toBe("private, no-cache");
+    expect(r.headers.vary).toBe("Cookie");
+    // An expired or unknown session is not signed in.
+    expect((await app.inject({ method: "GET", url: "/", headers: { cookie: "__Host-gitilizer_session=nope" } })).body).toContain("How it works");
+    await app.close();
+    const local = await signInApp({ webDir: webDir(), localMode: true });
+    expect((await local.app.inject({ method: "GET", url: "/" })).body).toContain("<div id=root>");
+    await local.app.close();
+  });
+
+  it("shows the home page to an account taken off the development allowlist (HOME-1, NFR-12)", async () => {
+    const { ctx, app } = await signInApp({ webDir: webDir(), allowlist: Allowlist.parse("google:someone@example.com") });
+    const cookie = await sessionCookie(ctx, false);
+    expect((await app.inject({ method: "GET", url: "/", headers: { cookie } })).body).toContain("How it works");
+    await app.close();
+  });
+
+  it("shows the privacy policy at /docs/privacy, the same for everyone, without a redirect (PRIV-6, HOME-4)", async () => {
+    const { ctx, app } = await signInApp({ secure: true });
+    const r = await app.inject({ method: "GET", url: "/docs/privacy" });
+    expect(r.statusCode).toBe(200);
+    expect(r.headers["content-type"]).toBe("text/html; charset=utf-8");
+    expect(r.headers["cache-control"]).toBe("no-cache");
+    expect(r.body).toContain("<title>Privacy policy · Gitilizer</title>");
+    expect(r.body).toContain("<h1>Gitilizer privacy policy</h1>");
+    expect(r.body).toContain("<p>Last updated: November 20, 2026</p>");
+    const cookie = await sessionCookie(ctx, true);
+    expect((await app.inject({ method: "GET", url: "/docs/privacy", headers: { cookie } })).body).toBe(r.body);
+    await app.close();
+  });
+
+  it("makes both pages load only gitilizer.com's own files, fonts included (HOME-7)", async () => {
+    const { app } = await signInApp({ secure: true });
+    for (const url of ["/", "/docs/privacy"]) {
+      const r = await app.inject({ method: "GET", url });
+      const files = loads(r.body);
+      expect(files).toEqual(expect.arrayContaining(["/fonts/fonts.css", "/site.css", "/favicon.svg"]));
+      for (const f of files) expect(f, `${url} loads ${f}`).toMatch(/^\/[^/]/);
+      expect(r.headers["content-security-policy"]).not.toMatch(/googleapis|gstatic/);
+    }
+    await app.close();
+  });
+
+  it("renders the real privacy policy, which names its operator and Google's Limited Use terms (PRIV-6)", async () => {
+    const markdown = readFileSync(join(ROOT, "docs", "privacy-policy.md"), "utf8");
+    const html = privacyPage(markdown);
+    expect(html).toContain("Brian Quinlan");
+    expect(html).toContain('<a href="mailto:brian@sweetapp.com">brian@sweetapp.com</a>');
+    expect(html).toContain("Limited Use requirements");
+    expect(html).toMatch(/<h1>Gitilizer privacy policy<\/h1>\s*<p>Last updated: /);
+    expect(html).not.toMatch(/fonts\.googleapis|Google Fonts/);
+  });
+
+  it("escapes what it puts into HTML", () => {
+    expect(escapeHtml(`<a href="x">'&'</a>`)).toBe("&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;");
   });
 });
 

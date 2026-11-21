@@ -42,7 +42,7 @@ browser ──https──▶ load balancer (static IPv4 + IPv6, certificate for 
 - **The certificate** is Google-managed (Certificate Manager), renews itself, and covers every subdomain, so a new environment needs no new certificate.
 - **The Cloud Run services accept only the load balancer** (`--ingress=internal-and-cloud-load-balancing`). Their `*.run.app` addresses refuse requests.
 - **Each service serves the web app and the API** from one container image: the built web app at `/`, the API under `/api/`, and the health check at `/api/health`.
-- **Security headers.** The deployed server sends `Strict-Transport-Security`, a Content Security Policy that allows only Gitilizer's own scripts, Google Fonts, and avatars from GitHub and Google, and `X-Frame-Options: DENY`. A new external resource in the web app needs adding to the policy in `app/server/src/app.ts`.
+- **Security headers.** The deployed server sends `Strict-Transport-Security`, a Content Security Policy that allows only Gitilizer's own scripts, styles and fonts, and avatars from GitHub and Google, and `X-Frame-Options: DENY`. A new external resource in the web app needs adding to the policy in `app/server/src/app.ts`.
 
 ## Settings
 
@@ -217,7 +217,7 @@ Each environment has its own Google client and GitHub OAuth app, because each re
 | Production | "Gitilizer production", redirect URI `https://gitilizer.com/api/auth/google/callback` | "Gitilizer", callback `https://gitilizer.com/api/auth/github/callback` |
 | Development | "Gitilizer development", redirect URI `https://dev.gitilizer.com/api/auth/google/callback` | "Gitilizer (development)", callback `https://dev.gitilizer.com/api/auth/github/callback` |
 
-The Google consent screen (Google Auth Platform → Branding) names the home page `https://gitilizer.com` and the privacy policy `https://gitilizer.com/docs/privacy`, which the server redirects to the user guide's Privacy section on GitHub. Its logo is `app/web/public/brand/gitilizer-logo-120.png`; changing the logo makes Google review the branding again.
+The Google consent screen (Google Auth Platform → Branding) names the home page `https://gitilizer.com` and the privacy policy `https://gitilizer.com/docs/privacy`. The server sends both as finished pages that need no sign-in or JavaScript, as Google's review of the branding requires (DESIGN.md "Public pages"); the policy's text is `docs/privacy-policy.md`. Its logo is `app/web/public/brand/gitilizer-logo-120.png`; changing the logo makes Google review the branding again.
 
 When sign-in fails, the log line `sign-in failed` (component `auth`) has the provider, the category the page showed (`cancelled`, `provider_unavailable`, `expired`, `not_allowed` or `gitilizer_error`) and the provider's own error. A `redirect_uri_mismatch` from Google, or "The redirect_uri is not associated with this application" from GitHub, means the app's callback URL doesn't match `PUBLIC_URL`.
 

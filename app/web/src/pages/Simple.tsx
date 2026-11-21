@@ -1,24 +1,10 @@
 // Sign-in (PRD "Sign-in"). Warm Welcome is in WelcomePage.tsx.
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api.ts";
-import type { NextStep } from "@gitilizer/shared";
+import { SIGN_IN_PREVIEW } from "@gitilizer/shared";
 import { BrandSymbol, GitHubIcon, IssueIcon, PrIcon } from "../icons.tsx";
 import { NextStepChip } from "./ListPage.tsx";
 
-// The static preview on the sign-in page, as in Figma: unpadded ranks, each row's next step (LIST-42),
-// repository names as reasons (LIST-3).
-const PREVIEW: ["issue" | "pr", string, NextStep, string][] = [
-  ["issue", "Connection pool exhausted after database failover", "todo", "Issue #1842 · Assigned to you"],
-  ["pr", "Retry failed webhooks with exponential backoff", "review", "PR #731 · Assigned to you"],
-  ["issue", "Token refresh fails in headless environments", "backlog", "Issue #416 · Created by you"],
-  ["pr", "Prevent duplicate events on reconnect", "respond", "PR #729 · @maya"],
-  ["issue", "Session cookie expires during active use", "waiting", "Issue #962 · northstar/web"],
-  ["issue", "Document environment variable precedence", "respond", "Issue #408 · @maya"],
-  ["pr", "Add keyboard navigation to command menu", "review", "PR #955 · Assigned to you"],
-  ["issue", "Missing trace context in background jobs", "not_yours", "Issue #1821 · northstar/api"],
-  ["issue", "Support Node.js 24 in the release pipeline", "todo", "Issue #397 · Created by you"],
-  ["issue", "Clarify workspace setup in onboarding", "elsewhere", "Issue #918 · northstar/web"],
-];
 
 /** Failed sign-in messages (AUTH-10). Only "cancelled" is neutral; the rest are errors (AUTH-15). */
 function signInMessage(error: string, provider: string | null): string {
@@ -90,12 +76,12 @@ export function SignInPage() {
   return (
     <main className="signin">
       <section className="signin-left">
-        <div className="brand"><BrandSymbol /> gitilizer</div>
+        <a className="brand" href="/"><BrandSymbol /> gitilizer</a>
         <h1>Less triage.<br />More shipping.</h1>
         <p>View all of your GitHub issues and PRs, prioritized, in one place.</p>
         <div className="table preview" style={{ marginTop: 32 }} aria-hidden="true">
           <div className="tr thead" style={{ gridTemplateColumns: "72px 1fr" }}><span className="th active">Priority ↑</span><span className="th">Issue</span></div>
-          {PREVIEW.map(([kind, title, step, meta], i) => (
+          {SIGN_IN_PREVIEW.map(({ kind, title, step, meta }, i) => (
             <div className="tr" key={title} style={{ gridTemplateColumns: "72px 1fr" }}>
               <span className="rank">{i + 1}</span>
               <span className="issue">

@@ -287,19 +287,11 @@ Report problems at [github.com/brianquinlan/gitilizer/issues](https://github.com
 
 ## Privacy
 
-### What Gitilizer stores
-
-- **Your account:** your name, email address and picture from Google or GitHub, and which one you signed in with.
-- **Your credentials:** your GitHub connection (the Gitilizer app's access and renewal tokens, with the connected account, or your personal access token with its expiry date), the API key of each ranking agent you've added, and which agent you use, or that you use basic ranking. They're encrypted, never shown again after you save them, never written to logs and never sent to a ranking agent.
-- **Your settings:** additional repositories and their prioritization prompts, collaborators, your ranking prompt, your sort order and whether keyboard shortcuts are on.
-- **Your items:** the GitHub data needed to rank and show each item (its text, comments, reviews and linked items), and for each item its score, its next step, the agent's next action and reasoning (basic ranking gives neither), and whether you moved it to the Icebox.
-- **Notifications** that are currently active.
-
-### When it's deleted
-
-- **Item data** is deleted 30 days after it leaves your list and Icebox (because it was closed, stopped matching, or fell outside the 1,000 most recent), unless another Gitilizer user still has the item.
-- **Everything about you** is deleted at once when you choose **Delete account** in Settings.
-- **Backups** keep copies for up to 6 months. Credentials stay encrypted in them, and if a backup is ever restored, deleted accounts are deleted again.
+Gitilizer's [privacy policy](https://gitilizer.com/docs/privacy) says what
+Gitilizer collects and stores, how it uses it, who else sees it, how long it
+keeps it, and how to have it deleted. This section adds what each AI provider's
+terms say about what Gitilizer sends it, which can help you choose a ranking
+agent.
 
 ### What Gitilizer sends to your ranking agent
 
