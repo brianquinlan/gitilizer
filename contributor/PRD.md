@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-21 (no sign-in page: signing in starts from the home page, which shows failed sign-ins and remembers the address a signed-out visitor asked for; signing out and deleting the account go to the home page, `AUTH-4`, `AUTH-10`, `AUTH-15`, `HOME-2`, `HOME-3`, `NAV-3`, `NAV-10`, `ACCT-3`, `SET-17`, `FOOT-1`, `FOOT-2`, `BAR-3`, [Q-105](#q-105)); 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-22 (team review requests: the developer adds teams in Settings, with an optional prioritization prompt, and "Find my teams" suggests the developer's teams; PRs that ask an added team for review appear in the list, marked "Team review" and so on when nothing about them is personal, and a team's prompt tells the ranking agent how much of its reviewing is the developer's, [Teams](#teams), `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25`, [Q-43](#q-43), [Q-65](#q-65), [Q-106](#q-106)); 2026-11-21 (no sign-in page: signing in starts from the home page, which shows failed sign-ins and remembers the address a signed-out visitor asked for; signing out and deleting the account go to the home page, `AUTH-4`, `AUTH-10`, `AUTH-15`, `HOME-2`, `HOME-3`, `NAV-3`, `NAV-10`, `ACCT-3`, `SET-17`, `FOOT-1`, `FOOT-2`, `BAR-3`, [Q-105](#q-105)); 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -89,11 +89,15 @@ These are out of scope for the first release.
   is used up (`RANK-13`). The design should still allow other providers to be
   added later.
 - Choosing the model. Gitilizer chooses one for each ranking agent (`SET-22`).
-- Review requests made to a GitHub team the developer belongs to, and the ranking agent's "review teams" setting. Only review requests made to the developer personally count. **Revisit after the first release** (see [Q-43](#q-43)).
+- Review requests made to a GitHub team the developer hasn't added in
+  [Teams](#teams), and knowing which teams a developer belongs to beyond what
+  "Find my teams" infers (`SET-54`). GitHub doesn't let the Gitilizer app list
+  a developer's teams in organizations where it isn't installed
+  ([Q-106](#q-106)).
 - Filtering or sorting the list by next step. The list shows each item's next
   step, which opens the rank reasoning popup (`LIST-42`, `LIST-24`), and
   nothing more for now ([Q-100](#q-100)).
-- Mentions of a GitHub team the developer belongs to (`@org/team`). Only mentions of the developer by name count ([Q-65](#q-65)).
+- Mentions of a GitHub team the developer belongs to (`@org/team`), even a team in [Teams](#teams). Only mentions of the developer by name count ([Q-65](#q-65), [Q-106](#q-106)).
 - More than one GitHub connection per developer, for example a token for each
   organization, or the Gitilizer app and a token together ([Q-40](#q-40),
   [Q-87](#q-87)). Revisit if developers ask for it.
@@ -703,7 +707,10 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 ### Which items appear
 
 - **LIST-1** An item must appear in the list if it is open, is not in an archived repository, is not excluded (`SET-34`, `SET-35`), and at least one of these is true:
-  - the developer's review is requested on it personally (a request to a team the developer belongs to doesn't count; see [Non-goals](#non-goals));
+  - the developer's review is requested on it personally;
+  - a review is requested on it from a team in the developer's
+    [Teams](#teams) that GitHub found (`SET-52`); a request to any other team
+    doesn't count ([Non-goals](#non-goals));
   - the developer is assigned to it;
   - the developer is @-mentioned by name in its description or in a comment (a mention of a team doesn't count; see [Non-goals](#non-goals));
   - the developer created it;
@@ -725,7 +732,7 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 | Actions | A "Move to icebox" button. |
 
 - **LIST-3** The inclusion reason must be one of "Review requested", "Assigned to you", "@{handle}" for a mention (for example "@maya"; "@-mentioned" when the handle can't be determined), "Created by you", "Commented on by you", or, for an item in an additional repository, the repository's name (for example "northstar/web"). "CCed", "@mention" and "Interested repository" are not used.
-- **LIST-21** An item can match several reasons; only one is shown. The order of precedence is: Review requested, Assigned to you, @{handle}, Created by you, Commented on by you, repository name. (The repository name repeats the Repository column on the same row, which is intended.)
+- **LIST-21** An item can match several reasons; only one is shown. The order of precedence is: Review requested, Assigned to you, @{handle}, Created by you, Commented on by you, Review requested from @{org}/{team} (`SET-51`; with more than one of the developer's teams, the first in alphabetical order), repository name. (The repository name repeats the Repository column on the same row, which is intended.)
 - **LIST-4** The title link must open the item on GitHub, in a new tab, so the list keeps its place.
 - **LIST-5** Relative times must update while the page is open, at least once a minute.
 - **LIST-22** Relative times must follow these thresholds: under 1 minute "just now"; then minutes ("12m ago"), hours ("3h ago") and days ("2d ago"). After 30 days: the month and day ("Mar 4") for a date in the current calendar year; "last year" for a date in the previous calendar year, until a full year (365.25 days) has passed; after that, the whole years passed ("1y ago", "2y ago"). For example, on November 3, 2026, November 25, 2025 is "last year" and November 1, 2025 is "1y ago". Hovering over any relative time (the Modified column, the Icebox line in `ICE-3`, and notifications in `NOTIF-8`) must show the full date and time.
@@ -778,6 +785,18 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
   end with "…" and hovering shows it in full, as for titles (`LIST-23`); the
   chip and the type and number are never cut off. The Icebox doesn't show next
   steps (`ICE-3`).
+
+  When an item is on the developer only through their teams, a next step on
+  the developer gets the prefix "Team": "Team review", "Team respond", "Team
+  to do" and "Team backlog", in the same colors as without it. That is when its
+  inclusion reasons include a team in [Teams](#teams) and none of Review
+  requested, Assigned to you, @{handle}, Created by you and Commented on by you
+  (`LIST-21`); an additional repository doesn't count either way. Anything
+  personal wins: a PR that asks one of the developer's teams for review and
+  @-mentions the developer is "Review", and so is one the developer has
+  commented on, because acting on it may have made it theirs
+  ([Q-106](#q-106)). The prefix is part of the chip's text and accessible
+  name. Waiting, Elsewhere and Not yours never have it.
 
 ### Sorting the list
 
@@ -1076,7 +1095,7 @@ to reach what the controls already do, so nothing depends on them (`NFR-2`).
 
 Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
 
-Settings is one page. The left column has links to its sections (Connections, Additional repositories, Excluded repositories, Ranking prompt, Collaborators), the developer's account details ("Signed in with GitHub", "Sign out"), a Preferences block with the "Keyboard shortcuts" switch (`SET-50`) and a Delete account panel. The main column has the numbered sections (01 Connections, 02 Additional repositories, 03 Excluded repositories, 04 Ranking prompt, 05 Collaborators) and, at the bottom, three buttons: "Save changes", "Save and re-rank" and "Cancel".
+Settings is one page. The left column has links to its sections (Connections, Additional repositories, Teams, Excluded repositories, Ranking prompt, Collaborators), the developer's account details ("Signed in with GitHub", "Sign out"), a Preferences block with the "Keyboard shortcuts" switch (`SET-50`) and a Delete account panel. The main column has the numbered sections (01 Connections, 02 Additional repositories, 03 Teams, 04 Excluded repositories, 05 Ranking prompt, 06 Collaborators) and, at the bottom, three buttons: "Save changes", "Save and re-rank" and "Cancel".
 
 ### Connections
 
@@ -1388,6 +1407,69 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
     until they change on GitHub or the daily re-rank (`RANK-9`) reaches them.
 - **SET-31** Additional repositories are repositories the developer follows, not ones they're responsible for. The agent's "About me" text and the default prompt must describe them that way, measured as in `RANK-7`. A developer who is responsible for a repository can say so in its prioritization prompt.
 
+### Teams
+
+GitHub can ask a team for a review instead of a person, often automatically
+through a repository's CODEOWNERS file. The developer chooses the teams whose
+review requests should reach their list, and can say for each how much of its
+reviewing is theirs ([Q-106](#q-106)). The section description must read "PRs
+that ask these teams for a review appear in your list. Add a prioritization
+prompt to say how much of the team's reviewing is yours."
+
+- **SET-51** The developer must be able to add a team by typing `org/team`
+  (the team's slug, as in `dart-lang/dart-ecosystem-team`), with or without a
+  leading "@", or pasting its GitHub URL
+  (`https://github.com/orgs/{org}/teams/{team}`), and choosing "Add team"; and
+  remove one with "Remove". The field is labeled "Add a team", with the
+  placeholder "org/team". Any other format is an error ("Enter a team as
+  org/team, or paste its GitHub URL."), and so is a team already in the list
+  ("{org}/{team} is already in your teams.") (`SET-27`). There can be at most
+  25 teams. Gitilizer can't check that the developer belongs to a team: adding
+  a team they don't belong to brings its review requests into their list
+  anyway.
+- **SET-52** Each team must show "Checking…" in grey while Gitilizer asks
+  GitHub about it, then nothing more once GitHub knows the team, or "Not found"
+  with a red ✗ when GitHub says there is no such team that the developer's
+  GitHub connection can see. Hovering over "Not found" shows "GitHub says
+  there's no team {org}/{team}, or your GitHub connection can't see it. If the
+  name is misspelled, remove it and add it again." A "Not found" team is kept, but
+  isn't searched (`SCAN-1`). If GitHub can't be reached, a team keeps its last
+  known state. Each row starts with the organization's GitHub avatar, shown as
+  in `SET-8`, or a generic team icon while Gitilizer is checking and when the
+  team isn't found.
+- **SET-53** Each team may have a prioritization prompt that works exactly as
+  a repository's does (`SET-9`): at most 500 characters, shown under the team's
+  name and edited in place, with "Add prioritization prompt" when there is
+  none. The ranking agent receives it with each item that asks that team for
+  review (`RANK-25`). A team without a prompt brings its review requests into
+  the list, and they are ranked like any other request to a team.
+- **SET-54** The section must have a "Find my teams" button, because developers
+  often don't know which teams they are in, and GitHub doesn't let the
+  Gitilizer app list them. Choosing it looks at the open PRs that ask the
+  developer for review only through a team, and lists under the button the
+  teams it finds that are the developer's and aren't in the list yet, most PRs
+  first, each with its organization's avatar, "{n} open PRs" and an "Add"
+  button that adds it as in `SET-51`. The button shows "Finding your teams…"
+  and is disabled while it runs. A team is the developer's when it is the only
+  team asked on one of those PRs, or when every open PR that asks the team also
+  asks the developer, through them or one of their teams. A team found only
+  the second way, with fewer than 5 open PRs asking it, is marked "Maybe yours"
+  in grey. Teams that are not the
+  developer's aren't shown. At most 10 teams that need checking are checked,
+  those on the most PRs first. If none are found: "No teams found. A team shows
+  up here when it's asked to review an open PR." The results aren't saved: they
+  stay until the developer leaves Settings. If GitHub's search limit is nearly
+  used, for example by a scan that is running, nothing is checked and the
+  message is "GitHub is busy with your scan. Try again in a minute." If GitHub
+  can't be reached, the message is "Couldn't reach GitHub. Try again."
+- **SET-55** Teams take effect when settings are saved (`SET-14`). An added
+  team's review requests appear at the scan that saving starts (`SCAN-5`) and
+  are ranked like new items. A removed team's requests leave the Prioritized
+  list as in `LIVE-15` and the Icebox as in `ICE-11`, unless another inclusion
+  reason keeps them (`LIST-1`). A changed prompt behaves as in `SET-9`.
+- **SET-56** A team's errors (`SET-51`, `SET-53`) appear as described in
+  `SET-27`: when the developer chooses "Add team", nothing is added.
+
 ### Excluded repositories
 
 - **SET-33** The developer must be able to exclude a repository by typing
@@ -1452,7 +1534,7 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 
 - **SET-11** The page must show the current ranking prompt in an editor. With no custom prompt, it shows the default prompt.
 - **SET-12** The developer can edit the prompt. When the prompt differs from the default, a "Restore default" control must be shown; it replaces the text with the default.
-- **SET-13** The custom prompt replaces only the instructions part of what the agent receives. Gitilizer always adds the "About me" block (login, additional repositories with their prioritization prompts, and collaborators) and the output format, as in `systemInstruction()` in `app/ranker/src/prioritizer.ts`. These additions are not shown in or editable from Settings.
+- **SET-13** The custom prompt replaces only the instructions part of what the agent receives. Gitilizer always adds the "About me" block (login, additional repositories with their prioritization prompts, and collaborators), each team's prompt with the items that ask that team for review (`RANK-25`), and the output format, as in `systemInstruction()` in `app/ranker/src/prioritizer.ts`. These additions are not shown in or editable from Settings.
 - **SET-23** The section description must read "The agent reads the title, description, labels, comments and reviews of each issue and PR and gives it a score."
 - **SET-24** The default prompt is `prompts/v4.md`. A developer who has never changed the prompt always gets the current default, so they pick up improvements automatically. A custom prompt can be at most 20,000 characters (`SET-27`).
 
@@ -1539,7 +1621,12 @@ Figma: [Settings / Preferences](https://www.figma.com/design/J94JKJLNCcFUovvwfaF
   (`SET-34`) are left out by the searches themselves, not removed from their
   results, so they never take up any of a search's first 1,000 results. The
   search for an additional repository carries no exclusions (`SET-35`), and
-  exclusions GitHub couldn't find (`SET-36`) aren't added to any search.
+  exclusions GitHub couldn't find (`SET-36`) aren't added to any search. Review
+  requests to teams are searched only for the teams in [Teams](#teams) that
+  GitHub found (`SET-52`), never for every team the developer belongs to, and
+  carry the exclusions like the developer's other searches. Several teams are
+  searched together in one search, so teams add one or a few searches to a
+  scan, not one per team.
 - **SCAN-2** A scan must find items that have changed since the last scan, and items that no longer match (closed, merged, unassigned, a repository archived, removed or excluded). Items that no longer match leave the list as in `LIVE-15`, and leave the Icebox as in `ICE-11`.
 - **SCAN-3** A scan must collect what the ranking agent needs to judge each new or changed item: the item, its comments, timeline and reviews, and the issues and PRs it links to.
 - **SCAN-4** Two scans for the same developer must never run at the same time. A sync requested while one is running joins it.
@@ -1694,13 +1781,13 @@ Figma: [Settings / Preferences](https://www.figma.com/design/J94JKJLNCcFUovvwfaF
 
   | | Next step | What the agent is told |
   |---|---|---|
-  | On the developer | Review | A PR is waiting for my review or re-review. I am a requested reviewer, or the default reviewer for the repository, or the author has updated the PR since my last review. |
+  | On the developer | Review | A PR is waiting for my review or re-review. I am a requested reviewer, or one of my teams with a note is (see "My teams"), or I am the default reviewer for the repository, or the author has updated the PR since my last review. |
   | On the developer | Respond | Someone is waiting on me. A question or request addressed to me is unanswered, or my own PR has review feedback I haven't addressed. |
   | On the developer | To do | It is mine to move forward and nobody is waiting on a reply from me. This covers work I am assigned, said I would do, or recently filed in an area I own. It includes checking whether something is fixed, deciding what to do, finishing or closing my draft, and pinging a reviewer who has been silent for about a week. |
   | On the developer | Backlog | It is mine, but nothing is pressing. It is an old or stale item in an area I own, with no recent activity and nobody waiting, that I could triage or close when grooming. |
   | Not on the developer | Waiting | I am involved and it is someone else's move. I asked a question, requested changes or requested a review, and haven't had an answer yet. |
   | Not on the developer | Elsewhere | The thing to act on is a different item. This is an issue with an open PR that fixes it, or a PR stacked on lower PRs that need review first. Name that item in the next action. |
-  | Not on the developer | Not yours | There is nothing for me to do, now or later. It is outside my stated scope, owned or driven by someone else, a team review request in a repository I'm not responsible for, a mention with nothing asked of me, or a PR I already approved. |
+  | Not on the developer | Not yours | There is nothing for me to do, now or later. It is outside my stated scope, owned or driven by someone else, a review request to a team with no note from me in a repository I'm not responsible for, a mention with nothing asked of me, or a PR I already approved. |
 
   If more than one applies, the agent must choose the first of: Not yours,
   Elsewhere, Review, Respond, Waiting, To do, Backlog. These words are part of
@@ -1725,6 +1812,27 @@ Figma: [Settings / Preferences](https://www.figma.com/design/J94JKJLNCcFUovvwfaF
   every item a next step, however sure its model is. A change to the default
   prompt, the output format or a model must be measured the same way.
 
+- **RANK-25** Review requests to teams must be ranked by these rules, with
+  every ranking agent and with basic ranking ([Q-106](#q-106)):
+  - Belonging to a team that is asked to review an item, or mentioned in it,
+    doesn't by itself make the item more important or the developer's. This
+    is what the default prompt says, and what applies to a team in
+    [Teams](#teams) that has no prioritization prompt (`SET-53`).
+  - A team in Teams with a prompt is one whose reviews the developer takes. A
+    review request to it ranks above items that involve the developer neither
+    personally nor through a team, and below the same request made to the
+    developer personally, unless the team's prompt says otherwise. It ranks
+    lower when someone else is also asked by name, or is already reviewing.
+  - The team's prompt reaches the agent as a note with each item that asks that
+    team for review, under "My teams" with the team's name, and not with other
+    items. It says how much of the team's reviewing is the developer's, for
+    example "I have a small level of responsibility for this team."
+  - The agent isn't told which teams the developer belongs to, only the teams
+    in Teams that have a prompt, and only with their items.
+
+  The rules must be measured as in `RANK-7` and `RANK-24` before they ship,
+  with items that ask a team for review.
+
 ---
 
 ## Data and privacy
@@ -1735,7 +1843,7 @@ Gitilizer keeps:
 |---|---|
 | Account | Sign-in provider and provider user ID, name, email, avatar URL. |
 | Credentials | The GitHub connection: a PAT (with its expiry date, if known), or what GitHub issues for the Gitilizer app's connection, with the connected account's login. An API key for each ranking agent the developer has saved one for, and which agent is in use, or that basic ranking is. |
-| Settings | Additional repositories with their prioritization prompts, excluded repositories, collaborators, custom ranking prompt, sort preferences, whether keyboard shortcuts are on. |
+| Settings | Additional repositories and teams with their prioritization prompts, excluded repositories, collaborators, custom ranking prompt, sort preferences, whether keyboard shortcuts are on. |
 | Item data | The GitHub data needed to rank and show each item. |
 | Item state | For each developer and item: inclusion reasons, score, rank, the agent's output, when it was last ranked, and whether and when it was moved to the Icebox. |
 | Notifications | Active notifications with their first-detected time. |
@@ -1871,7 +1979,7 @@ the type filter and the first keyboard shortcut; Q-100 came from showing each
 item's next step; Q-101 came from Sync now while GitHub can't be read; Q-102
 came from opening the rank reasoning popup from the next step chip; Q-104
 came from Google's review of the sign-in screen's branding; Q-105 came from
-removing the sign-in page.
+removing the sign-in page; Q-106 came from adding review requests to teams.
 
 ### Answered questions
 
@@ -1919,7 +2027,7 @@ removing the sign-in page.
 | <a id="q-40"></a>Q-40 | Token kinds | Accept both, recommend fine-grained, explain in the documentation behind "Learn more". One token per developer. Changed on 2026-11-14: a token is now the alternative to the Gitilizer app, and a developer has one or the other ([Q-87](#q-87)). | `SET-20`, [Non-goals](#non-goals) |
 | <a id="q-41"></a>Q-41 | Additional repositories | `owner/name` or a URL; duplicates and bad formats are errors; at most 25; prompts up to 500 characters, edited in place on the repository's row ([Q-103](#q-103)); states "Checking…", "Access confirmed" and "Can't access", with the reason on hover. | `SET-7` to `SET-9` |
 | <a id="q-42"></a>Q-42 | Collaborators | As suggested: tooltip on the error icon, "@" removed, duplicates rejected, at most 50. Generic avatar drawn in Figma. | `SET-19`, `SET-25` |
-| <a id="q-43"></a>Q-43 | Review teams | Out of scope for now; listed in non-goals to revisit. | [Non-goals](#non-goals) |
+| <a id="q-43"></a>Q-43 | Review teams | Out of scope at first. Changed on 2026-11-22: review requests to the teams the developer adds in Settings count ([Q-106](#q-106)). | `SET-51`, [Non-goals](#non-goals) |
 | <a id="q-44"></a>Q-44 | Ranking prompt | New section description (in Figma); default `prompts/v4.md`; 20,000 characters; defaults update automatically. | `SET-23`, `SET-24` |
 | <a id="q-45"></a>Q-45 | Saving | Cancel is back; the save buttons save everything; confirm before leaving with unsaved changes; no item count. | `SET-14`, `SET-15`, `SET-26` |
 | <a id="q-46"></a>Q-46 | Deletion and backups | Deleted immediately from the live database; backups kept for 6 months. | `SET-17`, `PRIV-4` |
@@ -1941,7 +2049,7 @@ removing the sign-in page.
 | <a id="q-62"></a>Q-62 | "N issues" includes PRs | "{N} issues and PRs". Figma updated. | `LIST-27` |
 | <a id="q-63"></a>Q-63 | The free tier | Gitilizer must work on it. It falls back from `gemini-3.8-flash` to `gemini-3.5-flash-lite` to `gemini-3.1-flash-lite` as each daily quota runs out, with a warning, and an error when all are used up. Items waiting for quota are shown at the end with "–". One item per call. Changed on 2026-11-15: `gemini-3.5-flash-lite` is the only backup model, and basic ranking takes over after it in place of pausing ([Q-96](#q-96)). | `RANK-12` to `RANK-18`, `LIST-30` |
 | <a id="q-64"></a>Q-64 | After saving | Back to the Prioritized list when the save succeeds. | `NAV-8` |
-| <a id="q-65"></a>Q-65 | Team mentions | Left out. | `LIST-1`, [Non-goals](#non-goals) |
+| <a id="q-65"></a>Q-65 | Team mentions | Left out, and still left out with team review requests: each team would need searches of its own ([Q-106](#q-106)). | `LIST-1`, [Non-goals](#non-goals) |
 | <a id="q-66"></a>Q-66 | The 1,000-item limit | Prioritized list only; no notice; a dropped item slides off the bottom like an item moving to a later page. | `LIST-19`, `LIVE-26` |
 | <a id="q-67"></a>Q-67 | "Assigned to you" | Second, after "Review requested". Repeating the repository name is intended. | `LIST-21` |
 | <a id="q-68"></a>Q-68 | The Settings privacy note | Removed on purpose. | `PRIV-2` |
@@ -1982,6 +2090,7 @@ removing the sign-in page.
 | <a id="q-103"></a>Q-103 | Changing a repository's prioritization prompt | In place: the prompt's text opens as a field when clicked, and a repository without a prompt has "Add prioritization prompt" in its place. The add form no longer has a prompt field, so there is one way to give a repository a prompt. A changed prompt applies to every item with "Save and re-rank", and to items ranked from then on with "Save changes". Until now a prompt couldn't be changed: the developer removed the repository and added it again, and a repository added without a prompt could never get one. An "Edit" button beside "Remove", a field that is always open and a dialog were also considered. Editing the text keeps the section as quiet as it is, and the hover tint and pencil make the text look clickable, which plain text doesn't ([Q-102](#q-102)). | `SET-7`, `SET-9` |
 | <a id="q-104"></a>Q-104 | A home page and privacy policy that Google accepts | A public home page at `/` and a privacy policy page at `/docs/privacy`, both on gitilizer.com and complete without JavaScript. Google refused to show Gitilizer's logo on its sign-in screen for three reasons: `/docs/privacy` redirected to the user guide on GitHub, whose Privacy section doesn't cover everything Google asks for; gitilizer.com showed only the sign-in page; and that page is drawn by JavaScript, so Google's checker saw an empty page. A separate `/about` page, with `/` staying the sign-in page, was considered: it is smaller, but every visitor to gitilizer.com would still land on sign-in. The policy names Brian Quinlan as the operator, with brian@sweetapp.com as the contact. | `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `FOOT-2` |
 | <a id="q-105"></a>Q-105 | Whether to keep a sign-in page | No. Signing in starts from the home page's buttons, failed sign-ins show their notice there, and a signed-out visitor at any other address is sent to the home page, which brings them back after signing in. Signing out and deleting the account go to the home page too. With a home page that already had both buttons, the sign-in page was a second, nearly identical page for signed-out visitors, kept only for failure notices, returning to a deep link and the development sign-in. | `AUTH-4`, `AUTH-10`, `HOME-3`, `NAV-10`, `ACCT-3`, `SET-17` |
+| <a id="q-106"></a>Q-106 | Review requests to teams | The developer adds teams in Settings, like additional repositories, each with an optional prioritization prompt, and only those teams' requests are searched. A team without a prompt only brings its requests into the list; with one, its requests rank like reviews waiting on the developer, below personal requests unless the prompt says otherwise. "Find my teams" suggests the developer's teams, because the Gitilizer app can't list teams in organizations where it isn't installed; it infers them from searches, which spikes on 2026-11-22 showed to work through the app. Large-team defaults, member counts and a Warm Welcome switch were dropped with automatic discovery. A next step on the developer only through a team says "Team review" and so on; anything personal, including having commented, wins. Team mentions stay out. Discussed in [this conversation](https://claude.ai/share/78bba69a-85fc-4f40-ae74-206eb7db9042). | `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25` |
 
 ---
 
@@ -2846,3 +2955,24 @@ second, nearly identical page for signed-out visitors ([Q-105](#q-105)):
 - Changed Figma: [Home · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-3827) and
   [Home · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-4008) replace the sign-in page's frames, which
   are gone.
+
+### Fifty-third revision (2026-11-22, team review requests)
+
+Review requests made to a team now reach the list, for the teams the developer
+chooses ([Q-106](#q-106), [Q-43](#q-43)):
+
+- A new [Teams](#teams) section in Settings, between Additional repositories
+  and Excluded repositories: the developer adds teams, each with an optional
+  prioritization prompt (`SET-51` to `SET-53`, `SET-55`, `SET-56`), and "Find
+  my teams" suggests the ones that are theirs (`SET-54`).
+- PRs that ask one of those teams for review match `LIST-1`, with the reason
+  "Review requested from @{org}/{team}" after the personal reasons (`LIST-21`).
+  A next step on the developer only through a team has the prefix "Team"
+  (`LIST-42`).
+- Scans search only the developer's teams, several to a search (`SCAN-1`).
+- Ranking: a team's request isn't the developer's by itself; a team's prompt,
+  sent with its items, says how much of its reviewing is (`RANK-25`, and the
+  words for Review and Not yours in `RANK-23`).
+- Teams and their prompts are stored with the other settings ([Data and
+  privacy](#data-and-privacy)). Non-goals now leave out only teams the developer
+  hasn't added, and team mentions ([Q-65](#q-65)).
