@@ -122,7 +122,7 @@ describe("teams in a scan, in Settings and in \"Find my teams\"", () => {
     expect(r.status).toBe("ok");
     if (r.status !== "ok") return;
     const eco = r.teams.find((t) => t.name === ECOSYSTEM)!;
-    expect(eco).toMatchObject({ maybe: false });
+    expect(Object.keys(eco).sort()).toEqual(["avatarUrl", "name", "prs"]);
     expect(eco.prs).toBeGreaterThan(0);
     expect(eco.avatarUrl).toContain("dart-lang");
     // The fixture account isn't in the librarian team, so its PR doesn't ask the developer at all.

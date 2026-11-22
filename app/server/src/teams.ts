@@ -112,8 +112,6 @@ export function teamHandle(owner: string, requested: { slug?: string }[] | null 
 const MIN_SEARCHES = 6;
 /** At most this many teams get the two counts (SET-54). */
 const MAX_CHECKED = 10;
-/** Fewer PRs than this asking a team makes it "Maybe yours" (SET-54). */
-const SURE_FROM = 5;
 /** Team-only PRs read for their teams. */
 const MAX_PRS = 100;
 
@@ -163,25 +161,22 @@ export async function findTeams(gh: GitHubApi, login: string): Promise<FindTeams
     const byPrs = [...counts.entries()].sort((a, b) => b[1].prs - a[1].prs || a[0].localeCompare(b[0]));
     const budget = Math.min(MAX_CHECKED, Math.floor((await gh.searchesLeft()) / 2));
     const uncertain = byPrs.filter(([, c]) => !c.alone).slice(0, budget).map(([name]) => name);
-    // The checks run a few at a time, each team's two counts together, so a long list doesn't take long.
-    const verdicts = new Map(await inParallel(uncertain, 3, async (name) => {
+    // The checks run a few at a time, each team's two counts together, so a long list doesn't take long. They
+    // count closed PRs too: a team with few open PRs may have only ones that also ask the developer.
+    const notMine = new Set((await inParallel(uncertain, 3, async (name) => {
       try {
         const [a, b] = await Promise.all([
-          gh.search(`is:pull-request is:open team-review-requested:${name}`, 1),
-          gh.search(`is:pull-request is:open team-review-requested:${name} review-requested:${login}`, 1),
+          gh.search(`is:pull-request team-review-requested:${name}`, 1),
+          gh.search(`is:pull-request team-review-requested:${name} review-requested:${login}`, 1),
         ]);
-        // A PR asks this team and not the developer: not theirs.
-        return [name, a.total > b.total ? "no" : a.total < SURE_FROM ? "maybe" : "yes"] as const;
+        return a.total > b.total ? name : null; // a PR asks this team and not the developer: not theirs
       } catch (e) {
-        if (e instanceof GitHubProblem && e.code === "invalid_team") return [name, "no"] as const;
+        if (e instanceof GitHubProblem && e.code === "invalid_team") return name;
         throw e;
       }
-    }));
-    const found: FoundTeam[] = [];
-    for (const [name, c] of byPrs) {
-      const v = c.alone ? "yes" : verdicts.get(name) ?? "maybe"; // a team the searches left couldn't check is "Maybe yours"
-      if (v !== "no") found.push({ name, prs: c.prs, maybe: v === "maybe", avatarUrl: null });
-    }
+    })).filter((n): n is string => n !== null));
+    // Teams the searches left couldn't check are shown: the developer knows their own teams.
+    const found: FoundTeam[] = byPrs.filter(([name]) => !notMine.has(name)).map(([name, c]) => ({ name, prs: c.prs, avatarUrl: null }));
     const orgs = [...new Set(found.map((t) => t.name.split("/")[0]))];
     const avatars = new Map(await inParallel(orgs, 5, async (org) => {
       try {

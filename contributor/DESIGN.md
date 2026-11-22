@@ -675,7 +675,7 @@ JSON over HTTPS. Every request and response body is defined by a zod schema in `
 | `GET /api/settings`, `PUT /api/settings` | Additional repositories with prioritization prompts, excluded repositories (`{ name, kind, status, ownerType, avatarUrl }`; `PUT` takes just the names), collaborators with their status and avatar, ranking prompt, sort preferences. `GET` also returns `rankingAgent`, `rankingChosen` and `rankedBy`, the active items each agent and basic ranking scored, for the switch dialog (`SET-40`). `PUT` takes everything on the page, `{ …, credentials?: { github_pat?, gemini_key?, anthropic_key?, openai_key? }, rankingAgent?, removeCredentials: [], rerank: boolean }`: "Save changes" sends `rerank: false`, "Save and re-rank" sends `true`, which queues a full re-rank (`SET-15`), except with `rankingAgent: "basic"`, where it is ignored (`RANK-21`). Credentials are stored without being validated (`SET-29`); Warm Welcome uses `POST /api/setup` instead. Returns per-field errors for anything that breaks the rules in `SET-27`, which keep the developer on Settings (`NAV-8`), including a chosen agent with no key, saved or typed; `basic` needs none. A removal of the key of the agent in use, before or after the save, is ignored (`SET-39`); with basic ranking no agent is in use. A successful save records that the ranking is chosen, which completes setup if GitHub is connected. Choosing a different agent switches after the save ([Ranking worker](#ranking-worker), "Switching agents"). The switch dialog is the browser's: the server only sees which button sent `rerank`. |
 | `POST /api/exclusions/check` | Look up an exclusion as soon as it is added (`SET-36`): `GET /repos/{owner}/{name}` for `owner/name`, `GET /users/{login}` for an owner. Returns `{ name, kind, status, ownerType, avatarUrl }`, with GitHub's spelling of the name. Like the other check endpoints it uses the saved PAT and stores nothing ([D-6](#d-6)). |
 | `POST /api/teams/check` | Check a team as soon as it is added (`SET-52`): one search ([Teams](#teams)). Body `{ name }`; returns `{ name, status, avatarUrl }`. |
-| `POST /api/teams/find` | "Find my teams" (`SET-54`). Returns `{ status: "ok", teams: [{ name, prs, maybe, avatarUrl }] }`, or `{ status: "busy" }` or `{ status: "unreachable" }` for the two messages. Teams already in the developer's list are left out by the page, which knows the unsaved ones too. |
+| `POST /api/teams/find` | "Find my teams" (`SET-54`). Returns `{ status: "ok", teams: [{ name, prs, avatarUrl }] }`, or `{ status: "busy" }` or `{ status: "unreachable" }` for the two messages. Teams already in the developer's list are left out by the page, which knows the unsaved ones too. |
 | `PUT /api/sort` | Saves one view's sort order (`LIST-9`). |
 | `PUT /api/preferences` | Saves the Preferences block as soon as it changes, apart from the rest of Settings (`SET-50`, `SET-14`). Body `{ keyboardShortcuts }`; `GET /api/settings` returns the same field. |
 | `POST /api/repos/check`, `POST /api/collaborators/check` | Look up a repository (`{ access, fullName, tokenType, ownerAvatarUrl, ownerType }`) or a collaborator (`{ status, avatarUrl }`) as soon as it is added in Settings, before saving, with the saved PAT. Nothing is stored; the scan after saving records the same results ([D-6](#d-6)). |
@@ -1050,13 +1050,14 @@ work everywhere, so everything here is done with them, as the spikes of
      PRs in the first and not the second ask the developer only through a team.
   3. `GET /repos/{repo}/pulls/{n}` for each of those PRs (at most 100, in
      parallel), for `requested_teams`. Each team counts the PRs it is on ("{n}
-     PRs asking you"). A team that is the only one on a PR is the developer's.
+     open PRs", what adding it would bring in). A team that is the only one on a PR is the developer's.
   4. Each other team, most PRs first, at most 10 and as many as the searches
-     left allow, three teams at a time, gets two counts, run together: `is:pull-request is:open
-     team-review-requested:{t}` (A) and the same with
-     `review-requested:{login}` (B). A > B means it isn't the developer's and
-     it is left out; A = B means it is, with `maybe` when A is under 5. A team
-     the searches left couldn't check is shown with `maybe`.
+     left allow, three teams at a time, gets two counts, run together:
+     `is:pull-request team-review-requested:{t}` (A) and the same with
+     `review-requested:{login}` (B), over closed PRs too: a team with few open
+     PRs may have only ones that also ask the developer. A > B means it isn't
+     the developer's and it is left out. Every other team is shown, including
+     any the searches left couldn't check: the developer knows their teams.
   5. Avatars with `GET /users/{org}`, once per organization.
 
   Nothing is stored: the page keeps the result until it is left.

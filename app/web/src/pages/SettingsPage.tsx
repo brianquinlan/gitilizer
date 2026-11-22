@@ -673,7 +673,6 @@ export function TeamList({ teams, saved, onChange, errors, setError }: {
                   <TeamIcon url={f.avatarUrl} />
                   <span className="mono">{f.name}</span>
                   <span className="fine count">{f.prs === 1 ? "1 open PR" : `${f.prs} open PRs`}</span>
-                  <span className="chip-cell">{f.maybe && <span className="maybe">Maybe yours</span>}</span>
                   <button className="btn small" aria-label={`Add ${f.name}`} disabled={teams.length >= MAX_TEAMS}
                           onClick={() => addTeam(f.name, { status: "ok", avatarUrl: f.avatarUrl })}><PlusIcon /> Add</button>
                 </div>

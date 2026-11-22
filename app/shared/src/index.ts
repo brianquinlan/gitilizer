@@ -385,10 +385,8 @@ export type Team = z.infer<typeof Team>;
 /** One team "Find my teams" suggests (SET-54). */
 export const FoundTeam = z.object({
   name: z.string(),
-  /** Open PRs that ask the developer for review only through this team. */
+  /** Open PRs that ask the developer for review only through this team: what adding it would bring in. */
   prs: z.number().int(),
-  /** "Maybe yours": fewer than 5 open PRs back it up, or it couldn't be checked. */
-  maybe: z.boolean(),
   avatarUrl: z.string().nullable(),
 });
 export type FoundTeam = z.infer<typeof FoundTeam>;

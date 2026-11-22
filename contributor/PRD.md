@@ -1456,21 +1456,21 @@ prompt to say how much of the team's reviewing is yours."
   review only through a team, and lists under the button the teams it finds that
   are the developer's and aren't in the list yet, most PRs first, each with its
   organization's avatar, "{n} open PRs" (the open PRs that ask the developer for
-  review only through that team) and an "Add" button. "Add" adds the team to the
-  list as "Add team" does (`SET-51`), and its suggestion disappears. The button
-  shows "Finding your teams…" with a turning icon, as Sync now's, and is
-  disabled while it runs. A team is the developer's when it is the only team
-  asked on one of those PRs, or when every open PR that asks the team also asks
-  the developer, through them or one of their teams; both counts are of open
-  PRs, which keeps them exact. A team found only the second way, with fewer than
-  5 open PRs asking the team, is marked "Maybe yours" in grey. Teams that are
-  not the developer's aren't shown. At most 10 teams that need checking are
-  checked, those on the most PRs first. If none are found: "No teams found. A
-  team shows up here when it's asked to review an open PR." The results aren't
-  saved: they stay until the developer leaves Settings. If GitHub's search limit
-  is nearly used, for example by a scan that is running, nothing is checked and
-  the message is "GitHub is busy with your scan. Try again in a minute." If
-  GitHub can't be reached, the message is "Couldn't reach GitHub. Try again."
+  review only through that team, which adding it would bring into the list) and
+  an "Add" button. There is no chip saying how sure Gitilizer is: the developer
+  knows their own teams. "Add" adds the team to the list as "Add team" does
+  (`SET-51`), and its suggestion disappears. The button shows "Finding your
+  teams…" with a turning icon, as Sync now's, and is disabled while it runs. A
+  team is the developer's when it is the only team asked on one of those PRs, or
+  when every PR that asks the team, open or closed, also asks the developer,
+  through them or one of their teams. Teams that are not the developer's aren't
+  shown. At most 10 teams that need checking are checked, those on the most PRs
+  first; any others are shown. If none are found: "No teams found. A team shows
+  up here when it's asked to review an open PR." The results aren't saved: they
+  stay until the developer leaves Settings. If GitHub's search limit is nearly
+  used, for example by a scan that is running, nothing is checked and the
+  message is "GitHub is busy with your scan. Try again in a minute." If GitHub
+  can't be reached, the message is "Couldn't reach GitHub. Try again."
 - **SET-55** Teams take effect when settings are saved (`SET-14`). An added
   team's review requests appear at the scan that saving starts (`SCAN-5`) and
   are ranked like new items. A removed team's requests leave the Prioritized
@@ -2107,7 +2107,7 @@ removing the sign-in page; Q-106 came from adding review requests to teams.
 | <a id="q-103"></a>Q-103 | Changing a repository's prioritization prompt | In place: the prompt's text opens as a field when clicked, and a repository without a prompt has "Add prioritization prompt" in its place. The add form no longer has a prompt field, so there is one way to give a repository a prompt. A changed prompt applies to every item with "Save and re-rank", and to items ranked from then on with "Save changes". Until now a prompt couldn't be changed: the developer removed the repository and added it again, and a repository added without a prompt could never get one. An "Edit" button beside "Remove", a field that is always open and a dialog were also considered. Editing the text keeps the section as quiet as it is, and the hover tint and pencil make the text look clickable, which plain text doesn't ([Q-102](#q-102)). | `SET-7`, `SET-9` |
 | <a id="q-104"></a>Q-104 | A home page and privacy policy that Google accepts | A public home page at `/` and a privacy policy page at `/docs/privacy`, both on gitilizer.com and complete without JavaScript. Google refused to show Gitilizer's logo on its sign-in screen for three reasons: `/docs/privacy` redirected to the user guide on GitHub, whose Privacy section doesn't cover everything Google asks for; gitilizer.com showed only the sign-in page; and that page is drawn by JavaScript, so Google's checker saw an empty page. A separate `/about` page, with `/` staying the sign-in page, was considered: it is smaller, but every visitor to gitilizer.com would still land on sign-in. The policy names Brian Quinlan as the operator, with brian@sweetapp.com as the contact. | `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `FOOT-2` |
 | <a id="q-105"></a>Q-105 | Whether to keep a sign-in page | No. Signing in starts from the home page's buttons, failed sign-ins show their notice there, and a signed-out visitor at any other address is sent to the home page, which brings them back after signing in. Signing out and deleting the account go to the home page too. With a home page that already had both buttons, the sign-in page was a second, nearly identical page for signed-out visitors, kept only for failure notices, returning to a deep link and the development sign-in. | `AUTH-4`, `AUTH-10`, `HOME-3`, `NAV-10`, `ACCT-3`, `SET-17` |
-| <a id="q-106"></a>Q-106 | Review requests to teams | The developer adds teams in Settings, like additional repositories, each with an optional prioritization prompt, and only those teams' requests are searched. A team without a prompt only brings its requests into the list; with one, its requests rank like reviews waiting on the developer, below personal requests unless the prompt says otherwise. "Find my teams" suggests the developer's teams, because the Gitilizer app can't list teams in organizations where it isn't installed; it infers them from searches, which spikes on 2026-11-22 showed to work through the app. The spikes also showed that GitHub refuses a search naming a team it doesn't know (so "Not found" can be shown), and that teams combine with OR, with the exclusions and with repository filters in one search. Large-team defaults, member counts and a Warm Welcome switch were dropped with automatic discovery. A next step on the developer only through a team says "Team review" and so on; anything personal, including having commented, wins. Team mentions stay out. Discussed in [this conversation](https://claude.ai/share/78bba69a-85fc-4f40-ae74-206eb7db9042). | `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25` |
+| <a id="q-106"></a>Q-106 | Review requests to teams | The developer adds teams in Settings, like additional repositories, each with an optional prioritization prompt, and only those teams' requests are searched. A team without a prompt only brings its requests into the list; with one, its requests rank like reviews waiting on the developer, below personal requests unless the prompt says otherwise. "Find my teams" suggests the developer's teams, with how many open PRs each would bring in, because the Gitilizer app can't list teams in organizations where it isn't installed; it infers them from searches, which spikes on 2026-11-22 showed to work through the app. The spikes also showed that GitHub refuses a search naming a team it doesn't know (so "Not found" can be shown), and that teams combine with OR, with the exclusions and with repository filters in one search. Large-team defaults, member counts and a Warm Welcome switch were dropped with automatic discovery. A next step on the developer only through a team says "Team review" and so on; anything personal, including having commented, wins. Team mentions stay out. Discussed in [this conversation](https://claude.ai/share/78bba69a-85fc-4f40-ae74-206eb7db9042). | `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25` |
 
 ---
 

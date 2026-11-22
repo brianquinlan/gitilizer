@@ -93,14 +93,13 @@ describe("Teams (SET-51 to SET-53)", () => {
 describe("Find my teams (SET-54)", () => {
   it("lists the teams found that aren't on the page, and Add moves one into the list", async () => {
     responses.find = () => ({ status: "ok", teams: [
-      { name: ECO, prs: 23, maybe: false, avatarUrl: null },
-      { name: "googleapis/cloud-sdk-dart-team", prs: 2, maybe: true, avatarUrl: null },
+      { name: ECO, prs: 23, avatarUrl: null },
+      { name: "googleapis/cloud-sdk-dart-team", prs: 2, avatarUrl: null },
     ] });
     await click(buttonNamed("Find my teams"));
     const rows = [...host.querySelectorAll(".suggestion")];
     expect(rows.map((r) => r.querySelector(".mono")!.textContent)).toEqual(["googleapis/cloud-sdk-dart-team"]);
     expect(rows[0].querySelector(".count")!.textContent).toBe("2 open PRs");
-    expect(rows[0].textContent).toContain("Maybe yours");
     await click(rows[0].querySelector("button")!);
     expect(state.teams.map((t) => [t.name, t.status])).toEqual([[ECO, "ok"], ["googleapis/cloud-sdk-dart-team", "ok"]]);
     expect(host.querySelectorAll(".suggestion")).toHaveLength(0);
@@ -108,7 +107,7 @@ describe("Find my teams (SET-54)", () => {
   });
 
   it("says nothing was found when every team it finds is on the page already", async () => {
-    responses.find = () => ({ status: "ok", teams: [{ name: ECO, prs: 23, maybe: false, avatarUrl: null }] });
+    responses.find = () => ({ status: "ok", teams: [{ name: ECO, prs: 23, avatarUrl: null }] });
     await click(buttonNamed("Find my teams"));
     expect($(".find-message")!.textContent).toBe("No teams found. A team shows up here when it's asked to review an open PR.");
   });
