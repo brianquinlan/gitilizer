@@ -110,6 +110,8 @@ export function teamHandle(owner: string, requested: { slug?: string }[] | null 
 
 /** Searches "Find my teams" needs before it starts: the two searches and one team's two counts. */
 const MIN_SEARCHES = 6;
+/** Searches it leaves for what comes next: checking a team when it is added, and the scan after saving. */
+const HEADROOM = 6;
 /** At most this many teams get the two counts (SET-54). */
 const MAX_CHECKED = 10;
 /** Team-only PRs read for their teams. */
@@ -159,7 +161,7 @@ export async function findTeams(gh: GitHubApi, login: string): Promise<FindTeams
       }
     }
     const byPrs = [...counts.entries()].sort((a, b) => b[1].prs - a[1].prs || a[0].localeCompare(b[0]));
-    const budget = Math.min(MAX_CHECKED, Math.floor((await gh.searchesLeft()) / 2));
+    const budget = Math.min(MAX_CHECKED, Math.floor(((await gh.searchesLeft()) - HEADROOM) / 2));
     const uncertain = byPrs.filter(([, c]) => !c.alone).slice(0, budget).map(([name]) => name);
     // The checks run a few at a time, each team's two counts together, so a long list doesn't take long. They
     // count closed PRs too: a team with few open PRs may have only ones that also ask the developer.

@@ -1008,8 +1008,10 @@ work everywhere, so everything here is done with them, as the spikes of
   connection can't see, which `classify()` turns into the `invalid_team`
   problem (`not_found`), and 200 for a real team, even with no PRs (`ok`). The
   organization's avatar comes from `GET /users/{org}`. `POST /api/teams/check`
-  does this when a team is added, and a scan checks every team still
-  `checking`, such as one saved before the check answered. A team that is `ok`
+  does this when a team is added, and saving keeps its answer (or the one "Find
+  my teams" gave), so the scan needn't search again. A scan checks every team still
+  `checking`, such as one saved before the check answered, and so does the
+  Settings page when it opens, since local mode has no automatic scans. A team that is `ok`
   isn't checked again, to save searches; if a team search answers 422, the
   scanner checks each team in it, marks the ones GitHub refuses `not_found`,
   and searches again without them.
@@ -1044,7 +1046,9 @@ work everywhere, so everything here is done with them, as the spikes of
   (`scaleBands()`), and `NEXT_STEPS` uses the words of `RANK-23`.
 - **"Find my teams"** (`SET-54`). `POST /api/teams/find`:
   1. `GET /rate_limit` (not counted against search). With fewer than 6 searches
-     left in the minute, it answers `busy` and checks nothing.
+     left in the minute, it answers `busy` and checks nothing. It leaves 6
+     unused for what comes next: checking a team as it is added, and the scan
+     after saving.
   2. Two searches: `is:pull-request is:open archived:false
      review-requested:{login}` and the same with `user-review-requested:`. The
      PRs in the first and not the second ask the developer only through a team.

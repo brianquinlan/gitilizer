@@ -172,6 +172,15 @@ describe("teams through the HTTP API (SET-51 to SET-55)", () => {
     expect((await call("PUT", "/api/settings", { ...page, teams: [{ name: "nope", prioritizationPrompt: "" }] })).statusCode).toBe(422);
   });
 
+  it("keeps what the page learned about a new team, and a check settles a saved team still being checked", async () => {
+    const teams = [{ name: "googleapis/cloud-sdk-dart-team", prioritizationPrompt: "", status: "ok", avatarUrl: "https://avatars.example/g.png" }];
+    expect((await call("PUT", "/api/settings", { ...page, teams })).statusCode).toBe(200);
+    expect((await call("GET", "/api/settings")).json().teams[0]).toMatchObject({ status: "ok", avatarUrl: "https://avatars.example/g.png" });
+    await ctx.db.query(`update teams set status = 'checking'`);
+    await call("POST", "/api/teams/check", { name: "googleapis/cloud-sdk-dart-team" });
+    expect((await ctx.db.one(`select status from teams`)).status).not.toBe("checking");
+  });
+
   it("finds teams", async () => {
     const r = (await call("POST", "/api/teams/find")).json();
     expect(r.status).toBe("ok");

@@ -93,7 +93,7 @@ export function SettingsPage() {
       const credentials = Object.fromEntries(Object.entries(secrets).filter(([, v]) => v.trim()));
       await api.put("/api/settings", {
         additionalRepos: draft.repos.map(({ fullName, prioritizationPrompt }) => ({ fullName, prioritizationPrompt })),
-        teams: draft.teams.map(({ name, prioritizationPrompt }) => ({ name, prioritizationPrompt })),
+        teams: draft.teams.map(({ name, prioritizationPrompt, status, avatarUrl }) => ({ name, prioritizationPrompt, status, avatarUrl })),
         excludedRepos: draft.exclusions.map((e) => e.name),
         collaborators: draft.collaborators.map((c) => c.login),
         customPrompt: draft.prompt === server.defaultPrompt ? null : draft.prompt,
@@ -583,14 +583,21 @@ export function TeamList({ teams, saved, onChange, errors, setError }: {
   const [found, setFound] = useState<FoundTeam[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  // A saved team still "Checking…" (its scan couldn't check it, or hasn't run yet) is checked when the page opens.
+  useEffect(() => {
+    for (const t of teams) if (t.status === "checking") check(t.name);
+  }, []);
+  const check = (name: string) => {
+    api.post<Team>("/api/teams/check", { name })
+      .then((r) => onChange((cur) => cur.map((x) => (x.name === name ? { ...x, status: r.status, avatarUrl: r.avatarUrl } : x))))
+      .catch(() => {});
+  };
   const addTeam = (name: string, checked?: Pick<Team, "status" | "avatarUrl">) => {
     onChange((cur) => [...cur, { name, prioritizationPrompt: "", status: checked?.status ?? "checking", avatarUrl: checked?.avatarUrl ?? null }]);
     setFound((f) => f && f.filter((x) => x.name.toLowerCase() !== name.toLowerCase())); // its suggestion goes (SET-54)
     if (checked) return;
     // Checked at once with a search (SET-52); the scan that saving starts checks it again if this doesn't answer.
-    api.post<Team>("/api/teams/check", { name })
-      .then((r) => onChange((cur) => cur.map((x) => (x.name === name ? { ...x, status: r.status, avatarUrl: r.avatarUrl } : x))))
-      .catch(() => {});
+    check(name);
   };
   const add = () => {
     const name = parseTeam(input);

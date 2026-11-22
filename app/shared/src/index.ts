@@ -438,7 +438,11 @@ export type SettingsResponse = z.infer<typeof SettingsResponse>;
 export const SettingsUpdate = z.object({
   additionalRepos: z.array(z.object({ fullName: z.string(), prioritizationPrompt: z.string() })),
   /** Teams as "org/slug", each with its prompt (SET-51, SET-53). */
-  teams: z.array(z.object({ name: z.string(), prioritizationPrompt: z.string() })).default([]),
+  teams: z.array(z.object({
+    name: z.string(), prioritizationPrompt: z.string(),
+    /** What the page already learned about a new team (its check, or "Find my teams"), so saving needn't search again. */
+    status: z.enum(["checking", "ok", "not_found"]).optional(), avatarUrl: z.string().nullable().optional(),
+  })).default([]),
   /** Names as typed or as GitHub spells them: "owner/name" or "owner" (SET-33). */
   excludedRepos: z.array(z.string()).default([]),
   collaborators: z.array(z.string()),

@@ -450,7 +450,12 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
 
     const repos = next.additionalRepos.map((r) => ({ name: parseRepo(r.fullName)!, prompt: r.prioritizationPrompt.trim() }));
     const logins = next.collaborators.map((l) => parseLogin(l)!);
-    const teams = next.teams.map((t) => ({ name: parseTeam(t.name)!, prompt: t.prioritizationPrompt.trim() }));
+    const teams = next.teams.map((t) => ({
+      name: parseTeam(t.name)!, prompt: t.prioritizationPrompt.trim(),
+      // A new team the page has already checked keeps that answer: one search fewer for the scan (SET-52).
+      status: t.status === "ok" || t.status === "not_found" ? t.status : "checking",
+      avatarUrl: t.avatarUrl && /^https:\/\//.test(t.avatarUrl) ? t.avatarUrl : null,
+    }));
     const exclusions = next.excludedRepos.map((e) => parseExclusion(e)!);
     const trimmed = next.customPrompt?.trim() ?? "";
     const prompt = trimmed && trimmed !== ctx.config.defaultPrompt.trim() ? next.customPrompt : null;
@@ -474,16 +479,17 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
           [userId, prevRepos.find((p) => p.toLowerCase() === r.name.toLowerCase()) ?? r.name, r.prompt, i],
         );
       }
-      // Teams that stay keep their state and avatar (SET-52); new ones start unchecked, and the scan that saving
-      // starts checks them.
+      // Teams that stay keep their state and avatar (SET-52). A new one takes what the page learned about it, or
+      // starts unchecked, and the scan that saving starts checks it.
       const keepTeams = new Set(teams.map((x) => x.name.toLowerCase()));
       const prevTeams = (await t.query(`select name from teams where user_id = $1`, [userId])).map((r) => r.name as string);
       for (const n of prevTeams) if (!keepTeams.has(n.toLowerCase())) await t.query(`delete from teams where user_id = $1 and name = $2`, [userId, n]);
       for (const [i, x] of teams.entries()) {
         await t.query(
-          `insert into teams (user_id, name, prioritization_prompt, position) values ($1, $2, $3, $4)
+          `insert into teams (user_id, name, prioritization_prompt, position, status, avatar_url, checked_at)
+           values ($1, $2, $3, $4, $5, $6, case when $5 = 'checking' then null else now() end)
            on conflict (user_id, name) do update set position = $4, prioritization_prompt = $3`,
-          [userId, prevTeams.find((n) => n.toLowerCase() === x.name.toLowerCase()) ?? x.name, x.prompt, i],
+          [userId, prevTeams.find((n) => n.toLowerCase() === x.name.toLowerCase()) ?? x.name, x.prompt, i, x.status, x.avatarUrl],
         );
       }
       // Exclusions that stay keep their GitHub ID, state and avatar (SET-36); new ones start unchecked.
@@ -624,11 +630,17 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   app.post("/api/teams/check", async (req): Promise<Team> => {
     const { name } = z.object({ name: z.string().max(200) }).parse(req.body);
     const team = parseTeam(name);
-    const gh = await githubFor(uid(req));
+    const userId = uid(req);
+    const gh = await githubFor(userId);
     const unchecked: Team = { name: team ?? name, prioritizationPrompt: "", status: "checking", avatarUrl: null };
     if (!team || !gh) return unchecked;
     try {
       const r = await lookUpTeam(gh, team);
+      // A saved team still being checked (a scan couldn't, or hasn't yet) takes the answer too.
+      await db.query(
+        `update teams set status = $3, avatar_url = coalesce($4, avatar_url), checked_at = now() where user_id = $1 and lower(name) = lower($2) and status = 'checking'`,
+        [userId, team, r.status, r.avatarUrl],
+      );
       return { name: team, prioritizationPrompt: "", status: r.status, avatarUrl: r.avatarUrl };
     } catch {
       return unchecked; // checked again by the next scan (SET-52)

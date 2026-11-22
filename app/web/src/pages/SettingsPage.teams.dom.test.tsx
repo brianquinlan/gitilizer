@@ -79,6 +79,21 @@ describe("Teams (SET-51 to SET-53)", () => {
     expect(bad.title).toBe("GitHub says there's no team northstar/web-reviewrs, or your GitHub connection can't see it. If the name is misspelled, remove it and add it again.");
   });
 
+  it("checks a saved team that is still \"Checking…\" when the page opens", async () => {
+    act(() => root.unmount());
+    responses.check = (name) => ({ name, prioritizationPrompt: "", status: "ok", avatarUrl: "https://avatars/dart.png" });
+    const stuck = [{ ...SAVED[0], status: "checking" as const }];
+    function Stuck() {
+      const [teams, setTeams] = useState<Team[]>(stuck);
+      state = { teams, errors: {} };
+      return <TeamList teams={teams} saved={stuck} errors={{}} setError={() => {}} onChange={setTeams} />;
+    }
+    root = createRoot(host);
+    await act(async () => { root.render(<Stuck />); });
+    expect(state.teams[0].status).toBe("ok");
+    expect($("#team-dart-lang-dart-ecosystem-team .access")).toBeNull();
+  });
+
   it("refuses a malformed or repeated team (SET-27)", async () => {
     typeInput($<HTMLInputElement>("#add-team")!, "dart-lang");
     await click(buttonNamed("Add team"));
