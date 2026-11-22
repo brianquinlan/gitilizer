@@ -13,7 +13,7 @@ import { CredentialField, type Check } from "../components/CredentialField.tsx";
 import { CHIPS, GitHubCard, useConnectResult, useGitHubConnection } from "../components/GitHubConnection.tsx";
 import { Preferences } from "../components/Preferences.tsx";
 import {
-  AlertIcon, ExternalIcon, EyeOffIcon, FolderGitIcon, GitHubIcon, ListIcon, PencilIcon, PlugIcon, PlusIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
+  AlertIcon, ExternalIcon, EyeOffIcon, FolderGitIcon, GitHubIcon, ListIcon, PencilIcon, PlugIcon, PlusIcon, RefreshIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
 } from "../icons.tsx";
 import { focusTarget, navigate, setNavigationGuard } from "../router.tsx";
 import { useStore } from "../store.tsx";
@@ -659,7 +659,7 @@ export function TeamList({ teams, saved, onChange, errors, setError }: {
       <div className="find-teams">
         <div className="find-row">
           <button className="btn" onClick={() => void find()} disabled={finding} aria-describedby="find-teams-hint">
-            <UsersIcon /> {finding ? "Finding your teams…" : "Find my teams"}
+            {finding ? <><RefreshIcon className="spin" /> Finding your teams…</> : <><UsersIcon /> Find my teams</>}
           </button>
           <span className="fine" id="find-teams-hint">Not sure which teams you're in? Gitilizer can find the teams that are asking you for reviews.</span>
         </div>

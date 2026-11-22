@@ -1052,7 +1052,7 @@ work everywhere, so everything here is done with them, as the spikes of
      parallel), for `requested_teams`. Each team counts the PRs it is on ("{n}
      PRs asking you"). A team that is the only one on a PR is the developer's.
   4. Each other team, most PRs first, at most 10 and as many as the searches
-     left allow, gets two counts: `is:pull-request is:open
+     left allow, three teams at a time, gets two counts, run together: `is:pull-request is:open
      team-review-requested:{t}` (A) and the same with
      `review-requested:{login}` (B). A > B means it isn't the developer's and
      it is left out; A = B means it is, with `maybe` when A is under 5. A team

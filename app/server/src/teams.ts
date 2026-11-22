@@ -161,35 +161,37 @@ export async function findTeams(gh: GitHubApi, login: string): Promise<FindTeams
       }
     }
     const byPrs = [...counts.entries()].sort((a, b) => b[1].prs - a[1].prs || a[0].localeCompare(b[0]));
-    const found: FoundTeam[] = [];
-    let budget = Math.min(MAX_CHECKED, Math.floor((await gh.searchesLeft()) / 2));
-    for (const [name, c] of byPrs) {
-      if (c.alone) { found.push({ name, prs: c.prs, maybe: false, avatarUrl: null }); continue; }
-      if (budget <= 0) { found.push({ name, prs: c.prs, maybe: true, avatarUrl: null }); continue; }
-      budget--;
+    const budget = Math.min(MAX_CHECKED, Math.floor((await gh.searchesLeft()) / 2));
+    const uncertain = byPrs.filter(([, c]) => !c.alone).slice(0, budget).map(([name]) => name);
+    // The checks run a few at a time, each team's two counts together, so a long list doesn't take long.
+    const verdicts = new Map(await inParallel(uncertain, 3, async (name) => {
       try {
-        const a = (await gh.search(`is:pull-request is:open team-review-requested:${name}`, 1)).total;
-        const b = (await gh.search(`is:pull-request is:open team-review-requested:${name} review-requested:${login}`, 1)).total;
-        if (a > b) continue; // a PR asks this team and not the developer: not theirs
-        found.push({ name, prs: c.prs, maybe: a < SURE_FROM, avatarUrl: null });
+        const [a, b] = await Promise.all([
+          gh.search(`is:pull-request is:open team-review-requested:${name}`, 1),
+          gh.search(`is:pull-request is:open team-review-requested:${name} review-requested:${login}`, 1),
+        ]);
+        // A PR asks this team and not the developer: not theirs.
+        return [name, a.total > b.total ? "no" : a.total < SURE_FROM ? "maybe" : "yes"] as const;
       } catch (e) {
-        if (e instanceof GitHubProblem && e.code === "invalid_team") continue;
+        if (e instanceof GitHubProblem && e.code === "invalid_team") return [name, "no"] as const;
         throw e;
       }
+    }));
+    const found: FoundTeam[] = [];
+    for (const [name, c] of byPrs) {
+      const v = c.alone ? "yes" : verdicts.get(name) ?? "maybe"; // a team the searches left couldn't check is "Maybe yours"
+      if (v !== "no") found.push({ name, prs: c.prs, maybe: v === "maybe", avatarUrl: null });
     }
-    const avatars = new Map<string, string | null>();
-    for (const t of found) {
-      const org = t.name.split("/")[0];
-      if (!avatars.has(org)) {
-        try {
-          const u = await gh.user(org);
-          avatars.set(org, u.exists ? u.avatarUrl : null);
-        } catch {
-          avatars.set(org, null);
-        }
+    const orgs = [...new Set(found.map((t) => t.name.split("/")[0]))];
+    const avatars = new Map(await inParallel(orgs, 5, async (org) => {
+      try {
+        const u = await gh.user(org);
+        return [org, u.exists ? u.avatarUrl : null] as const;
+      } catch {
+        return [org, null] as const;
       }
-      t.avatarUrl = avatars.get(org) ?? null;
-    }
+    }));
+    for (const t of found) t.avatarUrl = avatars.get(t.name.split("/")[0]) ?? null;
     return { status: "ok", teams: found };
   } catch (e) {
     if (e instanceof GitHubProblem && e.code === "rate_limited") return { status: "busy" };
