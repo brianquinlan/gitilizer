@@ -109,6 +109,16 @@ create table if not exists excluded_repos (
   position int not null default 0,
   primary key (user_id, name)
 );
+create table if not exists teams (
+  user_id text not null references users(id) on delete cascade,
+  name text not null,
+  prioritization_prompt text not null default '',
+  status text not null default 'checking',
+  avatar_url text,
+  checked_at timestamptz,
+  position int not null default 0,
+  primary key (user_id, name)
+);
 create table if not exists releases (
   release text primary key,
   first_started_at timestamptz not null default now()
@@ -318,6 +328,7 @@ alter table rank_jobs add column if not exists agent text;
 alter table user_items add column if not exists rank_error text;
 alter table user_items add column if not exists gone_at timestamptz;
 alter table user_items add column if not exists next_step text;
+alter table user_items add column if not exists team_handle text;
 update user_items set reasons = array_replace(reasons, 'interested_repo', 'additional_repo') where 'interested_repo' = any(reasons);
 alter table scans add column if not exists kind text not null default 'full';
 alter table rank_jobs add column if not exists kind text not null default 'rank';

@@ -265,7 +265,11 @@ export type ClaimedJob = {
   itemKey: string;
   reason: string;
   snapshot: Record<string, unknown>;
-  user: { github_login: string; additional_repos: { repo: string; prioritization_prompt: string }[]; collaborators: string[] };
+  user: {
+    github_login: string; additional_repos: { repo: string; prioritization_prompt: string }[]; collaborators: string[];
+    /** The developer's teams that GitHub knows and that have a prompt: only these reach the agent (RANK-25). */
+    teams: { team: string; prioritization_prompt: string }[];
+  };
   prompt: string | null;
   /** How the developer's items are ranked: their ranking agent, or basic ranking (SET-38). */
   choice: RankingChoice;
@@ -342,6 +346,9 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
     const s = await db.one(`select custom_prompt from settings where user_id = $1`, [r.user_id]);
     const repos = await db.query(`select full_name, prioritization_prompt from additional_repos where user_id = $1 order by position, full_name`, [r.user_id]);
     const collabs = await db.query(`select login from collaborators where user_id = $1 order by position, login`, [r.user_id]);
+    const teams = await db.query(
+      `select name, prioritization_prompt from teams where user_id = $1 and status = 'ok' and prioritization_prompt <> '' order by position, name`, [r.user_id],
+    );
     const item = await db.one(`select snapshot from items where key = $1`, [r.item_key]);
     const ui = await db.one(`select status, iceboxed_at from user_items where user_id = $1 and item_key = $2`, [r.user_id, r.item_key]);
     const key = agent === "basic" ? ctx.config.basic.key ?? "fake" : await getCredential(ctx, r.user_id, keyKindFor(agent));
@@ -360,6 +367,7 @@ export async function claimJobs(ctx: Ctx, max: number, leaseSeconds: number): Pr
         github_login: u.github_login,
         additional_repos: repos.map((x) => ({ repo: x.full_name, prioritization_prompt: x.prioritization_prompt })),
         collaborators: collabs.map((x) => x.login),
+        teams: teams.map((x) => ({ team: x.name, prioritization_prompt: x.prioritization_prompt })),
       },
       prompt: s?.custom_prompt ?? null,
       choice,

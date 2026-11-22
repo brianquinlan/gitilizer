@@ -60,16 +60,35 @@ describe("snapshot limits", () => {
 });
 
 describe("discovery (LIST-1)", () => {
-  it("builds one search per inclusion reason, personal review requests only", () => {
+  it("builds one search per inclusion reason, and no team search without teams", () => {
     const qs = discoveryQueries("maya", ["org/repo"]);
     expect(qs.map((q) => q.reason)).toEqual(["review_requested", "assigned", "mentioned", "created", "commented", "additional_repo"]);
     expect(qs.map((q) => q.q.split(" ").pop())).toEqual(["user-review-requested:maya", "assignee:maya", "mentions:maya", "author:maya", "commenter:maya", "repo:org/repo"]);
-    expect(qs.every((q) => q.q.startsWith("is:open archived:false"))).toBe(true);
+    // Only PRs have review requests, so that search says so and runs once (design: Scanner).
+    expect(qs[0].q).toBe("is:pull-request is:open archived:false user-review-requested:maya");
+    expect(qs.slice(1).every((q) => q.q.startsWith("is:open archived:false"))).toBe(true);
     expect(qs.some((q) => /team/.test(q.q))).toBe(false);
   });
   it("reads everything updated since the last scan in an incremental scan", () => {
-    const qs = discoveryQueries("maya", [], "2026-11-01T10:00:00Z");
-    expect(qs.every((q) => q.q.startsWith("archived:false updated:>=2026-11-01T10:00:00Z"))).toBe(true);
+    const qs = discoveryQueries("maya", [], "2026-11-01T10:00:00Z", undefined, ["org/a"]);
+    expect(qs.every((q) => q.q.replace("is:pull-request ", "").startsWith("archived:false updated:>=2026-11-01T10:00:00Z"))).toBe(true);
+  });
+  it("searches the developer's teams together, 8 to a search, with the exclusions (SCAN-1, D-27)", () => {
+    const teams = Array.from({ length: 9 }, (_, i) => `org/t${i}`);
+    const ex = { repos: ["org/hidden"], owners: ["noisy"], excepted: [] };
+    const qs = discoveryQueries("maya", [], null, ex, teams).filter((q) => q.reason === "team_review_requested");
+    expect(qs).toHaveLength(2);
+    expect(qs[0].teams).toHaveLength(8);
+    expect(qs[0].q).toBe(`is:pull-request is:open archived:false (${teams.slice(0, 8).map((t) => `team-review-requested:${t}`).join(" OR ")}) -repo:org/hidden -user:noisy`);
+    expect(qs[1].q).toBe("is:pull-request is:open archived:false (team-review-requested:org/t8) -repo:org/hidden -user:noisy");
+  });
+  it("repeats the team search for additional repositories in an excluded owner, with the repositories ORed (SET-35, D-27)", () => {
+    const ex = { repos: [], owners: ["org"], excepted: ["org/a", "org/b"] };
+    const qs = discoveryQueries("maya", ["org/a", "org/b"], null, ex, ["org/t"]).filter((q) => q.reason === "team_review_requested");
+    expect(qs.map((q) => q.q)).toEqual([
+      "is:pull-request is:open archived:false (team-review-requested:org/t) -user:org",
+      "is:pull-request is:open archived:false (team-review-requested:org/t) (repo:org/a OR repo:org/b)",
+    ]);
   });
 });
 
@@ -88,7 +107,7 @@ describe("settings rules (SET-7, SET-25, SET-27)", () => {
   it("reports problems next to their fields", () => {
     const s: SettingsUpdate = {
       additionalRepos: [{ fullName: "a/b", prioritizationPrompt: "" }, { fullName: "A/B", prioritizationPrompt: "x".repeat(501) }],
-      excludedRepos: [], collaborators: ["kevmoo", "@KevMoo"], customPrompt: "y".repeat(20_001), removeCredentials: [], rerank: false,
+      teams: [], excludedRepos: [], collaborators: ["kevmoo", "@KevMoo"], customPrompt: "y".repeat(20_001), removeCredentials: [], rerank: false,
     };
     expect(settingsErrors(s)).toEqual([
       { field: "repo-A-B", message: "A/B is already in your list." },
@@ -153,7 +172,7 @@ describe("scan and rank cycle", () => {
     expect(jobs).toHaveLength(4);
     const [job] = jobs;
     expect(job).toMatchObject({ kind: "rank", model: MODELS[0], apiKey: "secret-value-123", agent: "gemini" });
-    expect(job.user).toEqual({ github_login: "brianquinlan", additional_repos: [{ repo: "dart-lang/http", prioritization_prompt: "not responsible for http2" }], collaborators: [] });
+    expect(job.user).toEqual({ github_login: "brianquinlan", additional_repos: [{ repo: "dart-lang/http", prioritization_prompt: "not responsible for http2" }], collaborators: [], teams: [] });
     expect(job.snapshot).toHaveProperty("issue");
     expect(await claimJobs(ctx, 50, 60)).toHaveLength(0);
     for (const j of jobs) await rank(j);

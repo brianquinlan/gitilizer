@@ -8,12 +8,13 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import {
   CSRF_HEADER, CredentialKind, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, MAX_COLLABORATORS, MAX_PROMPT_LENGTH,
-  MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, Preferences, SettingsUpdate, SetupRequest, Sort, credentialControlId, exclusionErrors, parseExclusion, parseLogin,
-  parseRepo, repoControlId, type CheckResult, type CredentialChip, type FieldError, type Me, type RankingChoice, type SettingsResponse, type SetupResponse,
+  MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MAX_TEAMS, MESSAGES, Preferences, SettingsUpdate, SetupRequest, Sort, credentialControlId, exclusionErrors, parseExclusion, parseLogin,
+  parseRepo, parseTeam, repoControlId, teamControlId, type FindTeamsResponse, type Team, type CheckResult, type CredentialChip, type FieldError, type Me, type RankingChoice, type SettingsResponse, type SetupResponse,
 } from "@gitilizer/shared";
 import { agentInUse, completeSetupIfReady, keyKindOf, publishQueued, rankedBy, rankingChosen, rankingPaused, switchAgent } from "./agents.ts";
 import type { Ctx } from "./context.ts";
 import { exclusionRows, lookUpExclusion, removeExcluded } from "./exclusions.ts";
+import { findTeams, lookUpTeam } from "./teams.ts";
 import { checkValue, credentialStatus, removeCredential, saveCredential } from "./credentials.ts";
 import { registerConnect } from "./connect.ts";
 import { appAvailable, connectionMethod, getGitHubToken, revokeAuthorization } from "./connection.ts";
@@ -385,12 +386,14 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
        where user_id = $1 order by position, full_name`, [userId],
     );
     const collabs = await db.query(`select login, status, avatar_url from collaborators where user_id = $1 order by position, login`, [userId]);
+    const teams = await db.query(`select name, prioritization_prompt, status, avatar_url from teams where user_id = $1 order by position, name`, [userId]);
     const excluded = await exclusionRows(db, userId);
     return {
       additionalRepos: repos.map((r) => ({
         fullName: r.full_name, prioritizationPrompt: r.prioritization_prompt, access: r.access, tokenType: r.token_type,
         ownerAvatarUrl: r.owner_avatar_url, ownerType: r.owner_type === "Organization" || r.owner_type === "User" ? r.owner_type : null,
       })),
+      teams: teams.map((t) => ({ name: t.name, prioritizationPrompt: t.prioritization_prompt, status: t.status, avatarUrl: t.avatar_url })),
       excludedRepos: excluded.map((e) => ({
         name: e.name, kind: e.kind, status: e.status, avatarUrl: e.avatar_url,
         ownerType: e.owner_type === "Organization" || e.owner_type === "User" ? e.owner_type : null,
@@ -447,6 +450,7 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
 
     const repos = next.additionalRepos.map((r) => ({ name: parseRepo(r.fullName)!, prompt: r.prioritizationPrompt.trim() }));
     const logins = next.collaborators.map((l) => parseLogin(l)!);
+    const teams = next.teams.map((t) => ({ name: parseTeam(t.name)!, prompt: t.prioritizationPrompt.trim() }));
     const exclusions = next.excludedRepos.map((e) => parseExclusion(e)!);
     const trimmed = next.customPrompt?.trim() ?? "";
     const prompt = trimmed && trimmed !== ctx.config.defaultPrompt.trim() ? next.customPrompt : null;
@@ -468,6 +472,18 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
           `insert into additional_repos (user_id, full_name, prioritization_prompt, position) values ($1, $2, $3, $4)
            on conflict (user_id, full_name) do update set position = $4, prioritization_prompt = $3`,
           [userId, prevRepos.find((p) => p.toLowerCase() === r.name.toLowerCase()) ?? r.name, r.prompt, i],
+        );
+      }
+      // Teams that stay keep their state and avatar (SET-52); new ones start unchecked, and the scan that saving
+      // starts checks them.
+      const keepTeams = new Set(teams.map((x) => x.name.toLowerCase()));
+      const prevTeams = (await t.query(`select name from teams where user_id = $1`, [userId])).map((r) => r.name as string);
+      for (const n of prevTeams) if (!keepTeams.has(n.toLowerCase())) await t.query(`delete from teams where user_id = $1 and name = $2`, [userId, n]);
+      for (const [i, x] of teams.entries()) {
+        await t.query(
+          `insert into teams (user_id, name, prioritization_prompt, position) values ($1, $2, $3, $4)
+           on conflict (user_id, name) do update set position = $4, prioritization_prompt = $3`,
+          [userId, prevTeams.find((n) => n.toLowerCase() === x.name.toLowerCase()) ?? x.name, x.prompt, i],
         );
       }
       // Exclusions that stay keep their GitHub ID, state and avatar (SET-36); new ones start unchecked.
@@ -602,6 +618,34 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
       return { name: r.name, kind: e.kind, status: r.status, ownerType: r.ownerType, avatarUrl: r.avatarUrl };
     } catch {
       return unchecked; // checked again by the next scan (SET-36)
+    }
+  });
+  // A team, checked as soon as it is added (SET-52): one search, which GitHub refuses for a team it doesn't know.
+  app.post("/api/teams/check", async (req): Promise<Team> => {
+    const { name } = z.object({ name: z.string().max(200) }).parse(req.body);
+    const team = parseTeam(name);
+    const gh = await githubFor(uid(req));
+    const unchecked: Team = { name: team ?? name, prioritizationPrompt: "", status: "checking", avatarUrl: null };
+    if (!team || !gh) return unchecked;
+    try {
+      const r = await lookUpTeam(gh, team);
+      return { name: team, prioritizationPrompt: "", status: r.status, avatarUrl: r.avatarUrl };
+    } catch {
+      return unchecked; // checked again by the next scan (SET-52)
+    }
+  });
+  // "Find my teams" (SET-54). Nothing is stored.
+  app.post("/api/teams/find", async (req): Promise<FindTeamsResponse> => {
+    const userId = uid(req);
+    const gh = await githubFor(userId);
+    if (!gh) return { status: "unreachable" };
+    const u = await db.one(`select github_login from users where id = $1`, [userId]);
+    try {
+      const login = u?.github_login ?? (await gh.viewer()).login;
+      return await findTeams(gh, login);
+    } catch (e) {
+      log.warn("teams", "Find my teams failed", { user: userId, error: String((e as Error)?.message ?? e).slice(0, 300) });
+      return { status: "unreachable" };
     }
   });
   app.post("/api/collaborators/check", async (req) => {
@@ -749,7 +793,7 @@ export function buildInternalApp(ctx: Ctx): FastifyInstance {
   return app;
 }
 
-/** The rules in SET-7, SET-9, SET-24, SET-25, SET-27, SET-33 and SET-35, checked again on the server. */
+/** The rules in SET-7, SET-9, SET-24, SET-25, SET-27, SET-33, SET-35, SET-51 and SET-53, checked again on the server. */
 export function settingsErrors(s: SettingsUpdate): FieldError[] {
   const errors: FieldError[] = [];
   const seen = new Set<string>();
@@ -762,6 +806,15 @@ export function settingsErrors(s: SettingsUpdate): FieldError[] {
     if (r.prioritizationPrompt.length > MAX_REPO_PROMPT_LENGTH) errors.push({ field: repoControlId(name), message: MESSAGES.repoPromptLength(r.prioritizationPrompt.length) });
   }
   errors.push(...exclusionErrors(s.excludedRepos, s.additionalRepos.map((r) => parseRepo(r.fullName) ?? r.fullName)));
+  const teams = new Set<string>();
+  if (s.teams.length > MAX_TEAMS) errors.push({ field: "add-team", message: MESSAGES.teamLimit });
+  for (const t of s.teams) {
+    const name = parseTeam(t.name);
+    if (!name) { errors.push({ field: "add-team", message: MESSAGES.teamFormat }); continue; }
+    if (teams.has(name.toLowerCase())) errors.push({ field: teamControlId(name), message: MESSAGES.teamDuplicate(name) });
+    teams.add(name.toLowerCase());
+    if (t.prioritizationPrompt.length > MAX_REPO_PROMPT_LENGTH) errors.push({ field: teamControlId(name), message: MESSAGES.repoPromptLength(t.prioritizationPrompt.length) });
+  }
   const logins = new Set<string>();
   if (s.collaborators.length > MAX_COLLABORATORS) errors.push({ field: "add-collaborator", message: MESSAGES.loginLimit });
   for (const l of s.collaborators) {

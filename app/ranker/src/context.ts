@@ -45,6 +45,9 @@ const BOT_RE = /(\[bot\]$|-bot$|^bot-|^dependabot|^github-actions|^copybara|^goo
 /** An additional repository and the developer's note about it (PRD SET-9). */
 export type RepoInterest = { repo: string; filter?: string };
 
+/** A team in the developer's Settings and their note about it (PRD SET-53, RANK-25): "org/slug". */
+export type TeamNote = { team: string; note: string };
+
 export class UserSettings {
   constructor(
     public githubLogin: string,
@@ -52,6 +55,8 @@ export class UserSettings {
     public collaborators: string[] = [],
     /** Teams whose review requests count as requests to me (the eval set still has these). */
     public reviewTeams: string[] = [],
+    /** The developer's teams with a note: the agent sees a note with the items that ask that team (RANK-25). */
+    public teamNotes: TeamNote[] = [],
   ) {}
 
   /**
@@ -62,11 +67,18 @@ export class UserSettings {
     const repos: RepoInterest[] = "additional_repos" in d
       ? (d.additional_repos ?? []).map((r: Json) => (r.prioritization_prompt ? { repo: r.repo, filter: r.prioritization_prompt } : { repo: r.repo }))
       : (d.interested_repos ?? []).map((r: Json) => (typeof r === "string" ? { repo: r } : r));
-    return new UserSettings(d.github_login, repos, [...(d.collaborators ?? [])], [...(d.review_teams ?? [])]);
+    const notes: TeamNote[] = (d.teams ?? []).filter((t: Json) => t.prioritization_prompt).map((t: Json) => ({ team: t.team, note: t.prioritization_prompt }));
+    return new UserSettings(d.github_login, repos, [...(d.collaborators ?? [])], [...(d.review_teams ?? [])], notes);
   }
 
   isMyTeam(org: string, slug: string): boolean {
-    return this.reviewTeams.some((t) => [`${org}/${slug}`.toLowerCase(), slug.toLowerCase()].includes(t.toLowerCase()));
+    return this.reviewTeams.some((t) => [`${org}/${slug}`.toLowerCase(), slug.toLowerCase()].includes(t.toLowerCase()))
+      || this.teamNote(org, slug) !== null;
+  }
+
+  /** The developer's note about the team `org/slug`, if it is one of their teams with a note (RANK-25). */
+  teamNote(org: string, slug: string): TeamNote | null {
+    return this.teamNotes.find((t) => t.team.toLowerCase() === `${org}/${slug}`.toLowerCase()) ?? null;
   }
 
   repoInterest(fullRepo: string): RepoInterest | null {
@@ -370,6 +382,11 @@ export function buildContext(
   if (isPr) {
     out.push(`requested reviewers: ${repr((pull.requested_reviewers || []).map((u: Json) => u.login))}`);
     if ((pull.requested_teams || []).length) out.push(`requested teams: ${repr(pull.requested_teams.map((t: Json) => t.slug))}`);
+    // RANK-25: the developer's note about each of their teams this PR asks, and only with its items.
+    for (const t of pull.requested_teams || []) {
+      const n = user.teamNote(ref.owner, t.slug);
+      if (n) out.push(`My teams: ${n.team} — my note: "${n.note}"`);
+    }
     out.push(`branch: ${str((pull.head ?? {}).label)} -> ${str((pull.base ?? {}).ref)}`);
   }
   const reactions = Object.fromEntries(

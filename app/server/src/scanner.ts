@@ -1,6 +1,6 @@
 // A scan for one developer (design: Scanner; PRD SCAN-1..4, LIST-1, LIST-19).
 import { log } from "./log.ts";
-import { EXPIRY_WARNING_DAYS, type NotificationCode, type Reason, type RemovalReason } from "@gitilizer/shared";
+import { EXPIRY_WARNING_DAYS, REASON_PRECEDENCE, type NotificationCode, type Reason, type RemovalReason } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 import { getGitHubToken, listInstallations, syncPermissionWarnings } from "./connection.ts";
 import { pgJson, pgText } from "./db.ts";
@@ -10,9 +10,14 @@ import { firstSyncBatch, pushSync, queueRankJobs, updateUnranked, type QueuedJob
 import { publish } from "./list.ts";
 import { clear, raise } from "./notify.ts";
 import { NO_EXCLUSIONS, checkExclusions, exclusionQualifiers, exclusionRows, exclusionsFrom, isExcluded, type Exclusions } from "./exclusions.ts";
+import { checkTeams, recheckTeams, teamBatches, teamHandle, teamQuery } from "./teams.ts";
 
 type Found = { hit: SearchHit; reasons: Set<Reason>; handle: string | null };
-export type DiscoveryQuery = { reason: Reason; q: string; handle?: string; repo?: string };
+export type DiscoveryQuery = {
+  reason: Reason; q: string; handle?: string; repo?: string;
+  /** A search for these teams, which needs GitHub's advanced search (design D-27); `forTeams` writes it for fewer. */
+  teams?: string[]; forTeams?: (teams: string[]) => string;
+};
 
 /**
  * The searches that make up discovery, with the reason each contributes
@@ -24,20 +29,33 @@ export type DiscoveryQuery = { reason: Reason; q: string; handle?: string; repo?
  * a positive `repo:` with a negated `-user:` unpredictably (design D-13). When
  * an excluded owner owns additional repositories, the personal searches run
  * again for just those repositories, so their items keep their reasons (SET-35).
+ *
+ * The developer's teams that GitHub knows are searched together, up to 8 to a search, with GitHub's advanced
+ * search, which OR needs; under it a space between two `repo:` filters means both, so a group of repositories is
+ * written with OR too (SCAN-1, design D-27).
  */
-export function discoveryQueries(login: string, repos: string[], since: string | null = null, ex: Exclusions = NO_EXCLUSIONS): DiscoveryQuery[] {
+export function discoveryQueries(
+  login: string, repos: string[], since: string | null = null, ex: Exclusions = NO_EXCLUSIONS, teams: string[] = [],
+): DiscoveryQuery[] {
   const base = since ? `archived:false updated:>=${since}` : "is:open archived:false";
-  const personal = (scope: string): DiscoveryQuery[] => [
-    { reason: "review_requested", q: `${base} user-review-requested:${login}${scope}` },
+  const teamSearches = (scope: string): DiscoveryQuery[] => teamBatches(teams).map((batch) => ({
+    reason: "team_review_requested" as Reason, q: teamQuery(base, batch, scope), teams: batch, forTeams: (t: string[]) => teamQuery(base, t, scope),
+  }));
+  const personal = (scope: string, teamScope: string): DiscoveryQuery[] => [
+    // Only PRs have review requests, so the search says so and runs once (design: Scanner, step 2).
+    { reason: "review_requested", q: `is:pull-request ${base} user-review-requested:${login}${scope}` },
     { reason: "assigned", q: `${base} assignee:${login}${scope}` },
     { reason: "mentioned", q: `${base} mentions:${login}${scope}`, handle: `@${login}` },
     { reason: "created", q: `${base} author:${login}${scope}` },
     { reason: "commented", q: `${base} commenter:${login}${scope}` },
+    ...teamSearches(teamScope),
   ];
   const excepted = repos.filter((r) => ex.excepted.includes(r.toLowerCase()));
+  const exclusions = exclusionQualifiers(ex);
+  const repoGroup = excepted.length === 1 ? ` repo:${excepted[0]}` : ` (${excepted.map((r) => `repo:${r}`).join(" OR ")})`;
   return [
-    ...personal(exclusionQualifiers(ex)),
-    ...(excepted.length ? personal(excepted.map((r) => ` repo:${r}`).join("")) : []),
+    ...personal(exclusions, exclusions),
+    ...(excepted.length ? personal(excepted.map((r) => ` repo:${r}`).join(""), repoGroup) : []),
     ...repos.map((r) => ({ reason: "additional_repo" as Reason, q: `${base} repo:${r}`, repo: r })),
   ];
 }
@@ -219,11 +237,14 @@ async function scanWith(
   // Only accessible additional repositories can be searched, so only they are excepted (SET-35).
   await checkExclusions(ctx, gh, userId, full);
   const ex = exclusionsFrom(await exclusionRows(db, userId), repos);
+  // Teams still being checked are checked now; only teams GitHub knows are searched (SET-52).
+  const teams = await checkTeams(ctx, gh, userId);
 
   // What the developer has now. Read before discovery, so it can count what it finds (LIST-33).
   const existing = new Map<string, any>();
   for (const r of await db.query(
-    `select ui.item_key, ui.status, ui.ranked_updated_at, ui.reasons, ui.mention_handle, i.snapshot_updated_at, i.title, i.updated_at
+    `select ui.item_key, ui.status, ui.ranked_updated_at, ui.reasons, ui.mention_handle, ui.team_handle, i.snapshot_updated_at, i.title, i.updated_at,
+            i.snapshot->'pull'->'requested_teams' as requested_teams
      from user_items ui join items i on i.key = ui.item_key where ui.user_id = $1`, [userId],
   )) existing.set(r.item_key, r);
 
@@ -237,11 +258,19 @@ async function scanWith(
     await pushSync(ctx, userId);
   };
   const partial = new Set<string>();
-  for (const q of discoveryQueries(viewer.login, repos, since, ex)) {
+  for (const q of discoveryQueries(viewer.login, repos, since, ex, teams)) {
     let hits: SearchHit[];
     try {
       let ssoOrgs: string[] | undefined;
-      ({ hits, ssoOrgs } = await gh.search(q.q, ctx.config.maxItems));
+      try {
+        ({ hits, ssoOrgs } = await gh.search(q.q, ctx.config.maxItems, { advanced: Boolean(q.teams) }));
+      } catch (e) {
+        // A team GitHub no longer knows fails its whole search: find it, and search again without it (SET-52).
+        if (!(e instanceof GitHubProblem && e.code === "invalid_team" && q.teams && q.forTeams)) throw e;
+        const left = await recheckTeams(ctx, gh, userId, q.teams);
+        if (!left.length) continue;
+        ({ hits, ssoOrgs } = await gh.search(q.forTeams(left), ctx.config.maxItems, { advanced: true }));
+      }
       // Results from organizations the token isn't authorized for are left out (D-7).
       for (const org of ssoOrgs ?? []) {
         partial.add("sso");
@@ -362,7 +391,8 @@ async function scanWith(
     const iceboxed = prev?.status === "iceboxed";
     if (!iceboxed && !kept.has(key)) continue;
     const h = f.hit;
-    const reasons = REASONS_IN_ORDER.filter((r) => f.reasons.has(r));
+    const reasons = REASON_PRECEDENCE.filter((r) => f.reasons.has(r));
+    let requestedTeams: any = prev?.requested_teams ?? null; // replaced below if the snapshot is fetched again
     await db.query(
       `insert into items (key, kind, title, html_url, state, updated_at) values ($1, $2, $3, $4, $5, $6)
        on conflict (key) do update set kind = $2, title = $3, html_url = $4, state = $5, updated_at = $6`,
@@ -373,6 +403,7 @@ async function scanWith(
     if (needsSnapshot) {
       try {
         const snap = await gh.snapshot(h.repo, h.number);
+        requestedTeams = snap.pull?.requested_teams ?? null;
         await db.query(
           `update items set snapshot = $2, snapshot_updated_at = $3, draft = $4 where key = $1`,
           [h.key, pgJson(snap), snap.issue?.updated_at ?? h.updatedAt, Boolean(snap.pull?.draft)],
@@ -387,21 +418,24 @@ async function scanWith(
         throw e;
       }
     }
+    // The developer's team that was asked, read from the snapshot: search results don't say (LIST-3).
+    const team = f.reasons.has("team_review_requested") ? teamHandle(h.repo.split("/")[0], requestedTeams, teams) : null;
     if (!prev) {
       await db.query(
-        `insert into user_items (user_id, item_key, reasons, mention_handle, status) values ($1, $2, $3, $4, 'active')`,
-        [userId, h.key, reasons, f.handle],
+        `insert into user_items (user_id, item_key, reasons, mention_handle, team_handle, status) values ($1, $2, $3, $4, $5, 'active')`,
+        [userId, h.key, reasons, f.handle, team],
       );
       await queue({ key, reason: "new" });
       continue;
     }
     const back = prev.status === "gone";
-    const reasonsChanged = String([...prev.reasons].sort()) !== String([...reasons].sort()) || prev.mention_handle !== f.handle;
+    const reasonsChanged = String([...prev.reasons].sort()) !== String([...reasons].sort()) || prev.mention_handle !== f.handle
+      || (prev.team_handle ?? null) !== team;
     if (reasonsChanged || back || prev.title !== h.title || new Date(prev.updated_at).getTime() !== Date.parse(h.updatedAt)) {
       await db.query(
-        `update user_items set reasons = $3, mention_handle = $4, status = case when status = 'gone' then 'active' else status end,
+        `update user_items set reasons = $3, mention_handle = $4, team_handle = $5, status = case when status = 'gone' then 'active' else status end,
            gone_reason = null, gone_at = null where user_id = $1 and item_key = $2`,
-        [userId, h.key, reasons, f.handle],
+        [userId, h.key, reasons, f.handle, team],
       );
       if (!back) upserts.push(h.key);
     }
@@ -436,8 +470,6 @@ async function scanWith(
 function isChangeFor(prev: any, updatedAt: string): boolean {
   return !prev || prev.status === "gone" || !prev.ranked_updated_at || Date.parse(prev.ranked_updated_at) < Date.parse(updatedAt);
 }
-
-const REASONS_IN_ORDER: Reason[] = ["review_requested", "assigned", "mentioned", "created", "commented", "additional_repo"];
 
 /** Issues and PRs a snapshot links to: related items, closing references and the PR stack. */
 export function linkedKeys(snap: any): string[] {

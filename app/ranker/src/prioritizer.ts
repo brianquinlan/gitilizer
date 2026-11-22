@@ -34,13 +34,13 @@ export const defaultPrompt = () => readFileSync(DEFAULT_PROMPT_PATH, "utf8");
  * item that fits more than one (NEXT_STEP_PRECEDENCE), not this one.
  */
 export const NEXT_STEPS = {
-  review: "A PR is waiting for my review or re-review. I am a requested reviewer, or the default reviewer for the repository, or the author has updated the PR since my last review.",
+  review: "A PR is waiting for my review or re-review. I am a requested reviewer, or one of my teams with a note is (see \"My teams\"), or I am the default reviewer for the repository, or the author has updated the PR since my last review.",
   respond: "Someone is waiting on me. A question or request addressed to me is unanswered, or my own PR has review feedback I haven't addressed.",
   todo: "It is mine to move forward and nobody is waiting on a reply from me. This covers work I am assigned, said I would do, or recently filed in an area I own. It includes checking whether something is fixed, deciding what to do, finishing or closing my draft, and pinging a reviewer who has been silent for about a week.",
   backlog: "It is mine, but nothing is pressing. It is an old or stale item in an area I own, with no recent activity and nobody waiting, that I could triage or close when grooming.",
   waiting: "I am involved and it is someone else's move. I asked a question, requested changes or requested a review, and haven't had an answer yet.",
   elsewhere: "The thing to act on is a different item. This is an issue with an open PR that fixes it, or a PR stacked on lower PRs that need review first. Name that item in the next action.",
-  not_yours: "There is nothing for me to do, now or later. It is outside my stated scope, owned or driven by someone else, a team review request in a repository I'm not responsible for, a mention with nothing asked of me, or a PR I already approved.",
+  not_yours: "There is nothing for me to do, now or later. It is outside my stated scope, owned or driven by someone else, a review request to a team with no note from me in a repository I'm not responsible for, a mention with nothing asked of me, or a PR I already approved.",
 } as const;
 export type NextStep = keyof typeof NEXT_STEPS;
 export const NEXT_STEP_KEYS = Object.keys(NEXT_STEPS) as [NextStep, ...NextStep[]];

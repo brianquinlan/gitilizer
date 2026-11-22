@@ -6,7 +6,7 @@ import type { Db } from "./db.ts";
 // waiting: a ranking job is queued while ranking is paused, because the agent's key, credits or billing
 // doesn't work, or basic ranking is paused (LIST-30, RANK-20, RANK-22).
 const ROW_SQL = `
-  select ui.item_key, ui.reasons, ui.mention_handle, ui.status, ui.iceboxed_at, ui.score, ui.reasoning, ui.next_step, ui.next_action, ui.rank_failed,
+  select ui.item_key, ui.reasons, ui.mention_handle, ui.team_handle, ui.status, ui.iceboxed_at, ui.score, ui.reasoning, ui.next_step, ui.next_action, ui.rank_failed,
          i.kind, i.title, i.html_url, i.updated_at,
          (u.ranking_paused_until > now()
           and exists (select 1 from rank_jobs j where j.user_id = ui.user_id and j.item_key = ui.item_key
@@ -26,6 +26,7 @@ function toRow(r: any): ItemRow {
     updatedAt: new Date(r.updated_at).toISOString(),
     reasons: r.reasons,
     mentionHandle: r.mention_handle,
+    teamHandle: r.team_handle ?? null,
     status: r.status,
     iceboxedAt: r.iceboxed_at ? new Date(r.iceboxed_at).toISOString() : null,
     reasoning: r.reasoning || null, // basic ranking stores none, so the rank isn't clickable (LIST-24)
