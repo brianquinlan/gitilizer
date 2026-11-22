@@ -1,6 +1,6 @@
 # Gitilizer privacy policy
 
-Last updated: November 20, 2026
+Last updated: November 22, 2026
 
 Gitilizer ([gitilizer.com](https://gitilizer.com)) shows developers one list of
 their open GitHub issues and pull requests, ranked by how much each one needs
@@ -28,13 +28,16 @@ repositories.
   anything there, even if a token you give it would allow that.
 - The API key of each AI provider you add (Google Gemini, Anthropic Claude or
   OpenAI), and which one you use.
-- Your settings: additional and excluded repositories, prioritization and
-  ranking prompts, collaborators, sort order and whether keyboard shortcuts are
-  on.
+- Your settings: additional and excluded repositories, the GitHub teams you
+  add, prioritization and ranking prompts, collaborators, sort order and
+  whether keyboard shortcuts are on.
 
 **What Gitilizer reads from GitHub:** the open issues and pull requests that
-involve you, and those in any repositories you add in Settings, which can come
-from private repositories you can read. Gitilizer stores the content it needs
+involve you, those that ask a team you add in Settings for a review, and those
+in any repositories you add in Settings, which can come from private
+repositories you can read. When you choose **Find my teams**, Gitilizer reads
+which teams the pull requests asking you for a review name, to suggest yours;
+it doesn't keep that list. Gitilizer stores the content it needs
 to rank and show each one (its title, description, labels, comments, reviews
 and linked items) and, for each one, its score, its next step, the AI model's
 next action and explanation, and whether you moved it to the Icebox.
