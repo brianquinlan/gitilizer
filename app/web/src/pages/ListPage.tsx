@@ -1,7 +1,7 @@
 // Prioritized list and Icebox (PRD "Prioritized list", "Live updates", "Icebox").
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  choiceName, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, NEXT_STEP_LABEL, reasonLabel,
+  choiceName, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, nextStepLabel, reasonLabel, teamOnly,
   scanBlocker, type NextStep, type ScanBlocker, type Sort, type SortColumn, type SyncEvent,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
@@ -291,11 +291,11 @@ function Rows(props: {
                   {/* The spaces keep the parts apart when the line is copied or read out; flex ignores them. */}
                   {view === "prioritized" && r.nextStep && <>{hasWhy(r)
                     ? <span className={`next-step-cell${why === r.key ? " open" : ""}`}>
-                        <NextStepChip step={r.nextStep} rank={n} open={why === r.key} onToggle={() => setWhy(why === r.key ? null : r.key)}
+                        <NextStepChip step={r.nextStep} team={teamOnly(r)} rank={n} open={why === r.key} onToggle={() => setWhy(why === r.key ? null : r.key)}
                                       buttonRef={(el) => { if (el) chipBtns.current.set(r.key, el); else chipBtns.current.delete(r.key); }} />
                         {why === r.key && <RankWhy row={r} rank={n} />}
                       </span>
-                    : <NextStepChip step={r.nextStep} />}{" "}</>}
+                    : <NextStepChip step={r.nextStep} team={teamOnly(r)} />}{" "}</>}
                   <span className="num">{r.kind === "pr" ? "PR" : "Issue"} #{r.number}</span>{" "}
                   <span className="dot" />{" "}
                   {view === "icebox"
@@ -325,15 +325,18 @@ function Rows(props: {
  * With `onToggle`, a button that opens the rank reasoning popup (LIST-24): a caret, and `aria-expanded` while it is open.
  * Without, a label: basic ranking, or no stored reasoning.
  */
-export function NextStepChip({ step, rank, open = false, onToggle, buttonRef }: {
+export function NextStepChip({ step, team = false, rank, open = false, onToggle, buttonRef }: {
   step: NextStep; rank?: number; open?: boolean; onToggle?: () => void; buttonRef?: (el: HTMLButtonElement | null) => void;
+  /** On the developer only through one of their teams: "Team review" and so on, in the same colors (LIST-42). */
+  team?: boolean;
 }) {
   const className = `next-step ${step.replace("_", "-")}`;
-  if (!onToggle) return <span className={className}>{NEXT_STEP_LABEL[step]}</span>;
+  const label = nextStepLabel(step, team);
+  if (!onToggle) return <span className={className}>{label}</span>;
   return (
     <button type="button" className={className} aria-expanded={open} aria-haspopup="dialog"
-            aria-label={`${NEXT_STEP_LABEL[step]}, why rank #${rank}?`} ref={buttonRef} onClick={onToggle}>
-      {NEXT_STEP_LABEL[step]}<ChevronDown size={11} />
+            aria-label={`${label}, why rank #${rank}?`} ref={buttonRef} onClick={onToggle}>
+      {label}<ChevronDown size={11} />
     </button>
   );
 }

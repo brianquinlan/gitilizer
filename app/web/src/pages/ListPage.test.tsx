@@ -172,6 +172,20 @@ describe("next steps on the list (LIST-42, LIST-24)", () => {
     expect(m[0]).toContain('<span class="reason" title="Assigned to you">Assigned to you');
   });
 
+  it("says \"Team review\" when only one of the developer's teams was asked, and names the team (LIST-3, LIST-42)", () => {
+    const team = { reasons: ["team_review_requested" as const], teamHandle: "@northstar/web-reviewers" };
+    const rows = [
+      item(955, "pr", "northstar/web", "Add keyboard navigation to command menu", 0.7, { nextStep: "review", ...team }),
+      item(956, "pr", "northstar/web", "Same, but I was @-mentioned", 0.6, { nextStep: "review", ...team, reasons: ["mentioned", "team_review_requested"], mentionHandle: "@brianquinlan" }),
+      item(957, "pr", "northstar/web", "Someone else's", 0.5, { nextStep: "not_yours", ...team }),
+    ];
+    const m = metas(render("", list(rows)));
+    expect(text(m[0]).trim()).toBe("Team review PR #955 Review requested from @northstar/web-reviewers");
+    expect(m[0]).toMatch(/^<span class="next-step review">Team review<\/span>/); // the same colors as Review
+    expect(text(m[1]).trim()).toBe("Review PR #956 @brianquinlan"); // anything personal wins
+    expect(text(m[2]).trim()).toBe("Not yours PR #957 Review requested from @northstar/web-reviewers");
+  });
+
   it("doesn't show next steps in the Icebox (ICE-3)", () => {
     const iced = steps.map((i) => ({ ...i, status: "iceboxed" as const, iceboxedAt: "2026-11-14T00:00:00Z" }));
     expect(render("", list(iced), "icebox")).not.toContain("next-step");
