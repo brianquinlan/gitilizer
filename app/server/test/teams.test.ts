@@ -177,6 +177,17 @@ describe("teams in a scan, in Settings and in \"Find my teams\"", () => {
     expect(r.status).toBe("ok");
   });
 
+  it("checks no team when the searches left are fewer than it keeps spare", async () => {
+    const gh = new FixtureGitHub(store);
+    const left = [30, 2]; // enough to start, then 2 left after the first searches
+    gh.searchesLeft = async () => left.shift() ?? 2;
+    let counts = 0;
+    const real = gh.search.bind(gh);
+    gh.search = async (q, limit, opts) => { if (q.startsWith("is:pull-request archived:false team-review-requested:")) counts++; return real(q, limit, opts); };
+    expect((await findTeams(gh, store.login)).status).toBe("ok");
+    expect(counts).toBe(0);
+  });
+
   it("says GitHub is busy when the searches are nearly used up", async () => {
     const gh = new FixtureGitHub(store);
     gh.searchesLeft = async () => 3;
@@ -227,6 +238,15 @@ describe("teams through the HTTP API (SET-51 to SET-55)", () => {
     await ctx.db.query(`update teams set status = 'checking'`);
     await call("POST", "/api/teams/check", { name: "googleapis/cloud-sdk-dart-team" });
     expect((await ctx.db.one(`select status from teams`)).status).not.toBe("checking");
+  });
+
+  it("takes a fresh answer for a team removed and added again in one save", async () => {
+    const team = { name: "googleapis/cloud-sdk-dart-team", prioritizationPrompt: "" };
+    await ctx.db.query(`update teams set status = 'not_found', avatar_url = null`);
+    expect((await call("PUT", "/api/settings", { ...page, teams: [{ ...team, status: "ok", avatarUrl: "https://avatars.example/g2.png" }] })).statusCode).toBe(200);
+    expect((await call("GET", "/api/settings")).json().teams[0]).toMatchObject({ status: "ok", avatarUrl: "https://avatars.example/g2.png" });
+    expect((await call("PUT", "/api/settings", { ...page, teams: [{ ...team, status: "checking" }] })).statusCode).toBe(200);
+    expect((await call("GET", "/api/settings")).json().teams[0]).toMatchObject({ status: "ok" }); // "checking" changes nothing
   });
 
   it("finds teams", async () => {

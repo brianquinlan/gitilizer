@@ -479,8 +479,9 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
           [userId, prevRepos.find((p) => p.toLowerCase() === r.name.toLowerCase()) ?? r.name, r.prompt, i],
         );
       }
-      // Teams that stay keep their state and avatar (SET-52). A new one takes what the page learned about it, or
-      // starts unchecked, and the scan that saving starts checks it.
+      // A team takes what the page learned about it, such as a team removed and added again since a check said
+      // it was found; otherwise a team that stays keeps its state and avatar, and a new one starts unchecked for
+      // the scan that saving starts (SET-52).
       const keepTeams = new Set(teams.map((x) => x.name.toLowerCase()));
       const prevTeams = (await t.query(`select name from teams where user_id = $1`, [userId])).map((r) => r.name as string);
       for (const n of prevTeams) if (!keepTeams.has(n.toLowerCase())) await t.query(`delete from teams where user_id = $1 and name = $2`, [userId, n]);
@@ -488,7 +489,10 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
         await t.query(
           `insert into teams (user_id, name, prioritization_prompt, position, status, avatar_url, checked_at)
            values ($1, $2, $3, $4, $5, $6, case when $5 = 'checking' then null else now() end)
-           on conflict (user_id, name) do update set position = $4, prioritization_prompt = $3`,
+           on conflict (user_id, name) do update set position = $4, prioritization_prompt = $3,
+             status = case when $5 = 'checking' then teams.status else $5 end,
+             avatar_url = case when $5 = 'checking' then teams.avatar_url else coalesce($6, teams.avatar_url) end,
+             checked_at = case when $5 = 'checking' then teams.checked_at else now() end`,
           [userId, prevTeams.find((n) => n.toLowerCase() === x.name.toLowerCase()) ?? x.name, x.prompt, i, x.status, x.avatarUrl],
         );
       }

@@ -213,7 +213,7 @@ export async function findTeams(gh: GitHubApi, login: string): Promise<FindTeams
       }
     }
     const byPrs = [...counts.entries()].sort((a, b) => b[1].prs - a[1].prs || a[0].localeCompare(b[0]));
-    const budget = Math.min(MAX_CHECKED, Math.floor(((await gh.searchesLeft()) - HEADROOM) / 2));
+    const budget = Math.max(0, Math.min(MAX_CHECKED, Math.floor(((await gh.searchesLeft()) - HEADROOM) / 2)));
     const uncertain = byPrs.filter(([, c]) => !c.alone).slice(0, budget).map(([name]) => name);
     // The checks run a few at a time, each team's two counts together, so a long list doesn't take long. They
     // count closed PRs too: a team with few open PRs may have only ones that also ask the developer.
