@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-21 (no sign-in page: signing in starts from the home page, which shows failed sign-ins and remembers the address a signed-out visitor asked for; signing out and deleting the account go to the home page, `AUTH-4`, `AUTH-10`, `AUTH-15`, `HOME-2`, `HOME-3`, `NAV-3`, `NAV-10`, `ACCT-3`, `SET-17`, `FOOT-1`, `FOOT-2`, `BAR-3`, [Q-105](#q-105)); 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-21 (future directions: review requests to a developer's GitHub teams and team mentions, discussed and set aside, [Future directions](#future-directions), [Q-43](#q-43), [Q-65](#q-65)); 2026-11-21 (no sign-in page: signing in starts from the home page, which shows failed sign-ins and remembers the address a signed-out visitor asked for; signing out and deleting the account go to the home page, `AUTH-4`, `AUTH-10`, `AUTH-15`, `HOME-2`, `HOME-3`, `NAV-3`, `NAV-10`, `ACCT-3`, `SET-17`, `FOOT-1`, `FOOT-2`, `BAR-3`, [Q-105](#q-105)); 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -38,8 +38,9 @@
 17. [Scanning and ranking](#scanning-and-ranking)
 18. [Data and privacy](#data-and-privacy)
 19. [Non-functional requirements](#non-functional-requirements)
-20. [Open questions](#open-questions)
-21. [Appendix: revision history](#appendix-revision-history)
+20. [Future directions](#future-directions)
+21. [Open questions](#open-questions)
+22. [Appendix: revision history](#appendix-revision-history)
 
 ---
 
@@ -89,11 +90,11 @@ These are out of scope for the first release.
   is used up (`RANK-13`). The design should still allow other providers to be
   added later.
 - Choosing the model. Gitilizer chooses one for each ranking agent (`SET-22`).
-- Review requests made to a GitHub team the developer belongs to, and the ranking agent's "review teams" setting. Only review requests made to the developer personally count. **Revisit after the first release** (see [Q-43](#q-43)).
+- Review requests made to a GitHub team the developer belongs to, and the ranking agent's "review teams" setting. Only review requests made to the developer personally count. Considered on 2026-11-21 and set aside; see [Future directions](#team-review-requests-and-team-mentions) and [Q-43](#q-43).
 - Filtering or sorting the list by next step. The list shows each item's next
   step, which opens the rank reasoning popup (`LIST-42`, `LIST-24`), and
   nothing more for now ([Q-100](#q-100)).
-- Mentions of a GitHub team the developer belongs to (`@org/team`). Only mentions of the developer by name count ([Q-65](#q-65)).
+- Mentions of a GitHub team the developer belongs to (`@org/team`). Only mentions of the developer by name count ([Q-65](#q-65), [Future directions](#team-review-requests-and-team-mentions)).
 - More than one GitHub connection per developer, for example a token for each
   organization, or the Gitilizer app and a token together ([Q-40](#q-40),
   [Q-87](#q-87)). Revisit if developers ask for it.
@@ -1854,6 +1855,60 @@ Gitilizer keeps:
 
 ---
 
+## Future directions
+
+Ideas that were worked through and then set aside, kept so that a later
+decision can start from them. Nothing in this section is a requirement.
+
+### Team review requests and team mentions
+
+Discussed on 2026-11-21
+([conversation](https://claude.ai/share/78bba69a-85fc-4f40-ae74-206eb7db9042))
+and set aside, because it adds too much to test. `LIST-1` leaves out review
+requests made to a team the developer belongs to and mentions of a team
+(`@org/team`) ([Q-43](#q-43), [Q-65](#q-65)). In organizations that send
+reviews to teams, for example through CODEOWNERS, a developer's list can
+therefore look nearly empty unless they add each repository as an additional
+repository. The discussion reached this design:
+
+- **Finding teams.** GitHub's `GET /user/teams` lists the developer's teams
+  with every kind of GitHub connection and needs no new permission. It covers
+  every organization with a classic token, only the token's organization with
+  a fine-grained one, and, still to be confirmed, only organizations where the
+  Gitilizer app is installed with the app. Gitilizer would check on every
+  scan, so that teams the developer joins appear and teams they leave go.
+- **Choosing teams.** A "Team reviews" card in Settings, under the GitHub card:
+  a switch, then a checkbox for each team, grouped by organization, with its
+  member count. Every team starts ticked, including teams found later; an
+  unticked team stays unticked. Large teams (for example over 50 members) are
+  ticked too, but marked "Large team"; newly found teams have a "New" pill.
+  Warm Welcome's connected box (`WEL-6`) gets a "Team reviews" row with the
+  same switch, on by default, when teams were found.
+- **What a ticked team adds.** Its review requests
+  (`team-review-requested:org/team`) and its mentions (`team:org/team`), with
+  reasons such as "Review requested from @acme/backend". Each team adds
+  searches to every scan, which count against GitHub's limit of 30 searches a
+  minute.
+- **Ranking.** A ticked team's review request would be scored by how likely
+  the review is to fall to the developer, always below a request to them
+  personally (0.65–0.8): 0.5–0.65 for a small team (about 10 members or fewer)
+  or a repository they're responsible for, 0.35–0.5 for other teams, 0.15–0.35
+  for large teams, and near 0 when someone else on the team is already
+  reviewing. Its next step would be Review, not Not yours (`RANK-23`). The
+  ranking agent would need each team's name and member count.
+- **Testing.** The product owner doesn't use team reviews, so evals would use
+  items built from public PRs in organizations that review through teams,
+  labelled from the ranges above. Checking the whole feature needs a test
+  organization with teams, and fixture mode for large teams.
+- **Privacy.** Gitilizer would read and store the developer's team memberships
+  and choices, so the privacy policy (`PRIV-6`) and the home page's "What
+  Gitilizer uses, and why" (`HOME-2`) would change.
+- **Single sign-on.** Organizations that use it are still out of scope with the
+  Gitilizer app ([Non-goals](#non-goals)), and many organizations that review
+  through teams use it.
+
+---
+
 ## Open questions
 
 New questions are marked **TODO:** where they come up and listed here.
@@ -1919,7 +1974,7 @@ removing the sign-in page.
 | <a id="q-40"></a>Q-40 | Token kinds | Accept both, recommend fine-grained, explain in the documentation behind "Learn more". One token per developer. Changed on 2026-11-14: a token is now the alternative to the Gitilizer app, and a developer has one or the other ([Q-87](#q-87)). | `SET-20`, [Non-goals](#non-goals) |
 | <a id="q-41"></a>Q-41 | Additional repositories | `owner/name` or a URL; duplicates and bad formats are errors; at most 25; prompts up to 500 characters, edited in place on the repository's row ([Q-103](#q-103)); states "Checking…", "Access confirmed" and "Can't access", with the reason on hover. | `SET-7` to `SET-9` |
 | <a id="q-42"></a>Q-42 | Collaborators | As suggested: tooltip on the error icon, "@" removed, duplicates rejected, at most 50. Generic avatar drawn in Figma. | `SET-19`, `SET-25` |
-| <a id="q-43"></a>Q-43 | Review teams | Out of scope for now; listed in non-goals to revisit. | [Non-goals](#non-goals) |
+| <a id="q-43"></a>Q-43 | Review teams | Out of scope. Considered again on 2026-11-21 and set aside, because it adds too much to test; the design it reached is in [Future directions](#team-review-requests-and-team-mentions). | [Non-goals](#non-goals) |
 | <a id="q-44"></a>Q-44 | Ranking prompt | New section description (in Figma); default `prompts/v4.md`; 20,000 characters; defaults update automatically. | `SET-23`, `SET-24` |
 | <a id="q-45"></a>Q-45 | Saving | Cancel is back; the save buttons save everything; confirm before leaving with unsaved changes; no item count. | `SET-14`, `SET-15`, `SET-26` |
 | <a id="q-46"></a>Q-46 | Deletion and backups | Deleted immediately from the live database; backups kept for 6 months. | `SET-17`, `PRIV-4` |
@@ -1941,7 +1996,7 @@ removing the sign-in page.
 | <a id="q-62"></a>Q-62 | "N issues" includes PRs | "{N} issues and PRs". Figma updated. | `LIST-27` |
 | <a id="q-63"></a>Q-63 | The free tier | Gitilizer must work on it. It falls back from `gemini-3.8-flash` to `gemini-3.5-flash-lite` to `gemini-3.1-flash-lite` as each daily quota runs out, with a warning, and an error when all are used up. Items waiting for quota are shown at the end with "–". One item per call. Changed on 2026-11-15: `gemini-3.5-flash-lite` is the only backup model, and basic ranking takes over after it in place of pausing ([Q-96](#q-96)). | `RANK-12` to `RANK-18`, `LIST-30` |
 | <a id="q-64"></a>Q-64 | After saving | Back to the Prioritized list when the save succeeds. | `NAV-8` |
-| <a id="q-65"></a>Q-65 | Team mentions | Left out. | `LIST-1`, [Non-goals](#non-goals) |
+| <a id="q-65"></a>Q-65 | Team mentions | Left out; set aside with team review requests on 2026-11-21 ([Future directions](#team-review-requests-and-team-mentions)). | `LIST-1`, [Non-goals](#non-goals) |
 | <a id="q-66"></a>Q-66 | The 1,000-item limit | Prioritized list only; no notice; a dropped item slides off the bottom like an item moving to a later page. | `LIST-19`, `LIVE-26` |
 | <a id="q-67"></a>Q-67 | "Assigned to you" | Second, after "Review requested". Repeating the repository name is intended. | `LIST-21` |
 | <a id="q-68"></a>Q-68 | The Settings privacy note | Removed on purpose. | `PRIV-2` |
@@ -2846,3 +2901,14 @@ second, nearly identical page for signed-out visitors ([Q-105](#q-105)):
 - Changed Figma: [Home · Cancelled](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-3827) and
   [Home · Error](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=470-4008) replace the sign-in page's frames, which
   are gone.
+
+### Fifty-third revision (2026-11-21, future directions)
+
+Review requests to a developer's GitHub teams, and team mentions, were worked
+through and set aside, because they add too much to test:
+
+- A new [Future directions](#future-directions) section records the design the
+  discussion reached, with a link to it
+  ([Team review requests and team mentions](#team-review-requests-and-team-mentions)).
+- The two Non-goals entries, [Q-43](#q-43) and [Q-65](#q-65) all point to it.
+  Q-43 no longer says to revisit after the first release.
