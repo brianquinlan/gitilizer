@@ -672,9 +672,8 @@ export function TeamList({ teams, saved, onChange, errors, setError }: {
                 <div className="suggestion" key={f.name}>
                   <TeamIcon url={f.avatarUrl} />
                   <span className="mono">{f.name}</span>
-                  <span className="fine">{f.prs === 1 ? "1 PR asking you" : `${f.prs} PRs asking you`}</span>
-                  {f.maybe && <span className="maybe">Maybe yours</span>}
-                  <span className="spacer" />
+                  <span className="fine count">{f.prs === 1 ? "1 open PR" : `${f.prs} open PRs`}</span>
+                  <span className="chip-cell">{f.maybe && <span className="maybe">Maybe yours</span>}</span>
                   <button className="btn small" aria-label={`Add ${f.name}`} disabled={teams.length >= MAX_TEAMS}
                           onClick={() => addTeam(f.name, { status: "ok", avatarUrl: f.avatarUrl })}><PlusIcon /> Add</button>
                 </div>

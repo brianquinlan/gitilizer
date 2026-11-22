@@ -99,7 +99,7 @@ describe("Find my teams (SET-54)", () => {
     await click(buttonNamed("Find my teams"));
     const rows = [...host.querySelectorAll(".suggestion")];
     expect(rows.map((r) => r.querySelector(".mono")!.textContent)).toEqual(["googleapis/cloud-sdk-dart-team"]);
-    expect(rows[0].textContent).toContain("2 PRs asking you");
+    expect(rows[0].querySelector(".count")!.textContent).toBe("2 open PRs");
     expect(rows[0].textContent).toContain("Maybe yours");
     await click(rows[0].querySelector("button")!);
     expect(state.teams.map((t) => [t.name, t.status])).toEqual([[ECO, "ok"], ["googleapis/cloud-sdk-dart-team", "ok"]]);

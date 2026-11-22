@@ -1455,23 +1455,22 @@ prompt to say how much of the team's reviewing is yours."
   app list them. Choosing it looks at the open PRs that ask the developer for
   review only through a team, and lists under the button the teams it finds that
   are the developer's and aren't in the list yet, most PRs first, each with its
-  organization's avatar, "{n} PRs asking you" (the open PRs that ask the
-  developer for review only through that team) and an "Add" button. "Add" adds
-  the team to the list as "Add team" does (`SET-51`), and its suggestion
-  disappears. The button shows "Finding your teams…" with a turning icon, as
-  Sync now's, and is disabled while it runs. A team is the developer's when it
-  is the only team asked on one of those PRs, or when every open PR that asks
-  the team also asks the developer, through them or one of their teams; both
-  counts are of open PRs, which keeps them exact. A team found only the second
-  way, with fewer than 5 open PRs asking the team, is marked "Maybe yours" in
-  grey. Teams that are not the developer's aren't shown. At most 10 teams that
-  need checking are checked, those on the most PRs first. If none are found: "No
-  teams found. A team shows up here when it's asked to review an open PR." The
-  results aren't saved: they stay until the developer leaves Settings. If
-  GitHub's search limit is nearly used, for example by a scan that is running,
-  nothing is checked and the message is "GitHub is busy with your scan. Try
-  again in a minute." If GitHub can't be reached, the message is "Couldn't reach
-  GitHub. Try again."
+  organization's avatar, "{n} open PRs" (the open PRs that ask the developer for
+  review only through that team) and an "Add" button. "Add" adds the team to the
+  list as "Add team" does (`SET-51`), and its suggestion disappears. The button
+  shows "Finding your teams…" with a turning icon, as Sync now's, and is
+  disabled while it runs. A team is the developer's when it is the only team
+  asked on one of those PRs, or when every open PR that asks the team also asks
+  the developer, through them or one of their teams; both counts are of open
+  PRs, which keeps them exact. A team found only the second way, with fewer than
+  5 open PRs asking the team, is marked "Maybe yours" in grey. Teams that are
+  not the developer's aren't shown. At most 10 teams that need checking are
+  checked, those on the most PRs first. If none are found: "No teams found. A
+  team shows up here when it's asked to review an open PR." The results aren't
+  saved: they stay until the developer leaves Settings. If GitHub's search limit
+  is nearly used, for example by a scan that is running, nothing is checked and
+  the message is "GitHub is busy with your scan. Try again in a minute." If
+  GitHub can't be reached, the message is "Couldn't reach GitHub. Try again."
 - **SET-55** Teams take effect when settings are saved (`SET-14`). An added
   team's review requests appear at the scan that saving starts (`SCAN-5`) and
   are ranked like new items. A removed team's requests leave the Prioritized
