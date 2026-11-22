@@ -1472,7 +1472,8 @@ prompt to say how much of the team's reviewing is yours."
   list as in `LIVE-15` and the Icebox as in `ICE-11`, unless another inclusion
   reason keeps them (`LIST-1`). A changed prompt behaves as in `SET-9`.
 - **SET-56** A team's errors (`SET-51`, `SET-53`) appear as described in
-  `SET-27`: when the developer chooses "Add team", nothing is added.
+  `SET-27`, as in [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237): when the developer chooses
+  "Add team", nothing is added.
 
 ### Excluded repositories
 
@@ -2982,6 +2983,8 @@ chooses ([Q-106](#q-106), [Q-43](#q-43)):
   hasn't added, and team mentions ([Q-65](#q-65)).
 - Changed Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802) (section 03 Teams and its link; the
   later sections renumbered), [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240) (16 "Team"
-  variants), row 7 of [Issue inbox - Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2562), and
-  `Settings / Page content`, which matches Settings. Added Figma:
+  variants), row 7 of [Issue inbox - Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2562),
+  [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237) (with a team error),
+  [Settings · Switch ranking agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631) and `Settings / Page content`,
+  which match Settings. Added Figma:
   [Settings · Teams · Find my teams](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=483-3852).
