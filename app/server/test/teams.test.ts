@@ -10,7 +10,7 @@ import { GitHubProblem } from "../src/github/types.ts";
 import { listRows } from "../src/list.ts";
 import { scan } from "../src/scanner.ts";
 import { Scheduler } from "../src/scheduler.ts";
-import { findTeams, teamHandle } from "../src/teams.ts";
+import { checkTeams, findTeams, searchTeams, teamHandle, teamQuery } from "../src/teams.ts";
 import { addUser, makeCtx } from "./helpers.ts";
 
 const ECOSYSTEM = "dart-lang/dart-ecosystem-team";
@@ -108,6 +108,43 @@ describe("teams in a scan, in Settings and in \"Find my teams\"", () => {
     expect(rows.find((r) => r.key === "dart-lang/tools#2899")!.reasons).toContain("team_review_requested");
   });
 
+  it("marks a team GitHub stops knowing as not found mid-scan, and still searches the others (SET-52)", async () => {
+    await ctx.db.query(`update teams set status = 'ok' where user_id = $1`, [userId]);
+    await ctx.db.query(`insert into teams (user_id, name, status, position) values ($1, 'dart-lang/gone-team', 'ok', 5)`, [userId]);
+    expect(await scan(ctx, userId, "manual")).toMatchObject({ outcome: "ok" });
+    expect((await ctx.db.one(`select status from teams where name = 'dart-lang/gone-team'`)).status).toBe("not_found");
+    expect((await listRows(ctx.db, userId)).some((r) => r.reasons.includes("team_review_requested"))).toBe(true);
+    await ctx.db.query(`delete from teams where name = 'dart-lang/gone-team'`);
+  });
+
+  it("splits a team search GitHub refuses for another reason, such as its length", async () => {
+    const gh = new FixtureGitHub(store);
+    const real = gh.search.bind(gh);
+    const seen: number[] = [];
+    gh.search = async (q, limit, opts) => {
+      const n = (q.match(/team-review-requested:/g) ?? []).length;
+      seen.push(n);
+      if (n > 1) throw new GitHubProblem("unexpected", "Validation Failed", { status: 422 });
+      return real(q, limit, opts);
+    };
+    const r = await searchTeams(ctx, gh, userId, [ECOSYSTEM, "googleapis/cloud-sdk-librarian-team"], (t) => teamQuery("is:open archived:false", t), 1000);
+    expect(seen).toEqual([2, 1, 1]);
+    expect(r.hits.length).toBeGreaterThan(1);
+  });
+
+  it("leaves a team unchecked, and the scan going, when GitHub can't answer for its organization", async () => {
+    await ctx.db.query(`insert into teams (user_id, name, status, position) values ($1, 'sso-org/team', 'checking', 6)`, [userId]);
+    const gh = new FixtureGitHub(store);
+    const real = gh.search.bind(gh);
+    gh.search = async (q, limit, opts) => {
+      if (q.includes("sso-org/")) throw new GitHubProblem("sso", "SSO", { status: 403, org: "sso-org" });
+      return real(q, limit, opts);
+    };
+    expect(await checkTeams(ctx, gh, userId)).not.toContain("sso-org/team");
+    expect((await ctx.db.one(`select status from teams where name = 'sso-org/team'`)).status).toBe("checking");
+    await ctx.db.query(`delete from teams where name = 'sso-org/team'`);
+  });
+
   it("drops a removed team's PRs at the next full scan (SET-55)", async () => {
     const before = (await listRows(ctx.db, userId)).filter((r) => r.reasons.includes("team_review_requested")).length;
     await ctx.db.query(`delete from teams where user_id = $1`, [userId]);
@@ -127,6 +164,17 @@ describe("teams in a scan, in Settings and in \"Find my teams\"", () => {
     expect(eco.avatarUrl).toContain("dart-lang");
     // The fixture account isn't in the librarian team, so its PR doesn't ask the developer at all.
     expect(r.teams.some((t) => t.name === "googleapis/cloud-sdk-librarian-team")).toBe(false);
+  });
+
+  it("keeps what it found when the searches run out partway through the checks", async () => {
+    const gh = new FixtureGitHub(store);
+    const real = gh.search.bind(gh);
+    gh.search = async (q, limit, opts) => {
+      if (q.includes("archived:false team-review-requested:")) throw new GitHubProblem("rate_limited", "limit", { status: 403 });
+      return real(q, limit, opts);
+    };
+    const r = await findTeams(gh, store.login);
+    expect(r.status).toBe("ok");
   });
 
   it("says GitHub is busy when the searches are nearly used up", async () => {

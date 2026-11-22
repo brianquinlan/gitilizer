@@ -1012,9 +1012,13 @@ work everywhere, so everything here is done with them, as the spikes of
   my teams" gave), so the scan needn't search again. A scan checks every team still
   `checking`, such as one saved before the check answered, and so does the
   Settings page when it opens, since local mode has no automatic scans. A team that is `ok`
-  isn't checked again, to save searches; if a team search answers 422, the
-  scanner checks each team in it, marks the ones GitHub refuses `not_found`,
-  and searches again without them.
+  isn't checked again, to save searches. If a team search answers 422 for a
+  team GitHub no longer knows, the error names it: it is marked `not_found`
+  and the search runs again without it (if GitHub doesn't name it, each team
+  in the batch is checked once). A search GitHub refuses with 422 for another
+  reason, such as its length, is split in two (`searchTeams()`). A team whose
+  organization GitHub won't answer for (single sign-on, a token policy, a
+  missing permission) stays `checking` and the scan goes on.
 - **Searching** (`SCAN-1`, [D-27](#d-27)). The teams that are `ok` are searched
   together, up to 8 to a search, with `advanced_search=true`, which OR needs:
   `is:pull-request {base} (team-review-requested:a OR team-review-requested:b)`
@@ -1057,11 +1061,12 @@ work everywhere, so everything here is done with them, as the spikes of
      open PRs", what adding it would bring in). A team that is the only one on a PR is the developer's.
   4. Each other team, most PRs first, at most 10 and as many as the searches
      left allow, three teams at a time, gets two counts, run together:
-     `is:pull-request team-review-requested:{t}` (A) and the same with
+     `is:pull-request archived:false team-review-requested:{t}` (A) and the same with
      `review-requested:{login}` (B), over closed PRs too: a team with few open
      PRs may have only ones that also ask the developer. A > B means it isn't
      the developer's and it is left out. Every other team is shown, including
-     any the searches left couldn't check: the developer knows their teams.
+     any the searches left couldn't check, including when GitHub's limit is
+     reached partway: the developer knows their teams.
   5. Avatars with `GET /users/{org}`, once per organization.
 
   Nothing is stored: the page keeps the result until it is left.

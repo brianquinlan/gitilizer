@@ -593,6 +593,7 @@ export function TeamList({ teams, saved, onChange, errors, setError }: {
       .catch(() => {});
   };
   const addTeam = (name: string, checked?: Pick<Team, "status" | "avatarUrl">) => {
+    setError("add-team", null); // an error from typing goes with the next team added (SET-27)
     onChange((cur) => [...cur, { name, prioritizationPrompt: "", status: checked?.status ?? "checking", avatarUrl: checked?.avatarUrl ?? null }]);
     setFound((f) => f && f.filter((x) => x.name.toLowerCase() !== name.toLowerCase())); // its suggestion goes (SET-54)
     if (checked) return;

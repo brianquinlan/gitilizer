@@ -111,6 +111,9 @@ describe("Find my teams (SET-54)", () => {
       { name: ECO, prs: 23, avatarUrl: null },
       { name: "googleapis/cloud-sdk-dart-team", prs: 2, avatarUrl: null },
     ] });
+    typeInput($<HTMLInputElement>("#add-team")!, "not a team");
+    await click(buttonNamed("Add team"));
+    expect(state.errors["add-team"]).toBeDefined();
     await click(buttonNamed("Find my teams"));
     const rows = [...host.querySelectorAll(".suggestion")];
     expect(rows.map((r) => r.querySelector(".mono")!.textContent)).toEqual(["googleapis/cloud-sdk-dart-team"]);
@@ -119,6 +122,7 @@ describe("Find my teams (SET-54)", () => {
     expect(state.teams.map((t) => [t.name, t.status])).toEqual([[ECO, "ok"], ["googleapis/cloud-sdk-dart-team", "ok"]]);
     expect(host.querySelectorAll(".suggestion")).toHaveLength(0);
     expect($(".find-message")).toBeNull();
+    expect(state.errors["add-team"]).toBeUndefined(); // the typing error doesn't keep saving blocked
   });
 
   it("says nothing was found when every team it finds is on the page already", async () => {

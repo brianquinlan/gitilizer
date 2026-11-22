@@ -10,7 +10,7 @@ import { firstSyncBatch, pushSync, queueRankJobs, updateUnranked, type QueuedJob
 import { publish } from "./list.ts";
 import { clear, raise } from "./notify.ts";
 import { NO_EXCLUSIONS, checkExclusions, exclusionQualifiers, exclusionRows, exclusionsFrom, isExcluded, type Exclusions } from "./exclusions.ts";
-import { checkTeams, recheckTeams, teamBatches, teamHandle, teamQuery } from "./teams.ts";
+import { checkTeams, searchTeams, teamBatches, teamHandle, teamQuery } from "./teams.ts";
 
 type Found = { hit: SearchHit; reasons: Set<Reason>; handle: string | null };
 export type DiscoveryQuery = {
@@ -262,15 +262,10 @@ async function scanWith(
     let hits: SearchHit[];
     try {
       let ssoOrgs: string[] | undefined;
-      try {
-        ({ hits, ssoOrgs } = await gh.search(q.q, ctx.config.maxItems, { advanced: Boolean(q.teams) }));
-      } catch (e) {
-        // A team GitHub no longer knows fails its whole search: find it, and search again without it (SET-52).
-        if (!(e instanceof GitHubProblem && e.code === "invalid_team" && q.teams && q.forTeams)) throw e;
-        const left = await recheckTeams(ctx, gh, userId, q.teams);
-        if (!left.length) continue;
-        ({ hits, ssoOrgs } = await gh.search(q.forTeams(left), ctx.config.maxItems, { advanced: true }));
-      }
+      // Teams: a team GitHub no longer knows, or a search too long for GitHub, doesn't lose the others (SET-52).
+      ({ hits, ssoOrgs } = q.teams && q.forTeams
+        ? await searchTeams(ctx, gh, userId, q.teams, q.forTeams, ctx.config.maxItems)
+        : await gh.search(q.q, ctx.config.maxItems));
       // Results from organizations the token isn't authorized for are left out (D-7).
       for (const org of ssoOrgs ?? []) {
         partial.add("sso");

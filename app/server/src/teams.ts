@@ -5,7 +5,7 @@
 import type { FindTeamsResponse, FoundTeam } from "@gitilizer/shared";
 import type { Ctx } from "./context.ts";
 import { log } from "./log.ts";
-import { GitHubProblem, type GitHubApi } from "./github/types.ts";
+import { GitHubProblem, type GitHubApi, type SearchHit } from "./github/types.ts";
 
 /** Teams in one search (design D-27): 8 joined with OR were tested against GitHub on 2026-11-22. */
 export const TEAMS_PER_SEARCH = 8;
@@ -69,8 +69,9 @@ export async function checkTeams(ctx: Ctx, gh: GitHubApi, userId: string): Promi
         await record(ctx, userId, r.name, found);
         status = found.status;
       } catch (e) {
-        // GitHub couldn't answer: the team keeps its state and is checked at the next scan (SET-52).
-        if (e instanceof GitHubProblem && (e.code === "unavailable" || e.code === "unexpected")) continue;
+        // GitHub couldn't answer, or not for this organization: the team keeps its state, is checked again at the
+        // next scan (SET-52), and the rest of the scan goes on.
+        if (e instanceof GitHubProblem && UNANSWERED.has(e.code)) continue;
         throw e;
       }
     }
@@ -79,20 +80,71 @@ export async function checkTeams(ctx: Ctx, gh: GitHubApi, userId: string): Promi
   return ok;
 }
 
+/** Problems that leave a team unchecked without stopping the scan: GitHub couldn't answer for it. */
+const UNANSWERED = new Set(["unavailable", "unexpected", "sso", "org_blocks_token", "permission"]);
+
 /**
- * GitHub refused a search for several teams: one of them is no longer one it knows. Checks each one, records
- * those it refuses as `not_found`, and returns the rest.
+ * GitHub refused a search for several teams without saying which: checks each one, records those it refuses as
+ * `not_found`, and returns the rest. A team it can't check stays in.
  */
 export async function recheckTeams(ctx: Ctx, gh: GitHubApi, userId: string, teams: string[]): Promise<string[]> {
   const ok: string[] = [];
   for (const name of teams) {
-    const found = await lookUpTeam(gh, name);
-    if (found.status === "not_found") {
-      await record(ctx, userId, name, found);
-      log.info("scan", "a team GitHub no longer knows", { user: userId });
-    } else ok.push(name);
+    try {
+      const found = await lookUpTeam(gh, name);
+      if (found.status === "not_found") {
+        await record(ctx, userId, name, found);
+        log.info("scan", "a team GitHub no longer knows", { user: userId });
+        continue;
+      }
+    } catch (e) {
+      if (!(e instanceof GitHubProblem && UNANSWERED.has(e.code))) throw e;
+    }
+    ok.push(name);
   }
   return ok;
+}
+
+/**
+ * Runs a scan's search for a batch of teams (SCAN-1, design D-27). A team GitHub no longer knows fails the whole
+ * search: GitHub names it, so it is marked `not_found` and the search runs again without it, or, if GitHub doesn't
+ * name it, every team in the batch is checked once. A search GitHub refuses for another reason, such as being
+ * too long, is split in two.
+ */
+export async function searchTeams(
+  ctx: Ctx, gh: GitHubApi, userId: string, teams: string[], write: (teams: string[]) => string, limit: number,
+): Promise<{ hits: SearchHit[]; ssoOrgs: string[] }> {
+  const hits: SearchHit[] = [];
+  const ssoOrgs: string[] = [];
+  const run = async (batch: string[], rechecked: boolean): Promise<void> => {
+    if (!batch.length) return;
+    try {
+      const r = await gh.search(write(batch), limit, { advanced: true });
+      hits.push(...r.hits);
+      ssoOrgs.push(...(r.ssoOrgs ?? []));
+    } catch (e) {
+      if (!(e instanceof GitHubProblem)) throw e;
+      if (e.code === "invalid_team") {
+        const named = batch.find((t) => t.toLowerCase() === (e.details.team ?? "").toLowerCase());
+        if (named) {
+          await record(ctx, userId, named, { status: "not_found", avatarUrl: null });
+          log.info("scan", "a team GitHub no longer knows", { user: userId });
+          return run(batch.filter((t) => t !== named), rechecked);
+        }
+        if (rechecked) throw e;
+        return run(await recheckTeams(ctx, gh, userId, batch), true);
+      }
+      if (e.code === "unexpected" && e.details.status === 422 && batch.length > 1) {
+        const half = Math.ceil(batch.length / 2);
+        await run(batch.slice(0, half), rechecked);
+        await run(batch.slice(half), rechecked);
+        return;
+      }
+      throw e;
+    }
+  };
+  await run(teams, false);
+  return { hits, ssoOrgs };
 }
 
 /**
@@ -108,8 +160,8 @@ export function teamHandle(owner: string, requested: { slug?: string }[] | null 
   return `@${original}`;
 }
 
-/** Searches "Find my teams" needs before it starts: the two searches and one team's two counts. */
-const MIN_SEARCHES = 6;
+/** Searches "Find my teams" needs before it starts: the two searches, a page more each, and one team's two counts. */
+const MIN_SEARCHES = 8;
 /** Searches it leaves for what comes next: checking a team when it is added, and the scan after saving. */
 const HEADROOM = 6;
 /** At most this many teams get the two counts (SET-54). */
@@ -168,12 +220,14 @@ export async function findTeams(gh: GitHubApi, login: string): Promise<FindTeams
     const notMine = new Set((await inParallel(uncertain, 3, async (name) => {
       try {
         const [a, b] = await Promise.all([
-          gh.search(`is:pull-request team-review-requested:${name}`, 1),
-          gh.search(`is:pull-request team-review-requested:${name} review-requested:${login}`, 1),
+          gh.search(`is:pull-request archived:false team-review-requested:${name}`, 1),
+          gh.search(`is:pull-request archived:false team-review-requested:${name} review-requested:${login}`, 1),
         ]);
         return a.total > b.total ? name : null; // a PR asks this team and not the developer: not theirs
       } catch (e) {
         if (e instanceof GitHubProblem && e.code === "invalid_team") return name;
+        // Out of searches, or no answer for this team: it is shown, unchecked, with what was found so far.
+        if (e instanceof GitHubProblem && (e.code === "rate_limited" || UNANSWERED.has(e.code))) return null;
         throw e;
       }
     })).filter((n): n is string => n !== null));
