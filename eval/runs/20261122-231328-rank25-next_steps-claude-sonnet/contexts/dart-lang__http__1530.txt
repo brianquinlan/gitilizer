@@ -1,0 +1,74 @@
+# ISSUE dart-lang/http#1530: Get connection state after connect
+url: https://github.com/dart-lang/http/issues/1530
+state: open
+author: sturmf (association with repo: NONE)
+created: 2020-11-04T09:59:55Z (6.0y ago)
+last updated: 2025-01-22T16:02:20Z (22mo ago)
+labels: ['package:web_socket_channel']
+assignees: []
+reactions: {'+1': 12}
+repository: dart-lang/http — A composable API for making HTTP requests in Dart. (stars: 1115, open issues: 384, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['commenter', 'watches_repo']
+- repo_interest_filter: I am responsible for all packages in this repo, expect `package:http2`. But if I am assigned, mentioned, etc. in an issue or PR related to `package:http2` then rank it as you would any other package in dart-lang/http.
+- author_is_collaborator: False
+- last_human_activity: mosuem labeled 22mo ago
+- last_human_actor_is_me: False
+- my_last_activity: commented 3.4y ago
+- mentions_of_me: []
+- days_since_update: 665.2
+- days_since_created: 2205.5
+
+## Description
+A similar question was asked before but without a resolution. I want to get the connection state after I called HtmlWebSocketChannel.connect. 
+The reason is hat I want to display a successful connection in the statusbar and add the Url to a history list. Right now I can only get a callback if the connection failed. But that would only happen asynchronously after I connect.
+
+    channel = HtmlWebSocketChannel.connect('ws://' + url);
+    channel.stream.listen(
+      _receiveMessage,
+      onError: (e) {
+        print('Could not connect to: $url');
+      },
+      onDone: () {
+        print('Connection closed');
+      },
+    );
+    update_statusbar(url);  // FIXME: here I do not know if the connection was successful or not!
+
+## Activity (4 events, oldest first)
+[2020-11-04 09:59Z, 6.0y ago] sturmf opened this issue
+[2020-11-24 09:16Z, 6.0y ago] wapchief commented:
+    And the server keeps setting up heartbeats
+    ```
+    String type = jsonDecode(message)['msg_type'];
+          var data = jsonDecode(message)['date'];
+          switch (type) {
+            case 'heartbeat':
+              var msgData = {"Topic": "heartbeat"};
+              _webSocket.sink.add(jsonEncode(msgData));
+              lastHeartbeat = 1;
+              break;
+    ```
+    check timeout 
+    ```
+      static localHeart() {
+        if (_timer != null && _timer.isActive) {
+          return;
+        }
+        const timeout = const Duration(seconds: 15);
+        _timer = Timer.periodic(timeout, (timer) {
+          if (loginState == 1) {
+            if (lastHeartbeat == 0) {
+              socketConnect();
+            } else {
+              lastHeartbeat = 0;
+            }
+          }
+        });
+      }
+    ```
+[2023-06-20 20:12Z, 3.4y ago] brianquinlan (ME) commented:
+    Does the `WebSocketChannel.ready` field help here?
+[2025-01-22 16:02Z, 22mo ago] mosuem labeled 'package:web_socket_channel'

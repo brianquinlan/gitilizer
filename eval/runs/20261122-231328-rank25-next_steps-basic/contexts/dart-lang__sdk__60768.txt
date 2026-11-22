@@ -1,0 +1,49 @@
+# ISSUE dart-lang/sdk#60768: HttpServer: we have default headers that are set, even when against RFC
+url: https://github.com/dart-lang/sdk/issues/60768
+state: open
+author: kevmoo (association with repo: MEMBER)
+created: 2025-05-21T00:33:56Z (18mo ago)
+last updated: 2025-06-24T23:39:22Z (17mo ago)
+labels: ['area-vm', 'library-io', 'triaged']
+assignees: ['brianquinlan']
+repository: dart-lang/sdk — The Dart SDK, including the VM, JS and Wasm compilers, analysis, core libraries, and more. (stars: 11337, open issues: 8537, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['assignee', 'commenter', 'mentioned']
+- repo_interest_filter: None
+- author_is_collaborator: True
+- last_human_activity: kevmoo commented 17mo ago
+- last_human_actor_is_me: False
+- my_last_activity: commented 17mo ago
+- mentions_of_me: [{'by': 'a-siva', 'informational_cc': True, 'line': '//cc @brianquinlan'}]
+- days_since_update: 511.9
+- days_since_created: 546.8
+
+## Description
+https://github.com/dart-lang/sdk/blob/f9278779f770cf87b0cbbd7bd4d1fe127d6fe69f/sdk/lib/_http/http_impl.dart#L3385
+
+The default response headers set a content-type even in cases when they shouldn't.
+
+See RFC 9110
+
+Suggestion: drop the default content header if the body is empty?
+
+## Activity (8 events, oldest first)
+[2025-05-21 00:33Z, 18mo ago] kevmoo opened this issue
+[2025-05-21 00:33Z, 18mo ago] kevmoo labeled 'library-io'
+[2025-05-21 12:25Z, 18mo ago] lrhn labeled 'area-vm'
+[2025-05-21 20:37Z, 18mo ago] a-siva commented:
+    //cc @brianquinlan
+[2025-05-21 20:38Z, 18mo ago] a-siva assigned brianquinlan
+[2025-05-21 20:38Z, 18mo ago] a-siva labeled 'triaged'
+[2025-06-24 23:36Z, 17mo ago] brianquinlan (ME) commented:
+    What part of RFC-9110 are you referring to. [8.3](https://www.rfc-editor.org/rfc/rfc9110.html#field.content-type) says:
+    
+    > A sender that generates a message containing content SHOULD generate a Content-Type header field in that message unless the intended media type of the enclosed representation is unknown to the sender.
+    
+    AFAIK, there is no advice when no body is sent.
+    
+    For the linked flutter issue, should Flutter be setting the content-type explicitly?
+[2025-06-24 23:39Z, 17mo ago] kevmoo commented:
+    I'd read that we should do less. There is no SHOULD do content header if there is no content.

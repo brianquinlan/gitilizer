@@ -1,0 +1,180 @@
+# ISSUE dart-lang/language#2133: Platform (iOS, Android, etc.) should be a useable condition for conditional imports
+url: https://github.com/dart-lang/language/issues/2133
+state: open
+author: brianquinlan (association with repo: MEMBER)
+created: 2022-03-01T02:16:34Z (4.7y ago)
+last updated: 2026-03-01T17:30:09Z (9mo ago)
+labels: ['request']
+assignees: []
+reactions: {'+1': 11}
+repository: dart-lang/language — Design of the Dart language (stars: 2941, open issues: 1291, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['author', 'commenter']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: kevin-sakemaer commented 9mo ago
+- last_human_actor_is_me: False
+- my_last_activity: commented 2.2y ago
+- mentions_of_me: []
+- days_since_update: 262.1
+- days_since_created: 1723.8
+
+## Related issues and PRs
+- issue dart-lang/sdk#32960 'Resolve config specific imports for Dart 2': closed (completed), by leafpetersen, updated 8.5y ago, assignees ['leafpetersen'], labels ['area-language']
+- issue dart-lang/sdk#49379 'Add sentinel libraries dart:cupertino and dart:desktop to allow for conditional imports in Flutter': open, by ohir, updated 4.4y ago, labels ['area-sdk', 'type-enhancement']
+
+## Description
+I have multiple platform-specific implementations of an HTTP client and I would like to select the appropriate one for the platform e.g. to use one based on NSURLSession on iOS, cronet on Android, etc.
+
+In C++, I would use preprocessor macros to solve this issue e.g.
+
+```C++
+HttpClient *client;
+#ifdef IOS
+#include <whatever.h>
+client = new NSURLAdapter();
+#elif ...
+```
+
+In Python, I would do the configuration at runtime e.g.
+
+```python
+import platform
+
+client: HttpClient
+if platform.system() == "Windows":
+  import whatever
+  client = whatever.WindowsClient()
+elif  ...
+```
+
+In Dart, I don't know how to solve this problem except in the narrow case of differentiating between web and non-web (using conditional imports).
+
+## Activity (18 events, oldest first)
+[2022-03-01 02:16Z, 4.7y ago] brianquinlan (ME) opened this issue
+[2022-03-01 02:16Z, 4.7y ago] brianquinlan (ME) labeled 'request'
+[2022-03-01 02:32Z, 4.7y ago] Levi-Lesches commented:
+    See the [Platform](https://api.dart.dev/stable/2.16.1/dart-io/Platform-class.html) class from `dart:io`. You could do:
+    
+    ```dart
+    import "dart:io";
+    
+    class Client { }
+    class WindowsClient extends Client { }
+    class MacClient extends Client { } 
+    class AndroidClient extends Client { }
+    class IPhoneClient extends Client { }
+    
+    Client getClient() => 
+      Platform.isWindows ? WindowsClient() : 
+      Platform.isMacOS ? MacClient() : 
+      Platform.isAndroid ? AndroidClient() : 
+      Platform.isIOS ? IPhoneClient() : 
+      throw "Unrecognized platform";
+    ```
+[2022-03-01 04:47Z, 4.7y ago] leafpetersen commented:
+    The language leaves it deliberately implementation defined what constants are defined for use in conditional imports, IIRC.  The limiting factor is largely around the ability of the build systems to handle multiple configurations efficiently.  This [issue](https://github.com/dart-lang/sdk/issues/32960) documents the discussion and eventual resolution.  cc @jakemac53 @natebosch who might have more comments here.
+[2022-03-01 10:03Z, 4.7y ago] lrhn commented:
+    We could introduce more available environment constants, and when some build-systems or environments can't support them, we could introduce lints to disable their use. Then people with concrete needs and no special build-system requirements can make their code more precisely platform specific.
+    
+    It does risk that some libraries will be incompatible with some build-systems, which can fragment the ecosystem.
+    Not doing so risks reducing everybody to the lowest common denominator.
+    
+    (I always wanted to know at compile time whether I have web numbers or 64-bit integers!)
+[2022-03-01 15:52Z, 4.7y ago] jakemac53 commented:
+    Fwiw, the build systems can in theory handle arbitrary constants as long as they either:
+    
+    - are defined globally (via a `--define` flag or similar global config for the entire build)
+    - are tied to a specific platform (web, vm, etc)
+    - are tied to sound or unsound modes
+    
+    Concretely this matters because build_runner and bazel may be compiling multiple apps in a single build, and they share kernel output files (per platform & null safety mode). So they have to agree on all constants (for a given platform & mode).
+    
+    Both of these systems however allow passing arbitrary arguments to backend compilers, and people may try to pass `-D` arguments that way, so it could be confusing, but we could put in some special  handling to alert them that it won't work.
+[2022-03-01 15:55Z, 4.7y ago] jakemac53 commented:
+    It is also worth mentioning though that the _cost_ of supporting this might be prohibitively high. We would need to resolve constants in order to discover which imports to select. Using the analyzer to do this is actually challenging because the analyzer has to be ran in the same mode that is being compiled for, which I don't think it supports well today. And it would be costly to evaluate the constants as well.
+[2022-03-01 20:02Z, 4.7y ago] Levi-Lesches commented:
+    Can someone clarify whether the `Platform` class is an adequate solution? When you can import `dart:io`, you can use it to know what platform you're on. And when you can't, you know you're on web.
+[2022-03-01 20:44Z, 4.7y ago] jakemac53 commented:
+    > Can someone clarify whether the `Platform` class is an adequate solution? When you can import `dart:io`, you can use it to know what platform you're on. And when you can't, you know you're on web.
+    
+    The problem is if you want to actually change the import based on the `Platform` constants. Today you could change the runtime behavior, but not the actual imports, because `Platform` isn't even available outside of `dart:io`.
+[2022-03-01 20:49Z, 4.7y ago] jakemac53 commented:
+    Fwiw as far as platform constants specifically go, it would require the build systems to compile separately for each platform, which they don't  have to do for all platforms today (only "targets" which doesn't map 1:1 with platforms).
+    
+    That would be feasible in theory but it would also make kernel files not be portable across platforms which is not desirable imo.
+[2022-03-01 20:52Z, 4.7y ago] jakemac53 commented:
+    Actually, these Platform variables are not even constant for this same reason (its only known at runtime, depending on the current OS). So I don't see these Platform variables being something you can use in conditional imports regardless.
+[2022-03-09 18:35Z, 4.7y ago] brianquinlan (ME) commented:
+    Having conditional use cases based on `Platform` would be sufficient for my use case.
+    
+    The solution suggested in https://github.com/dart-lang/language/issues/2133#issuecomment-1054923740 works (and what I'm currently using) but, since `Platform.is*` are all non-const, the code for every platform will end up in standalone binaries.
+    
+    In my mind, the cleanest solution is more robust conditional imports and conditional dependencies in `pubspec.yaml`.
+    
+    FWIW, conditional dependencies in Python look like this:
+    ```
+    install_requires:
+        pywin32 >= 1.0;platform_system=='Windows'
+    ```
+[2024-08-27 19:15Z, 2.2y ago] filiph commented:
+    To summarize, I think this issue suggests something like this:
+    
+    ```dart
+    export 'src/hw_none.dart' // Stub implementation
+        if (dart.os.windows) 'src/hw_windows.dart' // Windows implementation
+        if (dart.os.macos) 'src/hw_macos.dart'; // macOS implementation
+    ```
+    
+    Am I right?
+    
+    I, for one, would find this helpful. A related issue suggests something very similar: https://github.com/dart-lang/sdk/issues/49379.
+    
+    My question to @jakemac53 is whether this is something that is covered by [static metaprogramming](https://github.com/orgs/dart-lang/projects/90?pane=issue&itemId=64695977)?
+[2024-08-27 19:52Z, 2.2y ago] brianquinlan (ME) commented:
+    > To summarize, I think this issue suggests something like this:
+    > 
+    > ```dart
+    > export 'src/hw_none.dart' // Stub implementation
+    >     if (dart.os.windows) 'src/hw_windows.dart' // Windows implementation
+    >     if (dart.os.macos) 'src/hw_macos.dart'; // macOS implementation
+    > ```
+    > 
+    > Am I right?
+    
+    That approach would work!
+    
+    In general, I don't like the conditional import approach because it forces you to split your logic into separate source files, even when the logic is trivial.
+[2024-08-27 22:54Z, 2.2y ago] lrhn commented:
+    With part files with imports, you should get conditional part directives, and with augmentations you should be able to override only that you need to override in those parts.
+    Together that should avoid needing extra libraries or duplicating logic, you can change only the small private part of a library that is conditionally supported.
+[2024-09-02 11:48Z, 2.2y ago] filiph commented:
+    > With part files with imports, you should get conditional part directives, and with augmentations you should be able to override only that you need to override in those parts. Together that should avoid needing extra libraries or duplicating logic, you can change only the small private part of a library that is conditionally supported.
+    
+    I'm not sure I follow. Are part files with imports and augmentations parts of a spec? If there's documentation for these features, just give me a link and I can study these on my own. Maybe I already know these features, just not under those names?
+[2024-09-02 12:22Z, 2.2y ago] lrhn commented:
+    Part files with imports, aka "enhanced parts" and augmentations are both spin-off features from the macro feature.
+    The current feature proposals are in https://github.com/dart-lang/language/tree/main/working/augmentation-libraries
+    (They're both in the same directory because enhanced parts was split out from the augmentation feature, but it is now defined as an orthogonal feature.)
+[2026-03-01 17:20Z, 9mo ago] kevin-sakemaer commented:
+    ```dart
+    export 'src/hw_none.dart' // Stub implementation
+        if (dart.os.windows) 'src/hw_windows.dart' // Windows implementation
+        if (dart.os.macos) 'src/hw_macos.dart'; // macOS implementation
+        if (dart.os.linux) 'src/hw_linux.dart'; // Linux implementation
+        if (dart.os.android) 'src/hw_android.dart'; // Android implementation
+        if (dart.os.ios) 'src/hw_ios.dart'; // iOS implementation
+        if (dart.library.js_interop) 'src/hw_web.dart'; // web implementation
+    ```
+    
+    This would be awesome to have.
+    Let say i want to support notification (or something else) for all platforms, but i want to support the DartVM (or build) and Flutter.
+    
+    Currently it's fairly difficult i need a package for Flutter and another one for the DartVM with all the weird things to map to the correct lib under the hood to match specific native ffi library.
+    
+    I think having conditional import for each platform may simplify a lot when someone have this type of need.
+    Or the ability to create federated plugin but without Flutter as dependency.
+    
+    I think a more Dart centric approach to cross-platform plugin would be really good for the Dart ecosystem and by extension for Flutter, instead of having everything Flutter centric.

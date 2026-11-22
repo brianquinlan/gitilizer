@@ -1,0 +1,323 @@
+{
+ "config": {
+  "label": "rank25-teams_none-claude-sonnet",
+  "strategy": "pointwise",
+  "model": "claude-sonnet-5-5",
+  "thinking": null,
+  "prompt": "/sessions/rcw-01fmhwk6smifvq1n8sesn8rb/evalwork/prompts/v4.md",
+  "signals": true,
+  "trials": 3,
+  "now": null,
+  "started_at": "20261122-231303",
+  "snapshots_fetched_at": [
+   "2026-10-25T19:31:02Z",
+   "2026-10-25T19:31:07Z",
+   "2026-10-25T19:31:11Z",
+   "2026-10-25T19:31:15Z",
+   "2026-10-25T19:31:18Z",
+   "2026-11-18T13:16:00Z"
+  ],
+  "elapsed_s": 11.8,
+  "usage": {
+   "prompt_tokens": 136308,
+   "output_tokens": 3996,
+   "thinking_tokens": 606
+  },
+  "labels_only": true
+ },
+ "truth": [
+  "dart-lang/core#1007",
+  "dart-lang/tools#2544",
+  "dart-lang/tools#2710",
+  "dart-lang/tools#2715",
+  "dart-lang/tools#2719",
+  "dart-lang/tools#2899"
+ ],
+ "why": {
+  "dart-lang/core#1007": "",
+  "dart-lang/tools#2544": "",
+  "dart-lang/tools#2710": "",
+  "dart-lang/tools#2715": "",
+  "dart-lang/tools#2719": "",
+  "dart-lang/tools#2899": ""
+ },
+ "trials": [
+  [
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.2,
+    "next_step": "not_yours",
+    "next_action": "Nothing for me to do: jonasfj authored it and lrhn is the named reviewer, so I'm not responsible for it in dart-lang/tools.",
+    "reasoning": "This is a security PR (UNC path injection) in dart-lang/tools, a repository I'm not responsible for, and lrhn is already reviewing it. The only request is to the dart-ecosystem-team, which has no note from me. That makes it a team review request, which is low priority, and it has been quiet for about 3 months, so I score it low and don't act on it.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 10183,
+     "output_tokens": 199,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.1,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do: this is a bot-authored BoringSSL bump in dart-lang/tools, a repo I'm not responsible for, with only a team review request.",
+    "reasoning": "The PR is an automated BoringSSL update in dart-lang/tools, which is not one of my repositories. The review request went to dart-ecosystem-team, which is not listed under my teams with a note, so it is not a request to me personally. It is low priority. Boring is tied to TLS/crypto, but this is a routine automated dependency bump and nobody has asked me to act.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 5905,
+     "output_tokens": 206,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do now; review lower stacked PR dart-lang/tools#2563 first, and this one only after that.",
+    "reasoning": "dart-lang/tools is not one of my responsible repositories, and the only review request is to the dart-ecosystem-team, with no note from me, so it is not a personal request. The PR is stacked on draft PR #2563, which is unreviewed, and there has been no human activity for 26 days. Since mosuem is a collaborator, it sits slightly above zero but still in the stacked-PR low range.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 9084,
+     "output_tokens": 199,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do: dart-lang/core is not one of my repositories and the review request went to dart-ecosystem-team, not me; the CLA is also unsigned.",
+    "reasoning": "dart-lang/core is not in my responsible list (only dart-lang/http is), and the only review request is to a team with no note from me. The first-time contributor has not signed the CLA and no reviewer has engaged in 39 days. It also closes sigurdm's issue #537, but nothing is asked of me.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 5595,
+     "output_tokens": 185,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.04,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do; jonasfj is the named reviewer and dart-lang/tools is not a repository I'm responsible for.",
+    "reasoning": "dart-lang/tools is not in my list of responsible repositories, and the review request went to dart-ecosystem-team, a team with no note from me. jonasfj was also named as a specific reviewer, which pushes this toward zero. The PR is CI supply-chain hardening, but it is someone else's review, so it doesn't get the security boost.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 8097,
+     "output_tokens": 380,
+     "thinking_tokens": 195
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.04,
+    "next_step": "not_yours",
+    "next_action": "Nothing for me to do; davidmorgan is the named reviewer and the team request is not personal.",
+    "reasoning": "dart-lang/tools is not a repository I'm responsible for. The review is requested from davidmorgan and the dart-ecosystem-team, not from me personally. A specific reviewer is named, so the team request is near zero for me, and there has been no activity for 26 days.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 6572,
+     "output_tokens": 152,
+     "thinking_tokens": 0
+    },
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.2,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do: jonasfj authored it and lrhn is reviewing it, so leave it to them.",
+    "reasoning": "This is a security PR (UNC path injection) in dart-lang/tools, which is not one of my responsible repositories. The review request went to the dart-ecosystem-team, which has no note from me, and lrhn is a named reviewer who is already reviewing, with 6 unresolved threads on the author. Under the rules that makes it not mine, so it is scored as a team review request where someone else is reviewing. It is also three months stale.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 10183,
+     "output_tokens": 205,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.08,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do: bot-authored BoringSSL bump in dart-lang/tools, a repo I'm not responsible for, with only a team review request.",
+    "reasoning": "This is an automated BoringSSL update in dart-lang/tools, which isn't in my list of responsible repositories. The review request went to dart-ecosystem-team, which isn't one of my teams with a note, so it isn't a request to me personally. It has also sat untouched for 25 days. It is a dependency bump in a niche package, with no direct ask and no security signal on the PR itself, so it gets a low score.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 5905,
+     "output_tokens": 216,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do now; review the lower stacked PR dart-lang/tools#2563 first if it ever needs me, since this PR depends on it.",
+    "reasoning": "The PR is in dart-lang/tools, which is not a repository I am responsible for, and the only review request is to the dart-ecosystem-team, a team with no note from me. It is also stacked on #2563, which is still an unreviewed draft, and nothing has happened in 26 days. Although mosuem is a collaborator, nothing is asked of me personally.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 9084,
+     "output_tokens": 196,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do: dart-lang/core is not in my responsible repositories, and the review request went to the dart-ecosystem-team, not to me personally.",
+    "reasoning": "The PR is in dart-lang/core, which is not on my list of responsible repositories. The only review request is to a team with no note from me, and the CLA check is still unsigned. The author is a first-time contributor and the PR has been quiet for 27 days. It fixes issue #537, which is sigurdm's, so it has no claim on my attention.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 5595,
+     "output_tokens": 192,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.03,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do: jonasfj is the named reviewer and dart-lang/tools is not a repository I'm responsible for.",
+    "reasoning": "dart-lang/tools is not in my list of responsible repositories. The only review requests are to dart-ecosystem-team, which has no note from me, and to jonasfj personally. Even though it is CI supply-chain hardening, a specific other reviewer is already named, so it is near zero for me.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 8097,
+     "output_tokens": 434,
+     "thinking_tokens": 265
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.03,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do: davidmorgan is the named reviewer on this dart-lang/tools PR, and dart-ecosystem-team is a team request with no note from me.",
+    "reasoning": "dart-lang/tools is not a repository I am responsible for, and my role on this PR is 'none'. The review is requested from a specific person (davidmorgan) plus a team I have no note for, so it is not directed at me. kevmoo is a collaborator, but nothing is asked of me.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 6572,
+     "output_tokens": 181,
+     "thinking_tokens": 0
+    },
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.2,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do: jonasfj authored this PR and lrhn is the specific reviewer driving it; I'm not a requested reviewer and dart-lang/tools isn't a repo I own.",
+    "reasoning": "This is a security PR in dart-lang/tools, which is not in my list of responsible repositories. Another person (lrhn) is actively reviewing it and the review request went to a team, not me. It is a team-level request with no note from me, and it has been quiet for about 12 weeks, so it scores like an ordinary team review request in a repo I don't own.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 10183,
+     "output_tokens": 208,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.08,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do: dart-lang/tools is not a repo I'm responsible for, and this is a bot PR with a team review request only.",
+    "reasoning": "This is an automated BoringSSL bump in dart-lang/tools, which isn't one of my repositories. The review request goes to dart-ecosystem-team, which isn't listed under my teams with a note, and nothing is directed at me personally. A team review request in a repo I don't own is low priority, and this one has also been quiet for 25 days.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 5905,
+     "output_tokens": 187,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do now; review the lower stacked PR dart-lang/tools#2563 first if it ever needs attention.",
+    "reasoning": "This PR is in dart-lang/tools, which is not a repository I'm responsible for. It was requested only from the dart-ecosystem-team, which has no note from me, and it is stacked on draft PR #2563, which has had no human review. It has been quiet for 26 days and nothing is asked of me personally.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 9084,
+     "output_tokens": 172,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "Nothing for me; dart-lang/core is not one of my repositories and the review request went to the dart-ecosystem-team with no note from me.",
+    "reasoning": "dart-lang/core is not a repository I am responsible for, and the review was requested from a team with no note from me. The author is a first-time contributor and the CLA check is failing, so the PR is blocked. It has been quiet for 27 days, so there is nothing for me to act on.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 5595,
+     "output_tokens": 167,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.04,
+    "next_step": "not_yours",
+    "next_action": "Nothing needed from me; davidmorgan is the named reviewer on kevmoo's string_scanner PR in dart-lang/tools, which I'm not responsible for.",
+    "reasoning": "dart-lang/tools isn't a repository I'm responsible for, and a specific person (davidmorgan) is requested as reviewer alongside the team request, so this isn't mine. I wasn't asked personally and have no prior activity. It has also been quiet for about 26 days.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 6572,
+     "output_tokens": 180,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.03,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do: jonasfj is the named reviewer, and dart-lang/tools isn't a repository I'm responsible for.",
+    "reasoning": "dart-lang/tools is outside my responsible repositories. The review request went to the dart-ecosystem-team, which has no note from me, and mosuem separately requested jonasfj, a specific other reviewer. This is CI supply-chain hardening, not a vulnerability in code I own, so the security rule doesn't apply. I'm not asked to act.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 8097,
+     "output_tokens": 337,
+     "thinking_tokens": 146
+    },
+    "error": null
+   }
+  ]
+ ],
+ "next_step_labels": {
+  "dart-lang/core#1007": "not_yours",
+  "dart-lang/tools#2544": "not_yours",
+  "dart-lang/tools#2710": "not_yours",
+  "dart-lang/tools#2715": "not_yours",
+  "dart-lang/tools#2719": "not_yours",
+  "dart-lang/tools#2899": "not_yours"
+ },
+ "next_step": {
+  "labelled": 6,
+  "exact": [
+   1,
+   0
+  ],
+  "same_side": [
+   1,
+   0
+  ]
+ }
+}

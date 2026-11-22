@@ -1,0 +1,323 @@
+{
+ "config": {
+  "label": "rank25-teams_most-gpt-6.1-sol-low",
+  "strategy": "pointwise",
+  "model": "gpt-6.1-sol",
+  "thinking": "low",
+  "prompt": "/sessions/rcw-01fmhwk6smifvq1n8sesn8rb/evalwork/prompts/v4.md",
+  "signals": true,
+  "trials": 3,
+  "now": null,
+  "started_at": "20261122-230604",
+  "snapshots_fetched_at": [
+   "2026-10-25T19:31:02Z",
+   "2026-10-25T19:31:07Z",
+   "2026-10-25T19:31:11Z",
+   "2026-10-25T19:31:15Z",
+   "2026-10-25T19:31:18Z",
+   "2026-11-18T13:16:00Z"
+  ],
+  "elapsed_s": 16.6,
+  "usage": {
+   "prompt_tokens": 91761,
+   "output_tokens": 2233,
+   "thinking_tokens": 135
+  },
+  "labels_only": true
+ },
+ "truth": [
+  "dart-lang/core#1007",
+  "dart-lang/tools#2544",
+  "dart-lang/tools#2710",
+  "dart-lang/tools#2715",
+  "dart-lang/tools#2719",
+  "dart-lang/tools#2899"
+ ],
+ "why": {
+  "dart-lang/core#1007": "",
+  "dart-lang/tools#2544": "",
+  "dart-lang/tools#2710": "",
+  "dart-lang/tools#2715": "",
+  "dart-lang/tools#2719": "",
+  "dart-lang/tools#2899": ""
+ },
+ "trials": [
+  [
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.61,
+    "next_step": "review",
+    "next_action": "Review the BoringSSL revision update and its upstream changes, then approve if checks are satisfactory.",
+    "reasoning": "Your team was requested, and your note says you review most of its PRs; no other reviewer has taken this one. That makes this an actionable review despite the repository being outside your ownership. It has waited 25 days, but the description identifies no specific vulnerability or security fix that would justify security-level urgency.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 4029,
+     "output_tokens": 121,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.57,
+    "next_step": "review",
+    "next_action": "Review the isWithin fix and test coverage, and check whether the contributor's CLA is still blocking acceptance.",
+    "reasoning": "The request is to a team whose PRs you mostly review, so this is actionable despite being outside your owned repositories. No human has reviewed this small bug fix, but the team-level request, older activity, and apparent CLA blocker keep it below direct review requests and reviews in your own repositories.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 3824,
+     "output_tokens": 107,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.48,
+    "next_step": "review",
+    "next_action": "Review kevmoo’s string_scanner bounds-validation PR, coordinating with davidmorgan to avoid duplicate effort.",
+    "reasoning": "Your team review note makes this a review you can take, and kevmoo is a usual collaborator with no human review yet. However, davidmorgan is also explicitly requested, so it ranks below team reviews relying primarily on you and reviews in your own repositories. The bounds fix has no stated security impact, and the 26-day silence adds no immediate urgency.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 4378,
+     "output_tokens": 120,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.43,
+    "next_step": "review",
+    "next_action": "Review the CI hardening changes as team capacity allows, coordinating with jonasfj, who is explicitly requested.",
+    "reasoning": "Your note says you handle most reviews for this team, so this is actionable, but the explicit request to jonasfj lowers your priority. Although security-related and authored by a usual collaborator, it is outside your owned repositories and does not warrant top-tier security urgency. The PR targets main and explicitly precedes #2866, so it is not blocked on that draft despite the derived stack signal.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 5579,
+     "output_tokens": 171,
+     "thinking_tokens": 29
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.24,
+    "next_step": "review",
+    "next_action": "Check whether an additional team review would help while jonasfj addresses lrhn’s outstanding feedback.",
+    "reasoning": "Your team review note makes this a potential review for you, but lrhn is already actively reviewing and the latest feedback awaits author changes. This security fix matters, but it is outside your owned repositories and does not warrant security-level urgency for you when another reviewer is driving it. The three-month inactivity further reduces its immediate leverage.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 6875,
+     "output_tokens": 111,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "elsewhere",
+    "next_action": "Review the underlying draft PR dart-lang/tools#2563 before taking up this stacked PR.",
+    "reasoning": "This PR is stacked on #2563, which is still a draft with no human review, so the lower PR needs attention first. Your team-review commitment and mosuem's authorship would otherwise make this a review for you, but they do not remove the dependency. Its security-related subject does not make this blocked PR immediately actionable.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 5902,
+     "output_tokens": 125,
+     "thinking_tokens": 0
+    },
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.6,
+    "next_step": "review",
+    "next_action": "Review the BoringSSL revision bump and check its upstream changes and CI results.",
+    "reasoning": "Your team is requested, and your note says you review most of its PRs; no other reviewer has taken this one. That makes this an actionable review despite the repository being outside your primary responsibilities. This is a routine dependency update with no identified vulnerability, so it does not warrant security-emergency priority.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 4029,
+     "output_tokens": 104,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.56,
+    "next_step": "review",
+    "next_action": "Review the isWithin fix and test coverage, and check whether the contributor's CLA is still blocking acceptance.",
+    "reasoning": "The requested team is one whose PRs you review most often, so this is actionable despite being outside your owned repositories. No human has reviewed this small bug fix, but the request is old and not personally addressed to you. The reported CLA failure and incomplete test run need checking before the PR can proceed.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 3824,
+     "output_tokens": 109,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.48,
+    "next_step": "review",
+    "next_action": "Review kevmoo’s bounds-validation changes and tests, coordinating with davidmorgan to avoid duplicate review.",
+    "reasoning": "Your team review request counts as work for you because you review most of this team’s PRs, and kevmoo is a usual collaborator. However, davidmorgan is also personally requested, so this ranks below reviews relying on you alone. The PR has no human review after 26 days, but there is no evidence of an urgent security issue.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 4378,
+     "output_tokens": 117,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.4,
+    "next_step": "review",
+    "next_action": "Review the CI hardening changes as a secondary reviewer, with jonasfj taking the explicitly requested review.",
+    "reasoning": "Your team note makes this a review you can take, but the personal request to jonasfj lowers its priority. Despite the derived stack signal, the description and main base branch indicate this PR comes before #2866, so it is not blocked on that draft. The security changes matter, but this is outside your repositories with another reviewer explicitly requested, so it does not merit security-top-tier priority.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 5579,
+     "output_tokens": 128,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.3,
+    "next_step": "review",
+    "next_action": "Check whether an additional team review would help, coordinating with lrhn while jonasfj addresses the outstanding feedback.",
+    "reasoning": "Your team review note makes this a review you can take, but lrhn is already actively reviewing and the latest feedback still awaits author changes. Although this mitigates credential exposure, it is outside your repositories and another reviewer is driving it, so it does not warrant security-level urgency on your list.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 6875,
+     "output_tokens": 120,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "elsewhere",
+    "next_action": "Prioritize the prerequisite dart-lang/tools#2563 before reviewing this stacked PR.",
+    "reasoning": "This PR is stacked on #2563, which is still draft and has no human review, so the prerequisite must move first. Your team's review request would otherwise make this yours to review, especially given your review responsibility and mosuem's involvement. The security-related functionality does not override the explicit dependency blocking review.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 5902,
+     "output_tokens": 106,
+     "thinking_tokens": 0
+    },
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.6,
+    "next_step": "review",
+    "next_action": "Review the BoringSSL revision update and confirm its upstream changes and checks are suitable to merge.",
+    "reasoning": "Your team is requested, and your note says you review most of its PRs; nobody else has reviewed this one. This is a small automated update that has waited 25 days, making it actionable but below personal review requests and reviews in your own repositories. Although BoringSSL is security-sensitive, nothing here identifies a vulnerability or security fix requiring emergency priority.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 4029,
+     "output_tokens": 130,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.56,
+    "next_step": "review",
+    "next_action": "Check the CLA status, then review the trailing-dot fix and its test coverage if cleared.",
+    "reasoning": "The requested team is one whose PRs you review most often, so this is review work for you despite being outside your owned repositories. No human has reviewed this small fix, which addresses a bug reported by sigurdm. The outstanding CLA warning and incomplete test run reduce its immediate readiness; confirm those before proceeding.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 3824,
+     "output_tokens": 178,
+     "thinking_tokens": 68
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.48,
+    "next_step": "review",
+    "next_action": "Review kevmoo’s string_scanner bounds-validation changes, coordinating with davidmorgan to avoid duplicate review.",
+    "reasoning": "Your team review request counts as actionable because you review most of this team’s PRs, and no human has reviewed this collaborator’s change yet. However, davidmorgan is also personally requested, which lowers your priority relative to reviews solely awaiting you. The PR has been quiet for 26 days and addresses correctness without an identified security vulnerability.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 4378,
+     "output_tokens": 116,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review the CI hardening changes as a secondary reviewer to jonasfj.",
+    "reasoning": "Your team review commitment makes this actionable, but jonasfj is personally requested, reducing the urgency for you. Although this is security hardening, it is outside your owned repositories and another reviewer is named, so it does not warrant security-level priority. The PR targets main and explicitly precedes #2866, so the derived stacking signal does not appear to block review.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 5579,
+     "output_tokens": 156,
+     "thinking_tokens": 38
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.18,
+    "next_step": "review",
+    "next_action": "Check whether an additional team review would help alongside lrhn’s outstanding feedback.",
+    "reasoning": "The team review request falls within your stated reviewing role, but lrhn is specifically requested and already actively reviewing; the author has not addressed their latest feedback. This is a security fix, but it is outside your repositories and already has another reviewer, so it does not warrant security-level urgency for you.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 6875,
+     "output_tokens": 102,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "elsewhere",
+    "next_action": "Review the foundational PR dart-lang/tools#2563 before reviewing this stacked PR.",
+    "reasoning": "This PR is stacked on #2563, which is still a draft with no human review, so the lower PR needs attention first. Your team's review request and mosuem's authorship would otherwise make this a review for you, but the dependency keeps it low priority for now. Its security-related purpose does not override the explicit stacking blocker.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 5902,
+     "output_tokens": 112,
+     "thinking_tokens": 0
+    },
+    "error": null
+   }
+  ]
+ ],
+ "next_step_labels": {
+  "dart-lang/core#1007": "review",
+  "dart-lang/tools#2544": "not_yours",
+  "dart-lang/tools#2710": "review",
+  "dart-lang/tools#2715": "not_yours",
+  "dart-lang/tools#2719": "review",
+  "dart-lang/tools#2899": "not_yours"
+ },
+ "next_step": {
+  "labelled": 6,
+  "exact": [
+   0.3333333333333333,
+   0
+  ],
+  "same_side": [
+   0.3333333333333333,
+   0
+  ]
+ }
+}
