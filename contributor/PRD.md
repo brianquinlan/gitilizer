@@ -1848,7 +1848,12 @@ Figma: [Settings / Preferences](https://www.figma.com/design/J94JKJLNCcFUovvwfaF
     repository.
 
   The rules must be measured as in `RANK-7` and `RANK-24` before they ship,
-  with items that ask a team for review.
+  with items that ask a team for review. They were measured on 2026-11-22
+  ([evaluation](../eval/rank25-2026-11-22.md)): the eval set and the production
+  items didn't get worse, and six PRs that ask a team rose with its prompt for
+  every model, in the order no prompt < a small share < most of it. All but
+  Claude rank a small share almost like most of it. The product owner accepted
+  these results.
 
 ---
 
