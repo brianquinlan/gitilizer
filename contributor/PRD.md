@@ -795,8 +795,10 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
   personal wins: a PR that asks one of the developer's teams for review and
   @-mentions the developer is "Review", and so is one the developer has
   commented on, because acting on it may have made it theirs
-  ([Q-106](#q-106)). The prefix is part of the chip's text and accessible
-  name. Waiting, Elsewhere and Not yours never have it.
+  ([Q-106](#q-106)), as in row 7 of
+  [Issue inbox - Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2562) and the "Team" variants of
+  [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240). The prefix is part of the chip's text
+  and accessible name. Waiting, Elsewhere and Not yours never have it.
 
 ### Sorting the list
 
@@ -1408,6 +1410,8 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 - **SET-31** Additional repositories are repositories the developer follows, not ones they're responsible for. The agent's "About me" text and the default prompt must describe them that way, measured as in `RANK-7`. A developer who is responsible for a repository can say so in its prioritization prompt.
 
 ### Teams
+
+Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), [Settings · Teams · Find my teams](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=483-3852)
 
 GitHub can ask a team for a review instead of a person, often automatically
 through a repository's CODEOWNERS file. The developer chooses the teams whose
@@ -2976,3 +2980,8 @@ chooses ([Q-106](#q-106), [Q-43](#q-43)):
 - Teams and their prompts are stored with the other settings ([Data and
   privacy](#data-and-privacy)). Non-goals now leave out only teams the developer
   hasn't added, and team mentions ([Q-65](#q-65)).
+- Changed Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802) (section 03 Teams and its link; the
+  later sections renumbered), [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240) (16 "Team"
+  variants), row 7 of [Issue inbox - Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2562), and
+  `Settings / Page content`, which matches Settings. Added Figma:
+  [Settings · Teams · Find my teams](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=483-3852).
