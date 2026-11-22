@@ -9,11 +9,14 @@ export * from "./notifications.ts";
 // ---------------------------------------------------------------------------
 
 /** Why an item is on the developer's list (PRD LIST-1). */
-export const Reason = z.enum(["review_requested", "assigned", "mentioned", "created", "commented", "additional_repo"]);
+export const Reason = z.enum(["review_requested", "assigned", "mentioned", "created", "commented", "team_review_requested", "additional_repo"]);
 export type Reason = z.infer<typeof Reason>;
 
 /** Precedence when several reasons apply (PRD LIST-21). */
-export const REASON_PRECEDENCE: Reason[] = ["review_requested", "assigned", "mentioned", "created", "commented", "additional_repo"];
+export const REASON_PRECEDENCE: Reason[] = ["review_requested", "assigned", "mentioned", "created", "commented", "team_review_requested", "additional_repo"];
+
+/** Reasons that involve the developer personally; any of them removes the "Team" prefix (PRD LIST-42). */
+const PERSONAL_REASONS: Reason[] = ["review_requested", "assigned", "mentioned", "created", "commented"];
 
 export const ItemStatus = z.enum(["active", "iceboxed"]);
 export type ItemStatus = z.infer<typeof ItemStatus>;
@@ -34,6 +37,20 @@ export const NEXT_STEP_LABEL: Record<NextStep, string> = {
   review: "Review", respond: "Respond", todo: "To do", backlog: "Backlog", waiting: "Waiting", elsewhere: "Elsewhere", not_yours: "Not yours",
 };
 
+/**
+ * Whether an item is on the developer only through one of their teams (PRD LIST-42): a team in Settings asked
+ * for its review, and nothing about it is personal. An additional repository doesn't count either way.
+ */
+export function teamOnly(item: Pick<ItemRow, "reasons">): boolean {
+  return item.reasons.includes("team_review_requested") && !item.reasons.some((r) => PERSONAL_REASONS.includes(r));
+}
+
+/** The chip's text, with "Team " before a next step that is on the developer only through a team (LIST-42). */
+export function nextStepLabel(step: NextStep, team = false): string {
+  const label = NEXT_STEP_LABEL[step];
+  return team && (step === "review" || step === "respond" || step === "todo" || step === "backlog") ? `Team ${label.toLowerCase()}` : label;
+}
+
 export const ItemRow = z.object({
   key: z.string(), // "owner/repo#123"
   repo: z.string(), // "owner/repo"
@@ -45,6 +62,8 @@ export const ItemRow = z.object({
   reasons: z.array(Reason),
   /** For `mentioned`: the handle used, e.g. "@maya"; null when unknown. */
   mentionHandle: z.string().nullable(),
+  /** For `team_review_requested`: the developer's team that was asked, e.g. "@dart-lang/dart-ecosystem-team" (LIST-3). */
+  teamHandle: z.string().nullable().optional(),
   status: ItemStatus,
   iceboxedAt: z.string().nullable(),
   /** Agent score 0..1. null = not ranked yet. */
@@ -67,7 +86,7 @@ export const ItemRow = z.object({
 export type ItemRow = z.infer<typeof ItemRow>;
 
 /** Label for the inclusion-reason slot under the title (PRD LIST-3, LIST-21). */
-export function reasonLabel(item: Pick<ItemRow, "reasons" | "mentionHandle" | "repo">): string {
+export function reasonLabel(item: Pick<ItemRow, "reasons" | "mentionHandle" | "repo"> & { teamHandle?: string | null }): string {
   const top = REASON_PRECEDENCE.find((r) => item.reasons.includes(r));
   switch (top) {
     case "review_requested": return "Review requested";
@@ -75,6 +94,7 @@ export function reasonLabel(item: Pick<ItemRow, "reasons" | "mentionHandle" | "r
     case "mentioned": return item.mentionHandle ?? "@-mentioned";
     case "created": return "Created by you";
     case "commented": return "Commented on by you";
+    case "team_review_requested": return item.teamHandle ? `Review requested from ${item.teamHandle}` : "Review requested from your team";
     case "additional_repo": return item.repo;
     default: return "";
   }
@@ -319,6 +339,7 @@ export const MAX_PROMPT_LENGTH = 20_000; // SET-24
 export const PROMPT_COUNT_FROM = 18_000; // SET-27: the character count appears from here
 export const MAX_COLLABORATORS = 50; // SET-25
 export const MAX_EXCLUSIONS = 25; // SET-33
+export const MAX_TEAMS = 25; // SET-51
 
 export const AdditionalRepo = z.object({
   fullName: z.string(),
@@ -349,6 +370,34 @@ export const ExcludedRepo = z.object({
 });
 export type ExcludedRepo = z.infer<typeof ExcludedRepo>;
 
+/** A team whose review requests reach the list (PRD SET-51 to SET-53). */
+export const Team = z.object({
+  /** "org/slug", as added. */
+  name: z.string(),
+  prioritizationPrompt: z.string(),
+  /** From a search: checking until GitHub has answered; not_found when GitHub refuses the team (SET-52). */
+  status: z.enum(["checking", "ok", "not_found"]),
+  /** The organization's avatar; null until GitHub has found the team. */
+  avatarUrl: z.string().nullable(),
+});
+export type Team = z.infer<typeof Team>;
+
+/** One team "Find my teams" suggests (SET-54). */
+export const FoundTeam = z.object({
+  name: z.string(),
+  /** Open PRs that ask the developer for review only through this team: what adding it would bring in. */
+  prs: z.number().int(),
+  avatarUrl: z.string().nullable(),
+});
+export type FoundTeam = z.infer<typeof FoundTeam>;
+
+/** POST /api/teams/find (SET-54). */
+export const FindTeamsResponse = z.union([
+  z.object({ status: z.literal("ok"), teams: z.array(FoundTeam) }),
+  z.object({ status: z.enum(["busy", "unreachable"]) }),
+]);
+export type FindTeamsResponse = z.infer<typeof FindTeamsResponse>;
+
 export const Collaborator = z.object({
   login: z.string(),
   /** From GET /users/{login}: ok, not_found, or unknown when GitHub couldn't be reached (SET-19). */
@@ -359,6 +408,7 @@ export type Collaborator = z.infer<typeof Collaborator>;
 
 export const Settings = z.object({
   additionalRepos: z.array(AdditionalRepo),
+  teams: z.array(Team),
   excludedRepos: z.array(ExcludedRepo),
   collaborators: z.array(Collaborator),
   /** null = use the default prompt. */
@@ -387,6 +437,12 @@ export type SettingsResponse = z.infer<typeof SettingsResponse>;
 /** PUT /api/settings: everything on the page (SET-14). */
 export const SettingsUpdate = z.object({
   additionalRepos: z.array(z.object({ fullName: z.string(), prioritizationPrompt: z.string() })),
+  /** Teams as "org/slug", each with its prompt (SET-51, SET-53). */
+  teams: z.array(z.object({
+    name: z.string(), prioritizationPrompt: z.string(),
+    /** What the page already learned about a new team (its check, or "Find my teams"), so saving needn't search again. */
+    status: z.enum(["checking", "ok", "not_found"]).optional(), avatarUrl: z.string().nullable().optional(),
+  })).default([]),
   /** Names as typed or as GitHub spells them: "owner/name" or "owner" (SET-33). */
   excludedRepos: z.array(z.string()).default([]),
   collaborators: z.array(z.string()),
@@ -410,6 +466,18 @@ export type FieldError = z.infer<typeof FieldError>;
 /** Control ids used by Settings links (NOTIF-9, LIST-14). */
 export const repoControlId = (fullName: string) => `repo-${fullName.replace("/", "-")}`;
 export const exclusionControlId = (name: string) => `exclusion-${name.replace("/", "-")}`;
+export const teamControlId = (name: string) => `team-${name.replace("/", "-")}`;
+
+/**
+ * Parses a team (SET-51): "org/slug", with or without a leading "@", or its GitHub URL
+ * ("https://github.com/orgs/{org}/teams/{slug}"). Returns "org/slug", or null for anything else.
+ */
+export function parseTeam(input: string): string | null {
+  let s = input.trim().replace(/^@/, "");
+  const url = s.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/orgs\/([^/\s]+)\/teams\/([^/\s?#]+)(?:[/?#].*)?$/i);
+  if (url) s = `${url[1]}/${url[2]}`;
+  return /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}\/[A-Za-z0-9_.-]{1,100}$/.test(s) ? s : null;
+}
 
 /**
  * Parses "owner/name" or a GitHub URL ("https://github.com/owner/name/…") into
@@ -484,6 +552,9 @@ export const MESSAGES = {
   exclusionLimit: `You can exclude at most ${MAX_EXCLUSIONS} repositories and owners.`,
   exclusionIsAdditional: (r: string) => `${r} is one of your additional repositories. Remove it there first to exclude it.`,
   repoIsExcluded: (r: string) => `${r} is excluded. Remove it from Excluded repositories first to follow it.`,
+  teamFormat: "Enter a team as org/team, or paste its GitHub URL.",
+  teamDuplicate: (t: string) => `${t} is already in your teams.`,
+  teamLimit: `You can add at most ${MAX_TEAMS} teams.`,
   loginFormat: "Enter a GitHub username, for example octocat.",
   loginDuplicate: (l: string) => `${l} is already a collaborator.`,
   loginLimit: `You can add at most ${MAX_COLLABORATORS} collaborators.`,

@@ -1,0 +1,323 @@
+{
+ "config": {
+  "label": "rank25-teams_small-gemini-low",
+  "strategy": "pointwise",
+  "model": "gemini-3.8-flash",
+  "thinking": "low",
+  "prompt": "/sessions/rcw-01fmhwk6smifvq1n8sesn8rb/evalwork/prompts/v4.md",
+  "signals": true,
+  "trials": 3,
+  "now": null,
+  "started_at": "20261122-230636",
+  "snapshots_fetched_at": [
+   "2026-10-25T19:31:02Z",
+   "2026-10-25T19:31:07Z",
+   "2026-10-25T19:31:11Z",
+   "2026-10-25T19:31:15Z",
+   "2026-10-25T19:31:18Z",
+   "2026-11-18T13:16:00Z"
+  ],
+  "elapsed_s": 24.8,
+  "usage": {
+   "prompt_tokens": 99885,
+   "output_tokens": 2493,
+   "thinking_tokens": 0
+  },
+  "labels_only": true
+ },
+ "truth": [
+  "dart-lang/core#1007",
+  "dart-lang/tools#2544",
+  "dart-lang/tools#2710",
+  "dart-lang/tools#2715",
+  "dart-lang/tools#2719",
+  "dart-lang/tools#2899"
+ ],
+ "why": {
+  "dart-lang/core#1007": "",
+  "dart-lang/tools#2544": "",
+  "dart-lang/tools#2710": "",
+  "dart-lang/tools#2715": "",
+  "dart-lang/tools#2719": "",
+  "dart-lang/tools#2899": ""
+ },
+ "trials": [
+  [
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.5,
+    "next_step": "review",
+    "next_action": "Review the PR for package:path or wait for another dart-ecosystem-team member to pick it up.",
+    "reasoning": "This PR was requested of the dart-ecosystem-team, for which I have a small level of responsibility, and dart-lang/core is not one of my primary repositories. While team review requests with notes usually fall around 0.5–0.65, my note specifically indicates a small level of responsibility, and the PR is from a first-time contributor who has not yet cleared the CLA check. This places it at the lower end of that range.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 4035,
+     "output_tokens": 157,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review the automated BoringSSL revision update PR.",
+    "reasoning": "This PR requested a review from dart-ecosystem-team, for which I have noted a small level of responsibility. Because my team note indicates low responsibility and I am not personally assigned in this repository, this lands just below the standard team review range (0.5-0.65). Nobody else has reviewed it yet, so it awaits attention.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 4310,
+     "output_tokens": 120,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review kevmoo's string_scanner PR or leave it for davidmorgan.",
+    "reasoning": "This PR was authored by a close collaborator (kevmoo) and requested review from dart-ecosystem-team, for which I have a small level of review responsibility. However, a specific reviewer (davidmorgan) was also requested, and I do not directly own dart-lang/tools. Because of my team note and collaborator connection it stays visible, but ranks lower than personal review requests.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 4757,
+     "output_tokens": 136,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.25,
+    "next_step": "waiting",
+    "next_action": "Wait for jonasfj to review the PR.",
+    "reasoning": "This PR is in dart-lang/tools, where I have a small level of responsibility via dart-ecosystem-team. However, the author explicitly requested a specific reviewer (jonasfj), meaning I am not the primary reviewer waiting to act. Since it is by a close collaborator (mosuem) and involves security/hardening improvements, it stays visible but remains low priority while waiting on jonasfj.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 6069,
+     "output_tokens": 132,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "elsewhere",
+    "next_action": "Review the lower PR dart-lang/tools#2563 before reviewing this stacked PR.",
+    "reasoning": "This PR is stacked on #2563, which is still an open draft and has not been reviewed yet. Per the guidelines, stacked PRs whose lower PRs have not been reviewed are blocked and should be addressed elsewhere at low priority.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 6508,
+     "output_tokens": 109,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None; jonasfj and lrhn are actively handling this PR in dart-lang/tools.",
+    "reasoning": "This PR mitigates a security issue (UNC path injection), but it is in dart-lang/tools (which is not one of my primary repos). A team review was requested on dart-ecosystem-team where I only have a small level of responsibility, and lrhn was explicitly requested and has already conducted extensive, in-depth reviews with outstanding feedback for author jonasfj to address.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 7616,
+     "output_tokens": 142,
+     "thinking_tokens": null
+    },
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review the automated BoringSSL revision bump PR for package:boring.",
+    "reasoning": "This PR was requested from dart-ecosystem-team, for which I have a small level of responsibility. Normally team review requests for this team fall in the 0.5-0.65 range, but my note indicates only a small level of responsibility, moving it down slightly. Since no other reviewer has taken action on this bot-generated update, it is waiting on a review.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 4310,
+     "output_tokens": 133,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review this PR for package:path, or leave it for another member of dart-ecosystem-team.",
+    "reasoning": "This PR was submitted to dart-lang/core requesting review from dart-ecosystem-team, where I have a small level of responsibility. While standard team review requests with a note fall in the 0.5-0.65 range, my explicit note stating only a 'small level of responsibility' moves it down slightly. Additionally, the author has not signed the CLA and the PR has been dormant for over a month.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 4035,
+     "output_tokens": 149,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.38,
+    "next_step": "review",
+    "next_action": "Review the PR for kevmoo as part of dart-ecosystem-team responsibilities, or let davidmorgan take it.",
+    "reasoning": "This PR was authored by a close collaborator (kevmoo) and requested a review from dart-ecosystem-team, where I have a small level of responsibility. However, a specific individual (davidmorgan) was also requested, and dart-lang/tools is not one of my primary repositories. Because no human review has landed in almost a month, it is worth a modest priority to review or assist if needed.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 4757,
+     "output_tokens": 150,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.35,
+    "next_step": "waiting",
+    "next_action": "Wait for jonasfj to review the PR.",
+    "reasoning": "This PR in dart-lang/tools is authored by collaborator mosuem and requests review from dart-ecosystem-team (where I have a small level of responsibility). However, mosuem also explicitly requested review from a specific individual reviewer, jonasfj, who is primary. Because of the team request and collaborator involvement in ecosystem tooling, it stays somewhat visible, but it is not directly waiting on me.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 6069,
+     "output_tokens": 131,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "elsewhere",
+    "next_action": "Wait for base PR dart-lang/tools#2563 to be reviewed and merged first.",
+    "reasoning": "This PR is stacked on dart-lang/tools#2563, which is still an unreviewed draft PR. Stacked PRs waiting on lower PRs take low priority until the base PR is addressed. Additionally, dart-lang/tools is not a primary repository of mine and my team responsibility for dart-ecosystem-team is small.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 6508,
+     "output_tokens": 132,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None; jonasfj and lrhn are actively handling this PR in dart-lang/tools.",
+    "reasoning": "This is in dart-lang/tools, a repository I am not responsible for, and my team review request is via dart-ecosystem-team where I only have a small level of responsibility. Furthermore, lrhn was specifically requested and actively provided detailed review comments that author jonasfj has yet to address. Even though it touches on security mitigation (UNC path injection), it is not my issue or repository, and dedicated owners are already driving it.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 7616,
+     "output_tokens": 153,
+     "thinking_tokens": null
+    },
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review the CI hardening changes in dart-lang/tools if jonasfj doesn't get to it.",
+    "reasoning": "This PR was authored by my collaborator mosuem in dart-lang/tools, requesting review from the dart-ecosystem-team where I have a small level of responsibility. However, a specific reviewer (jonasfj) was also explicitly requested right after, meaning it is primarily on jonasfj to review. Because it relates to supply-chain hardening and comes from a close collaborator, it deserves moderate attention if secondary review is needed.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 6069,
+     "output_tokens": 149,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review the automated BoringSSL update PR for package:boring.",
+    "reasoning": "This PR was requested from the dart-ecosystem-team, for which you noted you have a small level of responsibility. A team review request with a note normally starts around 0.5–0.65, but your note indicates only a 'small level' of responsibility and this is an automated routine dependency bump in dart-lang/tools. It is waiting for review, placing it in the lower end of your team review responsibilities.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 4310,
+     "output_tokens": 143,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review kevmoo's string_scanner PR if davidmorgan does not get to it.",
+    "reasoning": "This PR is authored by a close collaborator (kevmoo) in dart-lang/tools, where my team (dart-ecosystem-team) is requested. However, davidmorgan is also individually requested as a reviewer, and my note states I only have a small level of responsibility for this team. Because a specific individual reviewer is named alongside my team, and this is outside my core repositories, it is low-to-medium priority for me.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 4757,
+     "output_tokens": 150,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review the PR for package:path or wait for other ecosystem team members to pick it up.",
+    "reasoning": "A review was requested from dart-ecosystem-team, where I have a small level of responsibility, and nobody else has reviewed it yet. However, the repository is not one I actively maintain, the author hasn't signed the CLA (blocking merges), and my note indicates only minimal responsibility here, putting it lower than standard team reviews.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 4035,
+     "output_tokens": 127,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "elsewhere",
+    "next_action": "Review the lower PR dart-lang/tools#2563 before reviewing this stacked PR.",
+    "reasoning": "This PR is stacked on PR #2563, which is still in draft and unreviewed. Stacked PRs waiting on lower PRs are low priority until the underlying PRs are reviewed and landed. Furthermore, dart-lang/tools is not a repository I am primarily responsible for, and I only have a small level of responsibility for the requested team.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 6508,
+     "output_tokens": 133,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None; lrhn is already reviewing this PR and it is waiting on author jonasfj to address feedback.",
+    "reasoning": "Although this addresses a security vulnerability, it is in dart-lang/tools (which I do not maintain) and is requested of dart-ecosystem-team, for which I only have a small level of responsibility. Moreover, lrhn is actively reviewing the PR and author jonasfj has not yet addressed lrhn's detailed review comments from 3 months ago. There is no action for me here.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 7616,
+     "output_tokens": 147,
+     "thinking_tokens": null
+    },
+    "error": null
+   }
+  ]
+ ],
+ "next_step_labels": {
+  "dart-lang/core#1007": "review",
+  "dart-lang/tools#2544": "not_yours",
+  "dart-lang/tools#2710": "review",
+  "dart-lang/tools#2715": "not_yours",
+  "dart-lang/tools#2719": "review",
+  "dart-lang/tools#2899": "not_yours"
+ },
+ "next_step": {
+  "labelled": 6,
+  "exact": [
+   0.5,
+   0
+  ],
+  "same_side": [
+   0.611111111111111,
+   0.0962250448649376
+  ]
+ }
+}

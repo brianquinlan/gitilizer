@@ -1,10 +1,10 @@
 // Settings (PRD "Settings", SET-1..49). Figma: "Settings", "Settings · Errors" and "Settings · Ranking agent card · Basic ranking".
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  AGENT_INFO, BASIC_INFO, GITHUB_CONNECT_ID, MAX_COLLABORATORS, MAX_EXCLUSIONS, MAX_PROMPT_LENGTH, MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MESSAGES, PROMPT_COUNT_FROM, RankingAgent,
-  choiceName, conflictFields, credentialControlId, exclusionControlId, exclusionNote, parseExclusion, parseLogin, parseRepo, repoControlId,
+  AGENT_INFO, BASIC_INFO, GITHUB_CONNECT_ID, MAX_COLLABORATORS, MAX_EXCLUSIONS, MAX_PROMPT_LENGTH, MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MAX_TEAMS, MESSAGES, PROMPT_COUNT_FROM, RankingAgent,
+  choiceName, conflictFields, credentialControlId, exclusionControlId, exclusionNote, parseExclusion, parseLogin, parseRepo, parseTeam, repoControlId, teamControlId,
   type AdditionalRepo, type AgentKeyKind, type Collaborator, type CredentialKind, type CredentialStatus, type ExcludedRepo,
-  type FieldError, type Me, type RankingChoice, type SettingsResponse,
+  type FieldError, type FindTeamsResponse, type FoundTeam, type Me, type RankingChoice, type SettingsResponse, type Team,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
 import { AgentPicker } from "../components/AgentPicker.tsx";
@@ -13,12 +13,12 @@ import { CredentialField, type Check } from "../components/CredentialField.tsx";
 import { CHIPS, GitHubCard, useConnectResult, useGitHubConnection } from "../components/GitHubConnection.tsx";
 import { Preferences } from "../components/Preferences.tsx";
 import {
-  AlertIcon, ExternalIcon, EyeOffIcon, FolderGitIcon, GitHubIcon, ListIcon, PencilIcon, PlugIcon, PlusIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
+  AlertIcon, ExternalIcon, EyeOffIcon, FolderGitIcon, GitHubIcon, ListIcon, PencilIcon, PlugIcon, PlusIcon, RefreshIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
 } from "../icons.tsx";
 import { focusTarget, navigate, setNavigationGuard } from "../router.tsx";
 import { useStore } from "../store.tsx";
 
-type Draft = { repos: AdditionalRepo[]; exclusions: ExcludedRepo[]; collaborators: Collaborator[]; prompt: string };
+type Draft = { repos: AdditionalRepo[]; teams: Team[]; exclusions: ExcludedRepo[]; collaborators: Collaborator[]; prompt: string };
 type Errors = Record<string, string>;
 
 const LEAVE_PROMPT = "Leave Settings? Your changes haven't been saved.";
@@ -40,7 +40,7 @@ export function SettingsPage() {
     api.get<SettingsResponse>("/api/settings").then((s) => {
       setServer(s);
       setAgent(s.rankingAgent);
-      setDraft({ repos: s.additionalRepos, exclusions: s.excludedRepos, collaborators: s.collaborators, prompt: s.customPrompt ?? s.defaultPrompt });
+      setDraft({ repos: s.additionalRepos, teams: s.teams, exclusions: s.excludedRepos, collaborators: s.collaborators, prompt: s.customPrompt ?? s.defaultPrompt });
     });
   }, []);
   // Links from notifications and the empty list go to a control and focus it (NOTIF-9, LIST-14).
@@ -59,6 +59,7 @@ export function SettingsPage() {
     return Object.values(secrets).some(Boolean) || agent !== server.rankingAgent || removals.length > 0
       // Prompts as they will be saved: an open prompt field's text counts, without its outer spaces (SET-9, SET-26).
       || JSON.stringify(draft.repos.map((r) => [r.fullName, r.prioritizationPrompt.trim()])) !== JSON.stringify(server.additionalRepos.map((r) => [r.fullName, r.prioritizationPrompt]))
+      || JSON.stringify(draft.teams.map((t) => [t.name, t.prioritizationPrompt.trim()])) !== JSON.stringify(server.teams.map((t) => [t.name, t.prioritizationPrompt]))
       || JSON.stringify(draft.exclusions.map((e) => e.name)) !== JSON.stringify(server.excludedRepos.map((e) => e.name))
       || JSON.stringify(draft.collaborators.map((c) => c.login)) !== JSON.stringify(server.collaborators.map((c) => c.login))
       || draft.prompt !== (server.customPrompt ?? server.defaultPrompt);
@@ -92,6 +93,7 @@ export function SettingsPage() {
       const credentials = Object.fromEntries(Object.entries(secrets).filter(([, v]) => v.trim()));
       await api.put("/api/settings", {
         additionalRepos: draft.repos.map(({ fullName, prioritizationPrompt }) => ({ fullName, prioritizationPrompt })),
+        teams: draft.teams.map(({ name, prioritizationPrompt, status, avatarUrl }) => ({ name, prioritizationPrompt, status, avatarUrl })),
         excludedRepos: draft.exclusions.map((e) => e.name),
         collaborators: draft.collaborators.map((c) => c.login),
         customPrompt: draft.prompt === server.defaultPrompt ? null : draft.prompt,
@@ -160,6 +162,7 @@ export function SettingsPage() {
           <nav className="side-nav" aria-label="Settings sections">
             <a href="#connections" onClick={jump("connections")}><PlugIcon /> Connections</a>
             <a href="#additional-repositories" onClick={jump("additional-repositories")}><FolderGitIcon /> Additional repositories</a>
+            <a href="#teams" onClick={jump("teams")}><UsersIcon /> Teams</a>
             <a href="#excluded-repositories" onClick={jump("excluded-repositories")}><EyeOffIcon /> Excluded repositories</a>
             <a href="#ranking-prompt" onClick={jump("ranking-prompt-section")}><ListIcon /> Ranking prompt</a>
             <a href="#collaborators" onClick={jump("collaborators")}><UsersIcon /> Collaborators</a>
@@ -200,15 +203,22 @@ export function SettingsPage() {
                       onChange={(repos) => setDraft((d) => d && { ...d, repos: typeof repos === "function" ? repos(d.repos) : repos })} />
           </section>
 
+          <section className="section" id="teams">
+            <SectionHead n="03" title="Teams" badge="Optional" />
+            <p>PRs that ask these teams for a review appear in your list. Add a prioritization prompt to say how much of the team's reviewing is yours.</p>
+            <TeamList teams={draft.teams} saved={server.teams} errors={allErrors} setError={setError}
+                      onChange={(t) => setDraft((d) => d && { ...d, teams: typeof t === "function" ? t(d.teams) : t })} />
+          </section>
+
           <section className="section" id="excluded-repositories">
-            <SectionHead n="03" title="Excluded repositories" badge="Optional" />
+            <SectionHead n="04" title="Excluded repositories" badge="Optional" />
             <p>Issues and PRs from these never appear in your list, even when you're assigned, asked to review or @-mentioned. Gitilizer doesn't scan or rank them.</p>
             <ExclusionList items={draft.exclusions} additional={draft.repos.map((r) => r.fullName)} errors={allErrors} setError={setError} app={me.github.method === "app"}
                            onChange={(x) => setDraft((d) => d && { ...d, exclusions: typeof x === "function" ? x(d.exclusions) : x })} />
           </section>
 
           <section className="section" id="ranking-prompt-section">
-            <SectionHead n="04" title="Ranking prompt" badge="Optional" />
+            <SectionHead n="05" title="Ranking prompt" badge="Optional" />
             <p>The agent reads the title, description, labels, comments and reviews of each issue and PR and gives it a score.</p>
             <div className={`panel editor ${allErrors["ranking-prompt"] ? "invalid" : ""}`}>
               <div className="editor-head">
@@ -229,7 +239,7 @@ export function SettingsPage() {
           </section>
 
           <section className="section" id="collaborators">
-            <SectionHead n="05" title="Collaborators" badge="Optional" />
+            <SectionHead n="06" title="Collaborators" badge="Optional" />
             <p>By default, issues, PRs and comments made by your collaborators have higher priority.</p>
             <CollaboratorList people={draft.collaborators} errors={allErrors} setError={setError}
                               onChange={(c) => setDraft((d) => d && { ...d, collaborators: typeof c === "function" ? c(d.collaborators) : c })} />
@@ -467,8 +477,10 @@ const promptControlId = (repo: string) => `${repoControlId(repo)}-prompt`;
  * its outer spaces; Escape puts back what it held when it opened. Over 500 characters it stays open, with an error
  * that blocks saving (SET-27).
  */
-export function RepoPrompt({ repo, prompt, onChange, error, setError }: {
+export function RepoPrompt({ repo, prompt, onChange, error, setError, controlId }: {
   repo: string; prompt: string; onChange: (prompt: string) => void; error?: string; setError: (message: string | null) => void;
+  /** The field's id; a repository's by default. A team's prompt works the same way (SET-53). */
+  controlId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const before = useRef(""); // the text when the field opened, for Escape
@@ -476,7 +488,7 @@ export function RepoPrompt({ repo, prompt, onChange, error, setError }: {
   const field = useRef<HTMLTextAreaElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
   const refocus = useRef(false);
-  const id = promptControlId(repo);
+  const id = controlId ?? promptControlId(repo);
   const tooLong = prompt.length > MAX_REPO_PROMPT_LENGTH;
   const message = tooLong ? MESSAGES.repoPromptLength(prompt.length) : null;
   useEffect(() => setError(message), [message]);
@@ -538,6 +550,145 @@ export function RepoPrompt({ repo, prompt, onChange, error, setError }: {
         <span className="sr-only">Edit the prioritization prompt for {repo}: </span>
         <span>{prompt}</span><PencilIcon size={14} />
       </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Teams (SET-51..56)
+// ---------------------------------------------------------------------------
+
+const teamPromptId = (name: string) => `${teamControlId(name)}-prompt`;
+
+/** The organization's avatar once GitHub has found the team, a team icon until then (SET-52). */
+function TeamIcon({ url }: { url: string | null }) {
+  if (url) return <img className="avatar org" src={url} alt="" />;
+  return <span className="icon-slot" aria-hidden="true"><UsersIcon size={14} /></span>;
+}
+
+const TEAM_NOT_FOUND = (name: string) =>
+  `GitHub says there's no team ${name}, or your GitHub connection can't see it. If the name is misspelled, remove it and add it again.`;
+
+const FIND_MESSAGES: Record<"none" | "busy" | "unreachable", string> = {
+  none: "No teams found. A team shows up here when it's asked to review an open PR.",
+  busy: "GitHub is busy with your scan. Try again in a minute.",
+  unreachable: "Couldn't reach GitHub. Try again.",
+};
+
+export function TeamList({ teams, saved, onChange, errors, setError }: {
+  teams: Team[]; saved: Team[]; onChange: Setter<Team[]>; errors: Errors; setError: (f: string, m: string | null) => void;
+}) {
+  const [input, setInput] = useState("");
+  const [finding, setFinding] = useState(false);
+  const [found, setFound] = useState<FoundTeam[] | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  // A saved team still "Checking…" (its scan couldn't check it, or hasn't run yet) is checked when the page opens.
+  useEffect(() => {
+    for (const t of teams) if (t.status === "checking") check(t.name);
+  }, []);
+  const check = (name: string) => {
+    api.post<Team>("/api/teams/check", { name })
+      .then((r) => onChange((cur) => cur.map((x) => (x.name === name ? { ...x, status: r.status, avatarUrl: r.avatarUrl } : x))))
+      .catch(() => {});
+  };
+  const addTeam = (name: string, checked?: Pick<Team, "status" | "avatarUrl">) => {
+    setError("add-team", null); // an error from typing goes with the next team added (SET-27)
+    onChange((cur) => [...cur, { name, prioritizationPrompt: "", status: checked?.status ?? "checking", avatarUrl: checked?.avatarUrl ?? null }]);
+    setFound((f) => f && f.filter((x) => x.name.toLowerCase() !== name.toLowerCase())); // its suggestion goes (SET-54)
+    if (checked) return;
+    // Checked at once with a search (SET-52); the scan that saving starts checks it again if this doesn't answer.
+    check(name);
+  };
+  const add = () => {
+    const name = parseTeam(input);
+    const err = !name ? MESSAGES.teamFormat
+      : teams.some((t) => t.name.toLowerCase() === name.toLowerCase()) ? MESSAGES.teamDuplicate(name)
+      : teams.length >= MAX_TEAMS ? MESSAGES.teamLimit : null;
+    setError("add-team", err);
+    if (err || !name) return;
+    addTeam(name);
+    setInput("");
+  };
+  const find = async () => {
+    setFinding(true);
+    setMessage(null);
+    try {
+      const r = await api.post<FindTeamsResponse>("/api/teams/find");
+      if (r.status !== "ok") { setFound(null); setMessage(FIND_MESSAGES[r.status]); return; }
+      setFound(r.teams);
+      // "No teams found" when none of them is new to the page (SET-54); not after adding the last suggestion.
+      if (!r.teams.some((f) => !teams.some((t) => t.name.toLowerCase() === f.name.toLowerCase()))) setMessage(FIND_MESSAGES.none);
+    } catch {
+      setFound(null);
+      setMessage(FIND_MESSAGES.unreachable);
+    } finally {
+      setFinding(false);
+    }
+  };
+  // Teams already on the page aren't suggested, saved or not (SET-54).
+  const suggestions = (found ?? []).filter((f) => !teams.some((t) => t.name.toLowerCase() === f.name.toLowerCase()));
+
+  return (
+    <div className="panel list-rows">
+      {teams.map((t) => {
+        const rowId = teamControlId(t.name);
+        const savedPrompt = saved.find((x) => x.name.toLowerCase() === t.name.toLowerCase())?.prioritizationPrompt;
+        const edited = savedPrompt !== undefined && t.prioritizationPrompt.trim() !== savedPrompt;
+        const setPrompt = (p: string) => onChange((cur) => cur.map((x) => (x.name === t.name ? { ...x, prioritizationPrompt: p } : x)));
+        return (
+          <div className="lr repo-row" key={t.name} id={rowId}>
+            <div className="lr-main">
+              <TeamIcon url={t.status === "ok" ? t.avatarUrl : null} />
+              <span className="mono">{t.name}</span>
+              {edited && <span className="edited">Edited</span>}
+              <span className="spacer" />
+              {t.status === "checking" && <span className="access">Checking…</span>}
+              {t.status === "not_found" && (
+                <span className="access bad" title={TEAM_NOT_FOUND(t.name)} tabIndex={0}><XCircleIcon size={12} /> Not found</span>
+              )}
+              <button className="link-btn" aria-label={`Remove ${t.name}`}
+                      onClick={() => { onChange(teams.filter((x) => x !== t)); setError(rowId, null); }}><XIcon size={12} /> Remove</button>
+            </div>
+            <RepoPrompt repo={t.name} prompt={t.prioritizationPrompt} onChange={setPrompt} controlId={teamPromptId(t.name)}
+                        error={errors[teamPromptId(t.name)]} setError={(m) => setError(teamPromptId(t.name), m)} />
+            <FieldMessage message={errors[rowId]} />
+          </div>
+        );
+      })}
+      <div className="add">
+        <label htmlFor="add-team">Add a team</label>
+        <input id="add-team" type="text" className={`mono-input ${errors["add-team"] ? "invalid" : ""}`} placeholder="org/team"
+               value={input} aria-invalid={Boolean(errors["add-team"])}
+               onChange={(e) => { setInput(e.target.value); setError("add-team", null); }} onKeyDown={(e) => e.key === "Enter" && add()} />
+        <FieldMessage message={errors["add-team"]} />
+        <div><button className="btn" onClick={add}><PlusIcon /> Add team</button></div>
+      </div>
+      <div className="find-teams">
+        <div className="find-row">
+          <button className="btn" onClick={() => void find()} disabled={finding} aria-describedby="find-teams-hint">
+            {finding ? <><RefreshIcon className="spin" /> Finding your teams…</> : <><UsersIcon /> Find my teams</>}
+          </button>
+          <span className="fine" id="find-teams-hint">Not sure which teams you're in? Gitilizer can find the teams that are asking you for reviews.</span>
+        </div>
+        <div aria-live="polite">
+          {message && <p className="fine find-message">{message}</p>}
+          {found && suggestions.length > 0 && (
+            <div className="team-suggestions">
+              <p className="fine">Your teams, from the PRs asking you for a review</p>
+              {suggestions.map((f) => (
+                <div className="suggestion" key={f.name}>
+                  <TeamIcon url={f.avatarUrl} />
+                  <span className="mono">{f.name}</span>
+                  <span className="fine count">{f.prs === 1 ? "1 open PR" : `${f.prs} open PRs`}</span>
+                  <button className="btn small" aria-label={`Add ${f.name}`} disabled={teams.length >= MAX_TEAMS}
+                          onClick={() => addTeam(f.name, { status: "ok", avatarUrl: f.avatarUrl })}><PlusIcon /> Add</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

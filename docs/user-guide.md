@@ -43,6 +43,7 @@ Settings.
 Optionally, in Settings:
 
 - **Additional repositories** adds every open issue and PR in a repository you follow. A prioritization prompt (for example "Security issues only") tells the ranking agent what you care about there.
+- **Teams** adds the PRs that ask one of your GitHub teams for a review, for example through a repository's CODEOWNERS file. Type a team as `org/team`, or choose **Find my teams** to see the teams that are asking you for reviews. Without a prioritization prompt, a team's PRs are ranked like any request to a team, usually low; a prompt such as "I review most of this team's PRs" tells the ranking agent how much of the team's reviewing is yours. A team GitHub doesn't know, or your connection can't see, shows **Not found**.
 - **Ranking prompt** changes the instructions the agent follows when it scores an item. **Restore default** puts back Gitilizer's own prompt, which improves over time.
 - **Collaborators** are people whose issues, PRs and comments should rank higher.
 
@@ -232,10 +233,10 @@ When your credits run out, or you reach a spend or usage limit, Gitilizer pauses
 
 ## Your list
 
-- An item is on your list if it's open, its repository isn't archived, and your review is requested, you're assigned, you're @-mentioned by name, you created it, you commented on it, or it's in one of your additional repositories. Team review requests and team mentions don't count.
+- An item is on your list if it's open, its repository isn't archived, and your review is requested, you're assigned, you're @-mentioned by name, you created it, you commented on it, it's in one of your additional repositories, or it asks one of the teams in your Settings for a review. Other teams' review requests and team mentions don't count.
 - The list holds the 1,000 most recently updated items.
 - Ranks come from the agent's scores. Items that couldn't be ranked are shown at the end with "–".
-- The line under each title starts with the item's next step, which says whose move it is. **Review**, **Respond** and **To do** are on you; **Backlog** is yours but nothing is pressing. **Waiting** means someone else has the next move, **Elsewhere** that you'd act on a linked or lower PR instead, and **Not yours** that there's nothing for you to do. Items ranked before next steps existed get one when they're next ranked.
+- The line under each title starts with the item's next step, which says whose move it is. **Review**, **Respond** and **To do** are on you; **Backlog** is yours but nothing is pressing. **Waiting** means someone else has the next move, **Elsewhere** that you'd act on a linked or lower PR instead, and **Not yours** that there's nothing for you to do. **Team review** and the like mean it's on you only through one of your teams; anything personal, such as an @-mention or a comment of yours, makes it plain **Review**. Items ranked before next steps existed get one when they're next ranked.
 - Click a rank to see what to do next on the item, in a sentence, and why it has its rank.
 - The strip above the list searches it by title, repository or number, and **All**, **PRs** and **Issues** show one type. A filtered list keeps each item's rank in the whole list. The search and filter are in the page's address, so you can bookmark them.
 - Press **/** to jump to the search field. If single-key shortcuts get in your way, for example with speech input, turn off **Keyboard shortcuts** under Preferences in Settings; Tab, Enter and Esc work either way.
@@ -295,7 +296,7 @@ agent.
 
 ### What Gitilizer sends to your ranking agent
 
-Gitilizer calls the ranking agent you chose, and only that one, with **your own API key**, one item at a time. Basic ranking is the one exception, described below. Each request contains the content of one of your issues or PRs (title, description, labels, comments, reviews and the items it links to) and your settings (your GitHub username, additional repositories with their prioritization prompts, collaborators and ranking prompt). It never contains your credentials.
+Gitilizer calls the ranking agent you chose, and only that one, with **your own API key**, one item at a time. Basic ranking is the one exception, described below. Each request contains the content of one of your issues or PRs (title, description, labels, comments, reviews and the items it links to) and your settings (your GitHub username, additional repositories with their prioritization prompts, collaborators and ranking prompt, and, with a PR that asks one of your teams for a review, that team's prioritization prompt). It never contains your credentials.
 
 What each company may do with that content depends on its terms. It can come from private repositories you can read.
 

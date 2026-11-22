@@ -1,0 +1,38 @@
+# ISSUE canonical/stdlibc.dart#152: Use a Ubuntu 24.0.4 for ffigen workflows
+url: https://github.com/canonical/stdlibc.dart/issues/152
+state: open
+author: brianquinlan (association with repo: CONTRIBUTOR)
+created: 2025-04-03T22:21:22Z (20mo ago)
+last updated: 2025-04-06T21:48:20Z (19mo ago)
+labels: []
+assignees: []
+repository: canonical/stdlibc.dart — Standard C Library - FFI bindings to the GNU C Library on Linux, and the BSD C Library on macOS. (stars: 58, open issues: 24, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['author', 'mentioned']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: robert-ancell commented 19mo ago
+- last_human_actor_is_me: False
+- my_last_activity: opened this issue 20mo ago
+- mentions_of_me: [{'by': 'robert-ancell', 'informational_cc': False, 'line': "@brianquinlan let's push ahead with defining them directly."}]
+- days_since_update: 591.0
+- days_since_created: 593.9
+
+## Related issues and PRs
+- PR canonical/stdlibc.dart#150 'Update dependencies': draft open, by brianquinlan, updated 20mo ago
+
+## Description
+The gnu ffigen workflows use Ubuntu 20.0.4, which will soon be removed by Github because they will be out of LTS.
+
+Moving to Ubuntu 24.0.4 wasn't as straightforward ([WIP PR](https://github.com/canonical/stdlibc.dart/pull/150) ) as I thought because the `__*stat` symbols were removed from `sys/stat.h`. Would it be reasonable to just define those calls directly (using `external`) in `gnu/stat.dart`?
+
+## Activity (4 events, oldest first)
+[2025-04-03 22:21Z, 20mo ago] brianquinlan (ME) opened this issue
+[2025-04-04 00:24Z, 20mo ago] robert-ancell commented:
+    @d-loose do you know? My input here is if they keep working, then yes :)
+[2025-04-04 14:31Z, 20mo ago] d-loose commented:
+    Sorry, I don't think I can help here - I've only done some basic maintenance in this repo.
+[2025-04-06 21:48Z, 19mo ago] robert-ancell commented:
+    @brianquinlan let's push ahead with defining them directly.

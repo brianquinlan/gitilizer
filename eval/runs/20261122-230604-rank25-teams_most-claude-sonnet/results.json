@@ -1,0 +1,323 @@
+{
+ "config": {
+  "label": "rank25-teams_most-claude-sonnet",
+  "strategy": "pointwise",
+  "model": "claude-sonnet-5-5",
+  "thinking": null,
+  "prompt": "/sessions/rcw-01fmhwk6smifvq1n8sesn8rb/evalwork/prompts/v4.md",
+  "signals": true,
+  "trials": 3,
+  "now": null,
+  "started_at": "20261122-230604",
+  "snapshots_fetched_at": [
+   "2026-10-25T19:31:02Z",
+   "2026-10-25T19:31:07Z",
+   "2026-10-25T19:31:11Z",
+   "2026-10-25T19:31:15Z",
+   "2026-10-25T19:31:18Z",
+   "2026-11-18T13:16:00Z"
+  ],
+  "elapsed_s": 15.6,
+  "usage": {
+   "prompt_tokens": 137370,
+   "output_tokens": 4834,
+   "thinking_tokens": 853
+  },
+  "labels_only": true
+ },
+ "truth": [
+  "dart-lang/core#1007",
+  "dart-lang/tools#2544",
+  "dart-lang/tools#2710",
+  "dart-lang/tools#2715",
+  "dart-lang/tools#2719",
+  "dart-lang/tools#2899"
+ ],
+ "why": {
+  "dart-lang/core#1007": "",
+  "dart-lang/tools#2544": "",
+  "dart-lang/tools#2710": "",
+  "dart-lang/tools#2715": "",
+  "dart-lang/tools#2719": "",
+  "dart-lang/tools#2899": ""
+ },
+ "trials": [
+  [
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.6,
+    "next_step": "review",
+    "next_action": "Review the PR (a security fix for UNC path injection in package_config); check whether jonasfj has addressed lrhn's latest feedback, then approve or comment.",
+    "reasoning": "This is a security PR, but it's in dart-lang/tools, which isn't a repo I'm responsible for. The review request went to dart-ecosystem-team, where I review most PRs, and lrhn is already reviewing it, so it ranks below the top security tier. It has been quiet for about 84 days with 6 unresolved threads, so the ball is probably with the author. I'd rate it at the upper end of the team-note range, since it is security-related.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 10242,
+     "output_tokens": 227,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.55,
+    "next_step": "review",
+    "next_action": "Review the automated BoringSSL bump PR (small change to CHANGELOG, pubspec, and REVISION) and merge if it looks fine.",
+    "reasoning": "A bot PR in dart-lang/tools requested review from dart-ecosystem-team, and my note says I review most of this team's PRs. That puts it in the 0.5-0.65 band. Nobody has reviewed it. It is small and automated, and it has sat for 25 days, so it sits near the bottom of that band. BoringSSL updates can carry security relevance, but nothing in the PR says this one is a security fix.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 5964,
+     "output_tokens": 216,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.55,
+    "next_step": "review",
+    "next_action": "Review the isWithin trailing-dot fix in dart-lang/core#1007 (it closes #537), but first check whether the contributor has signed the CLA.",
+    "reasoning": "The PR is a review request to dart-ecosystem-team, where my note says I review most of that team's PRs, so it falls in the 0.5-0.65 range. It is a small, focused fix for an open bug (#537) filed by sigurdm, but the author is a first-time contributor, the CLA check failed, and the PR has had no activity for 27 days. That keeps it toward the lower end of the range.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 5654,
+     "output_tokens": 211,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review the NASM/toolchain pinning and attest-job split in dart-lang/tools#2899, unless jonasfj reviews it first.",
+    "reasoning": "The review request went to dart-ecosystem-team, and my note says I review most of that team's PRs. jonasfj was also named as a specific reviewer, which lowers the priority. It is a supply-chain hardening PR from a collaborator (mosuem) and the base of a stack, but dart-lang/tools is not a repo I own and nobody has pinged me personally, so it sits below reviews in my own repositories.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 8156,
+     "output_tokens": 480,
+     "thinking_tokens": 270
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.42,
+    "next_step": "review",
+    "next_action": "Review kevmoo's string_scanner PR (error() span bounds validation); davidmorgan is also a named reviewer, so check whether he has already covered it.",
+    "reasoning": "This is a team review request to dart-ecosystem-team, where my note says I review most of that team's PRs, so it normally scores 0.5-0.65. A specific person, davidmorgan, is also requested, which lowers it. The author is a close collaborator, but the PR is a small follow-up with no human review yet, and it has sat quiet for 26 days. It is not security-related.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 6631,
+     "output_tokens": 203,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do now; this PR is stacked on draft PR #2563, so review that one first.",
+    "reasoning": "It is a PR from a close collaborator (mosuem) in dart-lang/tools, and the team review request to dart-ecosystem-team would normally count as a review waiting on me. But it is stacked on #2563, which is still a draft with no human review, so the lower PR has to be reviewed first. It has also been quiet for 26 days. That puts it in the low range for stacked PRs.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 9143,
+     "output_tokens": 188,
+     "thinking_tokens": 0
+    },
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.62,
+    "next_step": "review",
+    "next_action": "Check whether jonasfj has addressed lrhn's six unresolved review threads (shared helper, authority/`//` check, tests), then review the PR and confirm the UNC mitigation is complete.",
+    "reasoning": "This is a security PR (UNC path injection leaking NTLM hashes) in dart-lang/tools, but it is not a repo I'm responsible for, and lrhn is already actively reviewing it. It was requested of dart-ecosystem-team, where my note says I review most of the team's PRs, so it falls in the team-with-note range (0.5-0.65). The reviewer is named, which lowers it a little, and it has been quiet for about 12 weeks with six threads unresolved, so my review is only useful once the author updates it.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 10242,
+     "output_tokens": 266,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.55,
+    "next_step": "review",
+    "next_action": "Review the automated BoringSSL bump in dart-lang/tools#2719 (small change to CHANGELOG, pubspec and REVISION) and merge it if it looks fine.",
+    "reasoning": "The review request went to dart-ecosystem-team, and my note says I review most of that team's PRs, so this falls in the 0.5-0.65 band. No specific person is named as reviewer and nobody has reviewed it yet. The bot-authored change is tiny and low risk, and it has sat for 25 days. The BoringSSL update is security-adjacent, but the PR does not describe any specific vulnerability, so it doesn't reach the security tier. I placed it near the lower end of the band.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 5964,
+     "output_tokens": 249,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.55,
+    "next_step": "review",
+    "next_action": "Review the isWithin trailing-dot fix in dart-lang/core#1007 (it closes #537); the contributor's CLA check had failed, so confirm it is signed before merging.",
+    "reasoning": "This PR has had a review request to dart-ecosystem-team, where my note says I review most of that team's PRs, so it is a review waiting on me. It sits in the 0.5-0.65 band for a team request with a note, and no one else is reviewing. I score it at the lower end because the author is a first-time contributor, the CLA check failed, the PR has been quiet for 27 days, the change is small and the package is niche. Issue #537 is covered by this PR, so the PR is the item to act on.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 5654,
+     "output_tokens": 248,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review the NASM and macOS toolchain pinning and the separate attest job in dart-lang/tools#2899, unless jonasfj picks it up first.",
+    "reasoning": "This is a review request to dart-ecosystem-team, where I review most PRs. It is from my collaborator mosuem, but jonasfj is also named as a specific reviewer, which lowers it below the usual range for team requests with a note. It is CI supply-chain hardening, but dart-lang/tools is not a repository I own and someone else is reviewing, so it is not top priority. It is fresh and sits at the base of a stack, so a prompt review unblocks #2866.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 8156,
+     "output_tokens": 526,
+     "thinking_tokens": 293
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review kevmoo's string_scanner PR #2715 (error() span bounds validation and eager lastSpan test), since davidmorgan is also a named reviewer.",
+    "reasoning": "The review request went to dart-ecosystem-team, where I review most PRs, but davidmorgan is also named as a specific reviewer, so it ranks below a personal request. The author is kevmoo, a close collaborator, and the PR is a small follow-up to a merged change. It has had no human review in 26 days, which adds some urgency, but nothing is blocking anyone critically.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 6631,
+     "output_tokens": 207,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "not_yours",
+    "next_action": "Nothing yet: this PR is stacked on #2563, which is still a draft and unreviewed, so review #2563 first.",
+    "reasoning": "This PR is stacked on #2563, a draft that has had no human review, so the lower PR has to be reviewed first. It is from a collaborator, in a repo I'm responsible for, and it's a team review request I take reviews for. The stacking rule keeps it low priority for now, and it has been quiet for 26 days.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 9143,
+     "output_tokens": 176,
+     "thinking_tokens": 0
+    },
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.93,
+    "next_step": "review",
+    "next_action": "Review the PR (dart-lang/tools#2544) as the default ecosystem-team reviewer, and check whether jonasfj has addressed lrhn's six unresolved threads, since nothing has happened for about 12 weeks.",
+    "reasoning": "This is a security PR (UNC path injection that can leak NTLM hashes on Windows). The review request came through dart-ecosystem-team, where I take most reviews, and I haven't reviewed it. The repo isn't one of my listed ones, but the team note makes me the reviewer, so it counts as waiting on me. Security PRs waiting on my review rank at the top, and the long stall with unresolved feedback makes it more pressing to unblock it.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 10242,
+     "output_tokens": 252,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.55,
+    "next_step": "review",
+    "next_action": "Review kevmoo's string_scanner follow-up PR (error() span bounds validation and eager lastSpan test), since davidmorgan is also requested and nobody has reviewed yet.",
+    "reasoning": "This is a team review request to dart-ecosystem-team, where my note says I review most of this team's PRs, so it falls in the 0.5-0.65 band. A specific person (davidmorgan) is also named as reviewer, and the PR has sat for 26 days with no human review, which pulls it toward the lower end. The author is my collaborator kevmoo, the change is small, and it is a follow-up to a merged PR, so it is not urgent.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 6631,
+     "output_tokens": 235,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.55,
+    "next_step": "review",
+    "next_action": "Review the isWithin trailing-dot fix in dart-lang/core#1007 (fixes sigurdm's #537), after checking whether the author has signed the CLA.",
+    "reasoning": "The review request goes to dart-ecosystem-team, and my note says I review most of that team's PRs, so it falls in the 0.5-0.65 band. No one has reviewed it and no other reviewer is named. The author is a first-time contributor and the CLA check failed 39 days ago, which may hold up a merge. The PR is small, fixes a real bug that sigurdm filed, and has been quiet for 27 days, so it ranks in the middle of that band.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 5654,
+     "output_tokens": 235,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.5,
+    "next_step": "review",
+    "next_action": "Review the automated BoringSSL bump PR (small change to CHANGELOG, pubspec and REVISION) and merge it if it looks fine.",
+    "reasoning": "The review request went to dart-ecosystem-team, and my note says I review most of this team's PRs, so it counts as a review waiting on me. No one else is named as a reviewer and no one has reviewed it. It is a small automated bump with passing checks and has sat for 25 days, so it is not urgent, and a BoringSSL update touches TLS code, which keeps it from sinking too low.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 5964,
+     "output_tokens": 204,
+     "thinking_tokens": 0
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.45,
+    "next_step": "review",
+    "next_action": "Review mosuem's CI hardening PR (pinned NASM, macOS cross-toolchain, separate attest job), or leave it to jonasfj if he picks it up first.",
+    "reasoning": "This is a review request to dart-ecosystem-team, where I review most PRs, and mosuem is a close collaborator. jonasfj is also named personally as a reviewer, which lowers it below a plain team request. The PR is supply-chain hardening, but dart-lang/tools isn't a repo I'm responsible for and someone else is reviewing, so the security boost doesn't apply. It's also the base of the #2866 stack, which gives it some importance.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 8156,
+     "output_tokens": 525,
+     "thinking_tokens": 290
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "not_yours",
+    "next_action": "Nothing to do yet; this PR is stacked on #2563, which is still an unreviewed draft, so review #2563 first.",
+    "reasoning": "The PR is from my collaborator mosuem in a repo I own and I take reviews for dart-ecosystem-team, which would normally put it around 0.5-0.65. But it is stacked on draft PR #2563, which hasn't had a human review, so the lower PR needs review first. It has been quiet for 26 days, so it stays low priority.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 9143,
+     "output_tokens": 186,
+     "thinking_tokens": 0
+    },
+    "error": null
+   }
+  ]
+ ],
+ "next_step_labels": {
+  "dart-lang/core#1007": "review",
+  "dart-lang/tools#2544": "not_yours",
+  "dart-lang/tools#2710": "review",
+  "dart-lang/tools#2715": "not_yours",
+  "dart-lang/tools#2719": "review",
+  "dart-lang/tools#2899": "not_yours"
+ },
+ "next_step": {
+  "labelled": 6,
+  "exact": [
+   0.3333333333333333,
+   0
+  ],
+  "same_side": [
+   0.3333333333333333,
+   0
+  ]
+ }
+}

@@ -1,0 +1,75 @@
+# ISSUE dart-lang/sdk#60881: Allow dart:io SecurityContext to override BoringSSL Extended Key Usage (EKU) check for mTLS
+url: https://github.com/dart-lang/sdk/issues/60881
+state: open
+author: cpswan (association with repo: CONTRIBUTOR)
+created: 2025-06-10T11:02:44Z (17mo ago)
+last updated: 2025-06-11T20:40:21Z (17mo ago)
+labels: ['area-vm', 'library-_http', 'triaged']
+assignees: ['brianquinlan']
+reactions: {'+1': 1}
+repository: dart-lang/sdk — The Dart SDK, including the VM, JS and Wasm compilers, analysis, core libraries, and more. (stars: 11337, open issues: 8537, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['assignee', 'mentioned']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: a-siva assigned 17mo ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: [{'by': 'devoncarew', 'informational_cc': True, 'line': 'cc @brianquinlan (or, whoever is most knowledgable about our use of BoringSSL)'}]
+- days_since_update: 525.0
+- days_since_created: 526.4
+
+## Description
+When reporting an issue, please include:
+
+- Dart 3.8.1
+- Linux
+
+## Why is this needed?
+
+At present TLS certificates issued by popular public Certificate Authorities (CAs) such as LetsEncrypt and ZeroSSL [1] come with Extended Key Usage (EKU) attributes for `Server Auth` and `Client Auth`. This means that services can present their certificates to each other for mutual transport layer security (mTLS) and all the relevant checks pass.
+
+The Google Chrome team have announced a change in their CA policy to [Promote use of Dedicated TLS Server Authentication PKI Hierarchies](https://googlechrome.github.io/chromerootprogram/#32-promote-use-of-dedicated-tls-server-authentication-pki-hierarchies) that forces CAs to only issue certs with the `Server Auth` EKU (id-kp-serverAuth). As a result LetsEncrypt have [announced "Ending TLS Client Authentication Certificate Support in 2026"](https://letsencrypt.org/2025/05/14/ending-tls-client-authentication/). Meaning that certificates will no longer have the Client Auth EKU from 13 May 2026. It's reasonable to expect that other CAs will follow a similar process, and in a similar time frame to meet the Chrome policy deadline of 15 June 2026.
+
+## What happens in Dart today?
+
+When the client side of an mTLS connection (between two peer services) presents a certificate that only contains the `Server Auth` EKU a HandshakeException is thrown:
+
+```log
+HandshakeException: Handshake error in server (OS Error:
+        CERTIFICATE_VERIFY_FAILED: unsupported certificate purpose(handshake.cc:295))
+```
+
+This happens irrespective of whether `requireClientCertificate:` is set to `true` or `false`. When `requestClientCertificate: true` and a client cert is presented then BoringSSL checks the EKUs, and if it just finds `Server Auth` it throws an error [2].
+
+There is no way to override this behaviour as the exception is thrown before the SecureSocket object is returned.
+
+## Requested change
+
+By setting `requireClientEKUVerify: false` it should be possible for the securityContext object to pass a flag to BoringSSL such that the EKU check is not required.
+
+## Example code
+
+The [cpswan/dart_mtls](https://github.com/cpswan/dart_mtls/) repo contains an example `tls_socket_server.dart` and `tls_socket_client.dart` implementation along with (self signed) certificates with various EKUs:
+
+* client.crt: `Server Auth` and `Client Auth`
+* client.noext.crt: none
+* client.web.crt: `Server Auth`
+
+The service address `atsign.test` is expected to resolve to localhost (127.0.0.1).
+
+### Notes
+
+[1] Google's own public CA defaults to issuing certificates with just the `Server Auth` EKU, but (for now) it's trivial to modify the Certificate Signing Request (CSR) to get a certificate that also has the `Client Auth` EKU.
+[2] This check isn't super rigorous, so if a cert with no EKUs is presented that passes the test. So it's not precisely that it's ensuring that `Client Auth` is present but rather that if there are EKUs then `Client Auth` must be one of them.
+
+## Activity (6 events, oldest first)
+[2025-06-10 11:02Z, 17mo ago] cpswan opened this issue
+[2025-06-10 16:07Z, 17mo ago] devoncarew labeled 'area-vm'
+[2025-06-10 16:08Z, 17mo ago] devoncarew labeled 'library-_http'
+[2025-06-10 16:08Z, 17mo ago] devoncarew commented:
+    cc @brianquinlan (or, whoever is most knowledgable about our use of BoringSSL)
+[2025-06-11 20:40Z, 17mo ago] a-siva labeled 'triaged'
+[2025-06-11 20:40Z, 17mo ago] a-siva assigned brianquinlan

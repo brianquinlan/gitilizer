@@ -60,3 +60,15 @@ including behavior that no document covers yet:
 
 Record what someone rebuilding the application would need, at the level of
 detail the document already uses, not every detail of the code.
+
+## Figma checkpoints
+
+The Figma file is on a plan without branches, so a feature's Figma changes
+can't be kept apart from the rest of the file. Before changing Figma for a
+feature (roughly, a feature that gets its own PRD revision), ask the
+repository owner to save a named version, "Before {feature}" (File → Save to
+version history), and wait until they have: the Figma MCP server can't save
+versions. Name the version in the pull request, with the nodes the feature
+added or changed, so the changes can be found and undone. Restoring the
+version undoes everything after it, so it is a clean undo only while nothing
+else has changed the file since.

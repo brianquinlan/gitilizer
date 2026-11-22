@@ -310,6 +310,15 @@ input.invalid, textarea.invalid, .secret.invalid input { border-color: var(--err
 .lr-note { padding: 6px 0 0 34px; font-size: 12px; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; }
 .lr-note a { font-family: var(--mono); text-decoration: none; }
 .lr-note a:hover { text-decoration: underline; }
+/* SET-54, Figma "Settings · Teams · Find my teams": the button, its hint and what it found. */
+.find-teams { padding: 0 16px 16px; display: grid; gap: 10px; }
+.find-row { display: flex; gap: 12px; align-items: center; }
+.find-message { margin: 0; }
+.team-suggestions { display: grid; gap: 2px; }
+.team-suggestions .suggestion { display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px auto; gap: 12px; align-items: center; padding: 6px 0; }
+.team-suggestions .suggestion .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-suggestions .count { text-align: right; }
+.btn.small { height: 30px; padding: 0 10px; }
 .access { display: inline-flex; gap: 4px; align-items: center; }
 .list-rows .add { display: grid; gap: 8px; padding: 16px; }
 .list-rows .add label { font-size: 13px; font-weight: 500; }

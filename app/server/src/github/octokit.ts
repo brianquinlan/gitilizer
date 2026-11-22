@@ -3,7 +3,7 @@ import { Octokit } from "@octokit/core";
 import { paginateRest } from "@octokit/plugin-paginate-rest";
 import { retry } from "@octokit/plugin-retry";
 import { throttling } from "@octokit/plugin-throttling";
-import { GitHubProblem, itemKey, limitSnapshot, type AccountInfo, type GitHubApi, type ItemState, type RepoInfo, type SearchHit } from "./types.ts";
+import { GitHubProblem, itemKey, limitSnapshot, type AccountInfo, type GitHubApi, type ItemState, type RepoInfo, type SearchHit, type SearchOptions } from "./types.ts";
 
 const GitilizerOctokit = Octokit.plugin(paginateRest, retry, throttling);
 const FULL_MEDIA = "application/vnd.github.full+json";
@@ -80,6 +80,10 @@ export function classify(e: any, expiresAt?: string | null): GitHubProblem {
   }
   if (status === 403 && lower.includes("bad credentials")) return new GitHubProblem("invalid", message, { status });
   if (status === 404 || status === 410) return new GitHubProblem("not_found", message, { status });
+  // A search naming a team GitHub doesn't know, or can't show this connection (SET-52, design D-28).
+  const errors: any[] = e?.response?.data?.errors ?? [];
+  const teamError = status === 422 ? [message, ...errors.map((x) => x?.message ?? "")].map((m) => /"([^"]+)" is not a valid team name/.exec(m)).find(Boolean) : null;
+  if (teamError) return new GitHubProblem("invalid_team", teamError[0], { status, team: teamError[1] });
   if (status >= 500) return new GitHubProblem("unavailable", message, { status });
   return new GitHubProblem("unexpected", message, { status });
 }
@@ -167,31 +171,33 @@ export class OctokitGitHub implements GitHubApi {
     };
   }
 
-  async search(q: string, limit: number) {
+  async search(q: string, limit: number, opts: SearchOptions = {}) {
     // GitHub's issue search now rejects a query that doesn't say whether it wants issues or pull
     // requests (422 "Query must include 'is:issue' or 'is:pull-request'"), so an untyped query
     // runs once per kind and the halves merge, newest first.
     if (!TYPED_QUERY.test(q)) {
-      const [issues, prs] = await Promise.all([this.searchTyped(`${q} is:issue`, limit), this.searchTyped(`${q} is:pull-request`, limit)]);
+      const [issues, prs] = await Promise.all([this.searchTyped(`${q} is:issue`, limit, opts), this.searchTyped(`${q} is:pull-request`, limit, opts)]);
       const hits = [...issues.hits, ...prs.hits].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
       const ssoOrgs = [...new Set([...(issues.ssoOrgs ?? []), ...(prs.ssoOrgs ?? [])])];
       return { hits: hits.slice(0, limit), total: issues.total + prs.total, ssoOrgs: ssoOrgs.length ? ssoOrgs : undefined };
     }
-    return this.searchTyped(q, limit);
+    return this.searchTyped(q, limit, opts);
   }
 
-  private async searchTyped(q: string, limit: number) {
+  private async searchTyped(q: string, limit: number, opts: SearchOptions) {
     const hits: SearchHit[] = [];
     const ssoIds = new Set<string>();
     let total = 0;
     // Newest first, so the first 1,000 results are always enough (SCAN-1).
     for (let page = 1; hits.length < limit && page <= 10; page++) {
-      const r = await this.req("GET /search/issues", { q, sort: "updated", order: "desc", per_page: 100, page });
+      const r = await this.req("GET /search/issues", {
+        q, sort: "updated", order: "desc", per_page: Math.min(100, Math.max(limit, 1)), page, ...(opts.advanced ? { advanced_search: "true" } : {}),
+      });
       total = r.data.total_count;
       for (const id of partialResultOrgIds((r.headers as any)["x-github-sso"])) ssoIds.add(id);
       const items = r.data.items as any[];
       hits.push(...items.map(hitFrom));
-      if (items.length < 100) break;
+      if (items.length < Math.min(100, Math.max(limit, 1))) break;
     }
     const ssoOrgs = ssoIds.size ? await Promise.all([...ssoIds].map((id) => this.orgName(id))) : undefined;
     return { hits: hits.slice(0, limit), total, ssoOrgs };
@@ -224,6 +230,19 @@ export class OctokitGitHub implements GitHubApi {
       }
     }
     return name;
+  }
+
+  async reviewRequests(repo: string, number: number) {
+    const r = await this.req(`GET /repos/${repo}/pulls/${number}`);
+    return {
+      teams: ((r.data.requested_teams ?? []) as any[]).map((t) => String(t.slug)),
+      people: ((r.data.requested_reviewers ?? []) as any[]).map((u) => String(u.login)),
+    };
+  }
+
+  async searchesLeft() {
+    const r = await this.req("GET /rate_limit");
+    return Number(r.data?.resources?.search?.remaining ?? 0);
   }
 
   async item(repo: string, number: number): Promise<ItemState> {

@@ -1,0 +1,323 @@
+{
+ "config": {
+  "label": "rank25-teams_none-gemini-low",
+  "strategy": "pointwise",
+  "model": "gemini-3.8-flash",
+  "thinking": "low",
+  "prompt": "/sessions/rcw-01fmhwk6smifvq1n8sesn8rb/evalwork/prompts/v4.md",
+  "signals": true,
+  "trials": 3,
+  "now": null,
+  "started_at": "20261122-231303",
+  "snapshots_fetched_at": [
+   "2026-10-25T19:31:02Z",
+   "2026-10-25T19:31:07Z",
+   "2026-10-25T19:31:11Z",
+   "2026-10-25T19:31:15Z",
+   "2026-10-25T19:31:18Z",
+   "2026-11-18T13:16:00Z"
+  ],
+  "elapsed_s": 16.9,
+  "usage": {
+   "prompt_tokens": 99111,
+   "output_tokens": 2221,
+   "thinking_tokens": 0
+  },
+  "labels_only": true
+ },
+ "truth": [
+  "dart-lang/core#1007",
+  "dart-lang/tools#2544",
+  "dart-lang/tools#2710",
+  "dart-lang/tools#2715",
+  "dart-lang/tools#2719",
+  "dart-lang/tools#2899"
+ ],
+ "why": {
+  "dart-lang/core#1007": "",
+  "dart-lang/tools#2544": "",
+  "dart-lang/tools#2710": "",
+  "dart-lang/tools#2715": "",
+  "dart-lang/tools#2719": "",
+  "dart-lang/tools#2899": ""
+ },
+ "trials": [
+  [
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.08,
+    "next_step": "elsewhere",
+    "next_action": "Wait for base PR #2563 to be reviewed and landed first.",
+    "reasoning": "This PR is stacked on PR #2563, which is still an unreviewed draft PR. Furthermore, dart-lang/tools is not a repository I am responsible for, and the review request is to a general team rather than me personally. Per policy, stacked PRs waiting on lower PRs are low priority and the lower PR must be addressed elsewhere first.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 6465,
+     "output_tokens": 131,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "Wait for jonasfj to review mosuem's PR.",
+    "reasoning": "This PR is in `dart-lang/tools`, which is not a repository I am responsible for. mosuem specifically requested review from jonasfj (and a team without any specific notes indicating my review responsibility). There is no action required from me.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 6026,
+     "output_tokens": 106,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None; davidmorgan is the specifically requested reviewer on dart-lang/tools.",
+    "reasoning": "This PR is in dart-lang/tools, a repository I am not responsible for. Although it is authored by my collaborator kevmoo, davidmorgan was explicitly requested as an individual reviewer alongside the team review request. There is no action for me to take here.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 4714,
+     "output_tokens": 112,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None, as this PR is in dart-lang/core where I have no ownership and is requested from a general team without my involvement.",
+    "reasoning": "This PR is in dart-lang/core, which is not one of my responsible repositories (googleapis/google-cloud-dart and dart-lang/http). The review request is to the generic dart-ecosystem-team rather than me personally, and the contributor has not yet signed the CLA. Therefore, there is nothing for me to do.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 3992,
+     "output_tokens": 141,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0,
+    "next_step": "not_yours",
+    "next_action": "None; this is an automated PR in a repository outside your scope.",
+    "reasoning": "You are not responsible for dart-lang/tools, and you are not assigned or individually requested for review. The review request is directed to the team dart-ecosystem-team with no special note designating you to review it. Therefore, this item requires no action from you.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 4267,
+     "output_tokens": 111,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0,
+    "next_step": "not_yours",
+    "next_action": "None; lrhn and jonasfj are actively handling this PR in a repository I am not responsible for.",
+    "reasoning": "This PR is in dart-lang/tools, a repository I am not responsible for. Although it addresses a security vulnerability, lrhn has already provided thorough reviews and requested changes that jonasfj needs to address. I was never requested individually, and team review requests in repos I don't own where another reviewer is actively engaged require nothing from me.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 7573,
+     "output_tokens": 134,
+     "thinking_tokens": null
+    },
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "elsewhere",
+    "next_action": "Wait for the base PR #2563 to be reviewed and landed first.",
+    "reasoning": "This PR is stacked on draft PR #2563, which has not yet been reviewed or landed. Furthermore, dart-lang/tools is not a repository I am responsible for, and the review request is only to the team dart-ecosystem-team. The underlying PR needs review first, so this PR is low priority right now.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 6465,
+     "output_tokens": 126,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "Wait for jonasfj to review the PR.",
+    "reasoning": "This PR is in dart-lang/tools, which is not a repository I am responsible for. mosuem specifically requested a review from jonasfj, so it is actively being handled by someone else. Although team review was also requested and mosuem is a collaborator, there is no action requested of me.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 6026,
+     "output_tokens": 114,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None; this is an automated PR in a repository you are not responsible for, requested from a team with no note.",
+    "reasoning": "This PR is in dart-lang/tools, which is not among the repositories you are responsible for. The review request is directed to the dart-ecosystem-team rather than you personally, and you have no note configuring responsibilities for that team. As an automated bot bump in an outside repo, this requires no action from you.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 4267,
+     "output_tokens": 134,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None; dart-lang/core is not in my scope and review was only requested from dart-ecosystem-team.",
+    "reasoning": "This PR is in dart-lang/core, which is not one of the repositories I am responsible for. Review was requested from dart-ecosystem-team without any note designating me as the reviewer, and the CLA check is currently failing. There is no action for me here.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 3992,
+     "output_tokens": 124,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None; jonasfj is addressing review feedback from lrhn.",
+    "reasoning": "This security-related PR is in dart-lang/tools, a repository I am not responsible for, and was requested from a general team rather than me personally. It is already actively being handled by jonasfj and lrhn, who left detailed review comments 3 months ago that the author has yet to address. There is no action required from me.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 7573,
+     "output_tokens": 127,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.02,
+    "next_step": "not_yours",
+    "next_action": "None; davidmorgan is the requested reviewer in dart-lang/tools.",
+    "reasoning": "This PR is in dart-lang/tools, a repository I am not responsible for. Although it is authored by a collaborator (kevmoo), a specific other reviewer (davidmorgan) has been directly requested, alongside a team review request. I have no responsibilities or requests on this item.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 4714,
+     "output_tokens": 117,
+     "thinking_tokens": null
+    },
+    "error": null
+   }
+  ],
+  [
+   {
+    "id": "dart-lang/tools#2710",
+    "priority": 0.1,
+    "next_step": "elsewhere",
+    "next_action": "Wait for the underlying PR #2563 to be reviewed and merged first.",
+    "reasoning": "This PR is stacked on #2563 (which is still a draft and unreviewed). Furthermore, dart-lang/tools is not a repository I am responsible for, and the review request is only to the general dart-ecosystem-team rather than me personally. Lower stacked PRs must be reviewed first before this is actionable.",
+    "last_activity": "2026-10-23T08:28:24Z",
+    "usage": {
+     "prompt_tokens": 6465,
+     "output_tokens": 125,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2899",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "Wait for jonasfj to review mosuem's PR.",
+    "reasoning": "This PR is in dart-lang/tools, which is not one of the repositories I maintain or am responsible for. While filed by my collaborator mosuem, he explicitly requested review from jonasfj, leaving no pending action for me.",
+    "last_activity": "2026-11-18T12:50:59Z",
+    "usage": {
+     "prompt_tokens": 6026,
+     "output_tokens": 103,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2719",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None, as this PR is in a repository I do not manage and is requested from dart-ecosystem-team.",
+    "reasoning": "This pull request is in dart-lang/tools, which is not a repository I am responsible for. The review request is directed to the team dart-ecosystem-team without any specific note or request for me personally. There is nothing required of me here.",
+    "last_activity": "2026-10-25T00:07:56Z",
+    "usage": {
+     "prompt_tokens": 4267,
+     "output_tokens": 119,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2715",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None; davidmorgan is the specifically requested reviewer on dart-lang/tools.",
+    "reasoning": "This PR is in dart-lang/tools, which is not one of my responsible repositories. Although the author is a collaborator (kevmoo), a specific other reviewer (davidmorgan) was requested alongside the general team review request. I have no assigned actions or personal review requests here.",
+    "last_activity": "2026-10-23T20:12:29Z",
+    "usage": {
+     "prompt_tokens": 4714,
+     "output_tokens": 116,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/core#1007",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None, as this PR is in dart-lang/core where I have no ownership and only requested a team without a note from me.",
+    "reasoning": "This pull request is in dart-lang/core, which is not one of the repositories I am responsible for. The review request is directed to the 'dart-ecosystem-team', which is not listed among my specific teams with review responsibilities. Furthermore, the contributor has not signed the CLA, making this item not mine to act on.",
+    "last_activity": "2026-10-22T10:11:46Z",
+    "usage": {
+     "prompt_tokens": 3992,
+     "output_tokens": 140,
+     "thinking_tokens": null
+    },
+    "error": null
+   },
+   {
+    "id": "dart-lang/tools#2544",
+    "priority": 0.05,
+    "next_step": "not_yours",
+    "next_action": "None; jonasfj is addressing review feedback from lrhn.",
+    "reasoning": "This pull request is in dart-lang/tools, a repository I am not responsible for, and requested a review from dart-ecosystem-team without naming me. While it addresses a security issue (UNC path injection), it is not in my code, I am not assigned or CC'd, and lrhn is actively driving the review process with jonasfj. As such, there is nothing for me to do.",
+    "last_activity": "2026-08-26T11:59:26Z",
+    "usage": {
+     "prompt_tokens": 7573,
+     "output_tokens": 141,
+     "thinking_tokens": null
+    },
+    "error": null
+   }
+  ]
+ ],
+ "next_step_labels": {
+  "dart-lang/core#1007": "not_yours",
+  "dart-lang/tools#2544": "not_yours",
+  "dart-lang/tools#2710": "not_yours",
+  "dart-lang/tools#2715": "not_yours",
+  "dart-lang/tools#2719": "not_yours",
+  "dart-lang/tools#2899": "not_yours"
+ },
+ "next_step": {
+  "labelled": 6,
+  "exact": [
+   0.8333333333333334,
+   0
+  ],
+  "same_side": [
+   1,
+   0
+  ]
+ }
+}

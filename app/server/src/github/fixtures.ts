@@ -5,9 +5,12 @@
 // few listed items at random so their ranks change.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { GitHubProblem, itemKey, limitSnapshot, type AccountInfo, type GitHubApi, type ItemState, type RepoInfo, type SearchHit } from "./types.ts";
+import { GitHubProblem, itemKey, limitSnapshot, type AccountInfo, type GitHubApi, type ItemState, type RepoInfo, type SearchHit, type SearchOptions } from "./types.ts";
 
 type Entry = { snap: Record<string, any>; closed: boolean; merged: boolean };
+
+/** The fixture account's teams, as in eval/ground_truth.yaml (`review_teams`): `review-requested:` counts them (SET-54). */
+export const FIXTURE_TEAMS = ["dart-lang/dart-ecosystem-team", "googleapis/cloud-sdk-dart-team"];
 
 export class FixtureStore {
   entries = new Map<string, Entry>();
@@ -15,12 +18,17 @@ export class FixtureStore {
   /** Logins that exist on the fake GitHub: everyone who appears in a fixture. */
   logins = new Set<string>();
 
+  /** The fixture account's teams, and every team the fake GitHub knows: those, and every team a fixture asks for review. */
+  teams = new Set(FIXTURE_TEAMS);
+  knownTeams = new Set(FIXTURE_TEAMS);
+
   constructor(dir: string, public login: string) {
     for (const f of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
       const snap = limitSnapshot(JSON.parse(readFileSync(join(dir, f), "utf8")));
       const { owner, repo, number } = snap.ref;
       const key = itemKey(`${owner}/${repo}`, number);
       this.entries.set(key, { snap, closed: snap.issue.state !== "open", merged: false });
+      for (const t of snap.pull?.requested_teams ?? []) this.knownTeams.add(`${owner}/${t.slug}`.toLowerCase());
       for (const u of [snap.issue.user, ...(snap.issue.assignees ?? []), ...(snap.comments ?? []).map((c: any) => c.user), ...(snap.reviews ?? []).map((r: any) => r.user)]) {
         if (u?.login) this.logins.add(u.login.toLowerCase());
       }
@@ -97,16 +105,35 @@ function commenters(snap: Record<string, any>): string[] {
     .map((c: any) => (c.user?.login ?? "").toLowerCase());
 }
 
-/** Evaluates the qualifiers the scanner uses (design: Scanner, step 2). */
-function matches(snap: Record<string, any>, q: string): boolean {
+const requestedTeams = (snap: Record<string, any>) =>
+  (snap.pull?.requested_teams ?? []).map((t: any) => `${snap.ref.owner}/${t.slug}`.toLowerCase());
+
+/**
+ * Evaluates the qualifiers the scanner uses (design: Scanner, step 2). A group in parentheses, "(a OR b)", matches
+ * when any of its terms does, as with advanced search. Several `repo:` filters mean any of them, as on GitHub, but
+ * under advanced search all of them (design D-27).
+ */
+function matches(snap: Record<string, any>, q: string, store: FixtureStore, advanced = false): boolean {
   const full = `${snap.ref.owner}/${snap.ref.repo}`.toLowerCase();
+  for (const g of q.matchAll(/\(([^()]*)\)/g)) {
+    if (!g[1].split(/\s+OR\s+/).some((t) => matches(snap, t.trim(), store, true))) return false;
+  }
   const repos: string[] = [];
-  for (const term of q.split(/\s+/)) {
+  for (const term of q.replace(/\([^()]*\)/g, " ").split(/\s+/).filter(Boolean)) {
     const c = term.indexOf(":");
     const k = c < 0 ? term : term.slice(0, c);
     const v = (c < 0 ? "" : term.slice(c + 1)).toLowerCase();
     switch (k) {
-      case "is": if (v === "open" && snap.issue.state !== "open") return false; break;
+      case "is":
+        if (v === "open" && snap.issue.state !== "open") return false;
+        if ((v === "pull-request" || v === "pr") && !snap.issue.pull_request) return false;
+        if (v === "issue" && snap.issue.pull_request) return false;
+        break;
+      case "team-review-requested": if (!requestedTeams(snap).includes(v)) return false; break;
+      case "review-requested":
+        if (!(snap.pull?.requested_reviewers ?? []).some((u: any) => u.login.toLowerCase() === v)
+          && !(v === store.login.toLowerCase() && requestedTeams(snap).some((t: string) => store.teams.has(t)))) return false;
+        break;
       case "archived": if (v === "false" && snap.repo?.archived) return false; break;
       case "assignee": if (!(snap.issue.assignees ?? []).some((a: any) => a.login.toLowerCase() === v)) return false; break;
       case "author": if ((snap.issue.user?.login ?? "").toLowerCase() !== v) return false; break;
@@ -123,7 +150,7 @@ function matches(snap: Record<string, any>, q: string): boolean {
       default: break;
     }
   }
-  return repos.length === 0 || repos.includes(full);
+  return repos.length === 0 || (advanced ? repos.every((r) => r === full) : repos.includes(full));
 }
 
 /** A stable numeric ID for a fixture account or repository, standing in for GitHub's. */
@@ -138,13 +165,31 @@ export class FixtureGitHub implements GitHubApi {
 
   async viewer() { return { login: this.store.login, id: null, avatarUrl: null, tokenExpiresAt: null, tokenType: "fine-grained" as const }; }
 
-  async search(q: string, limit: number) {
+  async search(q: string, limit: number, opts: SearchOptions = {}) {
+    // GitHub refuses a team it doesn't know (SET-52), and parentheses without advanced search (design D-27).
+    for (const m of q.matchAll(/team-review-requested:([^\s()]+)/g)) {
+      if (!this.store.knownTeams.has(m[1].toLowerCase())) {
+        throw new GitHubProblem("invalid_team", `"${m[1]}" is not a valid team name.`, { status: 422, team: m[1] });
+      }
+    }
+    if (!opts.advanced && q.includes("(")) throw new GitHubProblem("unexpected", "Validation Failed", { status: 422 });
     const hits = [...this.store.entries.values()]
-      .filter((e) => matches(e.snap, q))
+      .filter((e) => matches(e.snap, q, this.store, opts.advanced))
       .map(hit)
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
     return { hits: hits.slice(0, Math.min(limit, 1000)), total: hits.length };
   }
+
+  async reviewRequests(repo: string, number: number) {
+    const e = this.store.entries.get(itemKey(repo, number));
+    if (!e) throw new GitHubProblem("not_found", "Not Found", { status: 404 });
+    return {
+      teams: (e.snap.pull?.requested_teams ?? []).map((t: any) => String(t.slug)),
+      people: (e.snap.pull?.requested_reviewers ?? []).map((u: any) => String(u.login)),
+    };
+  }
+
+  async searchesLeft() { return 30; }
 
   async item(repo: string, number: number): Promise<ItemState> {
     const e = this.store.entries.get(itemKey(repo, number));
@@ -185,8 +230,10 @@ export class FixtureGitHub implements GitHubApi {
     return { exists: true, id: fixtureId(a.login), login: a.login, type: a.type, avatarUrl: `https://github.com/${a.login}.png?size=64` };
   }
 
+  /** Everyone in the fixtures, and every repository owner: GET /users/{login} answers for organizations too. */
   async user(login: string) {
-    return this.store.logins.has(login.toLowerCase())
+    const owner = [...this.store.entries.values()].some((e) => String(e.snap.ref.owner).toLowerCase() === login.toLowerCase());
+    return this.store.logins.has(login.toLowerCase()) || owner
       ? { exists: true as const, avatarUrl: `https://github.com/${login}.png?size=64` }
       : { exists: false as const };
   }

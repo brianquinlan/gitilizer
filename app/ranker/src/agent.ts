@@ -8,7 +8,11 @@ import { isoZ, repr } from "./py.ts";
 export const ICEBOX_PROMPT_PATH = join(ROOT, "prompts", "icebox_check_v1.md");
 
 /** The developer's settings as the server sends them (additional repositories with prioritization prompts). */
-export type AgentUser = { github_login: string; additional_repos: { repo: string; prioritization_prompt: string }[]; collaborators: string[] };
+export type AgentUser = {
+  github_login: string; additional_repos: { repo: string; prioritization_prompt: string }[]; collaborators: string[];
+  /** The developer's teams with a prompt (RANK-25). */
+  teams?: { team: string; prioritization_prompt: string }[];
+};
 
 export type ScoreInput = {
   itemKey: string;

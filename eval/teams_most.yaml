@@ -1,0 +1,44 @@
+# Review requests to the developer's teams (PRD RANK-25): the six PRs in the eval
+# fixtures that ask dart-lang/dart-ecosystem-team for review and nobody else's
+# attention of mine. One file per way of having the team in Settings, the same
+# items in each, so a run per file shows what the team's prompt does:
+#   eval/teams_none.yaml   the team isn't sent (no team, or one without a prompt)
+#   eval/teams_small.yaml  "I have a small level of responsibility for this team."
+#   eval/teams_most.yaml   "I review most of this team's PRs."
+# Labels: in teams_none, the product owner's own labels from ground_truth.yaml
+# (all six Not yours). In the other two, labels written by Claude on 2026-11-22
+# from RANK-25's rules: Review, unless a specific other person is also asked or
+# is already reviewing (2544: lrhn is reviewing; 2715: davidmorgan is asked;
+# 2899: jonasfj is asked), which is Not yours. The scores matter as much as the
+# labels: the three files should order the items' scores none < small < most.
+
+labels_only: true
+ranked: false
+
+user:
+  github_login: brianquinlan
+  interested_repos:
+  - repo: googleapis/google-cloud-dart
+  - repo: dart-lang/http
+    filter: not responsible for http2
+  collaborators:
+  - kevmoo
+  - mosuem
+  - sigurdm
+  teams:
+  - team: dart-lang/dart-ecosystem-team
+    prioritization_prompt: "I review most of this team's PRs."
+
+items:
+  - url: https://github.com/dart-lang/core/pull/1007
+    next_step: review
+  - url: https://github.com/dart-lang/tools/pull/2544
+    next_step: not_yours
+  - url: https://github.com/dart-lang/tools/pull/2710
+    next_step: review
+  - url: https://github.com/dart-lang/tools/pull/2715
+    next_step: not_yours
+  - url: https://github.com/dart-lang/tools/pull/2719
+    next_step: review
+  - url: https://github.com/dart-lang/tools/pull/2899
+    next_step: not_yours

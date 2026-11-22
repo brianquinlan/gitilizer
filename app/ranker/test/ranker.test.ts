@@ -610,3 +610,34 @@ describe("the worker's calls", () => {
     }
   });
 });
+
+describe("team notes (RANK-25)", () => {
+  const fixture = (name: string) => JSON.parse(readFileSync(join(ROOT, "eval", "fixtures", `${name}.json`), "utf8"));
+  const user = UserSettings.fromDict({
+    github_login: "brianquinlan", additional_repos: [], collaborators: [],
+    teams: [
+      { team: "dart-lang/dart-ecosystem-team", prioritization_prompt: "I have a small level of responsibility for this team." },
+      { team: "googleapis/cloud-sdk-dart-team", prioritization_prompt: "" },
+    ],
+  });
+
+  it("shows the note with the items that ask that team, and marks the role", () => {
+    const ctx = buildContext(fixture("dart-lang__core__1007"), user);
+    expect(ctx).toContain('My teams: dart-lang/dart-ecosystem-team — my note: "I have a small level of responsibility for this team."');
+    expect(ctx).toContain("requested_reviewer_via_team(dart-ecosystem-team)");
+  });
+
+  it("sends no note with other items, and none for a team without a prompt", () => {
+    expect(user.teamNotes.map((t) => t.team)).toEqual(["dart-lang/dart-ecosystem-team"]);
+    const ctx = buildContext(fixture("googleapis__librarian__7808"), user);
+    expect(ctx).not.toContain("My teams:");
+    expect(ctx).not.toContain("requested_reviewer_via_team");
+  });
+
+  it("leaves the eval set's teams as they were", () => {
+    const evalUser = UserSettings.fromDict({ github_login: "brianquinlan", review_teams: ["dart-lang/dart-ecosystem-team"] });
+    const ctx = buildContext(fixture("dart-lang__core__1007"), evalUser);
+    expect(ctx).not.toContain("My teams:");
+    expect(ctx).toContain("requested_reviewer_via_team(dart-ecosystem-team)");
+  });
+});

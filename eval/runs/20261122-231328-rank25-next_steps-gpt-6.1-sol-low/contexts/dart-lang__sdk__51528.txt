@@ -1,0 +1,75 @@
+# ISSUE dart-lang/sdk#51528: HttpClientRequest sends headers with lower case key and out of order.
+url: https://github.com/dart-lang/sdk/issues/51528
+state: open
+author: sososdk (association with repo: NONE)
+created: 2023-02-24T21:12:07Z (3.7y ago)
+last updated: 2024-12-23T10:34:36Z (23mo ago)
+labels: ['area-core-library', 'library-_http']
+assignees: []
+repository: dart-lang/sdk — The Dart SDK, including the VM, JS and Wasm compilers, analysis, core libraries, and more. (stars: 11337, open issues: 8537, archived: False)
+
+## Derived signals (computed from the data below)
+- type: issue
+- my_roles: ['mentioned']
+- repo_interest_filter: None
+- author_is_collaborator: False
+- last_human_activity: fyxtc commented 23mo ago
+- last_human_actor_is_me: False
+- my_last_activity: never
+- mentions_of_me: [{'by': 'mraleph', 'informational_cc': False, 'line': 'I defer to @brianquinlan to make the call.'}]
+- days_since_update: 695.4
+- days_since_created: 1363.0
+
+## Description
+The server requires the http headers to be ordered and case-sensitive, but Dart cannot do this.
+
+For example, in the following code, the key of the request headers received by the server is all lowercase, and the order is also disrupted(possibly `{'b ':'b', 'd': 'd', 'c': 'c', 'a': 'a',}`).
+
+```dart
+    final client = HttpClient();
+    final request = await client.getUrl(Uri.parse(url));
+    final headers = {
+      'A': 'a',
+      'B': 'b',
+      'C': 'c',
+      'D': 'd',
+    };
+    headers.forEach((key, value) {
+      request.headers.set(key, value);
+    });
+```
+
+## Activity (8 events, oldest first)
+[2023-02-24 21:12Z, 3.7y ago] sososdk opened this issue
+[2023-02-26 09:22Z, 3.7y ago] mraleph commented:
+    > The server requires the http headers to be ordered and case-sensitive, but Dart cannot do this.
+    
+    That's the bug in the server. Refer to HTTP/1.1 specification. RFC 2616 section 4.2 Message Headers says:
+    
+    > Field names are case-insensitive.
+    > [...]
+    > The order in which header fields with differing field names are received is not significant.
+    
+    I don't know if supporting non-compliant servers which don't follow RFC 2616 is a goal or not for our builtin client. 
+    
+    I defer to @brianquinlan to make the call.
+[2023-02-26 09:22Z, 3.7y ago] mraleph labeled 'area-library'
+[2023-02-26 09:23Z, 3.7y ago] mraleph labeled 'library-_http'
+[2023-02-26 15:13Z, 3.7y ago] sososdk commented:
+    > That's the bug in the server. Refer to HTTP/1.1 specification. RFC 2616 section 4.2 Message Headers says:
+    
+    I think Dart as a development language should not limit this. This is a matter of framework.
+[2023-02-26 16:54Z, 3.7y ago] lrhn commented:
+    If we can allow people to control the header precisely, even if it requires going through a more cumbersome API than the default, I think it is a reasonable feature.
+    
+    You may want to build specific headers to test your server code, and not only test it with the headers that `dart:io` sends by default.
+    
+    It'd also be reasonable to defer to a secondary library for something like that, like `package:http` or a new `package:custom_http` (or whatever, naming is hard). It doesn't have to be part of the default implementation unless those other packages need it. 
+    
+    The big question then becomes who should implement it, and what priority it deserves.
+[2024-06-17 06:51Z, 2.4y ago] tinyc0der commented:
+    I think the behind reason is that it is using HashMap instead of LinkedHashMap
+    https://github.com/dart-lang/sdk/blob/51ecf21356df5043f42270915aa22b76857941cd/sdk/lib/_http/http_headers.dart#L29.
+    @mraleph can you fix that to prevent them?
+[2024-12-23 10:34Z, 23mo ago] fyxtc commented:
+    @tinyc0der Hi, how did you solve it? I saw the merge was closed
