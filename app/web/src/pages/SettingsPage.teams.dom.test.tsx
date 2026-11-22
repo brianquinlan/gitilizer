@@ -104,6 +104,13 @@ describe("Find my teams (SET-54)", () => {
     await click(rows[0].querySelector("button")!);
     expect(state.teams.map((t) => [t.name, t.status])).toEqual([[ECO, "ok"], ["googleapis/cloud-sdk-dart-team", "ok"]]);
     expect(host.querySelectorAll(".suggestion")).toHaveLength(0);
+    expect($(".find-message")).toBeNull();
+  });
+
+  it("says nothing was found when every team it finds is on the page already", async () => {
+    responses.find = () => ({ status: "ok", teams: [{ name: ECO, prs: 23, maybe: false, avatarUrl: null }] });
+    await click(buttonNamed("Find my teams"));
+    expect($(".find-message")!.textContent).toBe("No teams found. A team shows up here when it's asked to review an open PR.");
   });
 
   it("says when nothing was found, or when GitHub is busy or can't be reached", async () => {

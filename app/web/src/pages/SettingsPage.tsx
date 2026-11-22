@@ -609,7 +609,8 @@ export function TeamList({ teams, saved, onChange, errors, setError }: {
       const r = await api.post<FindTeamsResponse>("/api/teams/find");
       if (r.status !== "ok") { setFound(null); setMessage(FIND_MESSAGES[r.status]); return; }
       setFound(r.teams);
-      if (!r.teams.length) setMessage(FIND_MESSAGES.none);
+      // "No teams found" when none of them is new to the page (SET-54); not after adding the last suggestion.
+      if (!r.teams.some((f) => !teams.some((t) => t.name.toLowerCase() === f.name.toLowerCase()))) setMessage(FIND_MESSAGES.none);
     } catch {
       setFound(null);
       setMessage(FIND_MESSAGES.unreachable);
