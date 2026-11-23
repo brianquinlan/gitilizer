@@ -36,7 +36,7 @@ describe("Warm Welcome", () => {
     expect(t).toContain("What Gitilizer can read");
     expect(t).toContain("Read-only access to your issues and pull requests. Gitilizer can't change anything on GitHub.");
     expect(t).toContain("Using Claude, OpenAI or a personal access token?");
-    expect(html).toContain('<a href="/settings#connections">Advanced setup</a>');
+    expect(html).toContain('<a href="/settings/connections">Advanced setup</a>');
     // No key field, no token field and no button yet.
     expect(html).not.toContain("<input");
     expect(html).not.toContain("<button");

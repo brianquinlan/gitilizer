@@ -21,7 +21,7 @@ describe("the GitHub card", () => {
     const html = render(me({}));
     expect(text(html)).toContain("Not set");
     expect(html).toContain('id="github-connect"');
-    expect(html).toContain('href="/api/connect/github/start?next=%2Fsettings%23connections"');
+    expect(html).toContain('href="/api/connect/github/start?next=%2Fsettings%2Fconnections"');
     expect(text(html)).toContain("Read-only access to your issues and pull requests. Gitilizer can't change anything on GitHub.");
     expect(text(html)).toContain("Or use a personal access token");
     expect(html).not.toContain("<input");

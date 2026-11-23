@@ -1,4 +1,5 @@
-// Settings (PRD "Settings", SET-1..49). Figma: "Settings", "Settings · Errors" and "Settings · Ranking agent card · Basic ranking".
+// Settings (PRD "Settings", SET-1..60). Figma: "Settings" and the other "Settings · …" frames, one for each section,
+// "Settings · Errors" and its section variants, and "Settings · Ranking agent card · Basic ranking".
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AGENT_INFO, BASIC_INFO, GITHUB_CONNECT_ID, MAX_COLLABORATORS, MAX_EXCLUSIONS, MAX_PROMPT_LENGTH, MAX_REPO_PROMPT_LENGTH, MAX_REPOS, MAX_TEAMS, MESSAGES, PROMPT_COUNT_FROM, RankingAgent,
@@ -13,15 +14,51 @@ import { CredentialField, type Check } from "../components/CredentialField.tsx";
 import { CHIPS, GitHubCard, useConnectResult, useGitHubConnection } from "../components/GitHubConnection.tsx";
 import { Preferences } from "../components/Preferences.tsx";
 import {
-  AlertIcon, ExternalIcon, EyeOffIcon, FolderGitIcon, GitHubIcon, ListIcon, PencilIcon, PlugIcon, PlusIcon, RefreshIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
+  AlertIcon, CheckIcon, ChevronLeft, ExternalIcon, FolderGitIcon, GitHubIcon, ListIcon, PencilIcon, PlugIcon, PlusIcon, RefreshIcon, SparklesIcon, TrashIcon, UserIcon, UsersIcon, XCircleIcon, XIcon,
 } from "../icons.tsx";
-import { focusTarget, navigate, setNavigationGuard } from "../router.tsx";
+import { Link, focusTarget, navigate, setNavigationGuard, useRoute } from "../router.tsx";
 import { useStore } from "../store.tsx";
 
 type Draft = { repos: AdditionalRepo[]; teams: Team[]; exclusions: ExcludedRepo[]; collaborators: Collaborator[]; prompt: string };
 type Errors = Record<string, string>;
 
 const LEAVE_PROMPT = "Leave Settings? Your changes haven't been saved.";
+
+/**
+ * Settings is split into sections, each its own screen at /settings/{section}, chosen in the left column (SET-57).
+ * Every section is kept mounted, and the ones not chosen are hidden, so the draft, open prompt fields and "Find my
+ * teams" results survive moving between them (SET-59). Saving is for the whole of Settings: a bar at the bottom of
+ * every section lists the sections with unsaved changes (SET-60, Q-107).
+ */
+type SectionId = "connections" | "repositories" | "teams-and-collaborators" | "ranking-prompt" | "account";
+const SECTIONS: { id: SectionId; title: string; icon: ReactNode }[] = [
+  { id: "connections", title: "Connections", icon: <PlugIcon /> },
+  { id: "repositories", title: "Repositories", icon: <FolderGitIcon /> },
+  { id: "teams-and-collaborators", title: "Teams and collaborators", icon: <UsersIcon /> },
+  { id: "ranking-prompt", title: "Ranking prompt", icon: <ListIcon /> },
+  { id: "account", title: "Account", icon: <UserIcon /> },
+];
+/** The old one-page anchors (/settings#teams and so on), which other pages and old bookmarks still use. */
+const OLD_ANCHORS: Record<string, SectionId> = {
+  connections: "connections", "additional-repositories": "repositories", "excluded-repositories": "repositories",
+  teams: "teams-and-collaborators", collaborators: "teams-and-collaborators", "ranking-prompt-section": "ranking-prompt",
+  account: "account", preferences: "account",
+};
+/**
+ * The section a control is in: found from the page itself, since every section is mounted, or, for a control that
+ * isn't showing (such as the token field while the GitHub app is connected), from the shape of its id.
+ */
+function sectionOf(id: string): SectionId | null {
+  const found = document.getElementById(id)?.closest("[data-section]")?.getAttribute("data-section") as SectionId | null;
+  if (found) return found;
+  if (OLD_ANCHORS[id]) return OLD_ANCHORS[id];
+  if (id.startsWith("github-") || id.endsWith("-key") || id.startsWith("ranking-agent")) return "connections";
+  if (id.startsWith("repo-") || id.startsWith("exclusion-") || id === "add-repository" || id === "add-exclusion") return "repositories";
+  if (id.startsWith("team-") || id === "add-team" || id === "find-teams" || id.startsWith("collaborator") || id === "add-collaborator") return "teams-and-collaborators";
+  if (id.startsWith("ranking-prompt")) return "ranking-prompt";
+  return null;
+}
+const sectionPath = (id: SectionId) => `/settings/${id}`;
 
 export function SettingsPage() {
   const { me, refreshMe, shortcuts, setShortcuts } = useStore();
@@ -35,41 +72,75 @@ export function SettingsPage() {
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false); // "Changes saved", after a save that stays on Settings
+  const [resets, setResets] = useState(0); // counts "Discard changes", which draws the sections again
+  const { path, hash } = useRoute();
+  const section: SectionId = SECTIONS.find((x) => path === sectionPath(x.id))?.id ?? "connections";
 
+  /** Reads the saved settings and starts the draft from them, with nothing typed, picked or removed. */
+  const load = async () => {
+    const s = await api.get<SettingsResponse>("/api/settings");
+    setServer(s);
+    setAgent(s.rankingAgent);
+    setDraft({ repos: s.additionalRepos, teams: s.teams, exclusions: s.excludedRepos, collaborators: s.collaborators, prompt: s.customPrompt ?? s.defaultPrompt });
+    setSecrets({ github_pat: "", gemini_key: "", anthropic_key: "", openai_key: "" });
+    setRemovals([]);
+    setErrors({});
+    setSaveError(null);
+  };
+  useEffect(() => { void load(); }, []);
+  // Links from notifications and the empty list go to a control and focus it (NOTIF-9, LIST-14): open its section
+  // first. Old section anchors, such as /settings#teams, open the section, and /settings on its own is the first one.
+  // This runs whenever the address changes, so a link followed while Settings is already open works too.
+  const arrived = useRef(false); // whether the address has been handled once, after loading
   useEffect(() => {
-    api.get<SettingsResponse>("/api/settings").then((s) => {
-      setServer(s);
-      setAgent(s.rankingAgent);
-      setDraft({ repos: s.additionalRepos, teams: s.teams, exclusions: s.excludedRepos, collaborators: s.collaborators, prompt: s.customPrompt ?? s.defaultPrompt });
-    });
-  }, []);
-  // Links from notifications and the empty list go to a control and focus it (NOTIF-9, LIST-14).
-  useEffect(() => {
-    if (!server || !location.hash) return;
+    if (!server || !(path === "/settings" || path.startsWith("/settings/"))) return; // leaving Settings
+    let id = decodeURIComponent(hash.slice(1));
     // Where only a token can be used there is no "Connect GitHub" to go to, so its links go to the token field.
-    const id = location.hash.slice(1);
-    setTimeout(() => focusTarget(id) || (id === GITHUB_CONNECT_ID && focusTarget(credentialControlId("github_pat"))), 0);
-  }, [server]);
+    if (id === GITHUB_CONNECT_ID && !document.getElementById(id)) id = credentialControlId("github_pat");
+    const target = id ? sectionOf(id) : null;
+    if (!target) {
+      // /settings, and an address that isn't a section, such as /settings/prompt, become the first section.
+      if (!SECTIONS.some((x) => path === sectionPath(x.id))) navigate(sectionPath("connections"), true);
+      return;
+    }
+    // navigate() goes to the control, or the part of the section, and focuses it.
+    const to = sectionPath(target) + (document.getElementById(id) ? `#${id}` : "");
+    if (to !== location.pathname + location.hash) navigate(to, true);
+    else if (!arrived.current) setTimeout(() => focusTarget(id), 0); // opened at the control's own address
+  }, [server, path, hash]);
+  useEffect(() => { if (server) arrived.current = true; }, [server]);
+  // Each section opens at its top, unless the address names a place in it.
+  useEffect(() => { if (!location.hash) window.scrollTo({ top: 0 }); }, [section]);
   // The GitHub card's details, read again whenever the tab comes back (SET-45); the chip follows.
   const connection = useGitHubConnection(me?.github.method === "app", () => { void refreshMe().catch(() => {}); });
   const connectResult = useConnectResult();
 
-  const dirty = useMemo(() => {
-    if (!server || !draft) return false;
-    return Object.values(secrets).some(Boolean) || agent !== server.rankingAgent || removals.length > 0
+  // Which sections have unsaved changes; the bar lists them and the left column marks them.
+  const changed = useMemo((): Record<SectionId, boolean> => {
+    const none = { connections: false, repositories: false, "teams-and-collaborators": false, "ranking-prompt": false, account: false };
+    if (!server || !draft) return none;
+    return {
+      ...none,
+      connections: Object.values(secrets).some(Boolean) || agent !== server.rankingAgent || removals.length > 0,
       // Prompts as they will be saved: an open prompt field's text counts, without its outer spaces (SET-9, SET-26).
-      || JSON.stringify(draft.repos.map((r) => [r.fullName, r.prioritizationPrompt.trim()])) !== JSON.stringify(server.additionalRepos.map((r) => [r.fullName, r.prioritizationPrompt]))
-      || JSON.stringify(draft.teams.map((t) => [t.name, t.prioritizationPrompt.trim()])) !== JSON.stringify(server.teams.map((t) => [t.name, t.prioritizationPrompt]))
-      || JSON.stringify(draft.exclusions.map((e) => e.name)) !== JSON.stringify(server.excludedRepos.map((e) => e.name))
-      || JSON.stringify(draft.collaborators.map((c) => c.login)) !== JSON.stringify(server.collaborators.map((c) => c.login))
-      || draft.prompt !== (server.customPrompt ?? server.defaultPrompt);
+      repositories: JSON.stringify(draft.repos.map((r) => [r.fullName, r.prioritizationPrompt.trim()])) !== JSON.stringify(server.additionalRepos.map((r) => [r.fullName, r.prioritizationPrompt]))
+        || JSON.stringify(draft.exclusions.map((e) => e.name)) !== JSON.stringify(server.excludedRepos.map((e) => e.name)),
+      "teams-and-collaborators": JSON.stringify(draft.teams.map((t) => [t.name, t.prioritizationPrompt.trim()])) !== JSON.stringify(server.teams.map((t) => [t.name, t.prioritizationPrompt]))
+        || JSON.stringify(draft.collaborators.map((c) => c.login)) !== JSON.stringify(server.collaborators.map((c) => c.login)),
+      "ranking-prompt": draft.prompt !== (server.customPrompt ?? server.defaultPrompt),
+    };
   }, [server, draft, secrets, agent, removals]);
+  const dirty = Object.values(changed).some(Boolean);
+  useEffect(() => { if (dirty) setSaved(false); }, [dirty]);
+  useEffect(() => { if (!saved) return; const t = setTimeout(() => setSaved(false), 4000); return () => clearTimeout(t); }, [saved]);
 
   // SET-26: leaving with unsaved changes asks first, through links, Back and closing the tab.
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
   useEffect(() => {
-    setNavigationGuard(() => !dirtyRef.current || window.confirm(LEAVE_PROMPT));
+    // Moving between sections keeps the draft, so only leaving Settings asks.
+    setNavigationGuard((to) => !dirtyRef.current || to === "/settings" || to.startsWith("/settings/") || window.confirm(LEAVE_PROMPT));
     const h = (e: BeforeUnloadEvent) => { if (dirtyRef.current) e.preventDefault(); };
     window.addEventListener("beforeunload", h);
     return () => { setNavigationGuard(null); window.removeEventListener("beforeunload", h); };
@@ -82,6 +153,8 @@ export function SettingsPage() {
     : !draft.prompt.trim() ? MESSAGES.promptEmpty : null;
   const allErrors: Errors = { ...errors, ...(promptError ? { "ranking-prompt": promptError } : {}) };
   const blocked = Object.keys(allErrors).length > 0; // SET-27: no saving while an error shows
+  // Sections with a problem showing, marked in the left column so a problem on a hidden section can be found.
+  const troubled = new Set(Object.keys(allErrors).map(sectionOf).filter((x): x is SectionId => x !== null));
 
   const setError = (field: string, message: string | null) =>
     setErrors((e) => { const n = { ...e }; if (message) n[field] = message; else delete n[field]; return n; });
@@ -102,15 +175,29 @@ export function SettingsPage() {
         removeCredentials: removals,
         rerank,
       });
-      await refreshMe();
-      dirtyRef.current = false;
-      navigate("/"); // NAV-8
+      // Whether this save completed setup: Warm Welcome was showing, and now the list is (NAV-8). A save without a
+      // GitHub connection doesn't, and stays on Settings.
+      const before = me.screen;
+      const after = await refreshMe();
+      const completedSetup = before === "welcome" && after?.screen === "app";
+      if (rerank || completedSetup) {
+        // A full re-rank is watched on the list (LIST-16), and the save that completes setup goes to the list's
+        // first sync (NAV-8).
+        dirtyRef.current = false;
+        navigate("/");
+      } else {
+        // "Save changes" stays on the section, with "Changes saved" in the footer (NAV-8).
+        await load();
+        setResets((n) => n + 1); // open prompt fields close on what was saved, so Escape can't bring back older text
+        setSaved(true);
+      }
     } catch (e) {
       if (e instanceof ApiError && e.status === 422 && e.body?.errors) {
-        // Shown next to their fields; the page scrolls to the first one (SET-27).
+        // Shown next to their fields; Settings opens the section of the first one and goes to it (SET-27).
         const errs = e.body.errors as FieldError[];
         setErrors(Object.fromEntries(errs.map((x) => [x.field, x.message])));
-        setTimeout(() => focusTarget(errs[0].field), 0);
+        const first = sectionOf(errs[0].field);
+        setTimeout(() => { if (first) navigate(`${sectionPath(first)}#${errs[0].field}`); else focusTarget(errs[0].field); }, 0);
       } else {
         setSaveError(e instanceof ApiError ? e.message : "Couldn't save your changes. Try again.");
       }
@@ -119,7 +206,9 @@ export function SettingsPage() {
     }
   };
 
-  const cancel = () => { dirtyRef.current = false; navigate("/"); }; // NAV-9
+  // "Discard changes" drops every unsaved change and stays here (NAV-9, SET-14).
+  // The sections are drawn again from scratch, so open prompt fields and text typed into "Add …" fields go too.
+  const discard = () => { setSaved(false); setResets((n) => n + 1); void load(); };
 
   // Basic ranking has no key, and so no field (SET-38).
   const basic = agent === "basic";
@@ -141,7 +230,7 @@ export function SettingsPage() {
       const hasKey = secrets[agentKind].trim() !== "" || (me.credentials[agentKind].set && !removals.includes(agentKind));
       if (!hasKey) {
         setError(agentField, MESSAGES.agentKeyMissing(agent));
-        setTimeout(() => focusTarget(agentField), 0);
+        navigate(`${sectionPath("connections")}#${agentField}`, true); // the bar can be used from any section
         return;
       }
       if (!rerank && agent !== server.rankingAgent && (server.rankedBy[server.rankingAgent] ?? 0) > 0) {
@@ -152,39 +241,33 @@ export function SettingsPage() {
     void save(rerank && !basic);
   };
 
+  const names = SECTIONS.filter((x) => changed[x.id]);
+  const rerankNote = basic ? BASIC_INFO.noRerank
+    : "“Save changes” keeps your current ranks and stays here. “Save and re-rank” ranks every issue and PR again and takes you to your list to watch; it can use a lot of your ranking agent’s quota or credits.";
+
   return (
     <div className="settings-page">
+      {/* NAV-9: the way back to the list. Leaving with unsaved changes asks (SET-26). */}
+      {/* Before setup is finished, "/" is Warm Welcome, reached from its "Advanced setup" link. */}
+      <Link to="/" className="back-link"><ChevronLeft /> {me.screen === "welcome" ? "Back to setup" : "Back to list"}</Link>
       <h1>Settings</h1>
       <p className="lede">Connect your tools. Give your inbox the right context.</p>
       <div className="settings">
         <aside className="side">
-          <div className="label">WORKSPACE</div>
           <nav className="side-nav" aria-label="Settings sections">
-            <a href="#connections" onClick={jump("connections")}><PlugIcon /> Connections</a>
-            <a href="#additional-repositories" onClick={jump("additional-repositories")}><FolderGitIcon /> Additional repositories</a>
-            <a href="#teams" onClick={jump("teams")}><UsersIcon /> Teams</a>
-            <a href="#excluded-repositories" onClick={jump("excluded-repositories")}><EyeOffIcon /> Excluded repositories</a>
-            <a href="#ranking-prompt" onClick={jump("ranking-prompt-section")}><ListIcon /> Ranking prompt</a>
-            <a href="#collaborators" onClick={jump("collaborators")}><UsersIcon /> Collaborators</a>
+            {SECTIONS.map((x) => (
+              <Link key={x.id} to={sectionPath(x.id)} className={section === x.id ? "current" : undefined} aria-current={section === x.id ? "page" : undefined}>
+                {x.icon} {x.title}
+                {troubled.has(x.id) ? <span className="nav-mark bad" title="Has a problem"><span className="sr-only"> (has a problem)</span></span>
+                  : changed[x.id] ? <span className="nav-mark" title="Unsaved changes"><span className="sr-only"> (unsaved changes)</span></span> : null}
+              </Link>
+            ))}
           </nav>
-          <hr />
-          <div className="account" id="account">
-            <div className="label">YOUR ACCOUNT</div>
-            <strong>{me.user.name}</strong>
-            <span className="small">{me.user.email}</span>
-            <span className="small">{me.user.provider === "github" ? <GitHubIcon size={12} /> : null} Signed in with {providerName(me.user.provider)}</span>
-            {/* SET-16, ACCT-5: "Sign out", with no arrow. */}
-            <button className="link-btn plain" onClick={async () => { await api.post("/api/auth/logout"); location.href = "/"; }}>Sign out</button>
-          </div>
-          <hr />
-          {/* SET-50: the store has the switch's current state; until it has loaded, what this page read. */}
-          <Preferences shortcuts={shortcuts ?? server.keyboardShortcuts} onShortcuts={setShortcuts} />
-          <DeleteAccount />
         </aside>
 
         <div className="settings-main">
-          <section className="section" id="connections">
-            <SectionHead n="01" title="Connections" />
+          <section key={`connections-${resets}`} className="section" data-section="connections" id="settings-connections" hidden={section !== "connections"}>
+            <h2 className="section-title">Connections</h2>
             <p>Gitilizer needs a GitHub connection to scan your inbox. An API key for ranking is optional.</p>
             <div className="stack">
               <GitHubCard me={me} details={connection} result={connectResult} docs={`${DOCS_URL}#github-personal-access-tokens`}
@@ -196,29 +279,40 @@ export function SettingsPage() {
             </div>
           </section>
 
-          <section className="section" id="additional-repositories">
-            <SectionHead n="02" title="Additional repositories" badge="Optional" />
-            <p>Follow repositories beyond your assigned, created and @mention issues and PRs. Their open issues and PRs join the same list.</p>
-            <RepoList repos={draft.repos} saved={server.additionalRepos} excluded={draft.exclusions} errors={allErrors} setError={setError} app={me.github.method === "app"}
-                      onChange={(repos) => setDraft((d) => d && { ...d, repos: typeof repos === "function" ? repos(d.repos) : repos })} />
+          <section key={`repositories-${resets}`} className="section" data-section="repositories" id="settings-repositories" hidden={section !== "repositories"}>
+            <h2 className="section-title">Repositories</h2>
+            <div className="subsection" id="additional-repositories">
+              <SubHead title="Additional repositories" />
+              <p>Follow repositories beyond your assigned, created and @mention issues and PRs. Their open issues and PRs join the same list.</p>
+              <RepoList repos={draft.repos} saved={server.additionalRepos} excluded={draft.exclusions} errors={allErrors} setError={setError} app={me.github.method === "app"}
+                        onChange={(repos) => setDraft((d) => d && { ...d, repos: typeof repos === "function" ? repos(d.repos) : repos })} />
+            </div>
+            <div className="subsection" id="excluded-repositories">
+              <SubHead title="Excluded repositories" />
+              <p>Issues and PRs from these never appear in your list, even when you're assigned, asked to review or @-mentioned. Gitilizer doesn't scan or rank them.</p>
+              <ExclusionList items={draft.exclusions} additional={draft.repos.map((r) => r.fullName)} errors={allErrors} setError={setError} app={me.github.method === "app"}
+                             onChange={(x) => setDraft((d) => d && { ...d, exclusions: typeof x === "function" ? x(d.exclusions) : x })} />
+            </div>
           </section>
 
-          <section className="section" id="teams">
-            <SectionHead n="03" title="Teams" badge="Optional" />
-            <p>PRs that ask these teams for a review appear in your list. Add a prioritization prompt to say how much of the team's reviewing is yours.</p>
-            <TeamList teams={draft.teams} saved={server.teams} errors={allErrors} setError={setError}
-                      onChange={(t) => setDraft((d) => d && { ...d, teams: typeof t === "function" ? t(d.teams) : t })} />
+          <section key={`teams-and-collaborators-${resets}`} className="section" data-section="teams-and-collaborators" id="settings-teams-and-collaborators" hidden={section !== "teams-and-collaborators"}>
+            <h2 className="section-title">Teams and collaborators</h2>
+            <div className="subsection" id="teams">
+              <SubHead title="Teams" />
+              <p>PRs that ask these teams for a review appear in your list. Add a prioritization prompt to say how much of the team's reviewing is yours.</p>
+              <TeamList teams={draft.teams} saved={server.teams} errors={allErrors} setError={setError}
+                        onChange={(t) => setDraft((d) => d && { ...d, teams: typeof t === "function" ? t(d.teams) : t })} />
+            </div>
+            <div className="subsection" id="collaborators">
+              <SubHead title="Collaborators" />
+              <p>By default, issues, PRs and comments made by your collaborators have higher priority.</p>
+              <CollaboratorList people={draft.collaborators} errors={allErrors} setError={setError}
+                                onChange={(c) => setDraft((d) => d && { ...d, collaborators: typeof c === "function" ? c(d.collaborators) : c })} />
+            </div>
           </section>
 
-          <section className="section" id="excluded-repositories">
-            <SectionHead n="04" title="Excluded repositories" badge="Optional" />
-            <p>Issues and PRs from these never appear in your list, even when you're assigned, asked to review or @-mentioned. Gitilizer doesn't scan or rank them.</p>
-            <ExclusionList items={draft.exclusions} additional={draft.repos.map((r) => r.fullName)} errors={allErrors} setError={setError} app={me.github.method === "app"}
-                           onChange={(x) => setDraft((d) => d && { ...d, exclusions: typeof x === "function" ? x(d.exclusions) : x })} />
-          </section>
-
-          <section className="section" id="ranking-prompt-section">
-            <SectionHead n="05" title="Ranking prompt" badge="Optional" />
+          <section key={`ranking-prompt-${resets}`} className="section" data-section="ranking-prompt" id="settings-ranking-prompt" hidden={section !== "ranking-prompt"}>
+            <h2 className="section-title">Ranking prompt</h2>
             <p>The agent reads the title, description, labels, comments and reviews of each issue and PR and gives it a score.</p>
             <div className={`panel editor ${allErrors["ranking-prompt"] ? "invalid" : ""}`}>
               <div className="editor-head">
@@ -238,30 +332,50 @@ export function SettingsPage() {
             <FieldMessage id="ranking-prompt-error" message={allErrors["ranking-prompt"]} />
           </section>
 
-          <section className="section" id="collaborators">
-            <SectionHead n="06" title="Collaborators" badge="Optional" />
-            <p>By default, issues, PRs and comments made by your collaborators have higher priority.</p>
-            <CollaboratorList people={draft.collaborators} errors={allErrors} setError={setError}
-                              onChange={(c) => setDraft((d) => d && { ...d, collaborators: typeof c === "function" ? c(d.collaborators) : c })} />
+          <section className="section" data-section="account" id="settings-account" hidden={section !== "account"}>
+            <h2 className="section-title">Account</h2>
+            <p>Changes here apply straight away; they aren't part of “Save changes”.</p>
+            <div className="panel account-panel" id="account">
+              <div className="label">YOUR ACCOUNT</div>
+              <strong>{me.user.name}</strong>
+              <span className="small">{me.user.email}</span>
+              <span className="small">{me.user.provider === "github" ? <GitHubIcon size={12} /> : null} Signed in with {providerName(me.user.provider)}</span>
+              {/* SET-16, ACCT-5: "Sign out", with no arrow. */}
+              <button className="link-btn plain" onClick={async () => { await api.post("/api/auth/logout"); location.href = "/"; }}>Sign out</button>
+            </div>
+            <div className="panel account-panel">
+              {/* SET-50: the store has the switch's current state; until it has loaded, what this page read. */}
+              <Preferences shortcuts={shortcuts ?? server.keyboardShortcuts} onShortcuts={setShortcuts} />
+            </div>
+            <DeleteAccount />
           </section>
 
-          {/* SET-14, SET-15: both save everything, credentials included; the notes are as in Figma. */}
-          <div className="save-actions">
-            {saveError && <div className="error-text" role="alert">{saveError}</div>}
-            <div className="save-row">
-              <button className="btn primary" disabled={blocked || saving} onClick={() => requestSave(false)}>Save changes</button>
-              <span>Save changes without re-ranking. Existing issues and PRs that are already ranked will not be re-ranked.</span>
+          {/* SET-60: one bar for all of Settings, at the bottom of every section, shown while anything is unsaved. Both
+              saves save every section, credentials included (SET-14, SET-15). */}
+          {dirty ? (
+            <div className="save-bar" role="region" aria-label="Save changes">
+              <div className="save-bar-status" aria-live="polite">
+                <strong>Unsaved changes</strong> in{" "}
+                {names.map((x, i) => <span key={x.id}>{i > 0 && (i === names.length - 1 ? " and " : ", ")}<Link to={sectionPath(x.id)}>{x.title}</Link></span>)}
+                {saveError && <div className="error-text" role="alert">{saveError}</div>}
+              </div>
+              <div className="save-bar-actions">
+                <button className="btn plain" disabled={saving} onClick={discard}>Discard changes</button>
+                {/* SET-15: basic ranking never ranks everything again; the reason is a note, read out with the button. */}
+                <button className="btn" disabled={blocked || saving || basic} aria-describedby="rerank-note" onClick={() => requestSave(true)}>Save and re-rank</button>
+                <button className="btn primary" disabled={blocked || saving} aria-describedby="rerank-note" onClick={() => requestSave(false)}>Save changes</button>
+              </div>
+              <p className="save-bar-note" id="rerank-note">{blocked ? "Fix the problems marked in red before saving." : rerankNote}</p>
             </div>
-            <div className="save-row">
-              {/* SET-15: basic ranking never ranks everything again; the reason is a note, read out with the button. */}
-              <button className="btn" disabled={blocked || saving || basic} aria-describedby="rerank-note" onClick={() => requestSave(true)}>Save and re-rank</button>
-              <span id="rerank-note">{basic ? BASIC_INFO.noRerank : "Save changes and re-rank every issue and PR. This can use a lot of your ranking agent’s quota or credits."}</span>
+          ) : section !== "account" && (
+            // With nothing to save, a quiet footer: "Changes saved" for a moment, and a re-rank of everything, which
+            // could be done before without changing anything (SET-15).
+            <div className="save-footer">
+              <span aria-live="polite">{saved ? <span className="saved"><CheckIcon /> Changes saved</span> : saveError ? <span className="error-text" role="alert">{saveError}</span> : "No unsaved changes."}</span>
+              <button className="btn small" disabled={blocked || saving || basic} aria-describedby="rerank-clean-note" onClick={() => requestSave(true)}>Re-rank everything</button>
+              <span className="fine" id="rerank-clean-note">{basic ? BASIC_INFO.noRerank : blocked ? "Fix the problems marked in red first." : "Ranks every issue and PR again. This can use a lot of your ranking agent’s quota or credits."}</span>
             </div>
-            <div className="save-row">
-              <button className="btn" onClick={cancel}>Cancel</button>
-              <span>Discard unsaved changes and return to your list.</span>
-            </div>
-          </div>
+          )}
           {switching && (
             <SwitchDialog from={server.rankingAgent} to={agent} n={server.rankedBy[server.rankingAgent] ?? 0}
               onCancel={() => setSwitching(false)} onSwitch={(rerank) => { setSwitching(false); void save(rerank); }} />
@@ -272,21 +386,12 @@ export function SettingsPage() {
   );
 }
 
-/** Section links scroll within the page and keep the URL fragment (NAV-3). */
-const jump = (id: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
-  e.preventDefault();
-  history.replaceState(null, "", `#${e.currentTarget.getAttribute("href")!.slice(1)}`);
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-};
-
 function providerName(p: string) {
   return ({ google: "Google", github: "GitHub", dev: "a development account", local: "local mode" } as Record<string, string>)[p] ?? p;
 }
 
-function SectionHead({ n, title, badge }: { n: string; title: string; badge?: string }) {
-  return (
-    <div className="section-head"><span className="n">{n}</span><h2>{title}</h2>{badge && <span className="badge">{badge}</span>}</div>
-  );
+function SubHead({ title }: { title: string }) {
+  return <div className="section-head"><h3>{title}</h3></div>;
 }
 
 function FieldMessage({ id, message }: { id?: string; message?: string }) {

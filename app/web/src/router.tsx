@@ -1,19 +1,20 @@
 // Minimal history-API router for the routes in PRD NAV-3.
 import { useEffect, useState, type AnchorHTMLAttributes } from "react";
 
-let guard: (() => boolean) | null = null;
+let guard: ((to: string) => boolean) | null = null;
 let current = location.pathname + location.search + location.hash;
 
 /**
  * While set, leaving the page asks first (SET-26): `check` returns true to
- * allow the navigation. Covers links, navigate() and the Back button.
+ * allow the navigation to `to` (a path, with any query). Covers links,
+ * navigate() and the Back button.
  */
-export function setNavigationGuard(check: (() => boolean) | null) { guard = check; }
+export function setNavigationGuard(check: ((to: string) => boolean) | null) { guard = check; }
 
 window.addEventListener("popstate", (e) => {
   if ((e as any).gitilizer) return;
   const next = location.pathname + location.search + location.hash;
-  if (guard && next.split("#")[0] !== current.split("#")[0] && !guard()) {
+  if (guard && next.split("#")[0] !== current.split("#")[0] && !guard(next.split("#")[0])) {
     history.pushState(null, "", current); // stay
     e.stopImmediatePropagation();
     return;
@@ -22,7 +23,7 @@ window.addEventListener("popstate", (e) => {
 });
 
 export function navigate(to: string, replace = false) {
-  if (guard && to.split("#")[0] !== location.pathname + location.search && !guard()) return;
+  if (guard && to.split("#")[0] !== location.pathname + location.search && !guard(to.split("#")[0])) return;
   if (replace) history.replaceState(null, "", to); else history.pushState(null, "", to);
   current = location.pathname + location.search + location.hash;
   const ev = new PopStateEvent("popstate");

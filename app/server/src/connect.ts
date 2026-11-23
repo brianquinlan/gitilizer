@@ -86,7 +86,7 @@ export function registerConnect(app: FastifyInstance, ctx: Ctx, h: Helpers) {
           [q.state, PROVIDER, STATE_SECONDS],
         )
       : undefined;
-    const next = safeNext(row?.user_id === userId ? row?.next : "/settings#connections");
+    const next = safeNext(row?.user_id === userId ? row?.next : "/settings/connections");
     const failed = (result: ConnectFailure, detail: Record<string, unknown>) => {
       log[result === "cancelled" ? "info" : "warn"]("connect", "GitHub wasn't connected", { user: userId, result, ...detail });
       reply.clearCookie(cookie, h.cookieOptions());

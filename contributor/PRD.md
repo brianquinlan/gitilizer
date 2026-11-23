@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-22 (team review requests: the developer adds teams in Settings, with an optional prioritization prompt, and "Find my teams" suggests the developer's teams; PRs that ask an added team for review appear in the list, marked "Team review" and so on when nothing about them is personal, and a team's prompt tells the ranking agent how much of its reviewing is the developer's, [Teams](#teams), `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25`, [Q-43](#q-43), [Q-65](#q-65), [Q-106](#q-106)); 2026-11-21 (no sign-in page: signing in starts from the home page, which shows failed sign-ins and remembers the address a signed-out visitor asked for; signing out and deleting the account go to the home page, `AUTH-4`, `AUTH-10`, `AUTH-15`, `HOME-2`, `HOME-3`, `NAV-3`, `NAV-10`, `ACCT-3`, `SET-17`, `FOOT-1`, `FOOT-2`, `BAR-3`, [Q-105](#q-105)); 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-22 (Settings in sections: each of Connections, Repositories, Teams and collaborators, Ranking prompt and Account is its own screen, chosen in the left column; one save bar at the bottom of every section saves all of them; "Save changes" stays on Settings, "Discard changes" and "Back to list" take the place of "Cancel", and the account details, Preferences and Delete account move into Account, [Settings](#settings), [Sections](#sections), `NAV-3`, `NAV-8`, `NAV-9`, `SET-14`, `SET-15`, `SET-17`, `SET-26`, `SET-27`, `SET-39`, `SET-50`, `SET-57` to `SET-60`, [Q-71](#q-71), [Q-107](#q-107)); 2026-11-22 (team review requests: the developer adds teams in Settings, with an optional prioritization prompt, and "Find my teams" suggests the developer's teams; PRs that ask an added team for review appear in the list, marked "Team review" and so on when nothing about them is personal, and a team's prompt tells the ranking agent how much of its reviewing is the developer's, [Teams](#teams), `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25`, [Q-43](#q-43), [Q-65](#q-65), [Q-106](#q-106)); 2026-11-21 (no sign-in page: signing in starts from the home page, which shows failed sign-ins and remembers the address a signed-out visitor asked for; signing out and deleting the account go to the home page, `AUTH-4`, `AUTH-10`, `AUTH-15`, `HOME-2`, `HOME-3`, `NAV-3`, `NAV-10`, `ACCT-3`, `SET-17`, `FOOT-1`, `FOOT-2`, `BAR-3`, [Q-105](#q-105)); 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -201,8 +201,8 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Icebox | [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947) | [Icebox](#icebox) |
 | Icebox, empty | [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593) | [Icebox](#icebox) |
 | Icebox row | [Icebox / Issue row · Restore](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=180-1403) | [Icebox](#icebox) |
-| Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), including the Ranking agent card, Additional repositories, Excluded repositories, Collaborators, Preferences, Delete account, and the save and cancel buttons | [Settings](#settings) |
-| Settings with errors | [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237): a failed Validate, a ranking agent chosen without its API key, a duplicate repository, a repository's prioritization prompt that's too long, an excluded repository that can't be found, an exclusion that is already an additional repository, a prompt that's too long, a duplicate collaborator, and the save buttons disabled | [Saving](#saving) |
+| Settings | [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), the Connections section with the left column and the footer for nothing unsaved; [Settings · Repositories · Unsaved changes](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-3874), with the save bar; [Settings · Teams and collaborators](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-4412); [Settings · Ranking prompt](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-4950); [Settings · Account](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-5488), with Preferences and Delete account; [Settings · Save bar · Basic ranking](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=408-2736) | [Settings](#settings), [Sections](#sections) |
+| Settings with errors | [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237) (Connections), [Settings · Errors · Repositories](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=496-4018), [Settings · Errors · Teams and collaborators](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=496-4491) and [Settings · Errors · Ranking prompt](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=496-4964): a failed Validate, a ranking agent chosen without its API key, a duplicate repository, a repository's prioritization prompt that's too long, an excluded repository that can't be found, an exclusion that is already an additional repository, a duplicate team, a duplicate collaborator and a prompt that's too long, each in its section; the left column's red marks; and the save bar with its buttons disabled | [Saving](#saving) |
 | Repository prompt | [Settings / Repository prompt](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=438-3686), with its states, and [Settings / Edited label](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=438-3687); both in a section: [Settings · Repository prompt · Editing](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=438-3741) | [Additional repositories](#additional-repositories) |
 | Switching ranking agent | [Settings · Switch ranking agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631) | [Connections](#connections) |
 | GitHub card | Connected with the Gitilizer app: in [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802). Its other states: [Settings · GitHub card · Reconnect needed](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2937), [Settings · GitHub card · Missing permission](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-2955), [Settings · GitHub card · Token in use](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=396-3015), [Settings · GitHub card · Not set](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=397-2761) | [Connecting GitHub](#connecting-github) |
@@ -255,9 +255,13 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
   the Prioritized list (and for the home page, `HOME-1`, when the visitor isn't
   signed in) and `/icebox` for the Icebox (each with `?page=N` for pages after
   the first, and with `?q=` and `?type=` while a search or type filter is in
-  use, `LIST-40`), `/settings` (with `#connections`, `#additional-repositories`,
-  `#excluded-repositories`, `#ranking-prompt`, `#collaborators` and `#account`
-  for its sections), and `/docs/privacy` for the privacy policy (`PRIV-6`).
+  use, `LIST-40`), `/settings/connections`, `/settings/repositories`,
+  `/settings/teams-and-collaborators`, `/settings/ranking-prompt` and
+  `/settings/account` for the sections of Settings (`SET-57`), and
+  `/docs/privacy` for the privacy policy (`PRIV-6`). `/settings`, and any other
+  address under it, shows Connections and changes to its address. A link to a
+  control in Settings is `/settings#{control id}`, and works without naming the
+  section (`SET-58`).
   There is no sign-in page: `/sign-in`, its address in earlier versions, goes to
   `/`. Sort order is a stored preference, not part of the URL.
 - **NAV-4** Moving between these screens must not reload the page.
@@ -275,11 +279,23 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
   Warm Welcome opens Settings at Connections (`WEL-2`).
 - **NAV-6** The developer switches between the Prioritized list and the Icebox with the "Prioritized" / "Icebox" toggle above the table.
 - **NAV-7** The Gitilizer symbol and wordmark in the app bar must link to the Prioritized list.
-- **NAV-8** After a successful "Save changes" or "Save and re-rank", the developer must be taken to the Prioritized list. If something can't be saved (for example a prompt that's too long), they stay on Settings with the problems shown next to the fields (`SET-27`). Saving in Settings doesn't validate credentials (`SET-29`); saving on Warm Welcome does (`WEL-4`). The save that completes setup also goes to the list, which then shows the [first-sync state](#empty-loading-and-first-sync-states).
-- **NAV-9** "Cancel" in Settings must discard unsaved changes and take the
-  developer back to the Prioritized list. Under the rules in [Which screen is
+- **NAV-8** After a successful "Save changes", the developer must stay on the
+  section they are on, and "Changes saved" shows in its place for 4 seconds
+  (`SET-60`). After a successful "Save and re-rank" or "Re-rank everything",
+  they must be taken to the Prioritized list, where they can watch the re-rank
+  (`LIST-16`). The save that completes setup also goes to the list, whichever
+  button was used, and the list then shows the [first-sync
+  state](#empty-loading-and-first-sync-states). If something can't be saved
+  (for example a prompt that's too long), they stay on Settings with the
+  problems shown next to the fields (`SET-27`). Saving in Settings doesn't
+  validate credentials (`SET-29`); saving on Warm Welcome does (`WEL-4`).
+- **NAV-9** Settings must have a "Back to list" link, with a left chevron,
+  above its heading. It goes to `/`, asking first if there are unsaved changes
+  (`SET-26`). Under the rules in [Which screen is
   shown](#which-screen-is-shown), a developer who hasn't yet completed setup
-  sees Warm Welcome instead, and the same applies after saving (`NAV-8`).
+  sees Warm Welcome at `/` instead, so for them the link reads "Back to setup".
+  "Discard changes" in the save bar (`SET-60`) drops every unsaved change and
+  stays on the section ([Q-71](#q-71)).
 
 ---
 
@@ -1095,9 +1111,62 @@ to reach what the controls already do, so nothing depends on them (`NFR-2`).
 
 ## Settings
 
-Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), [Settings / Page content](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=56-509)
+Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802) and the other section frames ([Sections](#sections))
 
-Settings is one page. The left column has links to its sections (Connections, Additional repositories, Teams, Excluded repositories, Ranking prompt, Collaborators), the developer's account details ("Signed in with GitHub", "Sign out"), a Preferences block with the "Keyboard shortcuts" switch (`SET-50`) and a Delete account panel. The main column has the numbered sections (01 Connections, 02 Additional repositories, 03 Teams, 04 Excluded repositories, 05 Ranking prompt, 06 Collaborators) and, at the bottom, three buttons: "Save changes", "Save and re-rank" and "Cancel".
+Settings is split into five sections, each its own screen with its own
+address, so that no screen is too long to take in ([Q-107](#q-107)):
+Connections, Repositories (additional and excluded repositories), Teams and
+collaborators, Ranking prompt, and Account. The left column has only the links
+to them. Above the heading "Settings" is "Back to list" (`NAV-9`). Changes in
+the first four sections are saved together, from a save bar at the bottom of
+whichever section is showing (`SET-14`, `SET-60`); the controls in Account
+apply at once.
+
+### Sections
+
+Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802) (Connections, with nothing unsaved), [Settings · Repositories · Unsaved changes](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-3874), [Settings · Teams and collaborators](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-4412), [Settings · Ranking prompt](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-4950), [Settings · Account](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-5488)
+
+- **SET-57** The left column must list the sections in this order, each with
+  its icon: "Connections" (a plug), "Repositories" (a folder), "Teams and
+  collaborators" (people), "Ranking prompt" (a list) and "Account" (a person).
+  Each link goes to the section's address (`NAV-3`), without reloading the
+  page (`NAV-4`). The link of the section showing is tinted, in bold, and
+  announced as the current page. A section's name never wraps. Each section
+  starts with its name as a heading. Repositories has two parts, "Additional
+  repositories" and "Excluded repositories", and Teams and collaborators has
+  "Teams" and "Collaborators", each part with its own heading and description,
+  as the sections had before; the parts have no numbers or "Optional" badges.
+  A section opens scrolled to its top, unless its address names a control in
+  it (`SET-58`).
+- **SET-58** Other screens link to a control in Settings by its id alone, as
+  `/settings#{control id}` (`NOTIF-9`, `LIST-14`, `LIST-43`), without
+  knowing which section holds it. Settings must open that section and focus the
+  control, also when Settings is already open on another section. The section
+  is found from the control on the page or, for a control that isn't showing
+  (such as the token field while the Gitilizer app is connected), from the
+  kind of control. The anchors of earlier versions (`#connections`,
+  `#additional-repositories`, `#teams`, `#excluded-repositories`,
+  `#ranking-prompt`, `#collaborators`, `#account`) open the section that now
+  holds them.
+- **SET-59** Moving between sections must keep unsaved changes, including text
+  in open prompt fields and "Add …" fields, without asking. In the left column,
+  a section with unsaved changes has an amber dot after its name, and a section
+  with a problem showing (`SET-27`) has a red dot instead, announced as
+  "(unsaved changes)" and "(has a problem)".
+- **SET-60** While anything in Settings is unsaved, a save bar must show at the
+  bottom of the section, staying at the bottom of the window while the section
+  scrolls, as in [Settings · Repositories · Unsaved changes](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-3874). It shows "**Unsaved changes** in {sections}",
+  naming each section with changes as a link to it, in the order of the left
+  column ("Repositories and Ranking prompt"), and the buttons "Discard
+  changes" (borderless, red on hover), "Save and re-rank" and "Save changes"
+  (the primary button). Under them is one note (`SET-15`). The page keeps
+  enough room under the last control, and around a focused one, that the bar
+  never covers it. With nothing unsaved, each section but Account ends instead
+  with a footer, as in [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802): "No unsaved changes.", or "Changes saved"
+  with a check mark for 4 seconds after "Save changes" (`NAV-8`); a "Re-rank
+  everything" button, which saves as "Save and re-rank" does with nothing
+  changed; and under it, "Ranks every issue and PR again. This can use a lot
+  of your ranking agent’s quota or credits."
 
 ### Connections
 
@@ -1205,11 +1274,11 @@ GitHub answers an expired token the same way as a mistyped one, and sends the ex
 - **SET-39** Gitilizer must keep a saved key for each agent, so the developer
   can switch back without pasting it again. Under the guidance text, for each
   agent other than the chosen one that has a saved key, the card shows "Your
-  {agent} key stays saved, so you can switch back without pasting it again."
-  For an agent other than the one in use, the line ends with a "Remove {agent}
-  key" link. Choosing it removes the line at once, and choosing that agent
-  before saving then shows "Not set" and an empty field; the key is deleted
-  when Settings is saved, and "Cancel" keeps it. The key of the agent in use
+  {agent} key stays saved, so you can switch back without pasting it again." For
+  an agent other than the one in use, the line ends with a "Remove {agent} key"
+  link. Choosing it removes the line at once, and choosing that agent before
+  saving then shows "Not set" and an empty field; the key is deleted when
+  Settings is saved, and "Discard changes" keeps it. The key of the agent in use
   can't be removed, only replaced. A developer on basic ranking has no agent in
   use, so every saved key has the link.
 - **SET-40** Choosing "Save changes" after choosing a different agent must first
@@ -1411,7 +1480,7 @@ repositories are in an organization that won't install the app ([Q-87](#q-87)).
 
 ### Teams
 
-Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802), [Settings · Teams · Find my teams](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=483-3852)
+Figma: [Settings · Teams and collaborators](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-4412), [Settings · Teams · Find my teams](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=483-3852)
 
 GitHub can ask a team for a review instead of a person, often automatically
 through a repository's CODEOWNERS file. The developer chooses the teams whose
@@ -1557,38 +1626,64 @@ prompt to say how much of the team's reviewing is yours."
 
 ### Saving
 
-- **SET-14** Changes must take effect only when the developer chooses "Save changes" or "Save and re-rank". Both save everything on the page, credentials included. The one exception is the "Keyboard shortcuts" switch, which applies as soon as it is changed (`SET-50`). "Cancel" discards unsaved changes (`NAV-9`).
+- **SET-14** Changes must take effect only when the developer chooses "Save
+  changes", "Save and re-rank" or "Re-rank everything" (`SET-60`). Each saves
+  the changes in every section, credentials included, whichever section is
+  showing. The controls in Account apply as soon as they are used: "Sign out",
+  the "Keyboard shortcuts" switch (`SET-50`) and "Delete account".
+  "Discard changes" drops every unsaved change (`NAV-9`). After "Save changes"
+  or "Discard changes", Settings shows what is saved: open prompt fields close,
+  and text typed into an "Add …" field but not added, and the teams "Find my
+  teams" suggested (`SET-54`), are cleared.
 - **SET-15** "Save changes" must save without re-ranking: items already ranked
   keep their scores until they change on GitHub. New items, such as those from a
   newly added repository, are ranked as usual. "Save and re-rank" must save and
   then re-rank every item (a full re-rank, shown as in `LIVE-24`). It counts as
   a sync: Sync now turns and is disabled until every item has been ranked, and
-  the progress text shows how many are left (`LIST-16`, `LIST-33`). Each button
-  has the explanatory note shown in Figma next to it, without an estimate of how
-  many items will be re-ranked. While "Basic ranking" is the choice in the
-  picker (`SET-38`), "Save and re-rank" is disabled, and the note beside it
-  reads "Re-ranking everything needs your own API key." in place of its usual
-  text ([Q-93](#q-93)). The reason is a note, not a hover text, so that it shows
+  the progress text shows how many are left (`LIST-16`, `LIST-33`). The note
+  under the save bar's buttons reads "“Save changes” keeps your current ranks
+  and stays here. “Save and re-rank” ranks every issue and PR again and takes
+  you to your list to watch; it can use a lot of your ranking agent’s quota or
+  credits.", without an estimate of how many items will be re-ranked. While
+  "Basic ranking" is the choice in the picker (`SET-38`), "Save and re-rank"
+  and "Re-rank everything" are disabled, and their notes read "Re-ranking
+  everything needs your own API key." in place of their usual text
+  ([Q-93](#q-93)). The reason is a note, not a hover text, so that it shows
   without a pointer and is read out as the button's description (`NFR-2`,
-  `NFR-10`), as in [Settings · Save buttons · Basic
-  ranking](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=408-2736).
-- **SET-26** Leaving Settings with unsaved changes (through a link, the browser's Back button or closing the tab) must ask the developer to confirm.
+  `NFR-10`), as in [Settings · Save bar · Basic ranking](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=408-2736).
+- **SET-26** Leaving Settings with unsaved changes (through a link, "Back to
+  list", the browser's Back button or closing the tab) must ask the developer
+  to confirm. Moving between its sections doesn't ask (`SET-59`).
 
-- **SET-27** Settings must show problems next to the field they belong to, as in [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237):
+- **SET-27** Settings must show problems next to the field they belong to, as in [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237) (Connections), [Settings · Errors · Repositories](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=496-4018), [Settings · Errors · Teams and collaborators](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=496-4491) and [Settings · Errors · Ranking prompt](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=496-4964):
   - The field gets a red border, and a one-line message in red appears under it, for example "northstar/web is already in your list.", "Enter a repository as owner/name or paste its GitHub URL.", "northstar/web is one of your additional repositories. Remove it there first to exclude it.", "jordanlee is already a collaborator." or "A prompt can be at most 20,000 characters. This one has 21,345."
   - A ranking agent chosen without a saved or typed key is an error under its
     field when the developer saves: "Add a {agent} API key, or choose basic
     ranking." ("an OpenAI API key" for OpenAI). Nothing is saved. Basic ranking
     needs no key.
   - Repository, exclusion and collaborator errors appear when the developer chooses "Add repository", "Exclude" or "Add collaborator", and nothing is added. A prompt's error appears as soon as it goes over its limit, and a character count appears once a ranking prompt passes 18,000 characters.
-  - While any error is showing, "Save changes" and "Save and re-rank" are disabled.
-  - If the server finds a problem when saving, it is shown the same way, and the page scrolls to the first one.
+  - While any error is showing, "Save changes", "Save and re-rank" and
+    "Re-rank everything" are disabled, and the save bar's note reads "Fix the
+    problems marked in red before saving." The left column marks the sections
+    with problems (`SET-59`).
+  - If the server finds a problem when saving, it is shown the same way, and
+    Settings opens the section of the first one and goes to it. The same
+    happens with a ranking agent chosen without a key, whichever section the
+    developer saved from: Settings opens Connections at the key's field.
 
 ### Account
 
-- **SET-16** The account panel must show the developer's name, email, sign-in provider and a "Sign out" link (`ACCT-5`).
+Figma: [Settings · Account](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-5488)
+
+The Account section's description reads "Changes here apply straight away;
+they aren't part of “Save changes”." It has three cards, one under another and
+each at most 520 px wide: the account details (`SET-16`), Preferences
+(`SET-50`) and Delete account (`SET-17`). It has no save bar or footer.
+
+- **SET-16** The account card must show "YOUR ACCOUNT" and the developer's name,
+  email, sign-in provider and a "Sign out" link (`ACCT-5`).
 - **SET-17** The developer must be able to delete their Gitilizer account from
-  the Delete account panel in the left column, which says: "Deleting your
+  the Delete account panel in the Account section, which says: "Deleting your
   account is permanent and cannot be reversed." Choosing "Delete account" must
   ask for confirmation with a simple dialog: "Delete your Gitilizer account?
   This can't be undone.", with "Cancel" and "Delete account". Deletion is
@@ -1601,7 +1696,7 @@ prompt to say how much of the team's reviewing is yours."
 
 Figma: [Settings / Preferences](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2761), [Settings / Switch](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2760)
 
-- **SET-50** The left column must have a "Preferences" block between the
+- **SET-50** The Account section must have a "Preferences" card between the
   account details and the Delete account panel. It has one switch, "Keyboard
   shortcuts", and under it the hint "Such as / to search.", with the "/" shown
   as a key cap. The switch is on for a new account. Turning it off turns off
@@ -2001,7 +2096,8 @@ the type filter and the first keyboard shortcut; Q-100 came from showing each
 item's next step; Q-101 came from Sync now while GitHub can't be read; Q-102
 came from opening the rank reasoning popup from the next step chip; Q-104
 came from Google's review of the sign-in screen's branding; Q-105 came from
-removing the sign-in page; Q-106 came from adding review requests to teams.
+removing the sign-in page; Q-106 came from adding review requests to teams;
+Q-107 came from splitting Settings into sections.
 
 ### Answered questions
 
@@ -2077,7 +2173,7 @@ removing the sign-in page; Q-106 came from adding review requests to teams.
 | <a id="q-68"></a>Q-68 | The Settings privacy note | Removed on purpose. | `PRIV-2` |
 | <a id="q-69"></a>Q-69 | Settings copy and icons | All fixed in Figma. | [Settings](#settings) |
 | <a id="q-70"></a>Q-70 | Alerts for the owner | Yes, by email, through Cloud Monitoring. | `METRIC-4` |
-| <a id="q-71"></a>Q-71 | What "Cancel" does | Discards changes and returns to the Prioritized list (or Warm Welcome before setup is complete). | `NAV-9` |
+| <a id="q-71"></a>Q-71 | What "Cancel" does | Discards changes and returns to the Prioritized list (or Warm Welcome before setup is complete). Changed on 2026-11-22: there is no "Cancel". "Discard changes" in the save bar drops the changes and stays on Settings, and "Back to list" ("Back to setup" before setup is complete) goes to `/`, asking first if anything is unsaved ([Q-107](#q-107)). | `NAV-9` |
 | <a id="q-72"></a>Q-72 | Icebox check prompt | Owned by Gitilizer; not shown in Settings. | `ICE-14` |
 | <a id="q-73"></a>Q-73 | Errors in Settings | As suggested, drawn in Figma ("Settings · Errors"). | `SET-27` |
 | <a id="q-74"></a>Q-74 | Thinking level | `gemini-3.8-flash` with thinking turned down as far as it goes, for cost; may be revisited. | `RANK-11` |
@@ -2112,6 +2208,7 @@ removing the sign-in page; Q-106 came from adding review requests to teams.
 | <a id="q-103"></a>Q-103 | Changing a repository's prioritization prompt | In place: the prompt's text opens as a field when clicked, and a repository without a prompt has "Add prioritization prompt" in its place. The add form no longer has a prompt field, so there is one way to give a repository a prompt. A changed prompt applies to every item with "Save and re-rank", and to items ranked from then on with "Save changes". Until now a prompt couldn't be changed: the developer removed the repository and added it again, and a repository added without a prompt could never get one. An "Edit" button beside "Remove", a field that is always open and a dialog were also considered. Editing the text keeps the section as quiet as it is, and the hover tint and pencil make the text look clickable, which plain text doesn't ([Q-102](#q-102)). | `SET-7`, `SET-9` |
 | <a id="q-104"></a>Q-104 | A home page and privacy policy that Google accepts | A public home page at `/` and a privacy policy page at `/docs/privacy`, both on gitilizer.com and complete without JavaScript. Google refused to show Gitilizer's logo on its sign-in screen for three reasons: `/docs/privacy` redirected to the user guide on GitHub, whose Privacy section doesn't cover everything Google asks for; gitilizer.com showed only the sign-in page; and that page is drawn by JavaScript, so Google's checker saw an empty page. A separate `/about` page, with `/` staying the sign-in page, was considered: it is smaller, but every visitor to gitilizer.com would still land on sign-in. The policy names Brian Quinlan as the operator, with brian@sweetapp.com as the contact. | `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `FOOT-2` |
 | <a id="q-105"></a>Q-105 | Whether to keep a sign-in page | No. Signing in starts from the home page's buttons, failed sign-ins show their notice there, and a signed-out visitor at any other address is sent to the home page, which brings them back after signing in. Signing out and deleting the account go to the home page too. With a home page that already had both buttons, the sign-in page was a second, nearly identical page for signed-out visitors, kept only for failure notices, returning to a deep link and the development sign-in. | `AUTH-4`, `AUTH-10`, `HOME-3`, `NAV-10`, `ACCT-3`, `SET-17` |
+| <a id="q-107"></a>Q-107 | How saving works once Settings is split into sections | One draft for all of Settings, saved from a bar at the bottom of every section ("option B"), as before the split: both saves save every section, the bar names the sections with unsaved changes, and the left column marks them. Two other ways were considered. A Save on each section, saving only that section, is the most common pattern and never hides unsaved changes, but it changes more of what saving means. Saving each change as it is made ("save as you go") needs no Save for lists, but prompts and keys would still need one, there would be no way to discard, and re-ranking and the switch dialog (`SET-40`) would need rethinking. "Save changes" now stays on Settings, because going to the list after each save made sense for one page but not for one of five. "Save and re-rank" still goes to the list, where the re-rank can be watched. | `SET-14`, `SET-57` to `SET-60`, `NAV-8`, `NAV-9` |
 | <a id="q-106"></a>Q-106 | Review requests to teams | The developer adds teams in Settings, like additional repositories, each with an optional prioritization prompt, and only those teams' requests are searched. A team without a prompt only brings its requests into the list; with one, its requests rank like reviews waiting on the developer, below personal requests unless the prompt says otherwise. "Find my teams" suggests the developer's teams, with how many open PRs each would bring in, because the Gitilizer app can't list teams in organizations where it isn't installed; it infers them from searches, which spikes on 2026-11-22 showed to work through the app. The spikes also showed that GitHub refuses a search naming a team it doesn't know (so "Not found" can be shown), and that teams combine with OR, with the exclusions and with repository filters in one search. Large-team defaults, member counts and a Warm Welcome switch were dropped with automatic discovery. A next step on the developer only through a team says "Team review" and so on; anything personal, including having commented, wins. Team mentions stay out. Discussed in [this conversation](https://claude.ai/share/78bba69a-85fc-4f40-ae74-206eb7db9042). | `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25` |
 
 ---
@@ -3005,3 +3102,38 @@ chooses ([Q-106](#q-106), [Q-43](#q-43)):
   [Settings · Switch ranking agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631) and `Settings / Page content`,
   which match Settings. Added Figma:
   [Settings · Teams · Find my teams](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=483-3852).
+
+### Fifty-fourth revision (2026-11-22, Settings in sections)
+
+Settings was one long page. It is now five sections, each its own screen
+([Q-107](#q-107)):
+
+- The left column has only the links to Connections, Repositories (additional
+  and excluded repositories), Teams and collaborators, Ranking prompt and
+  Account, each at its own address (`NAV-3`, `SET-57`). Links to a control
+  still name only the control, and open its section (`SET-58`).
+- Saving still covers all of Settings, from a save bar at the bottom of every
+  section that names the sections with unsaved changes; the left column marks
+  them, and sections with problems (`SET-59`, `SET-60`, `SET-14`, `SET-27`).
+  With nothing unsaved, a footer offers "Re-rank everything" (`SET-15`).
+- "Save changes" stays on Settings; "Save and re-rank" still goes to the list
+  (`NAV-8`). "Discard changes" and a "Back to list" link take the place of
+  "Cancel" (`NAV-9`, `SET-26`, `SET-39`, [Q-71](#q-71)).
+- The account details, Preferences and Delete account move from the left
+  column into the Account section (`SET-16`, `SET-17`, `SET-50`).
+- Changed Figma: [Settings](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=3-2802) is now the Connections section;
+  [Settings · Save bar · Basic ranking](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=408-2736) (formerly "Settings · Save
+  buttons · Basic ranking") shows the save bar and footer;
+  [Settings · Errors](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=313-8237) shows Connections' problems, with the red
+  marks and the blocked save bar; and
+  [Settings · Switch ranking agent](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=384-2631) has Connections behind the
+  dialog. Added Figma:
+  [Settings · Repositories · Unsaved changes](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-3874),
+  [Settings · Teams and collaborators](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-4412),
+  [Settings · Ranking prompt](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-4950),
+  [Settings · Account](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=493-5488),
+  [Settings · Errors · Repositories](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=496-4018),
+  [Settings · Errors · Teams and collaborators](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=496-4491) and
+  [Settings · Errors · Ranking prompt](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=496-4964). Removed:
+  `Settings / Page content`, a copy of the one-page layout that nothing used.
+  The Figma version saved just before these changes undoes them.

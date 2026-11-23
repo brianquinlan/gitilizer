@@ -128,7 +128,7 @@ export function WelcomePage() {
             </div>
             <div className="welcome-advanced">
               <span>Using Claude, OpenAI or a personal access token?</span>
-              <Link to="/settings#connections">Advanced setup</Link>
+              <Link to="/settings/connections">Advanced setup</Link>
             </div>
           </div>
         )}
