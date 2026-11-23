@@ -14,7 +14,8 @@ type Store = {
   sorts: { prioritized: Sort; icebox: Sort } | null;
   /** The "Keyboard shortcuts" switch (SET-50); null until the account's settings have loaded. */
   shortcuts: boolean | null;
-  refreshMe: () => Promise<void>;
+  /** Reads the account again; returns it, or null when the session has ended. */
+  refreshMe: () => Promise<Me | null>;
   setSort: (view: "prioritized" | "icebox", s: Sort) => void;
   setShortcuts: (on: boolean) => void;
   onList: (l: Listener) => () => void;
@@ -38,17 +39,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(true);
   const listeners = useRef(new Set<Listener>());
 
-  const refreshMe = useCallback(async () => {
+  const refreshMe = useCallback(async (): Promise<Me | null> => {
     try {
       const m = await api.get<Me>("/api/me");
       setMe(m);
       setSync(m.sync);
       setSignedOut(false);
+      return m;
     } catch (e) {
       // Taken off the development site's allowlist: the home page says why (AUTH-10), from the cookie the server set.
       if (e instanceof ApiError && e.status === 401 && e.message === "not_allowed") location.replace("/");
       else if (e instanceof ApiError && e.status === 401) setSignedOut(true);
       else throw e;
+      return null;
     }
   }, []);
 

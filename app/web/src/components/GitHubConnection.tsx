@@ -165,7 +165,7 @@ export function GitHubCard(props: {
   const tokenShowing = method === "pat" || !app || asked;
   const ended = method === "app" && me.github.chip === "not_working"; // SET-46
   const [chipClass, chipText] = CHIPS[me.github.chip];
-  const next = "/settings#connections";
+  const next = "/settings/connections";
   const useToken = <button type="button" className="link-btn underlined" onClick={() => setAsked(true)}>
     {method === "app" ? "Use a personal access token instead" : "Or use a personal access token"}</button>;
 
