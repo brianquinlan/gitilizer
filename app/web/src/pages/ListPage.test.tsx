@@ -1,4 +1,5 @@
 // The list as static markup: search and the type filter (PRD LIST-34 to LIST-41, KEY-1, KEY-3), next steps and the chip that opens the rank reasoning popup (LIST-42, LIST-24),
+// the next step filter (LIST-44 to LIST-46, ICE-8),
 // and Sync now while GitHub can't be read (LIST-43).
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -261,5 +262,76 @@ describe("Sync now while GitHub can't be read (LIST-43)", () => {
     expect(html).not.toContain("syncing");
     expect(html).not.toContain("spin");
     expect(html).not.toContain("sync-progress\">Finding");
+  });
+});
+
+describe("the next step filter (LIST-44 to LIST-46, ICE-8)", () => {
+  beforeEach(() => { page.shortcuts = true; page.firstSyncDone = true; });
+  const team = { reasons: ["team_review_requested" as const], teamHandle: "@northstar/web-reviewers" };
+  const rows = [
+    item(1842, "issue", "northstar/api", "Connection pool exhausted after database failover", 0.95, { nextStep: "todo" }),
+    item(731, "pr", "northstar/api", "Retry failed webhooks with exponential backoff", 0.9, { nextStep: "review", ...team }),
+    item(416, "issue", "northstar/cli", "Token refresh fails in headless environments", 0.85, { nextStep: "waiting" }),
+    item(729, "pr", "northstar/api", "Prevent duplicate events on reconnect", 0.8), // no next step yet
+    item(962, "issue", "northstar/web", "Session cookie expires during active use", 0.75, { nextStep: "review" }),
+  ];
+  const button = (html: string) => {
+    const m = html.match(/<button id="next-step-menu" type="button" class="([^"]*)"[^>]*>(.*?)<\/button>/);
+    return m ? { className: m[1], label: text(m[2]).trim() } : null;
+  };
+  const count = (html: string) => text(html).match(/(\d+ of )?\d+ issues and PRs/)?.[0];
+
+  it("puts the menu's button after the type filter, reading \"All\", with the menu closed", () => {
+    const html = render("", list(rows));
+    expect(button(html)).toEqual({ className: "step-filter-btn", label: "Next step: All" });
+    expect(html.indexOf('class="type-filter"')).toBeLessThan(html.indexOf('id="next-step-menu"'));
+    expect(html).toContain('aria-haspopup="menu" aria-expanded="false"');
+    expect(html).not.toContain('role="menu"');
+    expect(ranksShown(html)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("shows only items with a chosen next step, keeping their ranks, and counts them (LIST-45, LIST-37, LIST-38)", () => {
+    const html = render("step=review", list(rows));
+    expect(ranksShown(html)).toEqual([2, 5]); // "Team review" is Review
+    expect(button(html)).toEqual({ className: "step-filter-btn active", label: "Next step: Review" });
+    expect(count(html)).toBe("2 of 5 issues and PRs");
+  });
+
+  it("names the choice on the button: a group, one next step or how many (LIST-44)", () => {
+    const shown = (q: string) => { const html = render(q, list(rows)); return [button(html)?.label, ranksShown(html)]; };
+    expect(shown("step=on_you")).toEqual(["Next step: On you", [1, 2, 5]]);
+    expect(shown("step=not_on_you")).toEqual(["Next step: Not on you", [3]]);
+    expect(shown("step=review,waiting")).toEqual(["Next step: 2 next steps", [2, 3, 5]]);
+    expect(shown("step=todo,review,respond,backlog,waiting")).toEqual(["Next step: 5 next steps", [1, 2, 3, 5]]);
+  });
+
+  it("treats all seven next steps, like none or unknown names, as every item, those with no next step too (LIST-45)", () => {
+    for (const q of ["step=on_you,not_on_you", "step=bogus", ""]) {
+      const html = render(q, list(rows));
+      expect(ranksShown(html)).toEqual([1, 2, 3, 4, 5]);
+      expect(button(html)).toEqual({ className: "step-filter-btn", label: "Next step: All" });
+      expect(count(html)).toBe("5 issues and PRs");
+    }
+  });
+
+  it("combines with the search and the type filter (LIST-45)", () => {
+    expect(ranksShown(render("step=on_you&type=issue", list(rows)))).toEqual([1, 5]);
+    expect(ranksShown(render("step=on_you&q=webhooks", list(rows)))).toEqual([2]);
+    expect(text(render("step=not_on_you&type=pr", list(rows)))).toContain("No matching issues or PRs");
+  });
+
+  it("has no menu in the Icebox, which ignores step in its URL (ICE-8)", () => {
+    const iced = rows.map((i) => ({ ...i, status: "iceboxed" as const, iceboxedAt: "2026-11-14T00:00:00Z" }));
+    const html = render("step=review", list(iced), "icebox");
+    expect(html).not.toContain("next-step-menu");
+    expect(titles(html)).toHaveLength(5);
+    expect(count(html)).toBe("5 issues and PRs");
+  });
+
+  it("offers \"Show only\" in the popup when given, naming the next step without the Team prefix (LIST-46)", () => {
+    const show = (row: ItemRow) => renderToStaticMarkup(<RankWhy row={{ ...row, reasoning: "Because." }} rank={1} onOnly={() => {}} />);
+    expect(show(rows[0])).toContain('<button type="button" class="btn small rank-why-only">Show only To do</button>');
+    expect(show(rows[1])).toContain(">Show only Review</button>");
+    expect(renderToStaticMarkup(<RankWhy row={{ ...rows[0], reasoning: "Because." }} rank={1} />)).not.toContain("Show only");
   });
 });

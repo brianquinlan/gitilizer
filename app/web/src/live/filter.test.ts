@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { countText, isFiltering, listUrl, matches, NO_FILTER, parseFilter, type Filter } from "./filter.ts";
+import { countText, isFiltering, listUrl, matches, NO_FILTER, parseFilter, parseSteps, stepsParam, type Filter } from "./filter.ts";
 
 const item = { title: "Retry failed webhooks with exponential backoff", repo: "northstar/api", number: 731, kind: "pr" as const };
-const f = (q: string, type: Filter["type"] = "all"): Filter => ({ q, type });
+const f = (q: string, type: Filter["type"] = "all"): Filter => ({ q, type, steps: [] });
 const parse = (search: string) => parseFilter(new URLSearchParams(search));
 
 describe("search and the type filter", () => {
@@ -43,8 +43,8 @@ describe("search and the type filter", () => {
 
   it("reads the filter from the URL (LIST-40)", () => {
     expect(parse("")).toEqual(NO_FILTER);
-    expect(parse("type=pr&q=api")).toEqual({ q: "api", type: "pr" });
-    expect(parse("q=%20api%20docs%20&type=issue&page=3")).toEqual({ q: "api docs", type: "issue" });
+    expect(parse("type=pr&q=api")).toEqual(f("api", "pr"));
+    expect(parse("q=%20api%20docs%20&type=issue&page=3")).toEqual(f("api docs", "issue"));
     expect(parse("type=epic")).toEqual(NO_FILTER); // anything else means "All"
   });
 
@@ -57,7 +57,7 @@ describe("search and the type filter", () => {
     expect(listUrl("/", f("   ", "issue"))).toBe("/?type=issue"); // only spaces: no q
     expect(listUrl("/", f("#731"))).toBe("/?q=%23731");
     // What listUrl writes, parseFilter reads back.
-    expect(parse(listUrl("/", f("a&b=c #7", "issue"), 4).split("?")[1]!)).toEqual({ q: "a&b=c #7", type: "issue" });
+    expect(parse(listUrl("/", f("a&b=c #7", "issue"), 4).split("?")[1]!)).toEqual(f("a&b=c #7", "issue"));
   });
 
   it("counts the matching items against the whole list (LIST-27, LIST-38)", () => {
@@ -67,5 +67,28 @@ describe("search and the type filter", () => {
     expect(countText(3, 62, true)).toBe("3 of 62 issues and PRs");
     expect(countText(0, 62, true)).toBe("0 of 62 issues and PRs");
     expect(countText(12, 1000, true)).toBe("12 of 1,000 issues and PRs");
+  });
+});
+
+describe("the next step filter (LIST-40, LIST-45)", () => {
+  const withStep = (nextStep: string | null) => ({ ...item, nextStep: nextStep as never });
+  it("reads and writes groups by name and single next steps by theirs", () => {
+    expect(parseSteps("on_you")).toEqual(["review", "respond", "todo", "backlog"]);
+    expect(parseSteps("not_on_you,review,bogus")).toEqual(["review", "waiting", "elsewhere", "not_yours"]);
+    expect(stepsParam(["respond", "review"])).toBe("review,respond");
+    expect(stepsParam(["backlog", "todo", "respond", "review", "waiting"])).toBe("on_you,waiting");
+    expect(stepsParam([])).toBeNull();
+    expect(listUrl("/", { ...f("api"), steps: ["review", "respond", "todo", "backlog"] })).toBe("/?step=on_you&q=api");
+    expect(parse("step=not_on_you").steps).toEqual(["waiting", "elsewhere", "not_yours"]);
+  });
+  it("matches the chosen next steps only; every next step, or none, filters nothing", () => {
+    const review = { ...f(""), steps: ["review" as const] };
+    expect(matches(withStep("review"), review)).toBe(true);
+    expect(matches(withStep("waiting"), review)).toBe(false);
+    expect(matches(withStep(null), review)).toBe(false);
+    expect(isFiltering(review)).toBe(true);
+    const every = { ...f(""), steps: parseSteps("on_you,not_on_you") };
+    expect(isFiltering(every)).toBe(false);
+    expect(matches(withStep(null), every)).toBe(true);
   });
 });

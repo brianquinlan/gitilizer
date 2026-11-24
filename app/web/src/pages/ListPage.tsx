@@ -1,13 +1,13 @@
 // Prioritized list and Icebox (PRD "Prioritized list", "Live updates", "Icebox").
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  choiceName, DEFAULT_SORT_ICEBOX, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, nextStepLabel, reasonLabel, teamOnly,
+  choiceName, DEFAULT_SORT_ICEBOX, NEXT_STEP_LABEL, DEFAULT_SORT_PRIORITIZED, FIRST_DIRECTION, nextStepLabel, reasonLabel, teamOnly,
   scanBlocker, type NextStep, type ScanBlocker, type Sort, type SortColumn, type SyncEvent,
 } from "@gitilizer/shared";
 import { api, ApiError } from "../api.ts";
-import { BoxIcon, ChevronDown, ChevronLeft, ChevronRight, DownToLineIcon, ExternalIcon, IssueIcon, PrIcon, RefreshIcon, SearchIcon, SortIcon, XIcon } from "../icons.tsx";
+import { BoxIcon, CheckIcon, ChevronDown, ChevronLeft, ChevronRight, DownToLineIcon, ExternalIcon, IssueIcon, PrIcon, RefreshIcon, SearchIcon, SortIcon, XIcon } from "../icons.tsx";
 import { clampPage, PAGE_SIZE, pageCount, ranks, rowsFor, sortRows, type Row, type View } from "../live/engine.ts";
-import { countText, isFiltering, listUrl, matches, NO_FILTER, parseFilter, words, type Filter, type TypeFilter } from "../live/filter.ts";
+import { ALL_STEPS, countText, isFiltering, listUrl, matches, NO_FILTER, normalizeSteps, NOT_ON_YOU, ON_YOU, parseFilter, stepsParam, words, type Filter, type TypeFilter } from "../live/filter.ts";
 import { fadeDelay, FADE_MS, MOVE_MS, REDUCED_MS, type Indicators } from "../live/indicators.ts";
 import { visibleNow } from "../live/visibleClock.ts";
 import { useLive } from "../live/useLive.ts";
@@ -29,7 +29,11 @@ export function ListPage({ view }: { view: View }) {
 
   // LIST-40: the search and the type filter live in the URL, with the page.
   const queryString = query.toString();
-  const filter = useMemo(() => parseFilter(new URLSearchParams(queryString)), [queryString]);
+  // ICE-8: the Icebox shows no next steps (ICE-3), so it ignores a next step filter in its URL.
+  const filter = useMemo(() => {
+    const f = parseFilter(new URLSearchParams(queryString));
+    return view === "icebox" ? { ...f, steps: [] } : f;
+  }, [queryString, view]);
   const filtering = isFiltering(filter);
 
   // LIST-37: ranks come from the whole list, so searching and filtering never change them.
@@ -37,6 +41,13 @@ export function ListPage({ view }: { view: View }) {
   const all = useMemo(() => (live ? sortRows(rowsFor(live.shown, view), sort) : []), [live, view, sort]);
   const matching = useMemo(() => (filtering ? all.filter((r) => matches(r, filter)) : all), [all, filter, filtering]);
   const total = all.filter((r) => !r.leaving).length;
+  // LIST-44: the next step menu counts the items the search and the type filter leave, whatever next steps are chosen.
+  const stepCounts = useMemo(() => {
+    const counts = Object.fromEntries(ALL_STEPS.map((s) => [s, 0])) as Record<NextStep, number>;
+    const others = { q: filter.q, type: filter.type };
+    for (const r of all) if (!r.leaving && r.nextStep && matches(r, others)) counts[r.nextStep]++;
+    return counts;
+  }, [all, filter.q, filter.type]);
   const settled = matching.filter((r) => !r.leaving).length;
   const requested = Number(query.get("page") ?? "1") || 1;
   const page = clampPage(requested, settled);
@@ -68,6 +79,9 @@ export function ListPage({ view }: { view: View }) {
     document.getElementById(SEARCH_ID)?.focus();
   };
 
+  // LIST-40: choosing next steps, in the menu or with "Show only" in the popup (LIST-46), adds a history entry.
+  const chooseSteps = (steps: NextStep[]) => navigate(listUrl(path, { ...filter, steps }));
+
   const firstSyncRunning = view === "prioritized" && !me?.firstSyncDone;
 
   return (
@@ -85,7 +99,7 @@ export function ListPage({ view }: { view: View }) {
 
       <div className={`table ${view === "icebox" ? "icebox" : ""} ${reducedMotion() ? "reduced" : ""}`}>
         {/* LIST-34: in every state of the table, and outside the row group, so it doesn't hold live updates (LIST-41). */}
-        <Filters path={path} filter={filter} />
+        <Filters path={path} filter={filter} stepCounts={view === "prioritized" ? stepCounts : null} onSteps={chooseSteps} />
         {/* The table itself is the headings and the rows; the strip and the pager are controls beside it. */}
         <div role="table" aria-label={view === "prioritized" ? "Prioritized issues" : "Icebox"}>
           <div className="tr thead" role="row">
@@ -102,7 +116,9 @@ export function ListPage({ view }: { view: View }) {
               visible.length === 0 && (all.length === 0 || !filtering) ? <Empty view={view} /> :
               visible.length === 0 ? <NoMatches onClear={clearFilters} /> :
               <Rows rows={visible} rank={rank} view={view} indicators={indicators} collapsing={collapsing} step={step}
-                    onIcebox={moveToIcebox} onRestore={restore} onPopup={holdForPopup} />}
+                    onIcebox={moveToIcebox} onRestore={restore} onPopup={holdForPopup}
+                    stepFilter={filter.steps ?? []}
+                    onOnlyStep={(only) => { chooseSteps([only]); document.getElementById(STEP_MENU_ID)?.focus(); }} />}
           </div>
         </div>
         <Pager page={page} matching={live ? settled : null} total={total} filtering={filtering} href={(p) => listUrl(path, filter, p)} />
@@ -120,7 +136,11 @@ const TYPES: [TypeFilter, string][] = [["all", "All"], ["pr", "PRs"], ["issue", 
  * typed, spaces included, and follows the URL when that changes some other
  * way, such as Back or "Clear filters".
  */
-function Filters({ path, filter }: { path: string; filter: Filter }) {
+function Filters({ path, filter, stepCounts, onSteps }: {
+  path: string; filter: Filter;
+  /** Counts for the next step menu (LIST-44), or null for no menu: the Icebox doesn't show next steps (ICE-3, ICE-8). */
+  stepCounts: Record<NextStep, number> | null; onSteps: (steps: NextStep[]) => void;
+}) {
   const shortcutsOn = useShortcutsOn();
   const input = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(filter.q);
@@ -167,6 +187,91 @@ function Filters({ path, filter }: { path: string; filter: Filter }) {
           <button key={value} type="button" aria-pressed={filter.type === value} onClick={() => choose(value)}>{label}</button>
         ))}
       </div>
+      {stepCounts && <NextStepMenu steps={filter.steps ?? []} counts={stepCounts} onChange={onSteps} />}
+    </div>
+  );
+}
+
+const STEP_MENU_ID = "next-step-menu";
+const STEP_GROUPS: [string, NextStep[]][] = [["On you", ON_YOU], ["Not on you", NOT_ON_YOU]];
+
+/** LIST-44: what the menu button says is chosen: "All", "On you", "Not on you", one next step, or "{n} next steps". */
+export function stepsSummary(steps: readonly NextStep[]): string {
+  const s = normalizeSteps(steps);
+  const p = stepsParam(s);
+  if (!p || s.length === ALL_STEPS.length) return "All";
+  if (p === "on_you") return "On you";
+  if (p === "not_on_you") return "Not on you";
+  return s.length === 1 ? NEXT_STEP_LABEL[s[0]] : `${s.length} next steps`;
+}
+
+/**
+ * The next step menu in the strip (LIST-44, Q-108). Each group has a checkbox that chooses or
+ * clears its next steps, with the next steps under it. None ticked shows every item; there is no "All" or "Clear",
+ * since unticking the groups gets back there in two clicks at most. The menu stays open while
+ * choosing; Esc, a click elsewhere or focus leaving it closes it.
+ */
+function NextStepMenu({ steps, counts, onChange }: { steps: NextStep[]; counts: Record<NextStep, number>; onChange: (s: NextStep[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    wrap.current?.querySelector<HTMLElement>('[role="menuitemcheckbox"]')?.focus();
+    const onDown = (e: MouseEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); button.current?.focus(); } };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  const onMenuKey = (e: React.KeyboardEvent) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const items = [...(wrap.current?.querySelectorAll<HTMLButtonElement>(".step-menu button:not(:disabled)") ?? [])];
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    const n = items.length;
+    items[e.key === "Home" ? 0 : e.key === "End" ? n - 1 : (i + (e.key === "ArrowDown" ? 1 : -1) + n) % n]?.focus();
+  };
+  const has = (s: NextStep) => steps.includes(s);
+  const toggleGroup = (group: NextStep[]) => onChange(group.every(has) ? steps.filter((s) => !group.includes(s)) : [...steps, ...group.filter((s) => !has(s))]);
+  const toggle = (s: NextStep) => onChange(has(s) ? steps.filter((x) => x !== s) : [...steps, s]);
+  const summary = stepsSummary(steps);
+  const box = (state: boolean | "mixed") => (
+    <span className={`step-box${state ? " on" : ""}`} aria-hidden="true">
+      {state === "mixed" ? <span className="step-dash" /> : state && <CheckIcon size={11} />}
+    </span>
+  );
+  return (
+    // Focus moving out of the menu (Tab) closes it. A click elsewhere is the mousedown handler's.
+    <div className="step-filter" ref={wrap}
+         onBlur={(e) => { if (open && e.relatedTarget && !wrap.current?.contains(e.relatedTarget as Node)) setOpen(false); }}>
+      <button ref={button} id={STEP_MENU_ID} type="button" className={`step-filter-btn${summary !== "All" ? " active" : ""}`}
+              aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+        Next step: <b>{summary}</b><ChevronDown size={14} />
+      </button>
+      {open && (
+        <div className="step-menu" role="menu" aria-label="Next step" onKeyDown={onMenuKey}>
+          {STEP_GROUPS.map(([name, group], gi) => {
+            const chosen = group.filter(has).length;
+            const state = chosen === group.length ? true : chosen ? "mixed" as const : false;
+            return (
+              <div key={name} role="group" aria-label={name}>
+                {gi > 0 && <div className="step-menu-sep" role="separator" />}
+                <button type="button" role="menuitemcheckbox" aria-checked={state === "mixed" ? "mixed" : state} className="step-item group" onClick={() => toggleGroup(group)}>
+                  {box(state)}{name}<span className="step-count">{group.reduce((n, s) => n + counts[s], 0)}</span>
+                </button>
+                {group.map((s) => (
+                  <button key={s} type="button" role="menuitemcheckbox" aria-checked={has(s)} className="step-item" onClick={() => toggle(s)}>
+                    {box(has(s))}<span className={`next-step ${s.replace("_", "-")}`}>{NEXT_STEP_LABEL[s]}</span><span className="step-count">{counts[s]}</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+          <div className="step-menu-sep" role="separator" />
+          <div className="step-menu-foot">Team review counts as Review</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -185,6 +290,8 @@ function SortHeader({ label, column, sort, onSort }: { label: string; column: So
 function Rows(props: {
   rows: Row[]; rank: Record<string, number>; view: View; indicators: Indicators; collapsing: Set<string>; step: number;
   onIcebox: (r: Row) => void; onRestore: (r: Row) => void; onPopup: (open: boolean) => void;
+  /** "Show only {next step}" in the rank reasoning popup (LIST-46), left out when the list shows only that next step already. */
+  onOnlyStep: (step: NextStep) => void; stepFilter: NextStep[];
 }) {
   const { rows, rank, view, indicators, collapsing, step, onPopup } = props;
   const els = useRef(new Map<string, HTMLDivElement>());
@@ -293,7 +400,8 @@ function Rows(props: {
                     ? <span className={`next-step-cell${why === r.key ? " open" : ""}`}>
                         <NextStepChip step={r.nextStep} team={teamOnly(r)} rank={n} open={why === r.key} onToggle={() => setWhy(why === r.key ? null : r.key)}
                                       buttonRef={(el) => { if (el) chipBtns.current.set(r.key, el); else chipBtns.current.delete(r.key); }} />
-                        {why === r.key && <RankWhy row={r} rank={n} />}
+                        {why === r.key && <RankWhy row={r} rank={n}
+                          onOnly={props.stepFilter.length === 1 && props.stepFilter[0] === r.nextStep ? undefined : () => { setWhy(null); props.onOnlyStep(r.nextStep!); }} />}
                       </span>
                     : <NextStepChip step={r.nextStep} team={teamOnly(r)} />}{" "}</>}
                   <span className="num">{r.kind === "pr" ? "PR" : "Issue"} #{r.number}</span>{" "}
@@ -345,7 +453,7 @@ export function NextStepChip({ step, team = false, rank, open = false, onToggle,
  * The rank reasoning popup (LIST-24): the agent's next action in a panel tinted like the chip,
  * "Why rank #{n}?" and the reasoning, then the repository and a link to the item on GitHub.
  */
-export function RankWhy({ row: r, rank: n }: { row: Row; rank: number }) {
+export function RankWhy({ row: r, rank: n, onOnly }: { row: Row; rank: number; onOnly?: () => void }) {
   const kind = r.kind === "pr" ? "PR" : "Issue";
   return (
     <div className="rank-why" role="dialog" aria-label={`Why rank #${n}?`}>
@@ -360,8 +468,12 @@ export function RankWhy({ row: r, rank: n }: { row: Row; rank: number }) {
         <p>{r.reasoning}</p>
       </div>
       <div className="rank-why-foot">
-        {r.repo} ·{" "}
-        <a href={r.htmlUrl} target="_blank" rel="noreferrer">{kind} #{r.number}<ExternalIcon size={11} /></a>
+        <span>
+          {r.repo} ·{" "}
+          <a href={r.htmlUrl} target="_blank" rel="noreferrer">{kind} #{r.number}<ExternalIcon size={11} /></a>
+        </span>
+        {/* LIST-46: filter the list to this item's next step. */}
+        {onOnly && r.nextStep && <button type="button" className="btn small rank-why-only" onClick={onOnly}>Show only {NEXT_STEP_LABEL[r.nextStep]}</button>}
       </div>
     </div>
   );

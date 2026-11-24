@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-22 (Settings in sections: each of Connections, Repositories, Teams and collaborators, Ranking prompt and Account is its own screen, chosen in the left column; one save bar at the bottom of every section saves all of them; "Save changes" stays on Settings, "Discard changes" and "Back to list" take the place of "Cancel", and the account details, Preferences and Delete account move into Account, [Settings](#settings), [Sections](#sections), `NAV-3`, `NAV-8`, `NAV-9`, `SET-14`, `SET-15`, `SET-17`, `SET-26`, `SET-27`, `SET-39`, `SET-50`, `SET-57` to `SET-60`, [Q-71](#q-71), [Q-107](#q-107)); 2026-11-22 (team review requests: the developer adds teams in Settings, with an optional prioritization prompt, and "Find my teams" suggests the developer's teams; PRs that ask an added team for review appear in the list, marked "Team review" and so on when nothing about them is personal, and a team's prompt tells the ranking agent how much of its reviewing is the developer's, [Teams](#teams), `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25`, [Q-43](#q-43), [Q-65](#q-65), [Q-106](#q-106)); 2026-11-21 (no sign-in page: signing in starts from the home page, which shows failed sign-ins and remembers the address a signed-out visitor asked for; signing out and deleting the account go to the home page, `AUTH-4`, `AUTH-10`, `AUTH-15`, `HOME-2`, `HOME-3`, `NAV-3`, `NAV-10`, `ACCT-3`, `SET-17`, `FOOT-1`, `FOOT-2`, `BAR-3`, [Q-105](#q-105)); 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-23 (filtering the list by next step: a "Next step" menu in the Prioritized list's strip, with "On you" and "Not on you" and each next step under them, and "Show only {next step}" in the rank reasoning popup; the choice is in the URL as `step`, `NAV-3`, `LIST-34`, `LIST-38` to `LIST-42`, `LIST-44` to `LIST-46`, `ICE-8`, `KEY-2`, [Non-goals](#non-goals), [Q-100](#q-100), [Q-108](#q-108)); 2026-11-22 (Settings in sections: each of Connections, Repositories, Teams and collaborators, Ranking prompt and Account is its own screen, chosen in the left column; one save bar at the bottom of every section saves all of them; "Save changes" stays on Settings, "Discard changes" and "Back to list" take the place of "Cancel", and the account details, Preferences and Delete account move into Account, [Settings](#settings), [Sections](#sections), `NAV-3`, `NAV-8`, `NAV-9`, `SET-14`, `SET-15`, `SET-17`, `SET-26`, `SET-27`, `SET-39`, `SET-50`, `SET-57` to `SET-60`, [Q-71](#q-71), [Q-107](#q-107)); 2026-11-22 (team review requests: the developer adds teams in Settings, with an optional prioritization prompt, and "Find my teams" suggests the developer's teams; PRs that ask an added team for review appear in the list, marked "Team review" and so on when nothing about them is personal, and a team's prompt tells the ranking agent how much of its reviewing is the developer's, [Teams](#teams), `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25`, [Q-43](#q-43), [Q-65](#q-65), [Q-106](#q-106)); 2026-11-21 (no sign-in page: signing in starts from the home page, which shows failed sign-ins and remembers the address a signed-out visitor asked for; signing out and deleting the account go to the home page, `AUTH-4`, `AUTH-10`, `AUTH-15`, `HOME-2`, `HOME-3`, `NAV-3`, `NAV-10`, `ACCT-3`, `SET-17`, `FOOT-1`, `FOOT-2`, `BAR-3`, [Q-105](#q-105)); 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -94,9 +94,9 @@ These are out of scope for the first release.
   "Find my teams" infers (`SET-54`). GitHub doesn't let the Gitilizer app list
   a developer's teams in organizations where it isn't installed
   ([Q-106](#q-106)).
-- Filtering or sorting the list by next step. The list shows each item's next
-  step, which opens the rank reasoning popup (`LIST-42`, `LIST-24`), and
-  nothing more for now ([Q-100](#q-100)).
+- Sorting the list by next step. The list can be filtered by next step
+  (`LIST-44`), and its order stays the rank's ([Q-100](#q-100),
+  [Q-108](#q-108)).
 - Mentions of a GitHub team the developer belongs to (`@org/team`), even a team in [Teams](#teams). Only mentions of the developer by name count ([Q-65](#q-65), [Q-106](#q-106)).
 - More than one GitHub connection per developer, for example a token for each
   organization, or the Gitilizer app and a token together ([Q-40](#q-40),
@@ -196,7 +196,8 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Rank reasoning popup | [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443), opened from the first row's next step chip | [Columns](#columns) |
 | Next action panel | [Shared / Next action panel](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=429-3546), with a variant for each of the seven next steps; the first part of the rank reasoning popup | [Columns](#columns) |
 | Next step chip | [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240), with a variant for each of the seven next steps in each state: Label (no popup, as in the sign-in preview), Button, Hover and Open; shown as a button on every row of the list frames | [Columns](#columns), [Ranking](#ranking) |
-| Search and type filter | [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2738), shown above the column headings in the list and Icebox frames; with a search and a filter in use: [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904); with nothing matching: [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161) | [Search and type filter](#search-and-type-filter) |
+| Search and type filter | [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2738), shown above the column headings in the list and Icebox frames (with its next step button in the list frames only); with a search and a filter in use: [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904); with nothing matching: [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161) | [Search and type filter](#search-and-type-filter) |
+| Next step menu | [Issue inbox · Next step menu](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4167), with "On you" chosen and the menu open; [Shared / Next step button](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=500-4052) (Default and Active), [Shared / Next step menu](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4095) and [Shared / Menu checkbox](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4094) (Empty, Checked and Mixed); "Show only" is in [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443) | [Search and type filter](#search-and-type-filter) |
 | Sync now button | [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369) on the Animations page (Idle and Syncing; present it to see the icon turn); while GitHub can't be read: [Inbox controls · GitHub can't be read](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=425-3408) | [Sync now](#sync-now) |
 | Icebox | [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947) | [Icebox](#icebox) |
 | Icebox, empty | [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593) | [Icebox](#icebox) |
@@ -255,15 +256,16 @@ The source code and documentation are hosted on GitHub at [github.com/brianquinl
   the Prioritized list (and for the home page, `HOME-1`, when the visitor isn't
   signed in) and `/icebox` for the Icebox (each with `?page=N` for pages after
   the first, and with `?q=` and `?type=` while a search or type filter is in
-  use, `LIST-40`), `/settings/connections`, `/settings/repositories`,
+  use, and on `/` `?step=` while next steps are chosen, `LIST-40`),
+  `/settings/connections`, `/settings/repositories`,
   `/settings/teams-and-collaborators`, `/settings/ranking-prompt` and
   `/settings/account` for the sections of Settings (`SET-57`), and
   `/docs/privacy` for the privacy policy (`PRIV-6`). `/settings`, and any other
   address under it, shows Connections and changes to its address. A link to a
   control in Settings is `/settings#{control id}`, and works without naming the
-  section (`SET-58`).
-  There is no sign-in page: `/sign-in`, its address in earlier versions, goes to
-  `/`. Sort order is a stored preference, not part of the URL.
+  section (`SET-58`). There is no sign-in page: `/sign-in`, its address in
+  earlier versions, goes to `/`. Sort order is a stored preference, not part of
+  the URL.
 - **NAV-4** Moving between these screens must not reload the page.
 - **NAV-10** A visitor who isn't signed in and opens any address of the app
   other than `/`, such as `/settings` or `/icebox?page=2`, must be sent to the
@@ -760,8 +762,9 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
   agent's next action (`RANK-2`); the subheading "Why rank #{n}?" and the
   agent's reasoning (`RANK-2`); and, below a rule, the repository and the type
   and number ("northstar/api · Issue #1842"), where the type and number is a
-  link that opens the item on GitHub in a new tab, as the title does (`LIST-4`).
-  The panel is tinted to match the chip, as in
+  link that opens the item on GitHub in a new tab, as the title does (`LIST-4`),
+  and at the right end of that line "Show only {next step}" (`LIST-46`). The
+  panel is tinted to match the chip, as in
   [Shared / Next action panel](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=429-3546):
   a pale blue, violet or teal wash for "Review", "Respond" and "To do"; the
   chip's own yellow fill and border for "Backlog"; a grey fill for "Waiting"; a
@@ -793,14 +796,14 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
   contrast of at least 4.5:1 in every state (`NFR-10`), so "Not yours" has
   darker text on hover. Its accessible name is the next step and "why rank
   #{n}?", and it says whether its popup is open. Otherwise the chip is a label,
-  with no caret. The list can't be filtered or sorted by next step
-  ([Non-goals](#non-goals)). An item with no next step has no chip, and its line
-  starts with the type and number: an unranked item (`LIST-30`), and an item
-  last ranked before next steps existed, until it is ranked again (`RANK-5`,
-  `RANK-9`). When the line doesn't fit, the inclusion reason is cut off at the
-  end with "…" and hovering shows it in full, as for titles (`LIST-23`); the
-  chip and the type and number are never cut off. The Icebox doesn't show next
-  steps (`ICE-3`).
+  with no caret. The list can be filtered by next step (`LIST-44`) but not
+  sorted by it ([Non-goals](#non-goals)). An item with no next step has no chip,
+  and its line starts with the type and number: an unranked item (`LIST-30`),
+  and an item last ranked before next steps existed, until it is ranked again
+  (`RANK-5`, `RANK-9`). When the line doesn't fit, the inclusion reason is cut
+  off at the end with "…" and hovering shows it in full, as for titles
+  (`LIST-23`); the chip and the type and number are never cut off. The Icebox
+  doesn't show next steps (`ICE-3`).
 
   When an item is on the developer only through their teams, a next step on
   the developer gets the prefix "Team": "Team review", "Team respond", "Team
@@ -828,12 +831,13 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
 
 ### Search and type filter
 
-Figma: [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2738), [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904), [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161)
+Figma: [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2738), [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904), [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161), [Issue inbox · Next step menu](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4167)
 
 - **LIST-34** The table must have a strip above its column headings with a
-  search field and, to its right, a type filter. The strip is shown in every
-  state of the table, as the column headings are, including the empty and
-  first-sync states (`LIST-14`, `LIST-15`).
+  search field and, to its right, a type filter and, in the Prioritized list, a
+  next step menu (`LIST-44`). The strip is shown in every state of the table, as
+  the column headings are, including the empty and first-sync states (`LIST-14`,
+  `LIST-15`).
 - **LIST-35** The search field's placeholder is "Search title, repo or #number".
   The list must narrow as the developer types, without Enter. An item matches
   when every word typed is found, ignoring case, in its title, its repository
@@ -855,44 +859,86 @@ Figma: [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCc
   filtered list can read 2, 4, 16, as in
   [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904).
   The sort order (`LIST-6`) applies to the items that match.
-- **LIST-38** Changing the search text or the type filter must return to page
-  1, as changing the sort does (`LIST-26`). Pages are made of the matching
-  items only (`LIST-11`, `LIST-12`). While a search or type filter is in use,
-  the item count (`LIST-27`) reads "{n} of {N} issues and PRs", where {n} is
-  the number of matching items and {N} is the number there would be without
-  the search and filter, for example "3 of 62 issues and PRs".
-- **LIST-39** If the developer has items but none of them match, the table
-  body must be replaced by "No matching issues or PRs" and a "Clear filters"
-  button, as in
+- **LIST-38** Changing the search text, the type filter or the chosen next steps
+  must return to page 1, as changing the sort does (`LIST-26`). Pages are made
+  of the matching items only (`LIST-11`, `LIST-12`). While a search or filter is
+  in use, the item count (`LIST-27`) reads "{n} of {N} issues and PRs", where
+  {n} is the number of matching items and {N} is the number there would be
+  without the search and filter, for example "3 of 62 issues and PRs".
+- **LIST-39** If the developer has items but none of them match, the table body
+  must be replaced by "No matching issues or PRs" and a "Clear filters" button,
+  as in
   [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161).
-  "Clear filters" empties the search field and chooses "All". The count reads
-  "0 of {N} issues and PRs". Two states come first, whatever the search and
-  filter are. While the first sync is running and there is no row to show,
-  because nothing is ranked yet or nothing ranked so far matches, the table
-  stays in the first-sync state (`LIST-15`). And a developer with no items at
-  all sees the empty state in `LIST-14`.
-- **LIST-40** The search text and the type filter must be in the URL, as `q`
-  and `type` (`type=pr` or `type=issue`; no `type` means "All"), for example
+  "Clear filters" empties the search field, chooses "All" and clears the chosen
+  next steps. The count reads "0 of {N} issues and PRs". Two states come first,
+  whatever the search and filter are. While the first sync is running and there
+  is no row to show, because nothing is ranked yet or nothing ranked so far
+  matches, the table stays in the first-sync state (`LIST-15`). And a developer
+  with no items at all sees the empty state in `LIST-14`.
+- **LIST-40** The search text and the type filter must be in the URL, as `q` and
+  `type` (`type=pr` or `type=issue`; no `type` means "All"), for example
   `/?type=pr&q=api`, so that reloading the page and the browser's Back and
   Forward buttons keep them, and a filtered list can be bookmarked (`NAV-3`).
-  `q` holds the search text without the spaces at its ends, and is left out
-  when the field is empty (`LIST-35`). Changing pages keeps both
-  (`/?type=pr&q=api&page=2`), and so does changing the sort. Typing in the
-  search field, and its clear button, replace the current history entry
-  instead of adding one for each character. Choosing a type and "Clear
-  filters" add an entry, as changing pages does, so Back undoes them. Unlike
-  the sort order (`LIST-9`), the search and filter aren't stored on the
+  `q` holds the search text without the spaces at its ends, and is left out when
+  the field is empty (`LIST-35`). The chosen next steps (`LIST-44`) are `step`:
+  `on_you` or `not_on_you` for a whole group, and otherwise the names of the
+  next steps chosen in it (`review`, `respond`, `todo`, `backlog`, `waiting`,
+  `elsewhere`, `not_yours`), separated by commas, for example
+  `/?step=on_you,waiting`; no `step` means none is chosen. Changing pages keeps
+  them all (`/?type=pr&q=api&page=2`), and so does changing the sort. Typing in
+  the search field, and its clear button, replace the current history entry
+  instead of adding one for each character. Choosing a type, choosing next steps
+  and "Clear filters" add an entry, as changing pages does, so Back undoes them.
+  Unlike the sort order (`LIST-9`), the search and filter aren't stored on the
   account, and the "Prioritized" / "Icebox" toggle (`NAV-6`) opens the other
   view without them.
-- **LIST-41** [Live updates](#live-updates) keep working while a search or
-  type filter is in use, and their rules apply to the rows that are shown. Row
+- **LIST-41** [Live updates](#live-updates) keep working while a search or type
+  filter is in use, and their rules apply to the rows that are shown. Row
   indicators still show the change in the item's rank in the whole list
   (`LIVE-18`). An item that starts or stops matching because it changed on
-  GitHub, such as an edited title, appears or goes without a leaving label
-  (`LIVE-25`). Searching and filtering are the developer's own actions, so
-  they apply immediately (`LIVE-7`). For `LIVE-4` and `LIVE-5`, the strip
-  isn't part of the table: the pointer over it, or keyboard focus in it,
-  doesn't hold updates.
+  GitHub, such as an edited title, or because ranking gave it another next step,
+  appears or goes without a leaving label (`LIVE-25`). Searching and filtering
+  are the developer's own actions, so they apply immediately (`LIVE-7`). For
+  `LIVE-4` and `LIVE-5`, the strip isn't part of the table: the pointer over it,
+  or keyboard focus in it, doesn't hold updates.
+- **LIST-44** In the Prioritized list, the strip must have a next step menu to
+  the right of the type filter, as in
+  [Issue inbox · Next step menu](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4167). Its button reads "Next step:
+  {choice}" and ends with a caret, where {choice} is "All" when no next step is
+  chosen, or all seven are; "On you" or "Not on you" when exactly that group's
+  next steps are chosen; the next step's name when one is; and otherwise "{n}
+  next steps". While it leaves items out, the button is tinted in the accent
+  color, as the chosen type is. Clicking the button opens a menu below it with
+  two groups (`RANK-23`): "On you", with Review, Respond, To do and Backlog, and
+  "Not on you", with Waiting, Elsewhere and Not yours. Each group has a checkbox
+  with its name, ticked when all its next steps are chosen, partly ticked when
+  some are, and empty when none are; choosing it chooses all of them, or clears
+  them when they are all chosen already. Under it, each next step has a checkbox
+  and its chip (`LIST-42`). Each line ends with the number of items in it among
+  those the search and the type filter leave, whatever next steps are chosen.
+  The menu ends with the note "Team review counts as Review". It has no "All" or
+  "Clear": with none chosen, the list shows every item, and unticking gets back
+  there in at most two clicks ([Q-108](#q-108)). The menu stays open while the
+  developer chooses. It closes with Esc, which returns focus to the button, with
+  a click outside it, and when focus moves out of it. The arrow keys move
+  between its choices, and Home and End go to the first and last. Each choice
+  says whether it is ticked, and a group whether it is partly ticked. The Icebox
+  has no next step menu (`ICE-3`, `ICE-8`).
+- **LIST-45** With next steps chosen, only items with one of them match,
+  together with the search and the type filter (`LIST-36`). A next step with the
+  "Team" prefix (`LIST-42`) matches as the next step without it, so "Team
+  review" matches Review. An item with no next step matches no choice of next
+  steps. Choosing all seven is the same as choosing none, so every item matches,
+  including those with no next step.
+- **LIST-46** The rank reasoning popup (`LIST-24`) must have a "Show only {next
+  step}" button at the right end of its last line, as in
+  [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443).
+  It chooses the item's next step alone in the next step menu, in place of any
+  others, and keeps the search and the type filter; it closes the popup and
+  moves focus to the menu's button. For a next step with the "Team" prefix, it
+  names the next step without it ("Show only Review"). It isn't shown while the
+  list already shows only that next step. When the repository's name leaves no
+  room for it, it goes onto a line of its own.
 
 ### Pages
 
@@ -1055,7 +1101,7 @@ The Icebox holds items the developer has decided to set aside. It works like the
 - **ICE-5** The Actions column must have a "Restore" button that returns the item to the Prioritized list.
 - **ICE-6** When an item in the Icebox changes on GitHub, Gitilizer must run the **Icebox check**: a short question to the agent, with its own prompt, about whether the change should bring the item back. If the answer is yes, the item returns to the Prioritized list automatically and is ranked again.
 - **ICE-7** If the Icebox is empty, the table body must be replaced by "No issues or PRs in the Icebox". If it has items but none match the search and type filter, it shows "No matching issues or PRs" and "Clear filters", as the Prioritized list does (`LIST-39`).
-- **ICE-8** Pages, sorting, the search and type filter (`LIST-34` to `LIST-41`), the item count and "Sync now" must work as in the Prioritized list. `LIST-37` doesn't apply, because the Icebox has no ranks (`ICE-2`).
+- **ICE-8** Pages, sorting, the search and type filter (`LIST-34` to `LIST-41`), the item count and "Sync now" must work as in the Prioritized list. `LIST-37` doesn't apply, because the Icebox has no ranks (`ICE-2`). Next steps can't be chosen in the Icebox, which doesn't show them (`ICE-3`): it has no next step menu (`LIST-44`), and it ignores `step` in its URL (`LIST-40`).
 - **ICE-9** While the Icebox is shown, an item that leaves it (it returns to the list under `ICE-6`, or leaves under `ICE-11`) must use the leave animation in `LIVE-15`, without the holding rules in [When updates wait](#when-updates-wait).
 - **ICE-10** A restored item must keep its last score. (An item that changed while in the Icebox will usually have returned to the list already, under `ICE-6`, and been ranked again.)
 - **ICE-11** An item that would no longer be eligible for the Prioritized list must leave the Icebox automatically. That includes items that are closed or merged, items that no longer match `LIST-1`, items in a repository that has been archived, items that were there only because of an additional repository the developer has removed, and items in an excluded repository (`SET-34`).
@@ -1090,9 +1136,9 @@ to reach what the controls already do, so nothing depends on them (`NFR-2`).
   as a hint. The clear button takes its place once the field isn't empty.
 - **KEY-2** A shortcut must not act while focus is in a text field or another
   control that takes typing, while a dialog, popup or menu is open (the rank
-  reasoning popup, the notification popover, the account menu), or while Ctrl,
-  Alt or Command is held, so that it never takes a key the developer meant for
-  something else.
+  reasoning popup, the notification popover, the account menu, the next step
+  menu), or while Ctrl, Alt or Command is held, so that it never takes a key the
+  developer meant for something else.
 - **KEY-3** The developer must be able to turn every shortcut off with the
   "Keyboard shortcuts" switch in Settings (`SET-50`). WCAG's success criterion
   2.1.4, Character Key Shortcuts, requires this for shortcuts made of a single
@@ -2202,13 +2248,14 @@ Q-107 came from splitting Settings into sections.
 | <a id="q-97"></a>Q-97 | What the developer sees when basic ranking is held up by Gitilizer's own limits, and whether it stops when the budget is spent | Basic ranking pauses whenever Google refuses Gitilizer's own key for a quota or spending limit, and developers with items waiting see the "Basic ranking is paused" warning, worded like the earlier "Your Gemini daily quota is used up" error. Whether basic ranking stops when a month's budget is spent isn't a rule of the application: the owner decides it in their budget configuration with Google, and the same pause and warning cover it. | `RANK-22`, [Catalogue](#catalogue), `PLAT-4` |
 | <a id="q-98"></a>Q-98 | Finding an item in a long list | A strip above the column headings, inside the table, with a search field and an "All" / "PRs" / "Issues" filter. Search covers the title, the repository and the number. It leaves out the inclusion reason and the agent's reasoning; the reasoning isn't shown on the row, so a match on it couldn't be seen. A filtered list keeps each item's rank in the whole list, and the search and filter are in the URL. Putting the two controls in the row of controls above the table, and putting the type filter in the Issue column heading, were considered and not chosen: the first wraps onto a second line at 1024 px (`PLAT-6`), and the second is easy to miss. Filters by repository and by inclusion reason, unread markers and shortcuts for working through the list were proposed with it and left for later. | `LIST-34` to `LIST-41`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`, `LIVE-7` |
 | <a id="q-99"></a>Q-99 | A keyboard shortcut for search, and turning shortcuts off | "/" moves focus to the search field, with a key cap in the field as a hint. A "Keyboard shortcuts" switch in Settings turns off every shortcut, this one and any added later, which WCAG 2.2 level AA requires for single-character shortcuts. The switch turns off shortcuts only, never ordinary keyboard operation such as Tab, Enter and Esc. A switch for "/" alone, letting the developer change the key, and Ctrl+K or Command+K in its place, which would need no switch, were considered and not chosen. | `KEY-1` to `KEY-3`, `SET-50`, `SET-14`, `LIST-35`, `NFR-10` |
-| <a id="q-100"></a>Q-100 | Showing what the developer should do next on each item | Ranking gives each item one of seven next steps: "Review", "Respond", "To do" and "Backlog" are on the developer; "Waiting", "Elsewhere" and "Not yours" are not. A chip with the next step starts the line under the title, and the agent's one-sentence next action is in the rank reasoning popup, above the reasoning. A fixed set was chosen for the row over the agent's own words because the words don't fit: at 1024 px (`PLAT-6`) the line shows about 38 characters, and the next actions agents write have a median of 68 to 123 characters, depending on the agent. A fixed set also reads the same whichever agent ranked the item, and basic ranking, which writes no text, can give it. The seven came from sorting the next actions of 1,000 items in production. With a finer set for what is on the developer (reply, revise, build, decide, verify, merge), two thirds of those items named two at once. Old items in the developer's own areas with nothing pressing, about a fifth of the list, fitted nowhere, which is why "Backlog" exists; it counts as on the developer because the developer can act on it, and its low score keeps it below the rest. Showing a short phrase on the row, in place of the inclusion reason or on a line of its own, a "Next step" column, and marking only the items that aren't on the developer were considered and not chosen. Filtering by next step, such as "On you" and "Not on you", is left for later, to keep the first change small. Basic ranking gives next steps too: evaluation found its next steps match the eval set about as often as Claude's do ([evaluation](../eval/next-step-2026-11-18.md)). | `LIST-42`, `LIST-24`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, [Non-goals](#non-goals) |
+| <a id="q-100"></a>Q-100 | Showing what the developer should do next on each item | Ranking gives each item one of seven next steps: "Review", "Respond", "To do" and "Backlog" are on the developer; "Waiting", "Elsewhere" and "Not yours" are not. A chip with the next step starts the line under the title, and the agent's one-sentence next action is in the rank reasoning popup, above the reasoning. A fixed set was chosen for the row over the agent's own words because the words don't fit: at 1024 px (`PLAT-6`) the line shows about 38 characters, and the next actions agents write have a median of 68 to 123 characters, depending on the agent. A fixed set also reads the same whichever agent ranked the item, and basic ranking, which writes no text, can give it. The seven came from sorting the next actions of 1,000 items in production. With a finer set for what is on the developer (reply, revise, build, decide, verify, merge), two thirds of those items named two at once. Old items in the developer's own areas with nothing pressing, about a fifth of the list, fitted nowhere, which is why "Backlog" exists; it counts as on the developer because the developer can act on it, and its low score keeps it below the rest. Showing a short phrase on the row, in place of the inclusion reason or on a line of its own, a "Next step" column, and marking only the items that aren't on the developer were considered and not chosen. Filtering by next step, such as "On you" and "Not on you", was left for later, to keep the first change small (changed on 2026-11-23, with [Q-108](#q-108): the list can be filtered by next step). Basic ranking gives next steps too: evaluation found its next steps match the eval set about as often as Claude's do ([evaluation](../eval/next-step-2026-11-18.md)). | `LIST-42`, `LIST-24`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, [Non-goals](#non-goals) |
 | <a id="q-101"></a>Q-101 | What Sync now does while GitHub can't be read at all | It is disabled, with "Reconnect GitHub to sync" (or "Connect GitHub" or "Replace your token") next to it, linking to Settings. "Haven't updated since" isn't shown while that error is, because it has the same cause and tells the developer to try Sync now. Until now the button stayed enabled, and a sync failed in milliseconds, so the progress text flashed and the icon didn't visibly turn. | `LIST-43`, `LIST-28`, `NOTIF-24` |
 | <a id="q-102"></a>Q-102 | Making it clear that the rank reasoning popup can be opened | The next step chip opens it, and the rank no longer does. The clickable rank wasn't obvious: it looked like the plain numbers around it. The chip already looks like something to press, and the popup's first part, the next action, is about the chip's next step. Only a chip with a popup to show gets a caret, so the caret also says which items have reasoning. The popup leads with the next action, in a panel tinted to match the chip, then "Why rank #{n}?" and the reasoning, then a link to the item on GitHub, so the developer can act from the popup. The panel's text is a darker shade of the chip's color rather than the color itself, because some chip colors don't reach 4.5:1 on their own tint (Backlog's yellow is about 2.8:1); every label and text color in the panels reaches at least 4.5:1, and most 7:1. Considered and not chosen: styling the rank as a button, an info icon after the rank, a "Why?" link shown when the pointer is over the row, and a hint in the line above the list; for the popup, 17 other layouts, including the next action and reasoning as tabs, the reasoning collapsed, a header in the chip's color, and the next action in a subtler tint or an outline. | `LIST-24`, `LIST-42` |
 | <a id="q-103"></a>Q-103 | Changing a repository's prioritization prompt | In place: the prompt's text opens as a field when clicked, and a repository without a prompt has "Add prioritization prompt" in its place. The add form no longer has a prompt field, so there is one way to give a repository a prompt. A changed prompt applies to every item with "Save and re-rank", and to items ranked from then on with "Save changes". Until now a prompt couldn't be changed: the developer removed the repository and added it again, and a repository added without a prompt could never get one. An "Edit" button beside "Remove", a field that is always open and a dialog were also considered. Editing the text keeps the section as quiet as it is, and the hover tint and pencil make the text look clickable, which plain text doesn't ([Q-102](#q-102)). | `SET-7`, `SET-9` |
 | <a id="q-104"></a>Q-104 | A home page and privacy policy that Google accepts | A public home page at `/` and a privacy policy page at `/docs/privacy`, both on gitilizer.com and complete without JavaScript. Google refused to show Gitilizer's logo on its sign-in screen for three reasons: `/docs/privacy` redirected to the user guide on GitHub, whose Privacy section doesn't cover everything Google asks for; gitilizer.com showed only the sign-in page; and that page is drawn by JavaScript, so Google's checker saw an empty page. A separate `/about` page, with `/` staying the sign-in page, was considered: it is smaller, but every visitor to gitilizer.com would still land on sign-in. The policy names Brian Quinlan as the operator, with brian@sweetapp.com as the contact. | `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `FOOT-2` |
 | <a id="q-105"></a>Q-105 | Whether to keep a sign-in page | No. Signing in starts from the home page's buttons, failed sign-ins show their notice there, and a signed-out visitor at any other address is sent to the home page, which brings them back after signing in. Signing out and deleting the account go to the home page too. With a home page that already had both buttons, the sign-in page was a second, nearly identical page for signed-out visitors, kept only for failure notices, returning to a deep link and the development sign-in. | `AUTH-4`, `AUTH-10`, `HOME-3`, `NAV-10`, `ACCT-3`, `SET-17` |
 | <a id="q-107"></a>Q-107 | How saving works once Settings is split into sections | One draft for all of Settings, saved from a bar at the bottom of every section ("option B"), as before the split: both saves save every section, the bar names the sections with unsaved changes, and the left column marks them. Two other ways were considered. A Save on each section, saving only that section, is the most common pattern and never hides unsaved changes, but it changes more of what saving means. Saving each change as it is made ("save as you go") needs no Save for lists, but prompts and keys would still need one, there would be no way to discard, and re-ranking and the switch dialog (`SET-40`) would need rethinking. "Save changes" now stays on Settings, because going to the list after each save made sense for one page but not for one of five. "Save and re-rank" still goes to the list, where the re-rank can be watched. | `SET-14`, `SET-57` to `SET-60`, `NAV-8`, `NAV-9` |
+| <a id="q-108"></a>Q-108 | Filtering the list by next step | A "Next step" menu in the strip, after the type filter, with a checkbox for each group, "On you" and "Not on you", and one for each next step under it, with counts, so the list can show one group, one next step or any mix of them; and "Show only {next step}" in the rank reasoning popup, to choose one next step from where it is seen. Five layouts were compared on a design canvas. Considered and not chosen: an "All" / "On you" / "Not on you" control beside the type filter, which can't show a single next step; one switch for the items on the developer, which can't show the rest, though "Not on you" answers "what am I waiting on?"; every next step as a chip on a second line of the strip, the easiest to find but a line more in every view; and the groups beside the type filter with a removable token for a next step chosen from the popup. A prototype also had "Show all", then "All", in the menu; both were dropped, because "Show all" unticked every box, which read as a contradiction, and with none ticked meaning every item, unticking takes at most two clicks. Ticking all seven also means every item, rather than clearing the menu at once. Filtering on GitHub labels was raised and not taken up: the scanner doesn't store them. The Icebox has no menu, because it doesn't show next steps. | `LIST-44` to `LIST-46`, `LIST-24`, `LIST-34`, `LIST-38` to `LIST-42`, `ICE-8`, `KEY-2` |
 | <a id="q-106"></a>Q-106 | Review requests to teams | The developer adds teams in Settings, like additional repositories, each with an optional prioritization prompt, and only those teams' requests are searched. A team without a prompt only brings its requests into the list; with one, its requests rank like reviews waiting on the developer, below personal requests unless the prompt says otherwise. "Find my teams" suggests the developer's teams, with how many open PRs each would bring in, because the Gitilizer app can't list teams in organizations where it isn't installed; it infers them from searches, which spikes on 2026-11-22 showed to work through the app. The spikes also showed that GitHub refuses a search naming a team it doesn't know (so "Not found" can be shown), and that teams combine with OR, with the exclusions and with repository filters in one search. Large-team defaults, member counts and a Warm Welcome switch were dropped with automatic discovery. A next step on the developer only through a team says "Team review" and so on; anything personal, including having commented, wins. Team mentions stay out. Discussed in [this conversation](https://claude.ai/share/78bba69a-85fc-4f40-ae74-206eb7db9042). | `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25` |
 
 ---
@@ -3137,3 +3184,35 @@ Settings was one long page. It is now five sections, each its own screen
   [Settings · Errors · Ranking prompt](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=496-4964). Removed:
   `Settings / Page content`, a copy of the one-page layout that nothing used.
   The Figma version saved just before these changes undoes them.
+
+### Fifty-fifth revision (2026-11-23, filtering by next step)
+
+The list can be filtered by next step ([Q-108](#q-108), which reverses the
+non-goal in [Q-100](#q-100)):
+
+- The Prioritized list's strip has a "Next step" menu after the type filter: "On
+  you" and "Not on you", each a checkbox that chooses or clears its next steps,
+  with each next step under it and counts of the matching items (`LIST-44`,
+  `LIST-34`, `KEY-2`).
+- Only items with a chosen next step match, "Team" next steps as the next step
+  without the prefix; all seven chosen, or none, is every item (`LIST-45`).
+  Choosing next steps returns to page 1, counts as a filter, and "Clear filters"
+  clears it (`LIST-38`, `LIST-39`); the choice is in the URL as `step`
+  (`LIST-40`, `NAV-3`); and ranking can make an item start or stop matching (`LIST-41`).
+- The rank reasoning popup has "Show only {next step}" at the end of its last
+  line (`LIST-46`, `LIST-24`).
+- The Icebox has no menu and ignores `step` (`ICE-8`). Sorting by next step is
+  still a non-goal, and `LIST-42` no longer says the list can't be filtered by
+  it.
+- Changed Figma (the version "Before next step filter" undoes these changes):
+  [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2738)
+  has the next step button, behind a "Next step menu" property that is off in
+  the two Icebox frames, so it shows in every Prioritized list frame;
+  [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443)
+  has "Show only To do". Added Figma:
+  [Issue inbox · Next step menu](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4167),
+  with "On you" chosen and the menu open, and the components
+  [Shared / Next step button](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=500-4052),
+  [Shared / Next step menu](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4095)
+  and
+  [Shared / Menu checkbox](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4094).
