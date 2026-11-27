@@ -16,7 +16,7 @@ const ME: Me = {
   credentials: { github_pat: { ...status, set: false, chip: "not_set" }, gemini_key: status, anthropic_key: { ...status, set: false, chip: "not_set" }, openai_key: { ...status, set: false, chip: "not_set" } },
   github: { method: "app", login: "mayachen", avatarUrl: null, chip: "connected", app: true, installUrl: null },
   rankingAgent: "gemini", rankingChosen: true, firstSyncDone: true,
-  sync: { running: false, lastFinishedAt: null, progress: null },
+  sync: { running: false, lastSyncedAt: null, progress: null },
 };
 const SETTINGS: SettingsResponse = {
   additionalRepos: [{ fullName: "northstar/api", prioritizationPrompt: "Security issues only", access: "ok", tokenType: null, ownerAvatarUrl: null, ownerType: "Organization" }],

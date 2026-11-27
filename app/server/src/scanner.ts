@@ -118,9 +118,10 @@ export async function scan(
     db.query(`update scans set heartbeat_at = now() where id = $1`, [scanId]).catch(() => {});
   }, HEARTBEAT_MS);
   beat.unref?.();
-  const finish = async (outcome: string, errorCode: string | null, queued?: number) => {
+  // `retryAt`: GitHub said when its rate limit ends; no automatic scan starts before then (SCAN-7).
+  const finish = async (outcome: string, errorCode: string | null, queued?: number, retryAt: string | null = null) => {
     clearInterval(beat);
-    await db.query(`update scans set finished_at = now(), outcome = $2, error_code = $3 where id = $1`, [scanId, outcome, errorCode]);
+    await db.query(`update scans set finished_at = now(), outcome = $2, error_code = $3, retry_at = $4 where id = $1`, [scanId, outcome, errorCode, retryAt]);
     // One line per scan: its duration and outcome feed the scan metrics (NFR-6).
     log[outcome === "error" ? "warn" : "info"]("scan", "scan finished", { user: userId, trigger, kind, outcome, errorCode, queued, ms: Date.now() - started });
     if (outcome === "ok" && full) await db.query(`update users set last_full_scan_at = now() where id = $1`, [userId]);
@@ -157,7 +158,7 @@ export async function scan(
   } catch (e) {
     if (e instanceof GitHubProblem) {
       await reportGitHubProblem(ctx, userId, e, method);
-      await finish("error", e.code);
+      await finish("error", e.code, undefined, e.code === "rate_limited" ? e.details.resetAt ?? null : null);
       return { outcome: "error", kind, errorCode: e.code };
     }
     // The backend's own failure, not GitHub's (catalogue: "Gitilizer couldn't finish scanning").

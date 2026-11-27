@@ -241,8 +241,11 @@ export const SyncProgress = z.discriminatedUnion("phase", [
 ]);
 export type SyncProgress = z.infer<typeof SyncProgress>;
 
-/** `progress` is null when no sync is running. */
-export const SyncEvent = z.object({ running: z.boolean(), lastFinishedAt: z.string().nullable(), progress: SyncProgress.nullable() });
+/**
+ * `progress` is null when no sync is running. `lastSyncedAt` is when the developer's last successful scan
+ * started, the time "Synced {time}" shows (PRD LIST-47), or null before their first one.
+ */
+export const SyncEvent = z.object({ running: z.boolean(), lastSyncedAt: z.string().nullable(), progress: SyncProgress.nullable() });
 export type SyncEvent = z.infer<typeof SyncEvent>;
 
 /** How Gitilizer reads GitHub for a developer: the Gitilizer app or a personal access token (PRD SET-42). */
@@ -661,7 +664,11 @@ export function checkMessage(kind: CredentialKind, r: CheckResult): string {
 // Live updates (server-sent events)
 // ---------------------------------------------------------------------------
 
-export const ListResponse = z.object({ version: z.number(), items: z.array(ItemRow) });
+/**
+ * `GET /api/list?known={version}` answers `{ version, items: [], unchanged: true }` when the list is still at that
+ * version, so a tab that reconnects can check for missed changes cheaply (PRD LIVE-30).
+ */
+export const ListResponse = z.object({ version: z.number(), items: z.array(ItemRow), unchanged: z.boolean().optional() });
 export type ListResponse = z.infer<typeof ListResponse>;
 
 export const ListEvent = z.object({
@@ -670,7 +677,7 @@ export const ListEvent = z.object({
   bulk: z.boolean(),
   upserts: z.array(ItemRow),
   removals: z.array(z.object({ key: z.string(), reason: RemovalReason })),
-  /** True when the server can't replay from Last-Event-ID; the client refetches /api/list. */
+  /** True when events may have been lost on the way (the relay's LISTEN connection dropped): the tab catches up from /api/list (LIVE-30). */
   resync: z.boolean().optional(),
 });
 export type ListEvent = z.infer<typeof ListEvent>;

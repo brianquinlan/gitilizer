@@ -80,50 +80,27 @@ export type RelayMessage =
 /** Carries events to every server process, so a tab gets them whichever process it is connected to. */
 export interface Relay { send(m: RelayMessage): void }
 
-/** How long a developer's replay buffer outlives their last open tab. */
-const BUFFER_KEEP_MS = 10 * 60_000;
-
 /**
- * Fan-out of server-sent events to this process's open tabs, with a short replay buffer (design: Live updates).
+ * Fan-out of server-sent events to this process's open tabs (design: Live updates).
  * With a relay (Postgres in production), `list`, `notifications` and `sync` send the event to every process,
  * and each process's relay hands it back through `deliver`; without one (PGlite: one process), they deliver here.
+ * Nothing is kept for replay: a tab that reconnects, or sees a gap in the list's versions, catches up from
+ * `GET /api/list` (LIVE-30).
  */
 export class Hub {
   relay: Relay | null = null;
   private subs = new Set<Subscriber>();
-  private buffers = new Map<string, ListEvent[]>();
-  private dropTimers = new Map<string, NodeJS.Timeout>();
 
   subscribe(userId: string, reply: FastifyReply): () => void {
     const s = { reply, userId };
     this.subs.add(s);
-    const t = this.dropTimers.get(userId);
-    if (t) { clearTimeout(t); this.dropTimers.delete(userId); }
-    return () => {
-      this.subs.delete(s);
-      if (this.connected(userId) === 0 && this.buffers.has(userId)) {
-        const timer = setTimeout(() => { this.buffers.delete(userId); this.dropTimers.delete(userId); }, BUFFER_KEEP_MS);
-        timer.unref?.();
-        this.dropTimers.set(userId, timer);
-      }
-    };
+    return () => { this.subs.delete(s); };
   }
 
-  /** Replays list events after `afterVersion`, or returns false if the buffer doesn't reach back that far. */
-  replay(userId: string, afterVersion: number, send: (e: ListEvent) => void): boolean {
-    const buf = this.buffers.get(userId) ?? [];
-    const missing = buf.filter((e) => e.version > afterVersion);
-    if (missing.length && missing[0].version !== afterVersion + 1) return false;
-    if (!missing.length && buf.length && buf[buf.length - 1].version < afterVersion) return false;
-    if (!missing.length && !buf.length) return false;
-    missing.forEach(send);
-    return true;
-  }
-
-  private send(userId: string, event: string, data: unknown, id?: number) {
+  private send(userId: string, event: string, data: unknown) {
     for (const s of this.subs) {
       if (s.userId !== userId) continue;
-      s.reply.raw.write(`${id !== undefined ? `id: ${id}\n` : ""}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      s.reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     }
   }
 
@@ -140,17 +117,10 @@ export class Hub {
     else this.deliver({ u: userId, t: "sync", e });
   }
 
-  /** Sends an event to this process's tabs. List events are kept for replay only while the developer has tabs here. */
+  /** Sends an event to this process's tabs. */
   deliver(m: RelayMessage) {
-    if (m.t === "list") {
-      if (!this.relay || this.connected(m.u) > 0 || this.buffers.has(m.u)) {
-        const buf = this.buffers.get(m.u) ?? [];
-        buf.push(m.e);
-        if (buf.length > 200) buf.shift();
-        this.buffers.set(m.u, buf);
-      }
-      this.send(m.u, "list", m.e, m.e.version);
-    } else if (m.t === "notifications") this.send(m.u, "notifications", m.l);
+    if (m.t === "list") this.send(m.u, "list", m.e);
+    else if (m.t === "notifications") this.send(m.u, "notifications", m.l);
     else this.send(m.u, "sync", m.e);
   }
 

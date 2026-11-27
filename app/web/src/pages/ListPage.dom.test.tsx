@@ -16,7 +16,7 @@ vi.mock("../store.tsx", () => ({
   useStore: () => ({
     me: { firstSyncDone: true, rankingAgent: "gemini" },
     sorts: { prioritized: DEFAULT_SORT_PRIORITIZED, icebox: DEFAULT_SORT_ICEBOX },
-    setSort: () => {}, sync: { running: false, lastFinishedAt: null, progress: null }, shortcuts: true, notifications: [],
+    setSort: () => {}, sync: { running: false, lastSyncedAt: null, progress: null }, shortcuts: true, notifications: [],
   }),
 }));
 vi.mock("../router.tsx", async () => {
@@ -110,6 +110,33 @@ describe("the next step chip and the rank reasoning popup (LIST-24, LIST-42)", (
     act(() => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
     expect(popup()).toBeNull();
     expect(document.activeElement).toBe(chip);
+  });
+
+  it("closes when its link to GitHub is followed, so it can't hold updates out of sight (LIVE-27)", () => {
+    const [chip] = chips();
+    click(chip);
+    const a = popup()!.querySelector("a")!;
+    a.addEventListener("click", (e) => e.preventDefault()); // jsdom would navigate
+    act(() => a.click());
+    expect(popup()).toBeNull();
+    expect(lastHold()).toBe(false);
+    click(chip);
+    act(() => { popup()!.querySelector("a")!.dispatchEvent(new MouseEvent("auxclick", { bubbles: true, button: 1 })); }); // middle click
+    expect(popup()).toBeNull();
+  });
+
+  it("closes when the tab is hidden (LIVE-27)", () => {
+    const [chip] = chips();
+    click(chip);
+    // No time passes while hidden, so the visible clock (visibleClock.ts) is the same for the tests after this one.
+    const now = vi.spyOn(Date, "now").mockReturnValue(Date.now());
+    const hidden = vi.spyOn(Document.prototype, "hidden", "get").mockReturnValue(true);
+    act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+    hidden.mockRestore();
+    act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+    now.mockRestore();
+    expect(popup()).toBeNull();
+    expect(lastHold()).toBe(false);
   });
 
   it("stays open for a click inside it and closes for a click elsewhere", () => {

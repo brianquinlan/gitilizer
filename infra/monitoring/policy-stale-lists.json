@@ -1,0 +1,28 @@
+{
+  "displayName": "Gitilizer: lists going stale",
+  "documentation": {
+    "content": "A developer with the app visible has gone more than 2 hours without a successful scan, for at least 15 minutes (METRIC-4). Scans for visible tabs are due every 5 minutes, so scans are failing for someone: often GitHub (an outage or a rate limit), sometimes Gitilizer. Look at the dashboard's \"Lists' staleness\" charts and \"Scans finished by outcome\", and at the scan lines with `jsonPayload.outcome=\"error\"` in the log, which name the error code. Developers whose GitHub can't be read at all are left out of the figures: they see why on their own screen.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "A visible developer's list hasn't synced for 2 hours",
+      "conditionThreshold": {
+        "filter": "metric.type=\"logging.googleapis.com/user/list_staleness_max\" AND metric.label.state=\"visible\" AND resource.type=\"cloud_run_revision\" AND resource.label.service_name=monitoring.regex.full_match(\"gitilizer-(api|worker)\")",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_PERCENTILE_99",
+            "crossSeriesReducer": "REDUCE_MAX"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 7200,
+        "duration": "900s",
+        "trigger": { "count": 1 }
+      }
+    }
+  ],
+  "notificationChannels": ["CHANNEL"]
+}

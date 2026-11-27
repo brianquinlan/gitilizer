@@ -558,7 +558,7 @@ describe("sharing the scheduler's work", () => {
     expect(await b.state("u1")).toBe("visible");
     await a.report("u1", "tab-2", false);
     expect(await b.state("u1")).toBe("open");
-    await ctx.db.query(`update presence set at = now() - interval '2 minutes'`);
+    await ctx.db.query(`update presence set at = now() - interval '3 minutes'`);
     expect(await b.state("u1")).toBe("away");
   });
 

@@ -9,7 +9,10 @@ export const PAGE_SIZE = 25;
 export const BATCH_THRESHOLD = 5; // LIVE-9: more than 5 waiting play together
 
 export type Row = ItemRow & { leaving?: string };
-/** `bulk`: part of a bulk re-rank, applied in one step without indicators (LIVE-24). */
+/**
+ * `bulk`: part of a bulk re-rank, or changes a tab missed while disconnected, applied in one step without indicators
+ * (LIVE-24, LIVE-30). A removal without a `reason` (a missed one, whose reason isn't known) goes without a label.
+ */
 export type Change = { key: string; row: ItemRow | null; reason?: RemovalReason; bulk?: boolean };
 export type Live = { shown: Record<string, Row>; latest: Record<string, ItemRow>; queue: Change[]; version: number };
 export type View = "prioritized" | "icebox";
@@ -51,6 +54,24 @@ export function receive(s: Live, e: ListEvent): Live {
   }
   for (const r of e.removals) { delete latest[r.key]; put({ key: r.key, row: null, reason: r.reason, bulk: e.bulk || undefined }); }
   return { ...s, latest, queue: queue.filter((c) => !sameAsShown(s, c)), version: e.version };
+}
+
+/**
+ * Catches up with the whole list from `GET /api/list`, after a reconnect or a gap in the versions of the events
+ * received (LIVE-30). Everything that differs from what is on screen is queued as one bulk change, so it waits like
+ * any other update (LIVE-4 to LIVE-6, LIVE-27, LIVE-28) and then applies in one step without row indicators; it replaces whatever
+ * was queued, which the list includes. A list older than the events already received is ignored unless `force`
+ * (the server asked for it, `resync`).
+ */
+export function catchUp(s: Live, items: ItemRow[], version: number, force = false): Live {
+  if (!force && version <= s.version) return s;
+  const latest: Record<string, ItemRow> = {};
+  for (const i of items) latest[i.key] = i;
+  const queue: Change[] = [];
+  for (const r of items) queue.push({ key: r.key, row: r, bulk: true });
+  for (const key of Object.keys(s.shown)) if (!latest[key]) queue.push({ key, row: null, bulk: true });
+  const next = { ...s, latest, version };
+  return { ...next, queue: queue.filter((c) => !sameAsShown(next, c)) };
 }
 
 function sameAsShown(s: Live, c: Change): boolean {
@@ -141,8 +162,8 @@ export function apply(s: Live, batch: Change[]): Applied {
     const cur = shown[c.key];
     if (!c.row) {
       if (!cur) continue;
-      const label = LEAVE_LABEL[c.reason ?? "no_longer_matches"];
-      // LIVE-26: an item pushed past the 1,000-item limit goes without a label.
+      // LIVE-26: an item pushed past the 1,000-item limit goes without a label, as does one a tab missed (LIVE-30).
+      const label = c.reason ? LEAVE_LABEL[c.reason] : c.bulk ? "" : LEAVE_LABEL.no_longer_matches;
       if (!label) { delete shown[c.key]; continue; }
       shown[c.key] = { ...cur, leaving: label };
       leaving.push(c.key);

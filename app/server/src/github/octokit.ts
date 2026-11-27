@@ -1,4 +1,5 @@
 // Real GitHub access with Octokit. All errors are converted to GitHubProblem.
+import { createHash } from "node:crypto";
 import { Octokit } from "@octokit/core";
 import { paginateRest } from "@octokit/plugin-paginate-rest";
 import { retry } from "@octokit/plugin-retry";
@@ -122,6 +123,28 @@ function parseExpiry(h: string | undefined): string | null {
   return Number.isNaN(t) ? null : new Date(t).toISOString();
 }
 
+/** The longest a search waits for GitHub's per-minute search limit to reset (a minute, and a little for clocks), rather than failing the scan. */
+export const SEARCH_WAIT_SECONDS = 65;
+
+/**
+ * The throttling plugin's settings for one token (design: Scanner, "Search budget").
+ *
+ * - `id`: the plugin paces requests with limiters shared by every client in the process and keyed by `id`, so
+ *   without one every developer's searches queue behind one limit of 30 a minute. A hash of the token gives each
+ *   token its own, as GitHub's limits are per token. Developers sharing a token share its limit, as on GitHub.
+ * - `onRateLimit`: a primary rate limit ends the scan with `rate_limited` and the reset time, which the scheduler
+ *   waits for (SCAN-7); but the search limit resets every minute, so a search that hits it (other tools can use the
+ *   same token) waits for the reset once instead.
+ */
+export function throttleFor(token: string) {
+  return {
+    id: `token-${createHash("sha256").update(token).digest("hex").slice(0, 16)}`,
+    onRateLimit: (retryAfter: number, options: { method?: string; url?: string }, _o: unknown, retryCount: number) =>
+      retryCount < 1 && retryAfter <= SEARCH_WAIT_SECONDS && options.method === "GET" && /^\/search\//.test(new URL(options.url ?? "", "http://github.test").pathname),
+    onSecondaryRateLimit: (_after: number, _opts: unknown, _o: unknown, retryCount: number) => retryCount < 2,
+  };
+}
+
 export class OctokitGitHub implements GitHubApi {
   private o: InstanceType<typeof GitilizerOctokit>;
   private repos = new Map<string, Promise<any>>();
@@ -134,11 +157,7 @@ export class OctokitGitHub implements GitHubApi {
     this.o = new GitilizerOctokit({
       auth: token,
       userAgent: "gitilizer",
-      throttle: {
-        // Primary limit: don't wait inside a scan; surface it so the scheduler can back off.
-        onRateLimit: () => false,
-        onSecondaryRateLimit: (_after: number, _opts: unknown, _o: unknown, retryCount: number) => retryCount < 2,
-      },
+      throttle: throttleFor(token),
       retry: { doNotRetry: [400, 401, 403, 404, 410, 422, 451] },
     });
   }

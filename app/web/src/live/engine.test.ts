@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ItemRow } from "@gitilizer/shared";
 import { DEFAULT_SORT_PRIORITIZED } from "@gitilizer/shared";
-import { apply, clampPage, finalize, init, nextBatch, own, PAGE_SIZE, ranks, receive, rowsFor, sortRows } from "./engine.ts";
+import { apply, catchUp, clampPage, finalize, init, nextBatch, own, PAGE_SIZE, ranks, receive, rowsFor, sortRows } from "./engine.ts";
 
 const row = (n: number, score: number | null, extra: Partial<ItemRow> = {}): ItemRow => ({
   key: `o/r#${n}`, repo: "o/r", number: n, kind: n % 2 ? "issue" : "pr", title: `Item ${n}`, htmlUrl: "",
@@ -137,5 +137,40 @@ describe("live update engine", () => {
     const r = apply(s, nextBatch(s));
     expect(r.state.shown["o/r#1"].leaving).toBe("Back in your list");
     expect(rowsFor(finalize(r.state, r.leaving).shown, "prioritized").map((x) => x.number)).toEqual([1]);
+  });
+});
+
+describe("catching up on missed changes (LIVE-30)", () => {
+  it("queues everything that differs from the screen as one bulk step, without indicators or leave labels", () => {
+    let s = init([row(1, 0.9), row(2, 0.5), row(3, 0.1)], 4);
+    s = catchUp(s, [row(1, 0.9), row(3, 0.95), row(4, 0.7)], 9);
+    expect(s.version).toBe(9);
+    expect(ordered(s)).toEqual([1, 2, 3]); // nothing moves until the queue plays, which waits like any update
+    expect(s.queue.map((c) => [c.key, c.row ? "upsert" : "removal", c.bulk])).toEqual([
+      ["o/r#3", "upsert", true], ["o/r#4", "upsert", true], ["o/r#2", "removal", true],
+    ]);
+    const r = apply(s, nextBatch(s));
+    expect(ordered(r.state)).toEqual([3, 1, 4]);
+    expect(r.indicators).toEqual({});
+    expect(r.leaving).toEqual([]); // #2 goes without a label: why it left isn't known
+  });
+
+  it("replaces what was queued, which the list includes", () => {
+    let s = init([row(1, 0.9), row(2, 0.5)], 1);
+    s = receive(s, { version: 2, bulk: false, upserts: [row(2, 0.95)], removals: [] });
+    s = catchUp(s, [row(1, 0.9), row(2, 0.97)], 5);
+    expect(s.queue).toEqual([{ key: "o/r#2", row: row(2, 0.97), bulk: true }]);
+  });
+
+  it("ignores a list older than the events already received, unless the server asked for it", () => {
+    const s = init([row(1, 0.9)], 7);
+    expect(catchUp(s, [row(1, 0.2)], 6)).toBe(s);
+    expect(catchUp(s, [row(1, 0.2)], 7)).toBe(s);
+    expect(catchUp(s, [row(1, 0.2)], 6, true).queue).toHaveLength(1);
+  });
+
+  it("still labels a bulk removal that says why it left", () => {
+    const s = receive(init([row(1, 0.9), row(2, 0.5)], 1), { version: 2, bulk: true, upserts: [], removals: [{ key: "o/r#2", reason: "closed" }] });
+    expect(apply(s, nextBatch(s)).leaving).toEqual(["o/r#2"]);
   });
 });

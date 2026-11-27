@@ -5,6 +5,7 @@ import type { ListEvent, Me, Notification, SettingsResponse, Sort, SyncEvent } f
 import { api, ApiError } from "./api.ts";
 
 type Listener = (e: ListEvent) => void;
+type ReconnectListener = () => void;
 
 type Store = {
   me: Me | null;
@@ -19,6 +20,8 @@ type Store = {
   setSort: (view: "prioritized" | "icebox", s: Sort) => void;
   setShortcuts: (on: boolean) => void;
   onList: (l: Listener) => () => void;
+  /** Called each time the event stream reconnects after a drop, so the list can catch up on what it missed (LIVE-30). */
+  onReconnect: (l: ReconnectListener) => () => void;
   connected: boolean;
 };
 
@@ -33,11 +36,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [signedOut, setSignedOut] = useState(false);
   const [serverNotes, setServerNotes] = useState<Notification[]>([]);
   const [cannotConnect, setCannotConnect] = useState<string | null>(null);
-  const [sync, setSync] = useState<SyncEvent>({ running: false, lastFinishedAt: null, progress: null });
+  const [sync, setSync] = useState<SyncEvent>({ running: false, lastSyncedAt: null, progress: null });
   const [sorts, setSorts] = useState<Store["sorts"]>(null);
   const [shortcuts, setShortcutsOn] = useState<boolean | null>(null);
   const [connected, setConnected] = useState(true);
   const listeners = useRef(new Set<Listener>());
+  const reconnectListeners = useRef(new Set<ReconnectListener>());
 
   const refreshMe = useCallback(async (): Promise<Me | null> => {
     try {
@@ -78,7 +82,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     es.addEventListener("list", (m) => { const e = JSON.parse((m as MessageEvent).data) as ListEvent; listeners.current.forEach((l) => l(e)); });
     es.addEventListener("notifications", (m) => setServerNotes(JSON.parse((m as MessageEvent).data)));
     es.addEventListener("sync", (m) => { setSync(JSON.parse((m as MessageEvent).data)); refreshMe().catch(() => {}); });
-    es.onopen = () => { downSince = null; setConnected(true); setCannotConnect(null); };
+    let opened = false;
+    es.onopen = () => {
+      downSince = null;
+      setConnected(true);
+      setCannotConnect(null);
+      // A reconnect: the computer slept, the network dropped or a release restarted the server. The tab reports
+      // that it is open again at once, so the scheduler doesn't count it away (SCAN-5), and the list catches up
+      // on the changes it missed (LIVE-30).
+      if (opened) { report(); reconnectListeners.current.forEach((l) => l()); }
+      opened = true;
+    };
     es.onerror = () => {
       setConnected(false);
       if (downSince === null) downSince = Date.now();
@@ -110,13 +124,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const onList = useCallback((l: Listener) => { listeners.current.add(l); return () => { listeners.current.delete(l); }; }, []);
+  const onReconnect = useCallback((l: ReconnectListener) => { reconnectListeners.current.add(l); return () => { reconnectListeners.current.delete(l); }; }, []);
 
   const notifications = cannotConnect
     ? [...serverNotes, { code: "cannot_connect" as const, subject: "", params: {}, firstDetectedAt: cannotConnect, seen: false }]
     : serverNotes;
 
   return (
-    <Ctx.Provider value={{ me, signedOut, notifications, sync, sorts, shortcuts, refreshMe, setSort, setShortcuts, onList, connected }}>
+    <Ctx.Provider value={{ me, signedOut, notifications, sync, sorts, shortcuts, refreshMe, setSort, setShortcuts, onList, onReconnect, connected }}>
       {children}
     </Ctx.Provider>
   );

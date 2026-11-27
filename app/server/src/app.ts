@@ -290,7 +290,13 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
   });
 
   // --- List ----------------------------------------------------------------
-  app.get("/api/list", async (req) => ({ version: await currentVersion(db, uid(req)), items: await listRows(db, uid(req)) }));
+  // `?known={version}`: a tab checking for changes it missed while disconnected (LIVE-30); usually there are none.
+  app.get("/api/list", async (req) => {
+    const version = await currentVersion(db, uid(req));
+    const known = Number((req.query as { known?: string }).known);
+    if (Number.isInteger(known) && known === version) return { version, items: [], unchanged: true };
+    return { version, items: await listRows(db, uid(req)) };
+  });
 
   const itemParam = z.object({ key: z.string() });
   app.post("/api/items/icebox", async (req, reply) => {
@@ -340,12 +346,11 @@ export function buildApp(ctx: Ctx, scheduler: Scheduler, fixtures: FixtureStore 
     reply.hijack();
     reply.raw.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive", "x-accel-buffering": "no" });
     reply.raw.write("retry: 3000\n\n");
-    const lastId = Number(req.headers["last-event-id"] ?? (req.query as any).after ?? NaN);
-    const send = (event: string, data: unknown, id?: number) =>
-      reply.raw.write(`${id !== undefined ? `id: ${id}\n` : ""}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-    if (!Number.isNaN(lastId)) {
-      const ok = ctx.hub.replay(userId, lastId, (e) => send("list", e, e.version));
-      if (!ok) send("list", { version: await currentVersion(db, userId), bulk: false, upserts: [], removals: [], resync: true });
+    // A tab that reconnects asks GET /api/list for anything it missed (LIVE-30), so nothing is replayed here.
+    const send = (event: string, data: unknown) => reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    // Only a tab loaded before that change sends Last-Event-ID, expecting a replay: it reads the list again instead.
+    if (req.headers["last-event-id"] !== undefined) {
+      send("list", { version: await currentVersion(db, userId), bulk: false, upserts: [], removals: [], resync: true });
     }
     send("notifications", await shownNotifications(ctx, userId));
     send("sync", await syncState(ctx, userId));

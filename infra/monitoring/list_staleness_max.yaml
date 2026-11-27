@@ -1,0 +1,9 @@
+# The greatest time since the start of a developer's last successful scan, for each presence state, from the
+# scheduler's "list staleness" line, logged once a minute (METRIC-6). The "lists going stale" alert watches the
+# visible state. Fine buckets (10% apart), so the alert's 2 hours is close.
+description: 'Greatest staleness of developers'' lists in seconds, by presence state, from the scheduler''s "list staleness" log lines (METRIC-6, METRIC-4)'
+filter: 'resource.type="cloud_run_revision" AND jsonPayload.component="scheduler" AND jsonPayload.message="list staleness" AND jsonPayload.developers>0'
+metricDescriptor: { metricKind: DELTA, valueType: DISTRIBUTION, unit: s, labels: [{ key: state }] }
+valueExtractor: EXTRACT(jsonPayload.maxSeconds)
+labelExtractors: { state: EXTRACT(jsonPayload.state) }
+bucketOptions: { exponentialBuckets: { numFiniteBuckets: 150, growthFactor: 1.1, scale: 1 } }
