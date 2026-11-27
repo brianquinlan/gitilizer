@@ -182,7 +182,8 @@ create table if not exists scans (
   error_code text,
   heartbeat_at timestamptz,
   found int,
-  to_queue int
+  to_queue int,
+  retry_at timestamptz
 );
 create unique index if not exists scans_one_running on scans(user_id) where finished_at is null;
 create table if not exists rank_batches (
@@ -299,6 +300,10 @@ alter table users add column if not exists sign_in_login text;
 alter table scans add column if not exists heartbeat_at timestamptz;
 alter table scans add column if not exists found int;
 alter table scans add column if not exists to_queue int;
+alter table scans add column if not exists retry_at timestamptz;
+-- The scheduler reads each developer's last successful scan and the failures since it every few seconds (SCAN-7).
+create index if not exists scans_by_user on scans(user_id, finished_at);
+create index if not exists scans_ok_by_user on scans(user_id, finished_at) where outcome = 'ok';
 alter table credentials add column if not exists token_login text;
 alter table credentials add column if not exists token_type text;
 alter table credentials add column if not exists refresh_ciphertext text;

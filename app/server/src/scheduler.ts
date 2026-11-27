@@ -1,19 +1,27 @@
-// Scan scheduling from presence (design: Scheduler; PRD SCAN-5, SCAN-6, RANK-9, PRIV-5).
+// Scan scheduling from presence (design: Scheduler; PRD SCAN-5 to SCAN-7, RANK-9, PRIV-5, METRIC-6).
 //
 // Several processes can run this. Presence and scan requests live in the database, so an API process that
 // receives a presence report or a Sync now hands the scan to whichever scanner claims it. The periodic pass
 // (due scans, notifications, quotas, clean-up) runs in one process at a time, the holder of the `scheduler`
 // lease; every scanner process claims requested scans, up to its own limit.
 import { randomUUID } from "node:crypto";
+import { SCAN_BLOCKERS } from "@gitilizer/shared";
 import { log } from "./log.ts";
-import type { Ctx } from "./context.ts";
+import type { Config, Ctx } from "./context.ts";
 import { queueFullRerank, reapLeases, refreshQuotas } from "./jobs.ts";
 import { clear, promote, raise } from "./notify.ts";
 import { type PgListener, SCAN_CHANNEL, notify } from "./pubsub.ts";
 import { FULL_TRIGGERS, reapScans, scan } from "./scanner.ts";
 
-/** A tab that hasn't reported for this long is closed. The web app reports every minute. */
-const PRESENCE_TTL_SECONDS = 90;
+/**
+ * A tab that hasn't reported for this long is closed. The web app reports every minute and when its event stream
+ * reconnects; a hidden tab's timers can fire late, so this leaves room for one late report.
+ */
+export const PRESENCE_TTL_SECONDS = 150;
+/** The first retry after a scan fails; each failure in a row doubles it, up to the state's interval (SCAN-7). */
+export const RETRY_FIRST_SECONDS = 60;
+/** How often the periodic pass logs how stale lists are in each state (METRIC-6). */
+const STALENESS_EVERY_MS = 60_000;
 /** The periodic pass's lease. A stopped holder's lease runs out, and another process takes over. */
 const LEASE_SECONDS = 30;
 /** A Sync now that arrives during another process's incremental scan waits this long, then tries again. */
@@ -21,10 +29,83 @@ const RETRY_FULL_SECONDS = 10;
 /** Saves that change what a scan looks for. */
 const SETTINGS_TRIGGERS = new Set(["settings", "credentials"]);
 
-/** "visible", "open" or "away" for the developer `$1` (or the outer query's `u.id`), from tabs seen in the last 90 s. */
+export type PresenceState = "visible" | "open" | "away";
+
+/** "visible", "open" or "away" for the developer `$1` (or the outer query's `u.id`), from tabs seen within the TTL. */
 const PRESENCE_STATE = (who: string) => `(
   select case when bool_or(p.visible) then 'visible' when count(*) > 0 then 'open' else 'away' end
   from presence p where p.user_id = ${who} and p.at > now() - make_interval(secs => ${PRESENCE_TTL_SECONDS}))`;
+
+/**
+ * For each developer `u.id` in the outer query: their last successful scan (`ok`), and the scans that failed since
+ * it (`fail`; the latest 8 are plenty, since 60 s doubled 7 times passes every interval), with the latest time GitHub
+ * gave for the end of a rate limit (SCAN-7).
+ */
+const SCAN_HISTORY = `
+  left join lateral (
+    select s.finished_at as last_ok, s.started_at as last_ok_started from scans s
+    where s.user_id = u.id and s.outcome = 'ok' order by s.finished_at desc limit 1) ok on true
+  left join lateral (
+    select count(*)::int as failures, max(f.finished_at) as last_failed, max(f.retry_at) as retry_at from (
+      select f.finished_at, f.retry_at from scans f
+      where f.user_id = u.id and f.outcome <> 'ok' and f.finished_at > coalesce(ok.last_ok, '-infinity'::timestamptz)
+      order by f.finished_at desc limit 8) f) fail on true`;
+
+/** What the scheduler needs to know about a developer's recent scans, as epoch milliseconds. */
+export type ScanHistory = { lastOk: number | null; failures: number; lastFailed: number | null; retryAt: number | null };
+
+const ms = (t: unknown): number | null => (!t ? null : t instanceof Date ? t.getTime() : Date.parse(String(t)));
+function historyOf(r: any): ScanHistory {
+  return { lastOk: ms(r.last_ok), failures: Number(r.failures ?? 0), lastFailed: ms(r.last_failed), retryAt: ms(r.retry_at) };
+}
+
+/** The scan interval for a presence state (SCAN-5), in seconds. */
+export function intervalFor(config: Config, state: PresenceState): number {
+  return config.intervals[state === "away" ? "background" : state];
+}
+
+/** How long to wait after the latest of `failures` failed scans in a row: 1 minute, doubling, up to the interval (SCAN-7). */
+export function retryDelaySeconds(failures: number, intervalSeconds: number): number {
+  return Math.min(RETRY_FIRST_SECONDS * 2 ** Math.max(0, failures - 1), intervalSeconds);
+}
+
+/**
+ * Whether a scheduled scan is due (SCAN-5, SCAN-7). Intervals count from the last scan that succeeded, so a failed
+ * or interrupted scan doesn't put the next one off; a scan that failed is tried again after `retryDelaySeconds`;
+ * and nothing starts before a rate limit GitHub told us about has ended.
+ */
+export function scanDue(h: ScanHistory, intervalSeconds: number, now: number): boolean {
+  if (h.retryAt !== null && now < h.retryAt) return false;
+  if (h.lastOk !== null && now - h.lastOk < intervalSeconds * 1000) return false;
+  if (h.failures > 0 && h.lastFailed !== null && now - h.lastFailed < retryDelaySeconds(h.failures, intervalSeconds) * 1000) return false;
+  return true;
+}
+
+/** One developer, for the staleness figures (METRIC-6). */
+export type StalenessRow = { state: PresenceState; lastOkStarted: number | null; firstSyncDone: boolean; blocked: boolean; inactive: boolean };
+export type StalenessFigures = { developers: number; medianSeconds?: number; maxSeconds?: number };
+
+/**
+ * How stale lists are in each presence state (METRIC-6): how many developers, and the median and greatest time since
+ * the start of their last successful scan, which is what "Synced {time}" shows them (LIST-47). Developers whose GitHub
+ * can't be read at all, whose first sync hasn't finished, or who haven't been seen for a week are left out: no
+ * scheduled scan can bring their list up to date.
+ */
+export function stalenessFigures(rows: StalenessRow[], now: number): Record<PresenceState, StalenessFigures> {
+  const ages: Record<PresenceState, number[]> = { visible: [], open: [], away: [] };
+  for (const r of rows) {
+    if (!r.firstSyncDone || r.blocked || r.inactive || r.lastOkStarted === null) continue;
+    ages[r.state].push(Math.max(0, (now - r.lastOkStarted) / 1000));
+  }
+  const figures = (a: number[]): StalenessFigures => {
+    if (!a.length) return { developers: 0 };
+    a.sort((x, y) => x - y);
+    const mid = a.length >> 1;
+    const median = a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
+    return { developers: a.length, medianSeconds: Math.round(median), maxSeconds: Math.round(a[a.length - 1]) };
+  };
+  return { visible: figures(ages.visible), open: figures(ages.open), away: figures(ages.away) };
+}
 
 export type SchedulerOptions = {
   /** Scans this process runs at once (design: Scale, ~200 per scanner process). */
@@ -37,6 +118,7 @@ export class Scheduler {
   private running = new Set<string>();
   private timer: NodeJS.Timeout | null = null;
   private lastAgeingPass = 0;
+  private lastStalenessLog = 0;
   private claiming = false;
   private stopped = false;
   private claimAgain = false;
@@ -72,20 +154,27 @@ export class Scheduler {
     return after === "visible";
   }
 
-  async state(userId: string): Promise<"visible" | "open" | "away"> {
+  async state(userId: string): Promise<PresenceState> {
     const r = await this.ctx.db.one(`select ${PRESENCE_STATE("$1")} as state`, [userId]);
     return r?.state ?? "away";
   }
 
-  /** SCAN-6: becoming visible starts a scan if the last one finished more than 5 minutes ago. */
+  /**
+   * SCAN-6: becoming visible starts a scan if the last successful one finished more than 5 minutes ago, even while a
+   * failed scan is waiting to be tried again, but not before a rate limit GitHub told us about has ended (SCAN-7).
+   */
   private async maybeScanOnVisible(userId: string) {
-    const last = await this.lastFinished(userId);
-    if (!last || Date.now() - last > this.ctx.config.intervals.visible * 1000) this.trigger(userId, "visible");
-  }
-
-  private async lastFinished(userId: string): Promise<number | null> {
-    const r = await this.ctx.db.one(`select max(finished_at) as t from scans where user_id = $1`, [userId]);
-    return r?.t ? Date.parse(r.t) : null;
+    // As in the periodic pass, only a developer with GitHub connected: Warm Welcome becoming visible scans nothing.
+    const r = await this.ctx.db.one(
+      `select ok.last_ok, fail.* from users u ${SCAN_HISTORY}
+       where u.id = $1 and exists (select 1 from credentials c where c.user_id = u.id and c.kind in ('github_pat', 'github_app'))`,
+      [userId],
+    );
+    if (!r) return;
+    const h = historyOf(r);
+    const now = Date.now();
+    if (h.retryAt !== null && now < h.retryAt) return;
+    if (h.lastOk === null || now - h.lastOk > this.ctx.config.intervals.visible * 1000) this.trigger(userId, "visible");
   }
 
   /**
@@ -229,23 +318,32 @@ export class Scheduler {
     if (!config.autoScan) return;
     const users = await db.query(
       `select u.id, u.last_seen_at, u.first_sync_done, ${PRESENCE_STATE("u.id")} as presence,
-              (select max(finished_at) from scans s where s.user_id = u.id) as last_finished,
-              (select max(finished_at) from scans s where s.user_id = u.id and s.outcome = 'ok') as last_ok
-       from users u where exists (select 1 from credentials c where c.user_id = u.id and c.kind in ('github_pat', 'github_app'))`,
+              ok.last_ok, ok.last_ok_started, fail.failures, fail.last_failed, fail.retry_at,
+              exists (select 1 from notifications n where n.user_id = u.id and n.shown and n.code = any($1)) as blocked
+       from users u ${SCAN_HISTORY}
+       where exists (select 1 from credentials c where c.user_id = u.id and c.kind in ('github_pat', 'github_app'))`,
+      [SCAN_BLOCKERS.map((b) => b.code)],
     );
+    const now = Date.now();
+    const staleness: StalenessRow[] = [];
     for (const u of users) {
-      const state = u.presence as "visible" | "open" | "away";
-      const interval = config.intervals[state === "visible" ? "visible" : state === "open" ? "open" : "background"];
-      const inactive = Date.now() - Date.parse(u.last_seen_at) > config.inactiveDays * 86_400_000;
-      const last = u.last_finished ? Date.parse(u.last_finished) : 0;
-      if (!inactive && Date.now() - last >= interval * 1000) this.trigger(u.id, `schedule:${state}`);
+      const state = u.presence as PresenceState;
+      const inactive = now - Date.parse(u.last_seen_at) > config.inactiveDays * 86_400_000;
+      const h = historyOf(u);
+      if (!inactive && scanDue(h, intervalFor(config, state), now)) this.trigger(u.id, `schedule:${state}`);
       // "Your issues and PRs haven't updated since {time}" (PRD catalogue: 3 hours).
-      const lastOk = u.last_ok ? Date.parse(u.last_ok) : null;
-      if (u.first_sync_done && lastOk && Date.now() - lastOk > config.staleAfterSeconds * 1000) {
-        await raise(this.ctx, u.id, "stale", { since: new Date(lastOk).toISOString() });
-      } else if (lastOk) {
+      if (u.first_sync_done && h.lastOk && now - h.lastOk > config.staleAfterSeconds * 1000) {
+        await raise(this.ctx, u.id, "stale", { since: new Date(h.lastOk).toISOString() });
+      } else if (h.lastOk) {
         await clear(this.ctx, u.id, ["stale"]);
       }
+      staleness.push({ state, lastOkStarted: ms(u.last_ok_started), firstSyncDone: Boolean(u.first_sync_done), blocked: Boolean(u.blocked), inactive });
+    }
+    // METRIC-6: one line a minute for each state, which log-based metrics turn into the staleness charts and alert.
+    // They describe each state as a whole, never one developer.
+    if (now - this.lastStalenessLog >= STALENESS_EVERY_MS) {
+      this.lastStalenessLog = now;
+      for (const [state, f] of Object.entries(stalenessFigures(staleness, now))) log.info("scheduler", "list staleness", { state, ...f });
     }
     // Hourly: re-rank, as one bulk batch per developer, items not ranked in the last 24 hours (RANK-9, LIVE-24),
     // and delete item data no developer has had for 30 days (PRIV-5). The daily re-rank uses only a developer's

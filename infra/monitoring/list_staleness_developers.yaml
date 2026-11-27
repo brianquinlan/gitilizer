@@ -1,0 +1,8 @@
+# How many developers are in each presence state, counting only lists a scan can bring up to date, from the
+# scheduler's "list staleness" line, logged once a minute (METRIC-6).
+description: 'Developers in each presence state, from the scheduler''s "list staleness" log lines (METRIC-6)'
+filter: 'resource.type="cloud_run_revision" AND jsonPayload.component="scheduler" AND jsonPayload.message="list staleness"'
+metricDescriptor: { metricKind: DELTA, valueType: DISTRIBUTION, unit: '1', labels: [{ key: state }] }
+valueExtractor: EXTRACT(jsonPayload.developers)
+labelExtractors: { state: EXTRACT(jsonPayload.state) }
+bucketOptions: { exponentialBuckets: { numFiniteBuckets: 100, growthFactor: 1.1, scale: 1 } }

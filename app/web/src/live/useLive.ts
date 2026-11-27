@@ -1,23 +1,24 @@
-// Applies queued live updates under the PRD's holding rules (LIVE-4..10, LIVE-27).
-import { useCallback, useEffect, useRef, useState } from "react";
+// Applies queued live updates under the PRD's holding rules (LIVE-4..10, LIVE-27, LIVE-28), keeps keyboard focus on
+// rows that move (LIVE-29), and catches up on changes the tab missed (LIVE-30).
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ItemRow, ListResponse } from "@gitilizer/shared";
 import { api } from "../api.ts";
 import { useStore } from "../store.tsx";
-import { apply, finalize, init, nextBatch, own, receive, type Change, type Live, type View } from "./engine.ts";
+import { apply, catchUp, finalize, init, nextBatch, own, receive, type Change, type Live, type View } from "./engine.ts";
+import { held, initHolds, setApplying, trackActivity } from "./holds.ts";
 import { addIndicators, expireIndicators, MOVE_MS, type Indicators } from "./indicators.ts";
 import { visibleNow } from "./visibleClock.ts";
 
-const HOLD_AFTER_MS = 1000; // LIVE-4, LIVE-5
 const STEP_MS = MOVE_MS; // "Each animation takes about 0.7 seconds" (LIVE-11..16)
 const LABEL_MS = 600; // how long a leave label shows before the row collapses
 
 export function useLive(view: View) {
-  const { onList } = useStore();
+  const { onList, onReconnect } = useStore();
   const [live, setLive] = useState<Live | null>(null);
   const ref = useRef<Live | null>(null);
   const viewRef = useRef(view);
   viewRef.current = view;
-  const holds = useRef({ pointerInside: false, pointerLeftAt: 0, focusInside: false, popupOpen: false, popupClosedAt: 0 });
+  const holds = useRef(initHolds());
   const busyUntil = useRef(0);
   const [indicators, setIndicators] = useState<Indicators>({});
   const indicatorsRef = useRef<Indicators>({});
@@ -26,20 +27,55 @@ export function useLive(view: View) {
   const [announcement, setAnnouncement] = useState("");
   /** Increments each time server changes are applied, so the table knows to animate. */
   const [step, setStep] = useState(0);
+  /** The table's row group, where the pointer, focus and activity hold updates. */
+  const [table, setTable] = useState<HTMLElement | null>(null);
+  const tableRef = useRef<HTMLElement | null>(null);
+  tableRef.current = table;
 
   const commit = useCallback((s: Live) => { ref.current = s; setLive(s); }, []);
 
-  const load = useCallback(async () => {
-    const r = await api.get<ListResponse>("/api/list");
-    commit(init(r.items, r.version));
-    reportListReady();
+  // Catching up (LIVE-30). At most one request at a time; `wanted` asks for another when it ends, because a gap or
+  // reconnect seen meanwhile may need a newer list than the one on its way.
+  const fetching = useRef(false);
+  const wanted = useRef<"no" | "yes" | "force">("no");
+  /** The newest version seen in an event before the list had loaded, or while catching up. */
+  const seen = useRef(0);
+  const sync = useCallback(async (force: boolean) => {
+    if (fetching.current) { if (wanted.current !== "force") wanted.current = force ? "force" : "yes"; return; }
+    fetching.current = true;
+    try {
+      const known = ref.current?.version;
+      const r = await api.get<ListResponse>(known === undefined || force ? "/api/list" : `/api/list?known=${known}`);
+      if (!ref.current) { commit(init(r.items, r.version)); reportListReady(); }
+      else if (!r.unchanged) commit(catchUp(ref.current, r.items, r.version, force));
+    } catch {
+      // The next event, reconnect or tick tries again.
+    } finally {
+      fetching.current = false;
+      const again = wanted.current;
+      wanted.current = "no";
+      if (again !== "no" || (ref.current && seen.current > ref.current.version)) void sync(again === "force");
+    }
   }, [commit]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void sync(false); }, [sync]);
   useEffect(() => onList((e) => {
-    if (e.resync) { void load(); return; }
-    if (ref.current) commit(receive(ref.current, e));
-  }), [onList, load, commit]);
+    const s = ref.current;
+    if (e.resync) { void sync(true); return; }
+    // Versions go up by one per event, so a jump means events were lost on the way: catch up instead (LIVE-30).
+    // Before the list has loaded, or while a catch-up is on its way, the event is noted; the list read covers it,
+    // or another is read when it ends.
+    if (!s || fetching.current || e.version > s.version + 1) {
+      seen.current = Math.max(seen.current, e.version);
+      if (!fetching.current) void sync(false);
+      return;
+    }
+    commit(receive(s, e));
+  }), [onList, sync, commit]);
+  useEffect(() => onReconnect(() => { void sync(false); }), [onReconnect, sync]);
+
+  // What the developer does in the table keeps the pointer and focus holding updates (LIVE-28).
+  useEffect(() => (table ? trackActivity(table, () => { holds.current.lastActivity = Date.now(); }) : undefined), [table]);
 
   const leave = useCallback((keys: string[]) => {
     setTimeout(() => setCollapsing((c) => new Set([...c, ...keys])), LABEL_MS);
@@ -57,20 +93,19 @@ export function useLive(view: View) {
       const s = ref.current;
       if (!s || !s.queue.length) return;
       const now = Date.now();
-      const h = holds.current;
       if (now < busyUntil.current || document.visibilityState !== "visible") return; // LIVE-6 (hidden tab)
+      // Read from the document, not from focus events, so focus on a row that has gone can't hold updates (LIVE-5).
+      const focusInside = Boolean(tableRef.current?.contains(document.activeElement));
       let batch: Change[];
       if (viewRef.current === "icebox") {
         // LIVE-6 holds list updates while the Icebox is shown; items leaving the Icebox animate at once (ICE-9).
         batch = s.queue.filter((c) => s.shown[c.key]?.status === "iceboxed" || c.row?.status === "iceboxed");
         if (!batch.length) return;
       } else {
-        if (h.pointerInside || now - h.pointerLeftAt < HOLD_AFTER_MS) return; // LIVE-4
-        if (h.focusInside) return; // LIVE-5
-        // Rows don't move under an open rank reasoning popup, wherever the pointer or focus is, nor for a second after it closes (LIVE-27).
-        if (h.popupOpen || now - h.popupClosedAt < HOLD_AFTER_MS) return;
+        if (held(holds.current, focusInside, now)) return; // LIVE-4, LIVE-5, LIVE-27, LIVE-28
         batch = nextBatch(s); // LIVE-8, LIVE-9
       }
+      setApplying(true); // until the step is drawn: React keeps focus on a row it moves (LIVE-29)
       const r = apply(s, batch);
       commit(r.state);
       setStep((n) => n + 1);
@@ -88,12 +123,16 @@ export function useLive(view: View) {
     return () => clearInterval(t);
   }, [commit, leave]);
 
-  /** Table event handlers that hold updates (LIVE-4, LIVE-5, LIVE-10). */
+  // LIVE-29: React moves a row's element to move the row, which takes focus off it, and puts focus back as it draws
+  // the step, before this runs. A row that left the page isn't followed: its element is gone.
+  useLayoutEffect(() => { setApplying(false); }, [step]);
+  useEffect(() => () => setApplying(false), []);
+
+  /** Table event handlers and ref (LIVE-4, LIVE-5, LIVE-10, LIVE-28). */
   const tableProps = {
+    ref: setTable,
     onPointerEnter: () => { holds.current.pointerInside = true; },
     onPointerLeave: () => { holds.current.pointerInside = false; holds.current.pointerLeftAt = Date.now(); },
-    onFocus: () => { holds.current.focusInside = true; },
-    onBlur: (e: React.FocusEvent) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) holds.current.focusInside = false; },
   };
 
   /** Holds updates while the rank reasoning popup is open, and for 1 s after it closes (LIVE-27). */

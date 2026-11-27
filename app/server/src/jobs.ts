@@ -504,21 +504,23 @@ export async function syncState(ctx: Ctx, userId: string): Promise<SyncEvent> {
             (select count(*) from j where state = 'leased')::int as leased,
             (select min(not_before) > now() from j where state = 'queued') as delayed,
             (u.ranking_paused_until is not null and u.ranking_paused_until > now()) as paused,
-            (select max(finished_at) from scans where user_id = $1 and outcome = 'ok') as last
+            (select max(started_at) from scans where user_id = $1 and outcome = 'ok') as last
      from users u where u.id = $1`,
     [userId],
   );
-  const lastFinishedAt = r?.last ? new Date(r.last).toISOString() : null;
+  // "Synced {time}" counts from the start of the last successful scan: everything changed on GitHub before then
+  // is in the list (LIST-47).
+  const lastSyncedAt = r?.last ? new Date(r.last).toISOString() : null;
   const scanning = Boolean(r?.scanning);
   const open = r && !r.paused ? Number(r.open) : 0;
-  if (!scanning && !open) return { running: false, lastFinishedAt, progress: null };
+  if (!scanning && !open) return { running: false, lastSyncedAt, progress: null };
   if (scanning && r.kind === "full" && r.to_queue === null) {
-    return { running: true, lastFinishedAt, progress: { phase: "finding", found: r.found === null ? null : Number(r.found) } };
+    return { running: true, lastSyncedAt, progress: { phase: "finding", found: r.found === null ? null : Number(r.found) } };
   }
   // Items waiting for quota aren't left to rank (LIST-33): they wait until midnight Pacific time.
   const left = r.paused ? 0 : Number(r.to_queue ?? 0) + open;
   const waiting = open > 0 && Number(r.leased) === 0 && r.delayed === true;
-  return { running: true, lastFinishedAt, progress: { phase: "ranking", left, waiting } };
+  return { running: true, lastSyncedAt, progress: { phase: "ranking", left, waiting } };
 }
 
 /** Sync events for one developer are sent at most this often by each process (design: Live updates). */

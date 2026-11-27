@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for review |
 | **Owner** | brian@sweetapp.com |
-| **Last updated** | 2026-11-23 (filtering the list by next step: a "Next step" menu in the Prioritized list's strip, with "On you" and "Not on you" and each next step under them, and "Show only {next step}" in the rank reasoning popup; the choice is in the URL as `step`, `NAV-3`, `LIST-34`, `LIST-38` to `LIST-42`, `LIST-44` to `LIST-46`, `ICE-8`, `KEY-2`, [Non-goals](#non-goals), [Q-100](#q-100), [Q-108](#q-108)); 2026-11-22 (Settings in sections: each of Connections, Repositories, Teams and collaborators, Ranking prompt and Account is its own screen, chosen in the left column; one save bar at the bottom of every section saves all of them; "Save changes" stays on Settings, "Discard changes" and "Back to list" take the place of "Cancel", and the account details, Preferences and Delete account move into Account, [Settings](#settings), [Sections](#sections), `NAV-3`, `NAV-8`, `NAV-9`, `SET-14`, `SET-15`, `SET-17`, `SET-26`, `SET-27`, `SET-39`, `SET-50`, `SET-57` to `SET-60`, [Q-71](#q-71), [Q-107](#q-107)); 2026-11-22 (team review requests: the developer adds teams in Settings, with an optional prioritization prompt, and "Find my teams" suggests the developer's teams; PRs that ask an added team for review appear in the list, marked "Team review" and so on when nothing about them is personal, and a team's prompt tells the ranking agent how much of its reviewing is the developer's, [Teams](#teams), `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25`, [Q-43](#q-43), [Q-65](#q-65), [Q-106](#q-106)); 2026-11-21 (no sign-in page: signing in starts from the home page, which shows failed sign-ins and remembers the address a signed-out visitor asked for; signing out and deleting the account go to the home page, `AUTH-4`, `AUTH-10`, `AUTH-15`, `HOME-2`, `HOME-3`, `NAV-3`, `NAV-10`, `ACCT-3`, `SET-17`, `FOOT-1`, `FOOT-2`, `BAR-3`, [Q-105](#q-105)); 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
+| **Last updated** | 2026-11-26 (a list that stays current: the pointer and keyboard focus hold updates for at most 30 seconds after the developer last did something in the table, a row that moves keeps keyboard focus, and a tab that reconnects catches up, `LIVE-4`, `LIVE-5`, `LIVE-10`, `LIVE-27` to `LIVE-30`, `LIST-24`, `LIST-41`; "Synced {time}" beside Sync now, `LIST-47`; a scan that fails is tried again sooner, `SCAN-6`, `SCAN-7`; how stale lists are in each state, with an alert, `METRIC-4`, `METRIC-6`; [Q-109](#q-109) to [Q-111](#q-111)); 2026-11-23 (filtering the list by next step: a "Next step" menu in the Prioritized list's strip, with "On you" and "Not on you" and each next step under them, and "Show only {next step}" in the rank reasoning popup; the choice is in the URL as `step`, `NAV-3`, `LIST-34`, `LIST-38` to `LIST-42`, `LIST-44` to `LIST-46`, `ICE-8`, `KEY-2`, [Non-goals](#non-goals), [Q-100](#q-100), [Q-108](#q-108)); 2026-11-22 (Settings in sections: each of Connections, Repositories, Teams and collaborators, Ranking prompt and Account is its own screen, chosen in the left column; one save bar at the bottom of every section saves all of them; "Save changes" stays on Settings, "Discard changes" and "Back to list" take the place of "Cancel", and the account details, Preferences and Delete account move into Account, [Settings](#settings), [Sections](#sections), `NAV-3`, `NAV-8`, `NAV-9`, `SET-14`, `SET-15`, `SET-17`, `SET-26`, `SET-27`, `SET-39`, `SET-50`, `SET-57` to `SET-60`, [Q-71](#q-71), [Q-107](#q-107)); 2026-11-22 (team review requests: the developer adds teams in Settings, with an optional prioritization prompt, and "Find my teams" suggests the developer's teams; PRs that ask an added team for review appear in the list, marked "Team review" and so on when nothing about them is personal, and a team's prompt tells the ranking agent how much of its reviewing is the developer's, [Teams](#teams), `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25`, [Q-43](#q-43), [Q-65](#q-65), [Q-106](#q-106)); 2026-11-21 (no sign-in page: signing in starts from the home page, which shows failed sign-ins and remembers the address a signed-out visitor asked for; signing out and deleting the account go to the home page, `AUTH-4`, `AUTH-10`, `AUTH-15`, `HOME-2`, `HOME-3`, `NAV-3`, `NAV-10`, `ACCT-3`, `SET-17`, `FOOT-1`, `FOOT-2`, `BAR-3`, [Q-105](#q-105)); 2026-11-20 (a public home page at `/` for visitors who aren't signed in, and a privacy policy page at `/docs/privacy`, both served from gitilizer.com and complete without JavaScript, as Google's review of the sign-in screen requires; fonts served from gitilizer.com, not Google Fonts; a "Privacy" link in the footer, [Home page](#home-page), `HOME-1` to `HOME-7`, `PRIV-6`, `PRIV-7`, `AUTH-1`, `AUTH-4`, `BAR-1`, `NAV-3`, `FOOT-1`, `FOOT-2`, `FOOT-4`, [Q-104](#q-104)); 2026-11-20 (row indicators stay for 10 s, counted while the tab is showing, then fade over 2.5 s, and only items whose own rank changed show them, `LIVE-18`); 2026-11-20 (rows move, expand and collapse in 0.7 s, and the row indicators fade out over 2.5 s once the row is in place, [Animations when sorted by Priority](#animations-when-sorted-by-priority), `LIVE-11` to `LIVE-16`, `LIVE-18`); 2026-11-20 (a repository's prioritization prompt is edited in place on its row, and the add form no longer has a prompt field, `SET-7`, `SET-9`, [Q-103](#q-103)); 2026-11-20 (next step chips are larger, for legibility, `LIST-42`); 2026-11-19 (the next step chip opens the rank reasoning popup, which leads with the next action in a panel tinted to match the chip and links to the item on GitHub; the rank is no longer clickable, `LIST-24`, `LIST-42`); 2026-11-19 (the sign-in page matches the current product: next step chips in the preview, and setup explained as connecting GitHub and an optional Gemini key, `AUTH-4`); 2026-11-19 (each next step chip has its own color, `LIST-42`); 2026-11-18 (while GitHub can't be read at all, Sync now is disabled with a link to the fix, and "Your issues and PRs haven't updated since {time}" isn't shown, `LIST-43`, `LIST-28`, `NOTIF-24`, the catalogue); 2026-11-18 (each row shows the item's next step, one of seven that ranking gives it, and the rank reasoning popup shows the agent's next action, `LIST-42`, `LIST-24`, `LIST-35`, `ICE-3`, `RANK-2`, `RANK-21`, `RANK-23`, `RANK-24`, measured and accepted); 2026-11-15 (search and a type filter above the list's column headings, `LIST-34` to `LIST-41`, `LIST-12`, `LIST-15`, `LIST-27`, `NAV-3`, `ICE-7`, `ICE-8`; the first keyboard shortcut, "/" for search, and a "Keyboard shortcuts" switch in Settings that turns every shortcut off, `KEY-1` to `KEY-3`, `SET-50`, `SET-14`); 2026-11-15 (details settled while building basic ranking: `LIST-33`, `PRIV-2`, `RANK-21`, `RANK-22`, `METRIC-4`, `METRIC-5`); 2026-11-15 (setup without an API key: Warm Welcome is two steps, "Connect GitHub" and then an optional Gemini API key, and a developer without a key gets basic ranking, which Gitilizer runs at its own cost, `WEL-2` to `WEL-6`, `NAV-5`, `RANK-21`, `PRIV-0`, `PRIV-2`, `PLAT-4` and [Which screen is shown](#which-screen-is-shown); in Settings, basic ranking is a fourth choice in the Ranking agent card, `SET-38`; basic ranking never ranks everything again, so it has no daily re-rank and no "Save and re-rank", `RANK-9`, `SET-15`; when a Gemini key's quota is used up, Gitilizer ranks with one backup model and then basic ranking, `RANK-13`; the owner can see how much each way of ranking does, `METRIC-5`; basic ranking pauses, with a warning, when Google refuses Gitilizer's own key for a quota or spending limit, `RANK-22`); 2026-11-14 (GitHub connection: the developer connects GitHub in one click with the Gitilizer app, or uses a personal access token, `AUTH-5`, `WEL-2` to `WEL-4`, `WEL-6`, `SET-1`, `SET-30`, `SET-42` to `SET-49`, `PRIV-0`, and the catalogue's GitHub rows; Gemini is the recommended ranking agent, and Claude and OpenAI are offered for API accounts the developer already has, `WEL-5`, `SET-38`; the billing and cost notes are gone, `SET-41`; Claude and OpenAI rank with `claude-sonnet-5-5` and `gpt-6.1-sol`, `RANK-19`); 2026-11-07 (ranking agents: the developer chooses Gemini, Claude or OpenAI to rank their list, `SET-38` to `SET-41`, `WEL-5`, `RANK-19`, `RANK-20`; repositories show their owner's avatar, `SET-8` and `SET-36`; edge cases found while building excluded repositories: what goes into the searches, inclusion reasons in an additional repository inside an excluded owner, redundant exclusions); 2026-11-06 (excluded repositories: a Settings section of repositories and owners whose items never appear, whatever the inclusion reason) |
 | **Address** | [gitilizer.com](https://gitilizer.com) |
 | **Design** | [Gitilizer Figma file](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=0-1) |
 | **Next document** | [Design doc](DESIGN.md), then implementation |
@@ -122,7 +122,16 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
   - the number of accounts that have been deleted (`SET-17`), in total and per month.
 - **METRIC-2** Metrics should use what Google Cloud already provides (for example Cloud Monitoring dashboards) rather than a custom admin screen.
 - **METRIC-3** The owner must also be able to see the health of the system, without writing queries and including for past days: the latency of API calls (by endpoint, median and 95th percentile), how long the app takes to load and show a usable list in developers' browsers, the HTTP status codes returned for page loads and API calls, and the error rates in `NFR-6`.
-- **METRIC-4** The owner must be alerted by email, without having to look at the dashboard, when gitilizer.com stops responding, when more than 5% of API calls fail for 10 minutes, when no scan has finished for any developer in 30 minutes, or when Google stops accepting the key basic ranking uses (`RANK-22`). Alerts should use Cloud Monitoring.
+- **METRIC-4** The owner must be alerted by email, without having to look at
+  the dashboard, when gitilizer.com stops responding, when more than 5% of API
+  calls fail for 10 minutes, when no scan has finished for any developer in 30
+  minutes, when the list of a developer who has the app visible has gone more
+  than 2 hours without a successful scan (`METRIC-6`), or when Google stops
+  accepting the key basic ranking uses (`RANK-22`). Two hours, not the 5
+  minutes of `SCAN-5`, so that trouble at GitHub that clears by itself doesn't
+  alert. That condition must also have lasted 15 minutes, so that a developer
+  just back after a long time away, whose list is stale only until their first
+  scan finishes, doesn't alert either. Alerts should use Cloud Monitoring.
 - **METRIC-5** The owner must be able to see, without writing queries and
   including for past days, how much ranking each way of ranking does. One chart
   shows the number of items ranked each day for developers with a Gemini key,
@@ -133,6 +142,17 @@ Gitilizer is a hobby project, so there are no success targets. The owner must st
   The first chart counts by the developer's choice, so basic ranking done for a
   Gemini key's developer counts there under the Gemini key. The charts cover at
   least the last six weeks, and the counts behind them are kept for 13 months.
+- **METRIC-6** The owner must be able to see, without writing queries and
+  including for past days, how stale developers' lists are in each of the
+  states in `SCAN-5`: the app visible, the app open but hidden, and neither
+  (for developers seen in the last 7 days). For each state, a chart shows the
+  median and the greatest time since a developer's last successful scan
+  started, which is the time `LIST-47` shows that developer, against that
+  state's interval (5 minutes, 30 minutes, 2 hours), and the number of
+  developers in the state. A developer whose GitHub can't be read at all
+  (`LIST-43`), or whose first sync hasn't finished, is left out: no scan can
+  bring their list up to date. The figures describe each state as a whole,
+  never one developer ([Q-111](#q-111)).
 
 ---
 
@@ -198,7 +218,7 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 | Next step chip | [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240), with a variant for each of the seven next steps in each state: Label (no popup, as in the sign-in preview), Button, Hover and Open; shown as a button on every row of the list frames | [Columns](#columns), [Ranking](#ranking) |
 | Search and type filter | [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=414-2738), shown above the column headings in the list and Icebox frames (with its next step button in the list frames only); with a search and a filter in use: [Issue inbox · Filtered](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-2904); with nothing matching: [Issue inbox · No matches](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=415-3161) | [Search and type filter](#search-and-type-filter) |
 | Next step menu | [Issue inbox · Next step menu](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4167), with "On you" chosen and the menu open; [Shared / Next step button](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=500-4052) (Default and Active), [Shared / Next step menu](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4095) and [Shared / Menu checkbox](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4094) (Empty, Checked and Mixed); "Show only" is in [Issue inbox · Rank reasoning](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=337-7443) | [Search and type filter](#search-and-type-filter) |
-| Sync now button | [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369) on the Animations page (Idle and Syncing; present it to see the icon turn); while GitHub can't be read: [Inbox controls · GitHub can't be read](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=425-3408) | [Sync now](#sync-now) |
+| Sync now button | [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=279-8369) on the Animations page (Idle and Syncing; present it to see the icon turn); with the time of the last sync: [Inbox controls · Last synced](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=505-4526), which the list and Icebox frames show too; while GitHub can't be read: [Inbox controls · GitHub can't be read](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=425-3408) | [Sync now](#sync-now) |
 | Icebox | [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947) | [Icebox](#icebox) |
 | Icebox, empty | [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593) | [Icebox](#icebox) |
 | Icebox row | [Icebox / Issue row · Restore](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=180-1403) | [Icebox](#icebox) |
@@ -213,7 +233,7 @@ All links point to the [Gitilizer Figma file](https://www.figma.com/design/J94JK
 
 ### Live reorder prototype
 
-The [Animations](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=139-491) page shows how the Prioritized list changes when ranks change. Open it in Present mode and pick a flow; each flow plays on its own and loops. Flow 7 waits for you to move the pointer onto the table and off it again. The frames show 10 rows per page to keep them small; the behavior is the same at 25. They leave out the search and type filter strip (`LIST-34`), which doesn't change the animations. The [How to play these flows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=151-8151) note on that page has the details.
+The [Animations](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=139-491) page shows how the Prioritized list changes when ranks change. Open it in Present mode and pick a flow; each flow plays on its own and loops. Flow 7 waits for you to move the pointer onto the table and off it again; its caption mentions the 30-second limit (`LIVE-28`), which the flow doesn't play. The frames show 10 rows per page to keep them small; the behavior is the same at 25. They leave out the search and type filter strip (`LIST-34`), which doesn't change the animations. The [How to play these flows](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=151-8151) note on that page has the details.
 
 | Flow | Starts at | Requirement |
 |---|---|---|
@@ -780,7 +800,10 @@ The Prioritized list is a table of the developer's open items in rank order, 25 
   an item last ranked before next steps existed has no popup until it is ranked
   again. The rank itself isn't clickable. When the popup closes with Esc or the
   chip, keyboard focus returns to the chip; a click elsewhere leaves focus where
-  the click puts it. The popup closes if its item leaves the page.
+  the click puts it. The popup closes if its item leaves the page. It also
+  closes when the developer follows its link to GitHub, and when the browser
+  tab is hidden, so an open popup is always one the developer can see
+  (`LIVE-27`).
 - **LIST-42** The line under the title must start with the item's next step
   (`RANK-23`), before the type and number, as a chip like those in
   [Shared / Next step chip](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=419-3240),
@@ -900,7 +923,8 @@ Figma: [Shared / Search and type filter](https://www.figma.com/design/J94JKJLNCc
   appears or goes without a leaving label (`LIVE-25`). Searching and filtering
   are the developer's own actions, so they apply immediately (`LIVE-7`). For
   `LIVE-4` and `LIVE-5`, the strip isn't part of the table: the pointer over it,
-  or keyboard focus in it, doesn't hold updates.
+  or keyboard focus in it, doesn't hold updates, and using it isn't doing
+  something in the table (`LIVE-28`).
 - **LIST-44** In the Prioritized list, the strip must have a next step menu to
   the right of the type filter, as in
   [Issue inbox · Next step menu](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4167). Its button reads "Next step:
@@ -983,6 +1007,23 @@ Figma: [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
     that it disappears as soon as the sync finishes. "· waiting for {agent}"
     appears only after 5 seconds without progress, and goes as soon as {n}
     changes.
+- **LIST-47** When no sync is in progress, text in the same place, to the left
+  of the button, must say when the list last synced: "Synced {time}", where
+  {time} is the relative time (`LIST-22`) since the last successful scan
+  started, such as "Synced 4m ago" or "Synced just now", as in
+  [Inbox controls · Last synced](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=505-4526).
+  The start, not the finish, because every change made on GitHub before the
+  scan started is in the list, and one made while it ran may not be.
+  Hovering over the text, or over the button, must show the full date and time.
+  The text updates once a minute, like other relative times (`LIST-5`), and
+  whenever a scan succeeds. A scan that fails doesn't change it, so when scans
+  aren't getting through it shows how old the list is. The progress text
+  (`LIST-33`) and the text for an error that stops every scan (`LIST-43`) take
+  its place while they are shown; while a sync is in progress with no progress
+  text, the time stays. Until the developer's first scan has succeeded there is
+  no time to show. The Icebox shows it too. Like the progress text it isn't
+  announced as it changes: the button names it as its description
+  ([Q-110](#q-110)).
 - **LIST-43** While an error that stops every scan is shown, the button must be
   disabled, and text next to it, in place of the progress text, must say what
   fixes it, as in [Inbox controls · GitHub can't be read](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=425-3408).
@@ -1012,9 +1053,19 @@ Figma: [Shared / Sync now](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/G
 
 Items change on GitHub all the time, so ranks change while the developer is looking at the list. These rules make changes easy to follow without being distracting. The [Live reorder prototype](#live-reorder-prototype) shows each case.
 
-- **LIVE-1** When ranks change, the Prioritized list must update without a page reload. No notice, banner or status message is shown; the only feedback is the animations and the indicators in the affected rows.
+- **LIVE-1** When ranks change, the Prioritized list must update without a page
+  reload. No notice, banner or status message is shown; the only feedback is the
+  animations and the indicators in the affected rows. The time of the last sync
+  beside Sync now (`LIST-47`) says how current the list is, not that anything
+  changed.
 - **LIVE-23** A ranked change must reach the screen within 5 seconds of ranking finishing, unless the rules in [When updates wait](#when-updates-wait) hold it.
 - **LIVE-24** Bulk re-ranks, which change the rank of nearly every item at once, must not play as per-item animations. These are a full re-rank after "Save and re-rank" (`SET-15`) and the daily re-rank (`RANK-9`). The new order must be applied once, when the whole re-rank has finished, without row indicators. Items ranked during the first sync also appear without row indicators, but one at a time as they are ranked (`LIST-15`), not all at once at the end. Changes caused by activity on GitHub keep the per-item animations below.
+- **LIVE-30** A tab that lost its connection to Gitilizer (the computer slept,
+  the network dropped, or a release restarted the server) must show the current
+  list once it reconnects, including every change it missed, without a reload.
+  The changes it missed are applied in one step, without row indicators, as a
+  bulk re-rank is (`LIVE-24`), and they wait like any other update while a rule
+  in [When updates wait](#when-updates-wait) holds updates.
 
 ### Pages during updates
 
@@ -1023,11 +1074,30 @@ Items change on GitHub all the time, so ranks change while the developer is look
 
 ### When updates wait
 
-- **LIVE-4** While the pointer is over the table, updates must be held until the pointer has been outside the table for 1 second.
-- **LIVE-5** Updates must also be held while keyboard focus is inside the table.
+- **LIVE-4** While the pointer is over the table, updates must be held until
+  the pointer has been outside the table for 1 second, but for no longer than
+  `LIVE-28` allows.
+- **LIVE-5** Updates must also be held while keyboard focus is inside the
+  table, with the same limit (`LIVE-28`).
+- **LIVE-28** Neither the pointer (`LIVE-4`) nor keyboard focus (`LIVE-5`) may
+  hold updates for more than 30 seconds after the developer last did something
+  in the table: moved the pointer over it, pressed a mouse button or a key in
+  it, scrolled with the pointer over it, or moved keyboard focus into it or
+  within it. After 30 seconds without any of these, updates play as they
+  arrive, until the developer next does one of them. So a pointer left resting
+  on the table, or focus left on a title after clicking it, delays updates by
+  half a minute, not for as long as it stays there. Coming back to the browser
+  tab or window isn't doing something in the table, although the browser then
+  puts focus back where it was: a developer who clicked a title and comes back
+  from GitHub more than 30 seconds later sees the list catch up at once
+  ([Q-109](#q-109)).
 - **LIVE-27** Updates must also be held while a rank reasoning popup
   (`LIST-24`) is open, wherever the pointer and focus are, until it has been
-  closed for 1 second, so rows don't move while the developer reads it.
+  closed for 1 second, so rows don't move while the developer reads it. The
+  30-second limit (`LIVE-28`) doesn't apply, because reading the popup can take
+  longer than that without the pointer moving. An open popup can't hold updates
+  out of sight: it closes when the developer follows its link or the tab is
+  hidden (`LIST-24`).
 - **LIVE-6** Updates must be held while the browser tab is hidden or the Icebox is shown. They play when the developer returns to the list.
 - **LIVE-7** The developer's own actions (Move to icebox, sorting, changing pages, searching and filtering) must apply immediately and are never held.
 
@@ -1035,7 +1105,9 @@ Items change on GitHub all the time, so ranks change while the developer is look
 
 - **LIVE-8** Held updates must play one at a time, each finishing its animation before the next starts.
 - **LIVE-9** If more than 5 updates are waiting, they must be applied together in a single animation.
-- **LIVE-10** If the pointer returns to the table while updates are playing, the current update must finish and the rest must be held again.
+- **LIVE-10** If the pointer returns to the table while updates are playing, or
+  the developer does something in the table after the 30 seconds in `LIVE-28`
+  have passed, the current update must finish and the rest must be held again.
 
 ### Animations when sorted by Priority
 
@@ -1085,6 +1157,10 @@ Each animation takes about 0.7 seconds.
 - **LIVE-22** If the operating system asks for reduced motion, items must change
   in place with a quick cross-fade and no movement. The row indicators still
   appear and fade out as in `LIVE-18`.
+- **LIVE-29** An update that moves a row must leave keyboard focus on the
+  control that had it, in that row, because updates can now play while focus
+  is in the table (`LIVE-28`). If the row leaves the page or the list,
+  Gitilizer doesn't move focus to another row.
 
 ---
 
@@ -1791,7 +1867,16 @@ Figma: [Settings / Preferences](https://www.figma.com/design/J94JKJLNCcFUovvwfaF
   - every 5 minutes while the app is visible in at least one of the developer's browser tabs;
   - every 30 minutes while the app is open in at least one tab but hidden in all of them;
   - every 2 hours otherwise, for developers who have opened Gitilizer in the last 7 days. Developers who haven't aren't scanned in the background; their items are scanned when they next open Gitilizer (`SCAN-6`).
-- **SCAN-6** When the app becomes visible and the last scan finished more than 5 minutes ago, a scan must start immediately.
+- **SCAN-6** When the app becomes visible and the last successful scan finished
+  more than 5 minutes ago, a scan must start immediately.
+- **SCAN-7** The intervals in `SCAN-5` and `SCAN-6` are measured from the last
+  scan that succeeded. A scan that fails, or that a release cuts off, must be
+  tried again sooner than the next scheduled scan: after 1 minute, then after
+  twice as long each time it fails again, up to the interval for the
+  developer's state. Becoming visible (`SCAN-6`) tries again at once, unless
+  GitHub has said when a rate limit ends: then no scan starts by itself before
+  that time, on becoming visible or otherwise. Sync now is never held back
+  (`LIST-28`) ([Q-111](#q-111)).
 
 ### Ranking
 
@@ -2143,7 +2228,8 @@ item's next step; Q-101 came from Sync now while GitHub can't be read; Q-102
 came from opening the rank reasoning popup from the next step chip; Q-104
 came from Google's review of the sign-in screen's branding; Q-105 came from
 removing the sign-in page; Q-106 came from adding review requests to teams;
-Q-107 came from splitting Settings into sections.
+Q-107 came from splitting Settings into sections; Q-109 to Q-111 came from the
+owner's list often looking stale.
 
 ### Answered questions
 
@@ -2257,6 +2343,9 @@ Q-107 came from splitting Settings into sections.
 | <a id="q-107"></a>Q-107 | How saving works once Settings is split into sections | One draft for all of Settings, saved from a bar at the bottom of every section ("option B"), as before the split: both saves save every section, the bar names the sections with unsaved changes, and the left column marks them. Two other ways were considered. A Save on each section, saving only that section, is the most common pattern and never hides unsaved changes, but it changes more of what saving means. Saving each change as it is made ("save as you go") needs no Save for lists, but prompts and keys would still need one, there would be no way to discard, and re-ranking and the switch dialog (`SET-40`) would need rethinking. "Save changes" now stays on Settings, because going to the list after each save made sense for one page but not for one of five. "Save and re-rank" still goes to the list, where the re-rank can be watched. | `SET-14`, `SET-57` to `SET-60`, `NAV-8`, `NAV-9` |
 | <a id="q-108"></a>Q-108 | Filtering the list by next step | A "Next step" menu in the strip, after the type filter, with a checkbox for each group, "On you" and "Not on you", and one for each next step under it, with counts, so the list can show one group, one next step or any mix of them; and "Show only {next step}" in the rank reasoning popup, to choose one next step from where it is seen. Five layouts were compared on a design canvas. Considered and not chosen: an "All" / "On you" / "Not on you" control beside the type filter, which can't show a single next step; one switch for the items on the developer, which can't show the rest, though "Not on you" answers "what am I waiting on?"; every next step as a chip on a second line of the strip, the easiest to find but a line more in every view; and the groups beside the type filter with a removable token for a next step chosen from the popup. A prototype also had "Show all", then "All", in the menu; both were dropped, because "Show all" unticked every box, which read as a contradiction, and with none ticked meaning every item, unticking takes at most two clicks. Ticking all seven also means every item, rather than clearing the menu at once. Filtering on GitHub labels was raised and not taken up: the scanner doesn't store them. The Icebox has no menu, because it doesn't show next steps. | `LIST-44` to `LIST-46`, `LIST-24`, `LIST-34`, `LIST-38` to `LIST-42`, `ICE-8`, `KEY-2` |
 | <a id="q-106"></a>Q-106 | Review requests to teams | The developer adds teams in Settings, like additional repositories, each with an optional prioritization prompt, and only those teams' requests are searched. A team without a prompt only brings its requests into the list; with one, its requests rank like reviews waiting on the developer, below personal requests unless the prompt says otherwise. "Find my teams" suggests the developer's teams, with how many open PRs each would bring in, because the Gitilizer app can't list teams in organizations where it isn't installed; it infers them from searches, which spikes on 2026-11-22 showed to work through the app. The spikes also showed that GitHub refuses a search naming a team it doesn't know (so "Not found" can be shown), and that teams combine with OR, with the exclusions and with repository filters in one search. Large-team defaults, member counts and a Warm Welcome switch were dropped with automatic discovery. A next step on the developer only through a team says "Team review" and so on; anything personal, including having commented, wins. Team mentions stay out. Discussed in [this conversation](https://claude.ai/share/78bba69a-85fc-4f40-ae74-206eb7db9042). | `SET-51` to `SET-56`, `LIST-1`, `LIST-21`, `LIST-42`, `SCAN-1`, `RANK-23`, `RANK-25` |
+| <a id="q-109"></a>Q-109 | How long the pointer and keyboard focus hold updates | For no more than 30 seconds after the developer last did something in the table. Holding for as long as focus stayed in the table froze the list after any click on a title or a next step chip, which leaves focus there: updates then waited until the developer clicked somewhere else, even after coming back from GitHub, and the list looked stale while syncing was running. A pointer left resting on the table did the same. Holding only for focus that arrived by keyboard was considered: it fixes the click but not the resting pointer, and needs two kinds of focus. With the limit, a row can move under the developer only if an update starts in the moment before they act, because moving the pointer or pressing a key holds updates again. The cost falls on a developer using the keyboard who pauses for more than 30 seconds: the focused row can move, keeping focus. The rank reasoning popup still holds updates for as long as it is open, because reading it can take longer than 30 seconds; so that it can't hold them out of sight, it closes when its link is followed or the tab is hidden. | `LIVE-4`, `LIVE-5`, `LIVE-10`, `LIVE-27` to `LIVE-29`, `LIST-24`, `LIST-41` |
+| <a id="q-110"></a>Q-110 | Showing when the list last synced | "Synced {time}" to the left of Sync now, where the progress text goes, with the full date and time on hover. The time is when the last successful scan started, not when it finished: a change made on GitHub before then is sure to be in the list, and one made while the scan ran may not be. Showing it only on hover over the button was considered: it adds nothing to the screen, but a list that has stopped updating would go unnoticed until the developer thought to hover. A count of updates waiting to play was considered too, and dropped once updates wait at most 30 seconds ([Q-109](#q-109)). | `LIST-47`, `LIVE-1` |
+| <a id="q-111"></a>Q-111 | Seeing, and limiting, how stale lists get | The owner sees, for each state (visible, open but hidden, neither), how long developers' lists have gone without a successful scan, and is emailed when a visible developer's has gone 2 hours: hours rather than minutes, so that trouble at GitHub doesn't alert. A scan that fails is tried again after a minute, then less often, instead of after the state's whole interval; that wait was 2 hours with the app closed, and came with every release, because a release cuts off the scans that are running. A tab that reconnects catches up on the changes it missed. Found on 2026-11-26, when the owner's list often looked stale. | `METRIC-4`, `METRIC-6`, `SCAN-6`, `SCAN-7`, `LIVE-30` |
 
 ---
 
@@ -3216,3 +3305,36 @@ non-goal in [Q-100](#q-100)):
   [Shared / Next step menu](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4095)
   and
   [Shared / Menu checkbox](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=501-4094).
+
+### Fifty-sixth revision (2026-11-26, a list that stays current)
+
+The owner's list often looked stale. Syncing was running; the list on screen
+wasn't keeping up with it ([Q-109](#q-109) to [Q-111](#q-111)):
+
+- The pointer and keyboard focus hold updates for at most 30 seconds after the
+  developer last did something in the table, so focus left on a title after a
+  click, or a pointer left resting on the table, no longer freezes the list
+  (`LIVE-28`, `LIVE-4`, `LIVE-5`, `LIVE-10`, `LIST-41`).
+- The rank reasoning popup still holds updates while it is open, and closes
+  when its link is followed or the tab is hidden (`LIVE-27`, `LIST-24`).
+- A row that moves keeps keyboard focus (`LIVE-29`).
+- A tab that reconnects shows the changes it missed, which wait like any other
+  update (`LIVE-30`).
+- "Synced {time}" to the left of Sync now says when the last successful scan
+  started (`LIST-47`, `LIVE-1`).
+- Scan intervals are measured from the last successful scan, and a scan that
+  fails is tried again after a minute, then less often (`SCAN-7`, `SCAN-6`).
+- The owner can see how stale lists are in each state, and is emailed when a
+  visible developer's list has gone 2 hours without a successful scan
+  (`METRIC-6`, `METRIC-4`).
+- Added Figma (the version "Before last synced time" undoes these changes):
+  [Inbox controls · Last synced](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=505-4526).
+  Changed Figma:
+  [Shared / Inbox layout](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=169-1000),
+  [Icebox · Populated issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=178-5947)
+  and
+  [Icebox - No issues](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=190-2593)
+  have "Synced 4m ago" to the left of Sync now, hidden in
+  [Issue inbox · Loading](https://www.figma.com/design/J94JKJLNCcFUovvwfaFaqb/Gitilizer?node-id=289-3689)
+  and "Issue inbox · Progress inside sync button"; the caption of flow 7's
+  first frame mentions the 30-second limit.

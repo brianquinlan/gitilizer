@@ -242,6 +242,8 @@ When your credits run out, or you reach a spend or usage limit, Gitilizer pauses
 - Press **/** to jump to the search field. If single-key shortcuts get in your way, for example with speech input, turn off **Keyboard shortcuts** under Preferences in Settings; Tab, Enter and Esc work either way.
 - **Move to icebox** sets an item aside. If it changes later in a way that matters (for example, someone comments), Gitilizer brings it back. Bot comments and label changes don't. **Restore** brings it back yourself.
 - Gitilizer scans every 5 minutes while the list is open in a visible tab, every 30 minutes while it's in a background tab, and every 2 hours otherwise, if you've used Gitilizer in the last 7 days. **Sync now** scans at once; it is greyed out, with its icon turning, while a sync is already running. It is also greyed out while Gitilizer can't read GitHub at all, for example after your GitHub connection has ended; the link next to it, such as **Reconnect GitHub**, opens the setting that fixes it.
+- Next to **Sync now**, "Synced 4m ago" says when Gitilizer last finished reading your issues and PRs, counted from when that read started; hover over it for the date and time. It doesn't change while syncs are failing, so it shows how old the list is.
+- The list reorders itself as ranks change. So that nothing moves just as you click, it waits while your pointer is on the list or you're using it, but only for 30 seconds after you last did something there, and while a rank's explanation is open.
 
 ## Notifications
 

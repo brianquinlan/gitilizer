@@ -1,6 +1,6 @@
 // The list as static markup: search and the type filter (PRD LIST-34 to LIST-41, KEY-1, KEY-3), next steps and the chip that opens the rank reasoning popup (LIST-42, LIST-24),
 // the next step filter (LIST-44 to LIST-46, ICE-8),
-// and Sync now while GitHub can't be read (LIST-43).
+// Sync now while GitHub can't be read (LIST-43), and the time of the last sync beside it (LIST-47).
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,12 +11,13 @@ import { init, type Live, type View } from "../live/engine.ts";
 const page = vi.hoisted(() => ({
   search: "", shortcuts: true as boolean | null, firstSyncDone: true, live: null as unknown,
   notifications: [] as { code: string }[], running: false,
+  lastSyncedAt: null as string | null, progress: null as unknown,
 }));
 vi.mock("../store.tsx", () => ({
   useStore: () => ({
     me: { firstSyncDone: page.firstSyncDone, rankingAgent: "gemini" },
     sorts: { prioritized: DEFAULT_SORT_PRIORITIZED, icebox: DEFAULT_SORT_ICEBOX },
-    setSort: () => {}, sync: { running: page.running, lastFinishedAt: null, progress: null }, shortcuts: page.shortcuts,
+    setSort: () => {}, sync: { running: page.running, lastSyncedAt: page.lastSyncedAt, progress: page.progress }, shortcuts: page.shortcuts,
     notifications: page.notifications,
   }),
 }));
@@ -262,6 +263,51 @@ describe("Sync now while GitHub can't be read (LIST-43)", () => {
     expect(html).not.toContain("syncing");
     expect(html).not.toContain("spin");
     expect(html).not.toContain("sync-progress\">Finding");
+  });
+});
+
+describe("the time of the last sync (LIST-47)", () => {
+  beforeEach(() => { page.notifications = []; page.running = false; page.progress = null; page.lastSyncedAt = new Date(Date.now() - 4 * 60_000 - 5000).toISOString(); });
+  const controls = (view: View = "prioritized") => {
+    const html = render("", list(ITEMS), view);
+    return html.slice(html.indexOf('class="controls"'), html.indexOf('class="table'));
+  };
+  const time = (html: string) => html.match(/<span id="sync-time"[^>]*>(.*?)<\/span>/)?.[1];
+
+  it("says when the last successful scan started, with the full date and time on hover over it and over the button", () => {
+    const html = controls();
+    expect(time(html)).toBe("Synced 4m ago");
+    const full = new Date(page.lastSyncedAt!).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    expect(html).toContain(`<span id="sync-time" class="sync-progress" title="${full}">`);
+    expect(html).toMatch(new RegExp(`<button class="btn sync "[^>]*title="Synced ${full.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*aria-describedby="sync-time">`));
+    page.lastSyncedAt = new Date(Date.now() - 20_000).toISOString();
+    expect(time(controls())).toBe("Synced just now");
+  });
+
+  it("is in the Icebox too", () => {
+    expect(time(controls("icebox"))).toBe("Synced 4m ago");
+  });
+
+  it("stays while a sync runs with no progress text, and gives way to progress and to an error that stops every scan", () => {
+    page.running = true;
+    expect(time(controls())).toBe("Synced 4m ago");
+    page.progress = { phase: "finding", found: 12 };
+    let html = controls();
+    expect(html).not.toContain("sync-time");
+    expect(html).toContain("Finding issues and PRs… 12 so far");
+    page.running = false;
+    page.progress = null;
+    page.notifications = [{ code: "github_connection_ended" }];
+    html = controls();
+    expect(html).not.toContain("sync-time");
+    expect(html).not.toMatch(/<button[^>]*title=/);
+  });
+
+  it("has nothing to show before the first successful scan", () => {
+    page.lastSyncedAt = null;
+    const html = controls();
+    expect(html).not.toContain("Synced");
+    expect(html).not.toContain("aria-describedby");
   });
 });
 

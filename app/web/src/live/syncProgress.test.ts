@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SyncEvent, SyncProgress } from "@gitilizer/shared";
 import { initProgress, progressText, receiveSync, step, type ProgressView } from "./syncProgress.ts";
 
-const ev = (progress: SyncProgress | null, running = progress !== null): SyncEvent => ({ running, lastFinishedAt: null, progress });
+const ev = (progress: SyncProgress | null, running = progress !== null): SyncEvent => ({ running, lastSyncedAt: null, progress });
 const finding = (found: number | null) => ev({ phase: "finding", found });
 const ranking = (left: number, waiting = false) => ev({ phase: "ranking", left, waiting });
 

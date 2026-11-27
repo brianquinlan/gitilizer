@@ -325,9 +325,17 @@ function Rows(props: {
       setWhy(null);
     };
     const onDown = (e: MouseEvent) => { if (!(e.target as Element).closest?.(".next-step-cell.open")) setWhy(null); };
+    // An open popup holds updates however long it is open (LIVE-27), so it closes when the tab is hidden: it can't
+    // hold them while the developer is away. Following its link closes it too (`RankWhy`'s `onFollow`).
+    const onVisibility = () => { if (document.hidden) setWhy(null); };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown);
-    return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("mousedown", onDown); };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [why]);
 
   // Live updates hold while the popup is showing, so rows don't shift mid-read (LIVE-27).
@@ -400,7 +408,7 @@ function Rows(props: {
                     ? <span className={`next-step-cell${why === r.key ? " open" : ""}`}>
                         <NextStepChip step={r.nextStep} team={teamOnly(r)} rank={n} open={why === r.key} onToggle={() => setWhy(why === r.key ? null : r.key)}
                                       buttonRef={(el) => { if (el) chipBtns.current.set(r.key, el); else chipBtns.current.delete(r.key); }} />
-                        {why === r.key && <RankWhy row={r} rank={n}
+                        {why === r.key && <RankWhy row={r} rank={n} onFollow={() => setWhy(null)}
                           onOnly={props.stepFilter.length === 1 && props.stepFilter[0] === r.nextStep ? undefined : () => { setWhy(null); props.onOnlyStep(r.nextStep!); }} />}
                       </span>
                     : <NextStepChip step={r.nextStep} team={teamOnly(r)} />}{" "}</>}
@@ -452,8 +460,9 @@ export function NextStepChip({ step, team = false, rank, open = false, onToggle,
 /**
  * The rank reasoning popup (LIST-24): the agent's next action in a panel tinted like the chip,
  * "Why rank #{n}?" and the reasoning, then the repository and a link to the item on GitHub.
+ * `onFollow`: the link was followed (a click, or a middle click for a background tab), which closes the popup.
  */
-export function RankWhy({ row: r, rank: n, onOnly }: { row: Row; rank: number; onOnly?: () => void }) {
+export function RankWhy({ row: r, rank: n, onOnly, onFollow }: { row: Row; rank: number; onOnly?: () => void; onFollow?: () => void }) {
   const kind = r.kind === "pr" ? "PR" : "Issue";
   return (
     <div className="rank-why" role="dialog" aria-label={`Why rank #${n}?`}>
@@ -470,7 +479,8 @@ export function RankWhy({ row: r, rank: n, onOnly }: { row: Row; rank: number; o
       <div className="rank-why-foot">
         <span>
           {r.repo} ·{" "}
-          <a href={r.htmlUrl} target="_blank" rel="noreferrer">{kind} #{r.number}<ExternalIcon size={11} /></a>
+          <a href={r.htmlUrl} target="_blank" rel="noreferrer" onClick={onFollow}
+             onAuxClick={(e) => { if (e.button === 1) onFollow?.(); }}>{kind} #{r.number}<ExternalIcon size={11} /></a>
         </span>
         {/* LIST-46: filter the list to this item's next step. */}
         {onOnly && r.nextStep && <button type="button" className="btn small rank-why-only" onClick={onOnly}>Show only {NEXT_STEP_LABEL[r.nextStep]}</button>}
@@ -483,11 +493,15 @@ export function RankWhy({ row: r, rank: n, onOnly }: { row: Row; rank: number; o
  * Disabled while any sync runs, however it started, with the icon turning (LIST-17, LIST-28),
  * and how far the sync has got to its left (LIST-33). While GitHub can't be read at all, disabled
  * with a link to the fix in place of the progress, and a scan that fails at once doesn't flash (LIST-43).
+ * Otherwise "Synced {time}" says when the last successful scan started, with the full date and time on hover
+ * over it and over the button (LIST-47). The list re-renders every minute (`useNow`), which keeps it current.
  */
 function SyncButton({ sync, agent, blocker }: { sync: SyncEvent; agent: string; blocker: ScanBlocker | null }) {
   const running = sync.running && !blocker;
   const progress = useSyncProgress(sync, agent);
   const [error, setError] = useState<string | null>(null);
+  // The time gives way to the progress text, the note about GitHub, and a Sync now that couldn't start.
+  const synced = !blocker && !progress && !error && sync.lastSyncedAt ? sync.lastSyncedAt : null;
   const start = async () => {
     setError(null);
     try { await api.post("/api/sync"); } catch (e) { setError(e instanceof ApiError ? e.message : "Couldn't start a sync"); }
@@ -498,9 +512,11 @@ function SyncButton({ sync, agent, blocker }: { sync: SyncEvent; agent: string; 
       {/* Not a live region: it would be read out every 2 seconds. The button points at it instead. */}
       {blocker
         ? <span id="sync-note" className="sync-progress"><Link to={`/settings#${blocker.settings}`}>{blocker.link}</Link>{blocker.rest}</span>
-        : progress && <span id="sync-progress" className="sync-progress">{progress}</span>}
+        : progress ? <span id="sync-progress" className="sync-progress">{progress}</span>
+        : synced && <span id="sync-time" className="sync-progress" title={fullDate(synced)}>Synced {relativeTime(synced)}</span>}
       <button className={`btn sync ${running ? "syncing" : ""}`} onClick={start} disabled={running || blocker !== null} aria-busy={running}
-              aria-describedby={blocker ? "sync-note" : progress ? "sync-progress" : undefined}>
+              title={synced ? `Synced ${fullDate(synced)}` : undefined}
+              aria-describedby={blocker ? "sync-note" : progress ? "sync-progress" : synced ? "sync-time" : undefined}>
         <RefreshIcon className={running ? "spin" : ""} /> Sync now
       </button>
     </span>
